@@ -18,6 +18,12 @@ La versión publicada vive en el archivo `VERSION`.
 ### Agregado
 - Generador de una planilla de ejemplo con la estructura real y montos inventados,
   para construir y probar el importador sin usar datos confidenciales (T-009).
+- Aritmética de dinero en enteros: interpreta lo que escribe el usuario, suma sin
+  error de redondeo, convierte con el tipo de cambio del mes y promedia,
+  redondeando una sola vez al final (T-002). 35 tests.
+- Un monto escrito de forma ambigua (`"1.234"`, `"12,345"`) se rechaza pidiendo
+  aclaración en vez de adivinar, porque las dos lecturas posibles se diferencian
+  por un factor de mil (ADR-012, L-008).
 
 ## 0.1.0 — 2026-08-18
 

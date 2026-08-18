@@ -182,3 +182,35 @@ preguntarse si era cierta.
 decir **cómo se comprobó**. Si no se comprobó, se escribe *"suponemos que…"* con
 todas las letras, para que el que venga sepa que ahí hay algo por verificar y no
 una conclusión.
+
+---
+
+## L-008 · Una regla que resuelve una ambigüedad la esconde, no la elimina
+
+**De dónde salió:** de un test que falló al escribir `core/dinero.js` (T-002).
+
+Al interpretar montos escritos a mano hacía falta una regla para el separador
+decimal, porque conviven `"12,50"`, `"12.50"` y `"1.234,56"`. La regla elegida
+fue: *el último separador es decimal si lo siguen uno o dos dígitos; si no, es de
+miles*. Resolvía todos los casos, se leía razonable, y quedó escrita.
+
+El test que la iba a confirmar la desmintió: con esa regla, `"12,345"` —alguien
+que quiso escribir `12,34` y se le escapó un dígito— se convierte en **12.345 €**
+sin ningún error. Un factor de mil, en silencio, en el monto de una persona.
+
+La regla no estaba mal formulada. El problema es que **la ambigüedad seguía ahí**:
+`"1.234"` y `"12,345"` son indistinguibles. La regla no la resolvía, elegía una
+lectura y dejaba de mostrar la duda.
+
+**El patrón:** *cuando un dato admite dos lecturas, cualquier regla que devuelva
+siempre un resultado está ocultando el problema, no resolviéndolo.* Y lo oculta
+justo donde más duele: en el camino feliz, sin error, sin aviso.
+
+**Qué hacemos:** si el dato es genuinamente ambiguo y las dos lecturas dan
+resultados muy distintos, la app **rechaza y pregunta** (ADR-012). Un caso raro
+que molesta es preferible a un número mal que nadie ve.
+
+**Y una lección sobre los tests:** este error lo encontró un test escrito para
+comprobar otra cosa. La regla parecía correcta al leerla; solo se cayó al
+ejecutarla contra un caso concreto. Es exactamente por qué "lo probé y anda" y
+"debería andar" se escriben distinto.

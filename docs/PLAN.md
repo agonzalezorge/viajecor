@@ -57,13 +57,13 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 |---|---|---|---|
 | **Etapa 0 — Cimientos** ||||
 | T-001 | Esqueleto del proyecto y construcción | **Hecha** | — |
-| T-002 | Aritmética de dinero (`core/dinero.js`) | En curso (claude, 2026-08-18) | T-001 |
-| T-003 | Modelo y validación del movimiento | Pendiente | T-002 |
+| T-002 | Aritmética de dinero (`core/dinero.js`) | **Hecha** | T-001 |
+| T-003 | Modelo y validación del movimiento | **Lista** | T-002 |
 | T-004 | Almacenamiento local | Pendiente | T-003 |
 | T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
-| T-006 | Formateo de montos y fechas | Pendiente | T-002 |
+| T-006 | Formateo de montos y fechas | **Lista** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
-| T-008 | Catálogo de monedas | Pendiente | T-002 |
+| T-008 | Catálogo de monedas | **Lista** | T-002 |
 | T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
 | T-010 | Armazón de la interfaz | **Lista** | T-001 |
@@ -128,8 +128,8 @@ parte de T-019.
 ---
 
 ### T-002 · Aritmética de dinero
-**Estado:** En curso (claude, 2026-08-18) · **Depende de:** T-001
-**Toca:** `src/core/dinero.js`, `test/dinero.test.js`
+**Estado:** Hecha (2026-08-18) · **Depende de:** T-001
+**Toca:** `src/core/dinero.js`, `test/dinero.test.js`, `tools/build.mjs`
 
 Montos como enteros en unidad mínima (`docs/ARQUITECTURA.md` §5.1). Interpretar lo
 que escribe el usuario, sumar, convertir con un tipo de cambio, promediar, y
@@ -139,13 +139,21 @@ redondear una sola vez al final.
 parámetro, porque la lista de monedas la maneja el usuario (RN-04b, ADR-011). Una
 tabla acá se desactualizaría en cuanto se agregue una moneda nueva.
 
-**Terminada cuando:** hay tests que cubren el redondeo hacia arriba y hacia abajo,
-el caso `0.1 + 0.2`, una moneda sin decimales, y montos negativos rechazados.
+**Terminada cuando:**
+- [x] 35 tests propios, todos pasando. Cubren el redondeo hacia arriba y hacia
+      abajo, `0.1 + 0.2`, una moneda sin decimales, y montos negativos rechazados.
+- [x] Los cálculos se comprobaron **dentro de `dist/viajecor.html`**, no solo en
+      el código fuente: el build quita los `export` y pega todo en un ámbito
+      único, y esa transformación podría romper algo que los tests de Node no ven.
+
+**Lo que salió de hacerla:** la regla para interpretar el separador decimal leía
+`"12,345"` como 12.345 € en vez de rechazarlo — un error de mil veces, en
+silencio. Lo encontró un test escrito para otra cosa. Ver ADR-012 y L-008.
 
 ---
 
 ### T-003 · Modelo y validación del movimiento
-**Estado:** Pendiente · **Depende de:** T-002
+**Estado:** Lista · **Depende de:** T-002
 **Toca:** `src/core/modelo.js`, `test/modelo.test.js`
 
 Crear un movimiento válido, normalizar textos (RN-03), validar fecha (RN-01) y
@@ -185,7 +193,7 @@ meses de tipos distintos, para tipo de cambio faltante, y para el cálculo inver
 ---
 
 ### T-006 · Formateo de montos y fechas
-**Estado:** Pendiente · **Depende de:** T-002 · *Paralelizable*
+**Estado:** Lista · **Depende de:** T-002 · *Paralelizable*
 **Toca:** `src/core/formato.js`, `test/formato.test.js`
 
 Mostrar `1250` como `12,50 €` en formato español, y las fechas de forma legible.
@@ -216,7 +224,7 @@ en cada cambio.
 ---
 
 ### T-008 · Catálogo de monedas — CU-15
-**Estado:** Pendiente · **Depende de:** T-002 · *Paralelizable con T-003 y T-004*
+**Estado:** Lista · **Depende de:** T-002 · *Paralelizable con T-003 y T-004*
 **Toca:** `src/core/monedas.js`, `test/monedas.test.js`
 
 La lista de monedas vive en los datos, no en el código (RN-04b, ADR-011). Este

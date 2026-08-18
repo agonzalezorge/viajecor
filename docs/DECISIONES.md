@@ -213,3 +213,32 @@ por un factor de cien. La app propone 2 por defecto y explica qué significa.
 
 **El euro es distinto:** es la moneda base (RN-04), viene fija y no se puede
 borrar ni cambiar de decimales, porque todos los totales se expresan en euros.
+
+---
+
+## ADR-012 · Un monto ambiguo se rechaza, no se adivina
+**Fecha:** 2026-08-18 · **Estado:** Vigente
+
+**Contexto:** al interpretar lo que el usuario escribe, `"1.234"` y `"12,345"`
+tienen exactamente la misma forma —un separador con tres dígitos detrás— y dos
+lecturas posibles: mil doscientos treinta y cuatro, o doce coma treinta y cuatro
+con un dígito de más.
+
+**Decisión:** ese caso **no se interpreta**. La app rechaza el monto y pide que
+se escriba sin separador de miles o con dos decimales, ofreciendo las dos
+lecturas en el mensaje.
+
+**Por qué:** las dos lecturas difieren por un factor de **mil**. Elegir una en
+silencio significa que, cada tanto, un gasto entra mil veces más grande o más
+chico de lo que fue, sin que nada lo delate — y una vez guardado, contamina el
+total del mes, el del año y el del viaje. Preguntar molesta una vez; equivocarse
+acá corrompe un número para siempre.
+
+**Lo que cuesta:** alguien que pegue `"1.234"` desde su banco tiene que
+reescribirlo. Es una molestia real, y la aceptamos: es el precio de que ningún
+monto entre mal en silencio.
+
+**Alternativa descartada:** deducir la convención por el resto de los datos ya
+cargados. Suena más inteligente, pero convierte un error visible en uno que
+depende del historial y aparece de forma intermitente — mucho más difícil de
+notar y de explicar.

@@ -18,6 +18,7 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 // anteriores. core/ primero (no depende de nada), después datos/, después ui/.
 // Al agregar un módulo nuevo, agregarlo acá en la posición que le corresponde.
 const MODULOS = [
+  'src/core/dinero.js',
   'src/ui/app.js',
 ];
 

@@ -1,134 +1,3 @@
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<title>Viajecor</title>
-<style>
-/* Estilos base. Sin fuentes externas: usar una fuente de un CDN haría que ese
-   CDN viera la IP y la hora de uso de la app, lo que rompe RN-06. */
-
-:root {
-  --fondo: #fbfaf8;
-  --superficie: #ffffff;
-  --borde: #e3ded6;
-  --texto: #1c1a17;
-  --texto-suave: #6b645b;
-  --acento: #2f6f4e;
-  --gasto: #a4342c;
-  --ingreso: #2f6f4e;
-  --radio: 12px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fondo: #171614;
-    --superficie: #211f1c;
-    --borde: #38342f;
-    --texto: #f0ece6;
-    --texto-suave: #a49c91;
-    --acento: #6fbb90;
-    --gasto: #e08b83;
-    --ingreso: #6fbb90;
-  }
-}
-
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  background: var(--fondo);
-  color: var(--texto);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-text-size-adjust: 100%;
-}
-
-.app {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 1.25rem 1rem 4rem;
-}
-
-.encabezado {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--borde);
-  margin-bottom: 1.25rem;
-}
-
-.encabezado h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
-}
-
-.version {
-  font-size: 0.8125rem;
-  color: var(--texto-suave);
-  font-variant-numeric: tabular-nums;
-}
-
-.tarjeta {
-  background: var(--superficie);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio);
-  padding: 1rem 1.125rem;
-  margin-bottom: 1rem;
-}
-
-.tarjeta h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-}
-
-.tarjeta p { margin: 0 0 0.5rem; }
-.tarjeta p:last-child { margin-bottom: 0; }
-
-.suave { color: var(--texto-suave); font-size: 0.9375rem; }
-
-.estado {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.875rem;
-  color: var(--texto-suave);
-}
-
-.punto {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--acento);
-}
-
-.aviso {
-  background: var(--superficie);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio);
-  padding: 1rem;
-}
-
-ul.pasos { margin: 0.5rem 0 0; padding-left: 1.25rem; }
-ul.pasos li { margin-bottom: 0.25rem; }
-</style>
-
-<div id="app" class="app">
-  <noscript>
-    <p class="aviso">Esta aplicación necesita JavaScript. Está todo dentro de este
-    mismo archivo: no descarga nada de internet.</p>
-  </noscript>
-</div>
-
-<script>
-(function () {
-'use strict';
-
-globalThis.__VIAJECOR_VERSION__ = "0.1.0";
-
-// ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
 //
 // La regla que gobierna todo este archivo: el dinero se guarda como número
@@ -148,15 +17,15 @@ globalThis.__VIAJECOR_VERSION__ = "0.1.0";
 // Más allá de este valor JavaScript deja de contar enteros de a uno y empieza a
 // saltearse números, que es justo lo que veníamos a evitar. Son unos 90 billones
 // de euros en céntimos: si un monto lo supera, es un error de carga, no un gasto.
-const MAXIMO = Number.MAX_SAFE_INTEGER;
+export const MAXIMO = Number.MAX_SAFE_INTEGER;
 
-const DECIMALES_EURO = 2;
+export const DECIMALES_EURO = 2;
 
 /**
  * Cuántas unidades mínimas entran en una unidad de la moneda.
  * 2 decimales → 100 (céntimos por euro). 0 decimales → 1 (el yen no tiene).
  */
-function unidadMinima(decimales) {
+export function unidadMinima(decimales) {
   validarDecimales(decimales);
   return 10 ** decimales;
 }
@@ -179,7 +48,7 @@ function validarDecimales(decimales) {
  * saldo mensual sí puede ser negativo, y una regla que depende del signo es una
  * trampa esperando.
  */
-function redondear(numero) {
+export function redondear(numero) {
   if (!Number.isFinite(numero)) {
     throw new Error(`No se puede redondear ${JSON.stringify(numero)}.`);
   }
@@ -190,7 +59,7 @@ function redondear(numero) {
  * Comprueba que un valor sirva como monto guardado: entero, no negativo y
  * dentro del rango en que JavaScript cuenta bien.
  */
-function validarMonto(minimas) {
+export function validarMonto(minimas) {
   if (!Number.isInteger(minimas)) {
     throw new Error(
       `Un monto se guarda como número entero de unidades mínimas, y llegó ${JSON.stringify(minimas)}.`
@@ -227,7 +96,7 @@ function validarMonto(minimas) {
  * un factor de mil en el monto de alguien, sin avisarle. Preguntar es molesto
  * una vez; equivocarse acá corrompe un total para siempre. Ver ADR-012.
  */
-function aMinimas(entrada, decimales) {
+export function aMinimas(entrada, decimales) {
   validarDecimales(decimales);
 
   if (typeof entrada === 'number') {
@@ -311,7 +180,7 @@ function aMinimas(entrada, decimales) {
  * De unidades mínimas al número con decimales. Solo para mostrar y para
  * exportar: nunca para seguir calculando encima.
  */
-function aNumero(minimas, decimales) {
+export function aNumero(minimas, decimales) {
   validarDecimales(decimales);
   if (!Number.isInteger(minimas)) {
     throw new Error(`Se esperaba un entero de unidades mínimas y llegó ${JSON.stringify(minimas)}.`);
@@ -323,7 +192,7 @@ function aNumero(minimas, decimales) {
  * Suma exacta. Recibe la lista completa: no hay ningún límite de cuántos
  * elementos acepta, porque así es como el Excel original empezó a mentir (L-001).
  */
-function sumar(minimas) {
+export function sumar(minimas) {
   if (!Array.isArray(minimas)) {
     throw new Error('sumar() espera una lista de montos.');
   }
@@ -348,7 +217,7 @@ function sumar(minimas) {
  * ejemplo pasando primero a euros con decimales y después sumando— el error se
  * acumularía movimiento a movimiento.
  */
-function convertirAEuros(minimas, decimales, eurosPorUnidad) {
+export function convertirAEuros(minimas, decimales, eurosPorUnidad) {
   validarDecimales(decimales);
   if (!Number.isInteger(minimas)) {
     throw new Error(`Se esperaba un entero de unidades mínimas y llegó ${JSON.stringify(minimas)}.`);
@@ -370,7 +239,7 @@ function convertirAEuros(minimas, decimales, eurosPorUnidad) {
  * Invierte un tipo de cambio expresado al revés. El usuario suele conocerlo como
  * "cuántos colones es un euro" (CU-03), pero se guarda como euros por colón.
  */
-function invertirCambio(unidadesPorEuro) {
+export function invertirCambio(unidadesPorEuro) {
   if (!Number.isFinite(unidadesPorEuro) || unidadesPorEuro <= 0) {
     throw new Error('El tipo de cambio tiene que ser un número mayor que cero.');
   }
@@ -382,63 +251,10 @@ function invertirCambio(unidadesPorEuro) {
  * Una lista vacía da 0: no hay nada que promediar, y devolver 0 evita que la
  * app tenga que manejar un "no hay dato" en cada pantalla que muestre promedios.
  */
-function promediar(minimas) {
+export function promediar(minimas) {
   if (!Array.isArray(minimas)) {
     throw new Error('promediar() espera una lista de montos.');
   }
   if (minimas.length === 0) return 0;
   return redondear(sumar(minimas) / minimas.length);
 }
-
-// ── src/ui/app.js ───────────────────────────────────────────────
-// Arranque de la aplicación. Por ahora solo dibuja la pantalla inicial: su
-// trabajo real es demostrar que el archivo construido abre sin conexión.
-// Las pantallas de verdad llegan con T-011 en adelante (docs/PLAN.md).
-
-// La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
-// VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
-// versión publicada, y decirlo es más honesto que inventar un número.
-function versionApp() {
-  return globalThis.__VIAJECOR_VERSION__ || 'sin construir';
-}
-
-function pantallaInicial() {
-  return `
-    <header class="encabezado">
-      <h1>Viajecor</h1>
-      <span class="version">v${versionApp()}</span>
-    </header>
-
-    <section class="tarjeta">
-      <h2>Todavía no hay nada que registrar</h2>
-      <p class="suave">El esqueleto de la aplicación funciona: este archivo se abrió
-      desde tu dispositivo, sin conexión y sin pedirle nada a internet.</p>
-    </section>
-
-    <section class="tarjeta">
-      <h2>Qué sigue</h2>
-      <ul class="pasos suave">
-        <li>Aritmética de dinero y modelo del movimiento</li>
-        <li>Cargar un gasto o un ingreso</li>
-        <li>Tipo de cambio por moneda y por mes</li>
-        <li>Resumen del mes</li>
-        <li>Exportar tus datos</li>
-      </ul>
-      <p class="suave">El orden y el estado de cada paso están en
-      <code>docs/PLAN.md</code>.</p>
-    </section>
-
-    <p class="estado"><span class="punto"></span>Tus datos se guardan solo en este
-    dispositivo.</p>
-  `;
-}
-
-function iniciar(documento) {
-  documento.getElementById('app').innerHTML = pantallaInicial();
-}
-
-if (typeof document !== 'undefined') {
-  iniciar(document);
-}
-})();
-</script>
