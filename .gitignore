@@ -14,4 +14,8 @@ viajecor-*.csv
 # tools/generar-planilla-ejemplo.mjs. Sirve para construir y probar el importador.
 !test/ejemplo/planilla-ejemplo.xlsx
 
+# Respaldos del propio repositorio: son una copia binaria de este historial, no
+# tiene sentido guardarlos adentro de lo que copian.
+*.bundle
+
 .DS_Store
