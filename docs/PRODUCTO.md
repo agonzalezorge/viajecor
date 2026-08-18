@@ -1,0 +1,403 @@
+# Producto — Viajecor
+
+> Documento vivo. Se actualiza **en el mismo cambio** que agrega o modifica una
+> función, nunca "después". Si cambiás una regla de negocio en el código y no la
+> cambiás acá, el cambio está incompleto.
+>
+> Última actualización: 2026-08-18 · Versión del documento: v0.1
+
+---
+
+## 1. El problema
+
+Hoy los gastos personales se llevan en una planilla de Excel (`Viaje Coruña 2`)
+con tres hojas. Funciona, pero tiene cuatro problemas concretos:
+
+1. **No se puede cargar un gasto en el momento.** Anotar desde el celular en una
+   planilla con bloques mensuales y fórmulas es incómodo, así que los gastos se
+   acumulan y se cargan de memoria más tarde — que es cuando se pierden.
+2. **Los totales pueden mentir en silencio.** Las fórmulas de la hoja `Analisis1`
+   suman rangos fijos (`$G$8:$G$1027`). Cuando el registro pase de esa fila, los
+   totales van a dar mal **sin ningún aviso**. Ver `docs/LECCIONES.md`.
+3. **Agrupar por viaje depende de escribir el texto exacto.** El nombre del viaje
+   vive en un campo libre. Un `Roma ` con espacio de más no entra en el total de
+   Roma y nadie se entera.
+4. **Agregar un mes es trabajo manual.** Cada bloque mensual se copia y se ajustan
+   las fórmulas a mano.
+
+## 2. Qué es Viajecor
+
+Una aplicación de registro de gastos personales que:
+
+- Se abre **desde un solo archivo HTML**, sin instalar nada y **sin conexión**.
+- Guarda **todos los datos en el dispositivo**. No hay servidor, no hay cuenta, no
+  hay ninguna petición de red. Ver la sección 6, Privacidad.
+- Permite **exportar los datos en cualquier momento** en un formato abierto.
+- Reproduce los cálculos que ya se usan en el Excel, sin los rangos fijos que se
+  rompen.
+
+## 3. Usuario
+
+Una sola persona, en su propio dispositivo (celular como uso principal,
+computadora para revisar y exportar). No hay usuarios múltiples, no hay roles, no
+hay compartición. Si eso cambia, cambia este documento primero.
+
+## 4. Vocabulario del dominio
+
+Los nombres vienen del Excel y **se respetan tal cual** — cambiarlos obligaría a
+retraducir mentalmente todo lo que ya está en la cabeza del usuario.
+
+| Término | Qué es |
+|---|---|
+| **Movimiento** | Una línea del registro: un gasto o un ingreso. |
+| **Tipo** | `G` (gasto) o `I` (ingreso). En el Excel es la columna `I/G`. |
+| **Rubro** | La categoría del movimiento. Listas distintas para gasto y para ingreso. |
+| **Comentario** | Etiqueta corta y reutilizable: el nombre de un viaje (`Roma`) o de un gasto fijo recurrente (`Luz`). Es lo que permite agrupar. |
+| **Detalle** | Texto libre, para acordarse de qué fue. No se usa para agrupar. |
+| **Tipo de cambio (TC)** | Cuánto vale una moneda en euros, para un mes dado. |
+| **Moneda base** | El euro. Todo total se expresa en euros. |
+
+### Rubros de gasto
+`gastos fijos` · `supermercado` · `comida hecha` · `viajes` · `entretenimiento` ·
+`transporte` · `salud` · `otros`
+
+### Rubros de ingreso
+`trabajo` · `inversiones` · `regalos` · `otros`
+
+> El rubro `otros` existe en las dos listas y son cosas distintas: "otros gastos"
+> y "otros ingresos" no se mezclan nunca en un mismo total.
+
+## 5. Reglas de negocio
+
+### RN-01 — Un movimiento siempre tiene fecha completa
+En el Excel el día y el mes viven en columnas separadas, lo que permite que se
+desincronicen. Acá un movimiento tiene **una fecha**, y el día y el mes se derivan
+de ella. No se puede guardar un movimiento con día 1 en un mes que dice noviembre
+si la fecha real es otra.
+
+### RN-02 — El rubro tiene que pertenecer a la lista del tipo
+Un movimiento de tipo `G` solo acepta rubros de gasto; uno de tipo `I`, solo
+rubros de ingreso. La app no deja elegir mal.
+
+### RN-03 — Comparaciones sin distinguir mayúsculas ni espacios
+Todo texto que sirva para agrupar (rubro, comentario, moneda) se compara
+**normalizado**: sin espacios al principio ni al final, sin distinguir mayúsculas
+de minúsculas. `VIAJES`, `viajes` y ` Viajes ` son el mismo rubro. Esta regla
+existe porque el Excel ya tiene esa inconsistencia y ahí no molesta (Excel compara
+así por defecto); una app que compare exacto rompería los totales en silencio.
+
+### RN-04 — Multimoneda con tipo de cambio mensual
+- Cada movimiento se carga **en la moneda en que se gastó**, con su monto original.
+- El tipo de cambio se define **por moneda y por mes**: un valor de "cuántos euros
+  es una unidad de esa moneda", que rige para **todos los movimientos de ese mes**
+  en esa moneda.
+- **Al cargar el primer movimiento de una moneda en un mes que todavía no tiene
+  tipo de cambio, la app lo pide** antes de guardar. No se guarda un movimiento en
+  moneda extranjera sin tipo de cambio.
+- Los movimientos en euros no necesitan tipo de cambio (es 1 por definición).
+- **Todos los totales se expresan en euros**, convertidos con el tipo de cambio
+  del mes correspondiente.
+- La moneda elegida en una carga queda como **predeterminada para la siguiente**,
+  hasta que se cambie. Esto evita reelegir "colón" treinta veces en un viaje a
+  Costa Rica.
+
+### RN-05 — El importe en euros se deriva, no se congela
+Se guarda el **monto original y su moneda**. El importe en euros se **recalcula**
+siempre a partir del tipo de cambio vigente para (moneda, mes).
+
+*Por qué:* si al volver de un viaje se descubre que el tipo de cambio cargado
+estaba mal, corregirlo una vez arregla el mes entero. Si se congelara el importe
+convertido en cada movimiento, habría que corregir uno por uno.
+
+*Contrapartida:* cambiar un tipo de cambio **cambia totales históricos ya vistos**.
+La app avisa cuántos movimientos se ven afectados antes de aplicar el cambio.
+
+> ⚠️ Decisión reversible, anotada en `docs/DECISIONES.md` (ADR-004). Si preferís
+> que un movimiento quede congelado al tipo de cambio del día en que se cargó,
+> decilo y se cambia — es un cambio chico ahora y caro más adelante.
+
+### RN-06 — Nada sale del dispositivo
+La app no hace ninguna petición de red, nunca. No carga fuentes, íconos, ni
+librerías desde internet. Ver sección 6.
+
+### RN-07 — Los datos se pueden sacar siempre
+En cualquier momento, con la app abierta y sin conexión, se puede exportar el
+total de los datos a un archivo que el usuario guarda donde quiera. El formato es
+abierto y legible sin la app.
+
+---
+
+## 6. Privacidad — el requisito no negociable
+
+Esto no es una característica más: es la razón por la que la app se construye así.
+
+- **Todo se guarda en el navegador del dispositivo.** Ningún dato viaja a ningún
+  lado.
+- **La app no tiene servidor.** No hay a dónde mandar nada aunque se quisiera.
+- **Sin recursos externos.** Cero peticiones a internet: si la app pidiera una
+  fuente a un CDN, ese CDN vería la IP y la hora en que se usa la app.
+- **Sin analítica, sin telemetría, sin reporte de errores remoto.**
+
+**Riesgos reales que el usuario debe conocer** (en lenguaje llano):
+
+1. **Borrar los datos del navegador borra la app entera.** "Limpiar datos de
+   navegación" en el celular puede borrar todo el historial de gastos. Por eso el
+   respaldo por exportación no es opcional: es la única copia de seguridad.
+2. **No hay sincronización entre dispositivos.** Lo cargado en el celular no
+   aparece en la computadora salvo que se exporte y se importe a mano.
+3. **Los datos no están cifrados.** Quien tenga el dispositivo desbloqueado puede
+   abrir la app y ver los gastos. La protección es la del dispositivo, no la de la
+   app.
+4. **Un archivo exportado es un archivo común.** Si se manda por mail o se sube a
+   una nube, deja de ser privado. La privacidad la garantiza la app hasta el
+   momento de exportar; de ahí en adelante, la garantiza el usuario.
+
+---
+
+## 7. Casos de uso
+
+Cada caso de uso es una cosa que el usuario puede hacer, escrita paso a paso. La
+columna *Estado* dice si ya está construido. **El plan de implementación
+(`docs/PLAN.md`) es el que dice qué se construye después**; acá solo se registra
+qué existe.
+
+| ID | Caso de uso | Estado |
+|---|---|---|
+| CU-01 | Registrar un gasto | Pendiente |
+| CU-02 | Registrar un ingreso | Pendiente |
+| CU-03 | Definir el tipo de cambio de una moneda para un mes | Pendiente |
+| CU-04 | Ver el resumen del mes | Pendiente |
+| CU-05 | Ver el gasto día por día del mes | Pendiente |
+| CU-06 | Corregir o borrar un movimiento | Pendiente |
+| CU-07 | Exportar todos los datos | Pendiente |
+| CU-08 | Importar un respaldo | Pendiente |
+| CU-09 | Usar la app sin conexión | Pendiente |
+| CU-10 | Ver la evolución mes a mes | Pendiente |
+| CU-11 | Ver cuánto costó un viaje | Pendiente |
+| CU-12 | Ver el promedio de un gasto fijo | Pendiente |
+| CU-13 | Importar el historial del Excel | Pendiente |
+| CU-14 | Llevar los ahorros conjuntos | Pendiente |
+
+---
+
+### CU-01 — Registrar un gasto
+
+**Para qué:** anotar un gasto en el momento en que ocurre, en menos de quince
+segundos y sin conexión.
+
+**Pasos:**
+1. El usuario abre la app y toca "Nuevo movimiento".
+2. La app propone: fecha = hoy, tipo = gasto, moneda = la última que usó.
+3. El usuario escribe el monto y elige el rubro.
+4. Opcionalmente escribe un comentario (`Roma`, `Luz`) y un detalle.
+5. Si la moneda elegida no tiene tipo de cambio para ese mes, la app lo pide
+   (ver CU-03) y no guarda hasta tenerlo.
+6. El usuario guarda. El movimiento aparece en la lista del mes y los totales se
+   actualizan.
+
+**Reglas que aplican:** RN-01, RN-02, RN-03, RN-04.
+
+**Qué puede salir mal:**
+- Monto vacío o cero → la app no guarda y lo dice.
+- Monto negativo → no se acepta; un gasto se registra como gasto, no como número
+  negativo. (El signo lo da el campo *tipo*.)
+- Fecha futura → se permite, pero la app avisa. Se puede querer anotar algo ya
+  pagado que corresponde a otro día.
+
+---
+
+### CU-02 — Registrar un ingreso
+
+Igual que CU-01, con tipo = ingreso y la lista de rubros de ingreso.
+
+**Reglas que aplican:** RN-01, RN-02, RN-03, RN-04.
+
+---
+
+### CU-03 — Definir el tipo de cambio de una moneda para un mes
+
+**Para qué:** poder registrar gastos de un viaje en la moneda local y que los
+totales sigan siendo comparables en euros.
+
+**Pasos:**
+1. El usuario carga el primer movimiento en, por ejemplo, colones, en marzo.
+2. La app detecta que no hay tipo de cambio para (colón, marzo) y lo pide:
+   *"¿Cuántos euros es 1 colón?"* — con la opción de escribirlo al revés
+   (*"¿Cuántos colones es 1 euro?"*), que es como suele venir la información.
+3. El usuario lo escribe y confirma.
+4. El movimiento se guarda. Todos los movimientos en colones de marzo usan ese
+   valor.
+
+**También:** desde la pantalla de tipos de cambio, el usuario puede ver, agregar
+o corregir cualquier tipo de cambio de cualquier mes.
+
+**Reglas que aplican:** RN-04, RN-05.
+
+**Qué puede salir mal:**
+- Corregir un tipo de cambio ya usado cambia totales pasados. La app dice
+  cuántos movimientos se ven afectados **antes** de aplicar el cambio.
+- Tipo de cambio cero o negativo → no se acepta.
+
+---
+
+### CU-04 — Ver el resumen del mes
+
+**Para qué:** responder "¿cómo vengo este mes?" de un vistazo. Reemplaza los
+bloques `GASTOS POR TIPO`, `INGRESOS POR TIPO` y `TOTALES` del Excel.
+
+**Muestra:**
+- Total de gastos, total de ingresos y **saldo** (ingresos − gastos) del mes.
+- Gastos desagregados por rubro, de mayor a menor.
+- Ingresos desagregados por rubro.
+- Todo en euros, convertido según RN-04.
+
+---
+
+### CU-05 — Ver el gasto día por día del mes
+
+**Para qué:** reemplaza el bloque `GASTO POR DÍA` del Excel.
+
+**Muestra**, para cada día del mes: gasto del día, gasto acumulado, ingreso del
+día, ingreso acumulado.
+
+---
+
+### CU-06 — Corregir o borrar un movimiento
+
+**Para qué:** un monto mal tipeado no puede quedar para siempre.
+
+**Pasos:** el usuario toca un movimiento de la lista, lo edita y guarda; o lo
+borra.
+
+**Qué puede salir mal:** borrar es destructivo. La app **pide confirmación** y
+ofrece **deshacer** inmediatamente después.
+
+---
+
+### CU-07 — Exportar todos los datos
+
+**Para qué:** es el respaldo del usuario y su garantía de que los datos son
+suyos. Sin esto, un borrado de datos del navegador pierde todo.
+
+**Pasos:**
+1. El usuario toca "Exportar".
+2. La app genera un archivo con **todos** los movimientos, tipos de cambio y
+   configuración, y el navegador lo descarga.
+3. Funciona sin conexión.
+
+**Formatos:** JSON (completo, sirve para reimportar) y CSV (para abrir en Excel).
+
+---
+
+### CU-08 — Importar un respaldo
+
+**Para qué:** recuperar los datos en un teléfono nuevo, o después de un borrado.
+
+**Qué puede salir mal:** importar sobre datos existentes puede duplicar o pisar.
+La app **siempre** ofrece exportar antes de importar, y pregunta explícitamente
+si se quiere *reemplazar todo* o *agregar a lo que hay*.
+
+---
+
+### CU-09 — Usar la app sin conexión
+
+**Para qué:** es la situación normal, no la excepción: se gasta en el subte, en
+otro país, sin datos.
+
+**Criterio de aceptación:** con el modo avión activado y el archivo HTML abierto
+desde el almacenamiento del dispositivo, todos los casos de uso funcionan igual.
+
+---
+
+### CU-10 — Ver la evolución mes a mes
+
+**Para qué:** reemplaza la matriz mes × rubro de `Analisis1`.
+
+**Muestra:** una fila por mes con el gasto de cada rubro, el total de gastos, el
+total de ingresos y el saldo; más una fila de **total** y una de **promedio**.
+
+---
+
+### CU-11 — Ver cuánto costó un viaje
+
+**Para qué:** reemplaza el bloque `GASTOS POR VIAJE`, que es el motivo por el que
+la planilla se llama "Viaje Coruña".
+
+**Muestra:** por cada viaje, el gasto total y el gasto por día.
+
+**Decisiones que trae este caso de uso** (a resolver cuando se construya, no
+antes):
+- En el Excel, el viaje se identifica por el texto del comentario. Hay que decidir
+  si la app mantiene una lista de viajes elegible (evita los typos) o sigue con
+  texto libre.
+- En el Excel, la duración en días está escrita a mano y algunos viajes suman un
+  monto fijo dentro de la fórmula (`=96+SUMIFS(...)` en París, `=850+...` en Costa
+  Rica) para incluir vuelos y alojamiento pagados fuera del registro. Esos montos
+  no tienen ninguna explicación en la planilla. La app necesita una forma
+  explícita de registrarlos.
+
+---
+
+### CU-12 — Ver el promedio de un gasto fijo
+
+**Para qué:** reemplaza el bloque `GASTOS FIJOS PROMEDIO`. Responde "¿cuánto me
+sale la luz por mes, en promedio?".
+
+**Muestra:** por cada gasto fijo recurrente (identificado por el comentario:
+`Luz`, `Gas`, `Internet+celular`, `Psicóloga`), cuántas veces se pagó, el total y
+el promedio por pago.
+
+---
+
+### CU-13 — Importar el historial del Excel
+
+**Para qué:** no empezar de cero. El Excel tiene desde octubre de 2025.
+
+**Qué puede salir mal:** el Excel tiene inconsistencias reales de mayúsculas y de
+datos (ver `docs/LECCIONES.md`). El importador tiene que **informar qué no pudo
+interpretar**, fila por fila, en vez de importar mal en silencio.
+
+---
+
+### CU-14 — Llevar los ahorros conjuntos
+
+**Para qué:** reemplaza la hoja `Ahorros conjuntos`, que registra ahorros de dos
+personas (ALE / IRE) en tres monedas sin convertir entre sí.
+
+**Muestra:** total por moneda, y total por persona y moneda.
+
+**Nota:** esta hoja tiene una lógica distinta al registro de gastos — no convierte
+a euros, porque un plazo fijo en pesos uruguayos es un plazo fijo en pesos
+uruguayos. Se construye como módulo aparte, no metiendo los ahorros en el
+registro de gastos.
+
+---
+
+## 8. Fuera de alcance (por ahora, y a propósito)
+
+- Sincronización entre dispositivos, cuentas de usuario, nube.
+- Conexión con bancos o tarjetas.
+- Presupuestos, alertas, metas de ahorro.
+- Tipos de cambio automáticos desde internet — **violaría RN-06**.
+- Compartir datos con otra persona.
+
+Si algo de esto se vuelve necesario, se discute y se documenta antes de
+construirlo.
+
+---
+
+## 9. Versionado
+
+`MAYOR.MENOR.PARCHE`, y mientras la app esté en `0.x` significa que todavía puede
+cambiar de forma:
+
+- **MENOR** sube cuando se agrega una función nueva (un caso de uso pasa a
+  "Hecho").
+- **PARCHE** sube cuando se corrige algo que ya estaba.
+- **MAYOR** sube cuando cambia el formato de datos guardados de una forma que
+  obliga a migrar.
+
+La versión vive en `VERSION` (un archivo con una sola línea), se muestra dentro de
+la app y se escribe en cada archivo exportado. **Se consulta ese archivo antes de
+publicar; no se decide de memoria.** Cada cambio de versión se anota en
+`CHANGELOG.md`.

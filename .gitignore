@@ -1,0 +1,12 @@
+# El proyecto no tiene dependencias (ADR-003). Si aparece node_modules, es de
+# alguna herramienta puntual y no va al repositorio.
+node_modules/
+
+# Datos personales: si alguna vez se deja un export en la carpeta, no se sube.
+# Los gastos del usuario no van a un repositorio, ni siquiera a uno privado.
+*.local.json
+viajecor-*.json
+viajecor-*.csv
+*.xlsx
+
+.DS_Store
