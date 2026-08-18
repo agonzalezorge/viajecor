@@ -57,7 +57,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 |---|---|---|---|
 | **Etapa 0 — Cimientos** ||||
 | T-001 | Esqueleto del proyecto y construcción | **Hecha** | — |
-| T-002 | Aritmética de dinero (`core/dinero.js`) | **Lista** | T-001 |
+| T-002 | Aritmética de dinero (`core/dinero.js`) | En curso (claude, 2026-08-18) | T-001 |
 | T-003 | Modelo y validación del movimiento | Pendiente | T-002 |
 | T-004 | Almacenamiento local | Pendiente | T-003 |
 | T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
@@ -128,12 +128,16 @@ parte de T-019.
 ---
 
 ### T-002 · Aritmética de dinero
-**Estado:** Lista · **Depende de:** T-001
+**Estado:** En curso (claude, 2026-08-18) · **Depende de:** T-001
 **Toca:** `src/core/dinero.js`, `test/dinero.test.js`
 
-Montos como enteros en unidad mínima (`docs/ARQUITECTURA.md` §5.1). Sumar,
-convertir con un tipo de cambio, promediar, redondear una sola vez al final,
-tabla de monedas sin decimales.
+Montos como enteros en unidad mínima (`docs/ARQUITECTURA.md` §5.1). Interpretar lo
+que escribe el usuario, sumar, convertir con un tipo de cambio, promediar, y
+redondear una sola vez al final.
+
+**Cuántos decimales tiene cada moneda no lo decide este módulo:** lo recibe como
+parámetro, porque la lista de monedas la maneja el usuario (RN-04b, ADR-011). Una
+tabla acá se desactualizaría en cuanto se agregue una moneda nueva.
 
 **Terminada cuando:** hay tests que cubren el redondeo hacia arriba y hacia abajo,
 el caso `0.1 + 0.2`, una moneda sin decimales, y montos negativos rechazados.
