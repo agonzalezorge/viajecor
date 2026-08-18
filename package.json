@@ -1,0 +1,10 @@
+{
+  "name": "viajecor",
+  "private": true,
+  "type": "module",
+  "description": "App de gastos personales, offline, en un solo archivo HTML. Sin dependencias: este archivo existe solo para que Node trate src/ como modulos ES. No hace falta npm install.",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node --test test/"
+  }
+}
