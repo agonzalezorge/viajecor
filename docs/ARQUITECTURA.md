@@ -104,11 +104,30 @@ Todo lo que la app guarda vive bajo una sola clave de `localStorage`,
   "version_app": "0.1.0",          // versión que escribió estos datos
   "movimientos": [ /* ... */ ],
   "tipos_cambio": [ /* ... */ ],
+  "monedas": [ /* ... */ ],        // RN-04b: las maneja el usuario, no el código
   "preferencias": {
     "moneda_predeterminada": "EUR" // RN-04: se recuerda la última usada
   }
 }
 ```
+
+### Moneda
+
+```jsonc
+{
+  "codigo": "CRC",
+  "nombre": "Colón costarricense",
+  "decimales": 2,           // de esto depende cómo se guarda el monto. Ver 5.1
+  "oculta": false           // se ocultan, no se borran, si ya tienen movimientos
+}
+```
+
+La app arranca con `EUR`, `UYU`, `USD` y `CRC`. El euro es la moneda base: viene
+fijo, no se puede borrar ni cambiarle los decimales.
+
+**Por qué la lista es un dato y no una constante del código:** agregar una moneda
+para un viaje imprevisto no puede depender de publicar una versión nueva de la
+app. La persona estaría en otro país, sin poder registrar nada. Ver ADR-011.
 
 ### Movimiento
 
@@ -157,8 +176,9 @@ siempre.
 *Consecuencias, que hay que respetar:*
 - La conversión de moneda y los promedios **sí** producen decimales. Se redondea
   al céntimo **una sola vez, al final** de cada cálculo, nunca en el medio.
-- Las monedas sin decimales (yen, peso chileno) tienen unidad mínima 1. El módulo
-  `core/dinero.js` conoce esa tabla.
+- Cuántos decimales tiene cada moneda **no lo decide el código**: sale del campo
+  `decimales` de la moneda (RN-04b). `core/dinero.js` recibe ese número; no tiene
+  una tabla propia que se desactualice.
 
 ## 6. Almacenamiento
 

@@ -150,3 +150,35 @@ comportamiento sin darse cuenta.
 **Qué hacemos:** las reglas de este tipo van escritas en `docs/PRODUCTO.md` como
 reglas de negocio, con su porqué. Si un promedio excluye el mes en curso, eso es
 una regla, no un detalle de implementación, y la app lo dice en pantalla.
+
+---
+
+## L-007 · Una decisión tomada sobre una premisa no comprobada es una adivinanza con formato de decisión
+
+**De dónde salió:** de este mismo proyecto, el primer día.
+
+ADR-007 decidió que el importador leería CSV en vez de `.xlsx`, con este
+razonamiento: *"leer un xlsx en el navegador requeriría una librería de
+descompresión y otra de XML"*. Sonaba sensato, estaba bien argumentado, y quedó
+escrito como decisión firme.
+
+Era falso. El navegador trae `DecompressionStream` y `DOMParser` de fábrica. Se
+comprobó en diez minutos, leyendo la planilla real dentro de Chromium sin una sola
+librería. La decisión le habría costado al usuario un paso manual de conversión —
+con todo lo que un CSV mal exportado puede romper— para siempre, por una premisa
+que nadie verificó.
+
+**El patrón:** *una decisión bien argumentada sobre una premisa técnica no
+comprobada se ve exactamente igual que una decisión correcta.* El formato de ADR,
+con su "por qué" prolijo, hace que suene aún más sólida. Nada en el documento
+delata que el dato de base era una suposición.
+
+Y hay un agravante: la decisión se documentó, así que la suposición quedó
+consagrada. El siguiente que la leyera iba a confiar en ella sin volver a
+preguntarse si era cierta.
+
+**Qué hacemos:** cuando una decisión se apoya en *"esto no se puede hacer"* o
+*"esto requeriría X"*, hay que comprobarlo antes de escribirla, y el ADR tiene que
+decir **cómo se comprobó**. Si no se comprobó, se escribe *"suponemos que…"* con
+todas las letras, para que el que venga sepa que ahí hay algo por verificar y no
+una conclusión.

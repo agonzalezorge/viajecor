@@ -5,7 +5,19 @@ La versión publicada vive en el archivo `VERSION`.
 
 ## Sin publicar
 
-_(nada todavía)_
+### Cambiado
+- **El importador va a leer el `.xlsx` directamente**, sin pedirle al usuario que
+  lo convierta a CSV. La decisión anterior (ADR-007) se apoyaba en una premisa
+  falsa que nadie había comprobado: el navegador trae `DecompressionStream` y
+  `DOMParser` de fábrica, así que alcanza con código propio. Ver ADR-010 y L-007.
+- **La lista de monedas pasa a ser un dato editable desde la app**, no una
+  constante del código. Arranca con euro, peso uruguayo, dólar y colón
+  costarricense, y se pueden agregar más en cualquier momento (RN-04b, ADR-011,
+  CU-15).
+
+### Agregado
+- Generador de una planilla de ejemplo con la estructura real y montos inventados,
+  para construir y probar el importador sin usar datos confidenciales (T-009).
 
 ## 0.1.0 — 2026-08-18
 
@@ -14,7 +26,7 @@ sobre la que se construye el resto, y la prueba de que la premisa técnica del
 proyecto se sostiene.
 
 ### Agregado
-- Documentación de producto con 14 casos de uso y las reglas de negocio derivadas
+- Documentación de producto con 15 casos de uso y las reglas de negocio derivadas
   del Excel original (`docs/PRODUCTO.md`).
 - Documentación de arquitectura y modelo de datos (`docs/ARQUITECTURA.md`).
 - Plan de implementación con tareas, dependencias y estado (`docs/PLAN.md`).

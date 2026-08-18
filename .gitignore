@@ -7,6 +7,11 @@ node_modules/
 *.local.json
 viajecor-*.json
 viajecor-*.csv
+
+# Ninguna planilla real entra al repositorio: los gastos del usuario son suyos.
 *.xlsx
+# Excepción: la planilla de ejemplo tiene montos inventados y la genera
+# tools/generar-planilla-ejemplo.mjs. Sirve para construir y probar el importador.
+!test/ejemplo/planilla-ejemplo.xlsx
 
 .DS_Store

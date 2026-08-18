@@ -115,7 +115,7 @@ persistencia, así que el cambio sería de un archivo.
 ---
 
 ## ADR-007 · Importar desde CSV, no leer `.xlsx` directamente
-**Fecha:** 2026-08-18 · **Estado:** Vigente
+**Fecha:** 2026-08-18 · **Estado:** ❌ **Reemplazada por ADR-010** (2026-08-18)
 
 **Decisión:** el importador del historial lee CSV. Para traer el Excel, se exporta
 a CSV desde Excel primero.
@@ -124,6 +124,9 @@ a CSV desde Excel primero.
 requeriría una librería de descompresión y otra de XML, que habría que meter
 dentro del archivo entregable y mantener para siempre. Exportar a CSV es un paso
 que el usuario hace una vez.
+
+**Por qué se reemplazó:** la premisa era falsa y no la comprobé antes de decidir.
+Ver ADR-010 y L-007.
 
 ---
 
@@ -151,3 +154,62 @@ cualquier referencia a una URL externa o a una función de red.
 producto. Una promesa que depende de que ningún agente se olvide nunca no es una
 promesa. Con el test, agregar accidentalmente una fuente de Google rompe la
 construcción en vez de romper la privacidad en silencio.
+
+---
+
+## ADR-010 · Leer el `.xlsx` directamente en el navegador, sin librerías
+**Fecha:** 2026-08-18 · **Estado:** Vigente · **Reemplaza a:** ADR-007
+
+**Contexto:** ADR-007 decía que leer un `.xlsx` exigiría meter librerías dentro
+del archivo entregable, y mandaba al usuario a exportar a CSV desde Excel. El
+usuario preguntó qué implicaba eso, y al ir a comprobarlo resultó que la premisa
+era falsa.
+
+**Decisión:** el importador lee el `.xlsx` tal cual, sin conversión previa. El
+usuario elige su planilla y la app la abre.
+
+**Por qué:** un `.xlsx` es un ZIP con XML adentro, y el navegador moderno trae de
+fábrica las dos piezas que hacen falta:
+
+- `DecompressionStream('deflate-raw')` descomprime las entradas del ZIP.
+- `DOMParser` parsea el XML.
+
+Lo único que hay que escribir a mano es la lectura del directorio del ZIP, que
+son unas cien líneas y no cambia nunca (el formato está congelado desde 1989).
+
+**Comprobado, no supuesto:** se leyó la planilla real del usuario dentro de
+Chromium con cero librerías, y devolvió sus encabezados correctos
+(`OCTUBRE 2025`, `G/Acum./Mes`, `RUBRO`, `MONTO`, `I/G`) sobre 23.296 celdas.
+
+**Lo que cuesta:** unas 150 líneas más de código propio en `datos/importar.js`, y
+depender de una API que no existe en navegadores muy viejos. A cambio, el usuario
+no tiene que convertir nada, y se evita el paso donde un CSV mal exportado
+(separador, codificación, comas decimales) rompe la importación en silencio.
+
+**Se sigue aceptando CSV además**, porque es el formato de exportación y sirve
+para importar datos de otras fuentes.
+
+---
+
+## ADR-011 · La lista de monedas es un dato, no código
+**Fecha:** 2026-08-18 · **Estado:** Vigente
+
+**Contexto:** el usuario usa euro, peso uruguayo, dólar y colón costarricense, y
+pidió explícitamente poder agregar monedas nuevas desde la app en cualquier
+momento.
+
+**Decisión:** las monedas viven en los datos guardados, no en el código. La app
+arranca con cuatro precargadas y el usuario agrega las que quiera desde una
+pantalla, indicando código, nombre y cuántos decimales usa.
+
+**Por qué:** si la lista estuviera en el código, agregar una moneda para un viaje
+imprevisto exigiría una versión nueva de la app. La persona estaría en otro país,
+sin poder registrar sus gastos, esperando que alguien publique un archivo nuevo.
+
+**Por qué el usuario elige los decimales:** el peso uruguayo y el dólar usan dos;
+el yen y el peso chileno, ninguno. De ese número depende cómo se guarda el monto
+en entero (ADR-005), así que equivocarlo desplaza todos los importes de esa moneda
+por un factor de cien. La app propone 2 por defecto y explica qué significa.
+
+**El euro es distinto:** es la moneda base (RN-04), viene fija y no se puede
+borrar ni cambiar de decimales, porque todos los totales se expresan en euros.

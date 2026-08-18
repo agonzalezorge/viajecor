@@ -101,6 +101,32 @@ así por defecto); una app que compare exacto rompería los totales en silencio.
   hasta que se cambie. Esto evita reelegir "colón" treinta veces en un viaje a
   Costa Rica.
 
+### RN-04b — La lista de monedas la maneja el usuario
+La app arranca con cuatro monedas cargadas, que son las que el usuario usa hoy:
+
+| Código | Moneda | Decimales |
+|---|---|---|
+| `EUR` | Euro — **moneda base** | 2 |
+| `UYU` | Peso uruguayo | 2 |
+| `USD` | Dólar estadounidense | 2 |
+| `CRC` | Colón costarricense | 2 |
+
+**Se pueden agregar monedas nuevas desde la app, en cualquier momento** (CU-15),
+indicando código, nombre y cuántos decimales usa. Las monedas viven en los datos,
+no en el código: agregar una para un viaje imprevisto no puede depender de que
+alguien publique una versión nueva de la app.
+
+El **euro es distinto**: es la moneda base, viene fija, y no se puede borrar ni
+cambiarle los decimales, porque todos los totales se expresan en euros.
+
+**Los decimales importan de verdad:** de ese número depende cómo se guarda el
+monto internamente (ver ADR-005). El yen y el peso chileno no usan decimales;
+poner 2 donde van 0 desplaza todos los importes de esa moneda por un factor de
+cien. La app propone 2 y explica qué significa.
+
+Una moneda **que ya tiene movimientos cargados no se puede borrar** — dejaría
+movimientos huérfanos sin forma de convertirlos. Se puede ocultar de la lista.
+
 ### RN-05 — El importe en euros se deriva, no se congela
 Se guarda el **monto original y su moneda**. El importe en euros se **recalcula**
 siempre a partir del tipo de cambio vigente para (moneda, mes).
@@ -177,6 +203,7 @@ qué existe.
 | CU-12 | Ver el promedio de un gasto fijo | Pendiente |
 | CU-13 | Importar el historial del Excel | Pendiente |
 | CU-14 | Llevar los ahorros conjuntos | Pendiente |
+| CU-15 | Agregar una moneda | Pendiente |
 
 ---
 
@@ -353,6 +380,13 @@ el promedio por pago.
 
 **Para qué:** no empezar de cero. El Excel tiene desde octubre de 2025.
 
+**Pasos:** el usuario elige su archivo `.xlsx` directamente — sin convertirlo a
+nada. La app lo lee, muestra qué encontró, y recién ahí el usuario confirma.
+
+**Cómo puede la app leer un `.xlsx` sin librerías:** un `.xlsx` es un archivo ZIP
+con XML adentro, y el navegador trae de fábrica lo necesario para abrir las dos
+cosas. Comprobado sobre la planilla real. Ver ADR-010.
+
 **Qué puede salir mal:** el Excel tiene inconsistencias reales de mayúsculas y de
 datos (ver `docs/LECCIONES.md`). El importador tiene que **informar qué no pudo
 interpretar**, fila por fila, en vez de importar mal en silencio.
@@ -370,6 +404,31 @@ personas (ALE / IRE) en tres monedas sin convertir entre sí.
 a euros, porque un plazo fijo en pesos uruguayos es un plazo fijo en pesos
 uruguayos. Se construye como módulo aparte, no metiendo los ahorros en el
 registro de gastos.
+
+---
+
+### CU-15 — Agregar una moneda
+
+**Para qué:** poder registrar gastos en un país nuevo sin esperar a que alguien
+publique una versión nueva de la app. Es la diferencia entre anotar los gastos del
+viaje y perderlos.
+
+**Pasos:**
+1. Desde la pantalla de monedas, o desde el propio formulario de carga si la
+   moneda que busca no está, el usuario toca "Agregar moneda".
+2. Escribe el código (`JPY`), el nombre (`Yen japonés`) y cuántos decimales usa.
+   La app propone 2 y explica en una línea qué significa.
+3. La moneda queda disponible al instante, y se le pedirá el tipo de cambio al
+   cargar el primer movimiento (CU-03).
+
+**Reglas que aplican:** RN-04b.
+
+**Qué puede salir mal:**
+- Código repetido → no se acepta.
+- Decimales mal elegidos → los importes de esa moneda quedan cien veces más
+  grandes o más chicos. Es corregible después, y al corregirlo la app avisa
+  cuántos movimientos se reinterpretan.
+- Borrar una moneda con movimientos cargados → no se permite; se puede ocultar.
 
 ---
 

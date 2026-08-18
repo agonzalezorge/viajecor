@@ -60,9 +60,11 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-002 | Aritmética de dinero (`core/dinero.js`) | **Lista** | T-001 |
 | T-003 | Modelo y validación del movimiento | Pendiente | T-002 |
 | T-004 | Almacenamiento local | Pendiente | T-003 |
-| T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002 |
+| T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | Pendiente | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
+| T-008 | Catálogo de monedas | Pendiente | T-002 |
+| T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
 | T-010 | Armazón de la interfaz | **Lista** | T-001 |
 | T-011 | Pantalla de carga de movimiento | Pendiente | T-003, T-004, T-010 |
@@ -79,10 +81,11 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-021 | Evolución mes a mes | Pendiente | T-013 |
 | T-022 | Promedio de gastos fijos | Pendiente | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
+| T-024 | Pantalla de monedas | Pendiente | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
-| T-030 | Definir el mapeo Excel → modelo | Necesita decisión | T-003 |
-| T-031 | Importador de CSV | Pendiente | T-030, T-017 |
-| T-032 | Informe de filas no interpretadas | Pendiente | T-031 |
+| T-030 | Definir el mapeo Excel → modelo | Pendiente | T-003, T-009 |
+| T-031 | Lector de `.xlsx` sin librerías | Pendiente | T-009 |
+| T-032 | Importador con informe de filas no interpretadas | Pendiente | T-030, T-031, T-017 |
 | **Etapa 4 — Ahorros conjuntos** ||||
 | T-040 | Modelo de ahorros multimoneda | Pendiente | T-004 |
 | T-041 | Pantalla de ahorros conjuntos | Pendiente | T-040, T-010 |
@@ -93,7 +96,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-903 | Recordatorio de respaldo | Pendiente | T-016 |
 | T-904 | Modo oscuro | Pendiente | T-010 |
 
-**Hito v0.1:** T-001 a T-019. En ese punto la app ya reemplaza al Excel para
+**Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
+En ese punto la app ya reemplaza al Excel para
 cargar gastos y ver cómo viene el mes, y los datos se pueden sacar.
 
 ---
@@ -164,7 +168,7 @@ tumban la app.
 ---
 
 ### T-005 · Tipos de cambio y conversión a euros
-**Estado:** Pendiente · **Depende de:** T-002 · *Se puede hacer en paralelo con T-003 y T-004*
+**Estado:** Pendiente · **Depende de:** T-002, T-008 · *Se puede hacer en paralelo con T-003 y T-004*
 **Toca:** `src/core/cambio.js`, `test/cambio.test.js`
 
 Guardar y buscar el tipo de cambio por `(moneda, mes)`, convertir un movimiento a
@@ -204,6 +208,44 @@ en cada cambio.
       construcción **falla antes de escribir el archivo**. Comprobado agregando a
       propósito una fuente de Google: la construcción se cayó con el mensaje
       correcto y no generó el archivo.
+
+---
+
+### T-008 · Catálogo de monedas — CU-15
+**Estado:** Pendiente · **Depende de:** T-002 · *Paralelizable con T-003 y T-004*
+**Toca:** `src/core/monedas.js`, `test/monedas.test.js`
+
+La lista de monedas vive en los datos, no en el código (RN-04b, ADR-011). Este
+módulo la maneja: las cuatro precargadas (`EUR`, `UYU`, `USD`, `CRC`), agregar una
+nueva con código, nombre y decimales, validar, y ocultar en vez de borrar cuando
+ya tiene movimientos.
+
+**Terminada cuando:** hay tests para código repetido rechazado, para el euro que
+no se puede borrar ni cambiar de decimales, para una moneda de 0 decimales, y para
+el rechazo de borrar una moneda con movimientos.
+
+---
+
+### T-009 · Planilla de ejemplo para probar el importador
+**Estado:** Hecha (2026-08-18) · **Depende de:** —
+**Toca:** `tools/generar-planilla-ejemplo.mjs`, `test/ejemplo/planilla-ejemplo.xlsx`
+
+Los gastos reales del usuario son confidenciales y no van a un repositorio, pero
+el importador necesita algo contra qué construirse. Este generador produce una
+planilla con **montos inventados** y **la misma estructura y las mismas rarezas**
+que la original: bloques mensuales, día y mes en columnas separadas, mayúsculas
+inconsistentes en rubro y tipo, fechas como número de serie de Excel.
+
+Es un generador y no un `.xlsx` commiteado a mano porque un binario en el
+repositorio no se puede leer ni revisar; el script, además, documenta en código
+cómo está armada la planilla original. Usa una semilla fija, así que produce
+siempre el mismo archivo y un test que dependa de él no cambia entre corridas.
+
+**Terminada cuando:**
+- [x] `node tools/generar-planilla-ejemplo.mjs` genera el archivo (288 movimientos,
+      4 meses, 10,7 kB).
+- [x] Un lector de Excel real (openpyxl) lo abre y devuelve las fechas como fechas.
+- [x] El navegador lo lee con el método de ADR-010: 1614 celdas, sin librerías.
 
 ---
 
@@ -323,6 +365,13 @@ Matriz mes × rubro con fila de total y de promedio, como `Analisis1`.
 
 Agrupado por comentario: cuántas veces, total y promedio por pago.
 
+### T-024 · Pantalla de monedas — CU-15
+**Depende de:** T-008, T-010 · **Toca:** `src/ui/pantallas/monedas.js`
+
+Ver las monedas, agregar una nueva (código, nombre, decimales) y ocultar las que
+ya no se usan. Accesible también desde el formulario de carga, para cuando la
+moneda que hace falta no está en la lista.
+
 ### T-023 · Gasto por viaje — CU-11
 **Estado:** Necesita decisión · **Depende de:** T-013
 
@@ -341,28 +390,42 @@ Agrupado por comentario: cuántas veces, total y promedio por pago.
 ## Etapa 3 — Traer el historial del Excel
 
 ### T-030 · Definir el mapeo Excel → modelo — CU-13
-**Estado:** Necesita decisión · **Depende de:** T-003
+**Estado:** Pendiente · **Depende de:** T-003, T-009
+**Toca:** `docs/MAPEO-EXCEL.md`
 
-**Bloqueada por el usuario:** el archivo compartido vino **sin la columna de
-montos** (columna `G`, `MONTO`, está vacía en las tres hojas). Sin los montos
-reales no se puede probar el importador.
+Escribir cómo se traduce cada columna de la planilla al modelo de la app, y qué se
+hace con cada caso raro. Se trabaja contra `test/ejemplo/planilla-ejemplo.xlsx`,
+que tiene la estructura real con montos inventados (T-009).
 
-Cuando llegue el archivo completo, definir en un documento cómo se traduce cada
-columna, qué se hace con las filas sin monto y con los rubros escritos distinto.
+**Casos que el mapeo tiene que resolver, ya identificados:**
+- Día (`C`) y mes (`D`) en columnas separadas → una sola fecha (RN-01).
+- Rubro y tipo con mayúsculas inconsistentes → normalizar (RN-03).
+- Filas sin monto: ¿se descartan o se importan en cero? Hay muchas en el original.
+- Los bloques mensuales se repiten con encabezados en el medio: hay que saltearlos
+  sin confundirlos con datos.
+- Fechas como número de serie de Excel (`45931` = 2025-10-01), incluido el error
+  histórico de que Excel considera 1900 bisiesto.
+- El comentario (`B`) mezcla nombres de viaje y de gastos fijos recurrentes.
 
-### T-031 · Importador de CSV — CU-13
-**Depende de:** T-030, T-017 · **Toca:** `src/datos/importar.js`
+### T-031 · Lector de `.xlsx` sin librerías — CU-13
+**Depende de:** T-009 · *Paralelizable con T-030*
+**Toca:** `src/datos/xlsx.js`, `test/xlsx.test.js`
 
-Importar CSV es preferible a leer `.xlsx` directo: leer un `.xlsx` requiere
-descomprimir ZIP y parsear XML dentro del navegador, lo que traería una librería
-grande al archivo entregable. Exportar a CSV desde Excel es un paso, y ahorra ese
-peso para siempre.
+Leer un `.xlsx` en el navegador sin ninguna librería: abrir el ZIP a mano y
+parsear el XML con `DOMParser`. Ver ADR-010 — está comprobado que se puede, sobre
+la planilla real del usuario.
 
-### T-032 · Informe de filas no interpretadas
-**Depende de:** T-031
+**Terminada cuando:** lee `test/ejemplo/planilla-ejemplo.xlsx` y devuelve las
+celdas con su valor, distinguiendo texto, número y fecha.
+
+### T-032 · Importador con informe de filas no interpretadas — CU-13
+**Depende de:** T-030, T-031, T-017 · **Toca:** `src/datos/importar.js`
 
 Fila por fila, qué no se pudo leer y por qué. Importar mal en silencio es peor
 que no importar.
+
+**También acepta CSV**, que es el formato de exportación de la app y sirve para
+traer datos de otras fuentes.
 
 ---
 
@@ -408,7 +471,14 @@ ellas quedan `Necesita decisión`.
    totales de meses ya cerrados. ¿Está bien así, o preferís que un movimiento
    quede congelado al tipo de cambio del momento en que lo cargaste?
 2. **Viajes (T-023).** Las tres preguntas de esa tarea.
-3. **Historial (T-030).** Hace falta el Excel con los montos para construir el
-   importador.
-4. **Monedas.** ¿Cuáles usás además del euro? Saberlo permite ponerlas primero en
-   la lista en vez de mostrar las 180 del mundo.
+
+### Respondidas
+
+- ~~**Monedas.**~~ (2026-08-18) Euro, peso uruguayo, dólar y colón costarricense,
+  **y la lista tiene que poder ampliarse desde la app en cualquier momento**.
+  → RN-04b, ADR-011, T-008, T-024.
+- ~~**Historial.**~~ (2026-08-18) Los montos reales son confidenciales y no van al
+  repositorio. Se trabaja contra una planilla de ejemplo con la misma estructura y
+  montos inventados. → T-009.
+- ~~**Formato de importación.**~~ (2026-08-18) Se lee el `.xlsx` directo, sin
+  convertir a CSV. → ADR-010.
