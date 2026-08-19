@@ -66,7 +66,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-008 | Catálogo de monedas | **Hecha** | T-002 |
 | T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
-| T-010 | Armazón de la interfaz | **Lista** | T-001 |
+| T-010 | Armazón de la interfaz | En curso (claude, 2026-08-19) | T-001 |
 | T-011 | Pantalla de carga de movimiento | Pendiente | T-003, T-004, T-010 |
 | T-012 | Pedir el tipo de cambio al vuelo | Pendiente | T-005, T-011 |
 | T-013 | Cálculos del mes | **Lista** | T-003, T-005 |
@@ -359,7 +359,7 @@ siempre el mismo archivo y un test que dependa de él no cambia entre corridas.
 ## Etapa 1 — v0.1: registrar, ver y exportar
 
 ### T-010 · Armazón de la interfaz
-**Estado:** Lista · **Depende de:** T-001 · *Paralelizable con toda la Etapa 0*
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-001
 **Toca:** `src/ui/app.js`, `src/estilos.css`
 
 Navegación entre pantallas, encabezado con el mes visible y la versión, y los
