@@ -1,0 +1,10 @@
+# El proyecto no tiene dependencias (ADR-003): no debería haber un node_modules.
+# Si aparece, es que alguien corrió npm install por costumbre.
+node_modules/
+
+# Basura de los sistemas operativos
+.DS_Store
+Thumbs.db
+
+# dist/viajecor.html SÍ va al repositorio: es lo que el usuario descarga
+# (ARQUITECTURA §9). No se ignora.
