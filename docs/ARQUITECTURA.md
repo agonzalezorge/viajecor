@@ -210,6 +210,17 @@ comprada para un problema que no existe.
 volumen se acerca a los 20.000 movimientos. El módulo `datos/almacenamiento.js`
 es la única puerta a la persistencia, así que cambiarlo es cambiar un archivo.
 
+**Qué pasa si lo guardado no se entiende:** la app abre igual, con lo que haya
+podido rescatar, y **nunca escribe encima de lo que no entendió**. Lo ilegible se
+copia a una clave aparte, `viajecor:rescate:<fecha>`, y la clave original queda
+intacta. Un registro roto no invalida a los demás: se descarta ese y se informa
+cuál y por qué. Ver ADR-015 y ADR-017.
+
+**Guardar, en cambio, falla ruidosamente.** Si el almacenamiento está lleno, la
+operación tira un error en vez de seguir como si nada: una app que dice haber
+guardado y no guardó le hace perder al usuario una tarde entera de carga. Ver
+ADR-016.
+
 **Riesgo asumido, y no es menor:** borrar los datos del navegador borra todo.
 Por eso exportar (CU-07) no es una función secundaria: es la copia de seguridad.
 La app tiene que empujar a exportar de forma visible y periódica.

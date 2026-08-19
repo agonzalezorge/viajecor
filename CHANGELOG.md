@@ -22,6 +22,12 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- Almacenamiento local: los movimientos sobreviven a cerrar la app (T-004). Si lo
+  guardado no se entiende, la app **abre igual, avisa, y no pisa nada**: aparta lo
+  ilegible bajo una clave de rescate para que se pueda recuperar a mano. Un
+  registro roto no invalida a los demás; se informa cuál y por qué. Si el
+  almacenamiento está lleno, guardar falla con un mensaje claro en vez de fingir
+  que guardó (ADR-015, ADR-016, ADR-017). 25 tests.
 - Modelo del movimiento: la única puerta por la que entra un gasto o un ingreso.
   Valida que la fecha exista de verdad (`2026-02-30` se rechaza en vez de
   convertirse en marzo), que el rubro pertenezca a la lista de su tipo, y que el

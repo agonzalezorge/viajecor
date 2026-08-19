@@ -296,3 +296,78 @@ reimportar un respaldo, meses después, sobre datos que ya se creían correctos.
 
 **Lo que cuesta:** quien llama tiene que saber cuál usar. A cambio, la unidad del
 monto nunca depende de una adivinanza: cada puerta la sabe por definición.
+
+---
+
+## ADR-015 · Un dato que no se entiende se aparta, nunca se pisa
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Contexto:** `datos/almacenamiento.js` puede encontrarse con contenido que no
+sabe leer: JSON cortado por una pestaña que se cerró a mitad de escritura, datos
+de otra app bajo la misma clave, o un respaldo editado a mano. Hay que decidir
+qué hace la app en ese momento.
+
+**Decisión:** leer **nunca falla y nunca escribe encima**. Ante contenido
+ilegible, la app arranca vacía para que se pueda usar, avisa con todas las
+letras, y **copia lo ilegible a una clave aparte** (`viajecor:rescate:<fecha>`)
+antes de seguir. La clave original tampoco se toca.
+
+**Por qué:** acá vive la única copia de los gastos del usuario — no hay servidor,
+ni papelera, ni historial (ARQUITECTURA §11). Las tres alternativas son peores:
+
+- *Tirar un error y no abrir:* el usuario se queda sin ver ni lo que sí está bien,
+  y sin ninguna forma de exportar lo que quedaba.
+- *Arrancar vacío y guardar encima al primer cambio:* destruye para siempre un
+  dato que quizá se podía rescatar a mano. Es el peor resultado posible y el más
+  fácil de programar sin darse cuenta.
+- *Arrancar vacío en silencio:* el usuario cree que perdió todo y no sabe que hay
+  algo recuperable.
+
+Un dato ilegible todavía se puede rescatar; uno sobrescrito, no. Esa asimetría es
+la que manda.
+
+**Lo que cuesta:** quedan claves de rescate ocupando lugar en el navegador hasta
+que alguien las borre a mano, y `borrarEstado()` no las toca a propósito. Es
+espacio a cambio de una segunda oportunidad.
+
+---
+
+## ADR-016 · Guardar mal tiene que doler; leer mal, no
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Decisión:** `leerEstado()` **nunca tira**: siempre devuelve algo usable más un
+parte de incidencias. `guardarEstado()` **sí tira** cuando no pudo guardar.
+
+**Por qué son opuestos:** son dos fallas con consecuencias distintas.
+
+Si leer falla y la app no abre, el usuario pierde el acceso a todo, incluida la
+posibilidad de exportar. Abrir con lo que se pudo rescatar siempre es mejor.
+
+Si guardar falla —el almacenamiento del navegador está lleno, o el navegador está
+en un modo que no deja escribir— y la app se lo traga para "no molestar", el
+usuario sigue cargando gastos toda una tarde: los ve aparecer en pantalla, y
+ninguno sobrevive a cerrar la app. Un error visible en el momento es
+incomparablemente menos grave.
+
+**La regla general:** una falla al leer se degrada; una falla al escribir se
+grita. Vale para cualquier módulo que persista datos.
+
+---
+
+## ADR-017 · Un registro roto no se lleva puestos a los que están bien
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Decisión:** al leer los datos guardados, cada movimiento y cada tipo de cambio
+se valida por separado. Los que no se entienden quedan afuera y se informan **uno
+por uno, con su número y su motivo**; los demás se cargan normalmente.
+
+**Por qué:** con 500 movimientos guardados y 3 rotos, descartar los 500 pierde
+497 registros buenos, y aceptar los 3 en silencio cambia el total del mes sin que
+nadie se entere — que es la falla que este proyecto entero trata de evitar
+(L-001, L-008). Informar fila por fila es la misma regla que ya estaba escrita
+para el importador de Excel (T-032): importar mal en silencio es peor que no
+importar.
+
+**Lo que cuesta:** la app tiene que mostrar esas incidencias en algún lado, y no
+alcanza con un mensaje genérico. Un aviso que dice "algunos datos no se pudieron
+leer" sin decir cuáles no sirve para nada.

@@ -59,7 +59,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-001 | Esqueleto del proyecto y construcción | **Hecha** | — |
 | T-002 | Aritmética de dinero (`core/dinero.js`) | **Hecha** | T-001 |
 | T-003 | Modelo y validación del movimiento | **Hecha** | T-002 |
-| T-004 | Almacenamiento local | En curso (claude, 2026-08-19) | T-003 |
+| T-004 | Almacenamiento local | **Hecha** | T-003 |
 | T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | **Lista** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
@@ -72,7 +72,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-013 | Cálculos del mes | Pendiente | T-003, T-005 |
 | T-014 | Pantalla de resumen del mes | Pendiente | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | Pendiente | T-011 |
-| T-016 | Exportar a JSON | Pendiente | T-004 |
+| T-016 | Exportar a JSON | **Lista** | T-004 |
 | T-017 | Importar un respaldo JSON | Pendiente | T-016 |
 | T-018 | Exportar a CSV | Pendiente | T-005, T-016 |
 | T-019 | Verificación real sin conexión | Pendiente | T-011…T-018 |
@@ -186,15 +186,32 @@ están en `docs/PRODUCTO.md` §4.
 ---
 
 ### T-004 · Almacenamiento local
-**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-003
-**Toca:** `src/datos/almacenamiento.js`, `test/almacenamiento.test.js`
+**Estado:** Hecha (2026-08-19) · **Depende de:** T-003
+**Toca:** `src/datos/almacenamiento.js`, `test/almacenamiento.test.js`, `tools/build.mjs`
 
 Leer y escribir el estado completo bajo `viajecor:datos:v1`, con el número de
 esquema y un lugar previsto para migrar si cambia.
 
-**Terminada cuando:** hay tests con un `localStorage` simulado que cubren primer
-arranque sin datos, ida y vuelta de guardar y leer, y datos corruptos que no
-tumban la app.
+**Terminada cuando:**
+- [x] Hay tests con un `localStorage` simulado que cubren primer arranque sin
+      datos, ida y vuelta de guardar y leer, y datos corruptos que no tumban la
+      app. Son 25 tests; los 106 del proyecto pasan.
+- [x] Los tests **muerden**: comprobado rompiendo el módulo a propósito en los
+      cuatro puntos peligrosos (pisar lo ilegible, descartar registros rotos en
+      silencio, no reconocer el almacenamiento lleno, leer datos de una versión
+      más nueva). Cada rotura hizo fallar tests.
+- [x] El recorrido real —cargar un gasto, guardarlo, volver a leerlo— se ejercitó
+      **dentro de `dist/viajecor.html`**, con un `localStorage` simulado.
+
+**Lo que salió de hacerla:** tres decisiones sobre qué hacer cuando los datos no
+se entienden, que es donde este módulo se puede llevar puestos meses de registro.
+Ver ADR-015 (lo ilegible se aparta, nunca se pisa), ADR-016 (leer se degrada,
+guardar grita) y ADR-017 (un registro roto no invalida a los demás).
+
+**Lo que este módulo NO hace, a propósito:** el estado inicial viene con la lista
+de monedas **vacía**. Las cuatro precargadas (RN-04b) las define `core/monedas.js`
+en T-008; tenerlas también acá serían dos listas que se desincronizan. Quien arme
+el estado inicial le pasa la lista.
 
 ---
 
@@ -342,7 +359,7 @@ más fácil de perder datos que el usuario no puede recuperar.
 ---
 
 ### T-016 · Exportar a JSON — CU-07
-**Estado:** Pendiente · **Depende de:** T-004
+**Estado:** Lista · **Depende de:** T-004
 **Toca:** `src/datos/exportar.js`, `test/exportar.test.js`, `src/ui/pantallas/datos.js`
 
 **Prioridad alta pese al número:** hasta que esto exista, los datos del usuario
