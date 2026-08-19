@@ -58,7 +58,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Etapa 0 — Cimientos** ||||
 | T-001 | Esqueleto del proyecto y construcción | **Hecha** | — |
 | T-002 | Aritmética de dinero (`core/dinero.js`) | **Hecha** | T-001 |
-| T-003 | Modelo y validación del movimiento | **Lista** | T-002 |
+| T-003 | Modelo y validación del movimiento | En curso (claude, 2026-08-19) | T-002 |
 | T-004 | Almacenamiento local | Pendiente | T-003 |
 | T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | **Lista** | T-002 |
@@ -153,7 +153,7 @@ silencio. Lo encontró un test escrito para otra cosa. Ver ADR-012 y L-008.
 ---
 
 ### T-003 · Modelo y validación del movimiento
-**Estado:** Lista · **Depende de:** T-002
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-002
 **Toca:** `src/core/modelo.js`, `test/modelo.test.js`
 
 Crear un movimiento válido, normalizar textos (RN-03), validar fecha (RN-01) y
