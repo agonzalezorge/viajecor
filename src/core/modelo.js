@@ -175,6 +175,21 @@ export function validarFecha(valor) {
   return `${textoAnio}-${textoMes}-${textoDia}`;
 }
 
+/**
+ * El día de hoy, `AAAA-MM-DD`, según el calendario del dispositivo.
+ *
+ * Se leen el año, el mes y el día locales en vez de recortar un instante en UTC:
+ * lo que importa es qué día es para la persona que está cargando el gasto, no
+ * qué día es en Greenwich. A las 22:00 de un martes en Montevideo, recortar un
+ * instante UTC daría el miércoles.
+ */
+export function hoy(momento = new Date()) {
+  const anio = momento.getFullYear();
+  const mes = String(momento.getMonth() + 1).padStart(2, '0');
+  const dia = String(momento.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
 /** El mes al que pertenece un movimiento, `AAAA-MM`. Se DERIVA de la fecha. */
 export function mesDe(fecha) {
   return validarFecha(fecha).slice(0, 7);
@@ -223,6 +238,9 @@ export function nuevoId(prefijo = 'mov') {
  * `decimales`: cuántos usa esa moneda lo dice la lista del usuario (RN-04b), no
  * este módulo.
  *
+ * `creado` es el DÍA en que se cargó, no un instante: la app no registra la
+ * hora de nada (ADR-021).
+ *
  * Para un movimiento que YA está guardado —leído de localStorage o de un
  * respaldo, con el monto ya en enteros— está `validarMovimiento()`. Son dos
  * puertas separadas a propósito (ADR-014): si una sola función tuviera que
@@ -233,7 +251,7 @@ export function crearMovimiento(entrada, opciones = {}) {
   if (entrada === null || typeof entrada !== 'object') {
     throw new Error('Para crear un movimiento hace falta un objeto con sus datos.');
   }
-  const { decimales, id, ahora } = opciones;
+  const { decimales, id, creado } = opciones;
   if (decimales === undefined) {
     throw new Error(
       'Falta saber cuántos decimales usa la moneda: sin ese dato el monto se guardaría cien veces más grande o más chico (RN-04b).'
@@ -260,7 +278,7 @@ export function crearMovimiento(entrada, opciones = {}) {
     // El detalle es texto libre y NO agrupa nada (PRODUCTO §4), así que se
     // respeta entero: solo se le sacan los espacios de los bordes.
     detalle: entrada.detalle ? entrada.detalle.normalize('NFC').trim() : '',
-    creado: ahora ?? new Date().toISOString(),
+    creado: creado ? validarFecha(creado) : hoy(),
   };
 }
 
@@ -285,7 +303,10 @@ export function validarMovimiento(movimiento) {
   if (monto === 0) {
     throw new Error(`El movimiento ${movimiento.id} tiene monto cero.`);
   }
-  if (typeof movimiento.creado !== 'string' || Number.isNaN(Date.parse(movimiento.creado))) {
+  let creado;
+  try {
+    creado = validarFecha(movimiento.creado);
+  } catch {
     throw new Error(`El movimiento ${movimiento.id} no tiene una fecha de creación válida.`);
   }
 
@@ -298,6 +319,6 @@ export function validarMovimiento(movimiento) {
     moneda: normalizarMoneda(movimiento.moneda),
     comentario: movimiento.comentario ? normalizarTextoVisible(movimiento.comentario) : '',
     detalle: movimiento.detalle ? movimiento.detalle.normalize('NFC').trim() : '',
-    creado: movimiento.creado,
+    creado,
   };
 }

@@ -498,3 +498,38 @@ muestra.
 **Lo que cuesta:** un total de mil movimientos convertidos puede diferir en unos
 pocos céntimos del cálculo teóricamente perfecto. A cambio, todo lo que la app
 muestra cierra consigo mismo.
+
+---
+
+## ADR-021 · La app no registra horas, solo días
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Contexto:** al contarle al usuario el cuidado de zonas horarias del formateo de
+fechas (L-011), su respuesta fue directa: *"no quiero que registremos el dato de
+la hora del registro. Solo el día y chau, se acabó el problema."*
+
+**Decisión:** ningún dato guardado lleva hora. La fecha de un movimiento ya era
+un día (RN-01); `creado`, que era un instante completo
+(`2026-03-14T20:11:03.000Z`), pasa a ser el día (`2026-03-14`). Lo mismo para los
+tipos de cambio.
+
+**Por qué es la decisión correcta y no solo una preferencia:** una hora obliga a
+elegir una zona horaria para interpretarla, y esa elección es la que corre las
+fechas de día (L-011). Sacar el dato saca la clase entera de errores, en vez de
+defenderse de ellos caso por caso. La app no necesita la hora para nada: ningún
+caso de uso de `PRODUCTO.md` la pide.
+
+Además es un dato personal que deja de existir: sin horas, un respaldo exportado
+no cuenta a qué hora de la noche alguien cargó sus gastos.
+
+**Lo que cuesta:** dos movimientos cargados el mismo día no se pueden ordenar
+entre sí por `creado`. No importa: la lista se ordena por la fecha del gasto, y
+para desempatar está el orden en que están guardados.
+
+**Se hace ahora porque es gratis ahora.** No hay ni un dato real cargado. El
+mismo cambio con un año de historial encima obligaría a migrar el esquema.
+
+**El cuidado de L-011 sigue siendo necesario**, aunque ya no haya horas guardadas:
+mostrar `2026-03-14` sigue exigiendo construir un `Date`, y ahí la zona horaria
+vuelve a aparecer. La diferencia es que ahora es un problema de una sola función
+de presentación, con sus tests, y no algo que pueda contaminar un dato guardado.

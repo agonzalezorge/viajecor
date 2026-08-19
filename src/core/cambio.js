@@ -15,7 +15,7 @@
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
 import { convertirAEuros, invertirCambio, sumar } from './dinero.js';
-import { normalizarMoneda, mesDe } from './modelo.js';
+import { normalizarMoneda, mesDe, validarFecha, hoy } from './modelo.js';
 import { MONEDA_BASE, decimalesDe } from './monedas.js';
 
 /**
@@ -60,7 +60,7 @@ export function validarMes(mes) {
  * error. Al usuario se le puede preguntar en cualquiera de los dos sentidos
  * (CU-03) y la app invierte el número antes de guardarlo — ver `desdeUnidadesPorEuro`.
  */
-export function crearCambio({ moneda, mes, euros_por_unidad } = {}, { ahora } = {}) {
+export function crearCambio({ moneda, mes, euros_por_unidad } = {}, { creado } = {}) {
   const codigo = normalizarMoneda(moneda);
 
   if (codigo === MONEDA_BASE) {
@@ -74,7 +74,7 @@ export function crearCambio({ moneda, mes, euros_por_unidad } = {}, { ahora } = 
     moneda: codigo,
     mes: validarMes(mes),
     euros_por_unidad,
-    creado: ahora ?? new Date().toISOString(),
+    creado: creado ? validarFecha(creado) : hoy(),
   };
 }
 

@@ -61,14 +61,14 @@ const MOVIMIENTO = {
   moneda: 'EUR',
   comentario: 'Roma',
   detalle: 'cena',
-  creado: '2026-03-14T20:11:03.000Z',
+  creado: '2026-03-14',
 };
 
 const CAMBIO = {
   moneda: 'CRC',
   mes: '2026-03',
   euros_por_unidad: 0.00164,
-  creado: '2026-03-14T20:10:55.000Z',
+  creado: '2026-03-14',
 };
 
 // ── Primer arranque ──────────────────────────────────────────────────────────

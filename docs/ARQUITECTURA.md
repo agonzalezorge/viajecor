@@ -142,7 +142,7 @@ app. La persona estaría en otro país, sin poder registrar nada. Ver ADR-011.
   "moneda": "EUR",          // código de 3 letras
   "comentario": "Roma",     // etiqueta para agrupar. Puede estar vacío
   "detalle": "cena",        // texto libre. Puede estar vacío
-  "creado": "2026-03-14T20:11:03.000Z"
+  "creado": "2026-03-14"      // el DÍA de la carga. La app no registra horas
 }
 ```
 
@@ -157,6 +157,10 @@ identificador significan que editar uno cambia el otro y que borrar uno borra el
 que no era. Con 16 dígitos la probabilidad se vuelve despreciable, y cuesta ocho
 caracteres por movimiento.
 
+**En ningún campo hay una hora.** Ni en la fecha del gasto ni en `creado`: la app
+registra días, no instantes (ADR-021). Es lo que hace que ninguna zona horaria
+pueda correr ningún dato de día, sin depender de que nadie se olvide.
+
 **El comentario se guarda tal como se escribió** (`Roma`, no `roma`), y agrupar
 por comentario es agrupar por su **clave** —`claveDeComentario()` de
 `core/modelo.js`—, nunca por el texto. Ver ADR-013. El rubro, el tipo y el código
@@ -170,7 +174,7 @@ forma canónica es la que se muestra.
   "moneda": "CRC",
   "mes": "2026-03",         // AAAA-MM. Rige para todo ese mes (RN-04)
   "euros_por_unidad": 0.00164,
-  "creado": "2026-03-14T20:10:55.000Z"
+  "creado": "2026-03-14"
 }
 ```
 

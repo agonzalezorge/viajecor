@@ -27,20 +27,20 @@ import { crearMovimiento } from '../src/core/modelo.js';
 import { monedasIniciales, agregarMoneda } from '../src/core/monedas.js';
 
 const MONEDAS = agregarMoneda(monedasIniciales(), { codigo: 'JPY', nombre: 'Yen japonés', decimales: 0 });
-const AHORA = '2026-03-14T20:11:03.000Z';
+const AHORA = '2026-03-14';
 
 let contador = 0;
 function gasto(monto, moneda, fecha = '2026-03-14', decimales = 2) {
   contador += 1;
   return crearMovimiento(
     { fecha, tipo: 'G', rubro: 'viajes', monto, moneda },
-    { decimales, id: `mov_${String(contador).padStart(16, '0')}`, ahora: AHORA }
+    { decimales, id: `mov_${String(contador).padStart(16, '0')}`, creado: AHORA }
   );
 }
 
 const CAMBIO_CRC_MARZO = crearCambio(
   { moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00164 },
-  { ahora: AHORA }
+  { creado: AHORA }
 );
 
 // ── El euro no se convierte ──────────────────────────────────────────────────
@@ -96,8 +96,8 @@ test('un tipo de cambio cero o negativo no se acepta', () => {
 
 test('cada mes usa su propio tipo de cambio', () => {
   const cambios = [
-    crearCambio({ moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00164 }, { ahora: AHORA }),
-    crearCambio({ moneda: 'CRC', mes: '2026-04', euros_por_unidad: 0.00180 }, { ahora: AHORA }),
+    crearCambio({ moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00164 }, { creado: AHORA }),
+    crearCambio({ moneda: 'CRC', mes: '2026-04', euros_por_unidad: 0.00180 }, { creado: AHORA }),
   ];
 
   const enMarzo = gasto('10000', 'CRC', '2026-03-14');
@@ -109,7 +109,7 @@ test('cada mes usa su propio tipo de cambio', () => {
 });
 
 test('el mes sale de la fecha del movimiento, no de un campo aparte', () => {
-  const cambios = [crearCambio({ moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00164 }, { ahora: AHORA })];
+  const cambios = [crearCambio({ moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00164 }, { creado: AHORA })];
   // Último día de marzo: usa marzo. Primero de abril: ya no hay tipo de cambio.
   assert.equal(movimientoEnEuros(gasto('10000', 'CRC', '2026-03-31'), cambios, MONEDAS), 1640);
   assert.throws(() => movimientoEnEuros(gasto('10000', 'CRC', '2026-04-01'), cambios, MONEDAS), /Falta el tipo de cambio/);
@@ -171,7 +171,7 @@ test('la clave es el par (moneda, mes): corregir reemplaza, no duplica', () => {
   assert.equal(cambios.length, 1);
 
   cambios = guardarCambio(cambios, crearCambio(
-    { moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00170 }, { ahora: AHORA }
+    { moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00170 }, { creado: AHORA }
   ));
 
   assert.equal(cambios.length, 1, 'no quedan dos tipos de cambio para el mismo par');
@@ -180,7 +180,7 @@ test('la clave es el par (moneda, mes): corregir reemplaza, no duplica', () => {
 
 test('guardar no modifica la lista que recibe', () => {
   const cambios = [CAMBIO_CRC_MARZO];
-  guardarCambio(cambios, crearCambio({ moneda: 'USD', mes: '2026-03', euros_por_unidad: 0.92 }, { ahora: AHORA }));
+  guardarCambio(cambios, crearCambio({ moneda: 'USD', mes: '2026-03', euros_por_unidad: 0.92 }, { creado: AHORA }));
   assert.equal(cambios.length, 1);
 });
 
@@ -210,7 +210,7 @@ test('sin tipo de cambio para ese mes, buscar devuelve null, no un error', () =>
 test('un total mezcla monedas y da en euros', () => {
   const cambios = [
     CAMBIO_CRC_MARZO,
-    crearCambio({ moneda: 'USD', mes: '2026-03', euros_por_unidad: 0.92 }, { ahora: AHORA }),
+    crearCambio({ moneda: 'USD', mes: '2026-03', euros_por_unidad: 0.92 }, { creado: AHORA }),
   ];
   const movimientos = [
     gasto('12,50', 'EUR'),            //   12,50 €
@@ -225,7 +225,7 @@ test('el total es la suma de lo que se ve, no un número más exacto', () => {
   // Decisión deliberada: cada movimiento se redondea al céntimo ANTES de sumarse,
   // porque es lo que la app muestra en cada fila. Sumar sin redondear daría un
   // total que no coincide con la suma de la pantalla — más exacto y menos creíble.
-  const cambios = [crearCambio({ moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00164 }, { ahora: AHORA })];
+  const cambios = [crearCambio({ moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00164 }, { creado: AHORA })];
   const movimientos = Array.from({ length: 3 }, () => gasto('1000', 'CRC'));
 
   // 1000 colones = 1,64 €, que se redondea a 164 céntimos por movimiento.
@@ -236,7 +236,7 @@ test('el total es la suma de lo que se ve, no un número más exacto', () => {
 });
 
 test('una moneda sin decimales se convierte bien', () => {
-  const cambios = [crearCambio({ moneda: 'JPY', mes: '2026-03', euros_por_unidad: 0.0062 }, { ahora: AHORA })];
+  const cambios = [crearCambio({ moneda: 'JPY', mes: '2026-03', euros_por_unidad: 0.0062 }, { creado: AHORA })];
   const mov = gasto('1500', 'JPY', '2026-03-14', 0);
 
   assert.equal(mov.monto, 1500);
@@ -244,7 +244,7 @@ test('una moneda sin decimales se convierte bien', () => {
 });
 
 test('convertir una moneda que no está en el catálogo TIRA (ADR-018)', () => {
-  const cambios = [crearCambio({ moneda: 'ARS', mes: '2026-03', euros_por_unidad: 0.001 }, { ahora: AHORA })];
+  const cambios = [crearCambio({ moneda: 'ARS', mes: '2026-03', euros_por_unidad: 0.001 }, { creado: AHORA })];
   assert.throws(
     () => movimientoEnEuros(gasto('1000', 'ARS'), cambios, MONEDAS),
     /no está en tu lista/
@@ -290,7 +290,7 @@ test('corregir el tipo de cambio cambia el total, que es el punto (RN-05)', () =
   assert.equal(totalEnEuros(movimientos, cambios, MONEDAS), 1640 + 3280);
 
   cambios = guardarCambio(cambios, crearCambio(
-    { moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00180 }, { ahora: AHORA }
+    { moneda: 'CRC', mes: '2026-03', euros_por_unidad: 0.00180 }, { creado: AHORA }
   ));
   assert.equal(totalEnEuros(movimientos, cambios, MONEDAS), 1800 + 3600);
 

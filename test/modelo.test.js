@@ -24,6 +24,7 @@ import {
   mesDe,
   esFechaFutura,
   nuevoId,
+  hoy,
   crearMovimiento,
   validarMovimiento,
 } from '../src/core/modelo.js';
@@ -39,7 +40,7 @@ const BASE = {
   detalle: '',
 };
 
-const OPCIONES = { decimales: 2, ahora: '2026-03-14T20:11:03.000Z' };
+const OPCIONES = { decimales: 2, creado: '2026-03-14' };
 
 function crear(cambios = {}, opciones = OPCIONES) {
   return crearMovimiento({ ...BASE, ...cambios }, opciones);
@@ -262,7 +263,7 @@ test('un monto ambiguo se sigue rechazando desde el modelo (ADR-012)', () => {
 test('crear sin decir los decimales de la moneda se rechaza', () => {
   // Es el error que desplazaría todos los importes de una moneda por cien.
   // Mejor frenar acá que guardar un número que nadie va a poder distinguir.
-  assert.throws(() => crearMovimiento(BASE, { ahora: OPCIONES.ahora }), /decimales/);
+  assert.throws(() => crearMovimiento(BASE, { creado: OPCIONES.creado }), /decimales/);
 });
 
 // ── Forma del movimiento creado ──────────────────────────────────────────────
@@ -321,11 +322,35 @@ test('se puede imponer el identificador, para poder importar respaldos', () => {
   assert.equal(crear({}, { ...OPCIONES, id: 'mov_abc' }).id, 'mov_abc');
 });
 
-test('creado queda en el momento de la carga', () => {
-  assert.equal(crear().creado, '2026-03-14T20:11:03.000Z');
-  // Sin ahora explícito, es una fecha real y reciente.
+test('creado guarda el DÍA de la carga, sin hora (ADR-021)', () => {
+  assert.equal(crear().creado, '2026-03-14');
+
+  // Sin creado explícito, es el día de hoy según el calendario del dispositivo.
   const mov = crearMovimiento(BASE, { decimales: 2 });
-  assert.ok(Math.abs(Date.parse(mov.creado) - Date.now()) < 5000);
+  assert.match(mov.creado, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(mov.creado, hoy());
+});
+
+test('en ningún campo del movimiento hay una hora (ADR-021)', () => {
+  // La app no registra a qué hora hiciste nada. Es la razón por la que ninguna
+  // zona horaria puede correr ningún dato de día.
+  const mov = crear({ comentario: 'Roma', detalle: 'cena' });
+  for (const [campo, valor] of Object.entries(mov)) {
+    if (typeof valor !== 'string') continue;
+    assert.equal(/\d{2}:\d{2}/.test(valor), false, `el campo ${campo} tiene una hora`);
+  }
+});
+
+test('hoy() usa el calendario del dispositivo, no un instante recortado', () => {
+  // A las 22:00 de un martes en Montevideo, recortar un instante UTC daría el
+  // miércoles: lo que importa es qué día es para quien está cargando el gasto.
+  assert.equal(hoy(new Date(2026, 2, 14, 22, 30)), '2026-03-14');
+  assert.equal(hoy(new Date(2026, 0, 1, 0, 5)), '2026-01-01');
+  assert.equal(hoy(new Date(2025, 11, 31, 23, 59)), '2025-12-31');
+});
+
+test('un creado con hora se rechaza', () => {
+  assert.throws(() => crear({}, { ...OPCIONES, creado: '2026-03-14T20:11:03.000Z' }), /fecha/i);
 });
 
 // ── validarMovimiento: lo que ya estaba guardado ─────────────────────────────
@@ -339,7 +364,7 @@ const GUARDADO = {
   moneda: 'EUR',
   comentario: 'Roma',
   detalle: 'cena',
-  creado: '2026-03-14T20:11:03.000Z',
+  creado: '2026-03-14',
 };
 
 test('un movimiento guardado se valida sin reinterpretar el monto', () => {

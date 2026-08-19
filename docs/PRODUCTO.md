@@ -75,6 +75,14 @@ desincronicen. Acá un movimiento tiene **una fecha**, y el día y el mes se der
 de ella. No se puede guardar un movimiento con día 1 en un mes que dice noviembre
 si la fecha real es otra.
 
+### RN-01b — La app no registra horas
+Un movimiento tiene el día en que se gastó y el día en que se cargó. **Nada más.**
+No se guarda a qué hora hiciste ninguna de las dos cosas, ni hace falta.
+
+*Por qué es una regla y no un detalle:* un dato con hora hay que interpretarlo en
+alguna zona horaria, y ahí es donde una fecha se corre de día — el gasto del 14 se
+muestra el 13 (L-011). Sin horas, ese problema no existe.
+
 ### RN-02 — El rubro tiene que pertenecer a la lista del tipo
 Un movimiento de tipo `G` solo acepta rubros de gasto; uno de tipo `I`, solo
 rubros de ingreso. La app no deja elegir mal.

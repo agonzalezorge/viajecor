@@ -157,7 +157,7 @@ export function migrarEstado(guardado, incidencias = []) {
       moneda: tc.moneda.trim().toUpperCase(),
       mes: tc.mes,
       euros_por_unidad: tc.euros_por_unidad,
-      creado: typeof tc.creado === 'string' ? tc.creado : new Date(0).toISOString(),
+      creado: /^\d{4}-\d{2}-\d{2}$/.test(tc.creado) ? tc.creado : '1970-01-01',
     };
   });
 
