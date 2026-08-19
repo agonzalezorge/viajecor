@@ -221,7 +221,7 @@ qué existe.
 |---|---|---|
 | CU-01 | Registrar un gasto | Pendiente |
 | CU-02 | Registrar un ingreso | Pendiente |
-| CU-03 | Definir el tipo de cambio de una moneda para un mes | Pendiente |
+| CU-03 | Definir el tipo de cambio de una moneda para un mes | Lógica hecha (T-005); falta la pantalla (T-012) |
 | CU-04 | Ver el resumen del mes | Pendiente |
 | CU-05 | Ver el gasto día por día del mes | Pendiente |
 | CU-06 | Corregir o borrar un movimiento | Pendiente |

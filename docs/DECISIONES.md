@@ -465,3 +465,36 @@ escala sin registrar que después no coincide con la real.**
 una moneda es **mucho menos grave** de lo que decían PRODUCTO §RN-04b y CU-15.
 Si te queda mal y lo dejás así, tus números están bien. Lo que hay que mirar con
 cuidado es el momento de **corregirlos**.
+
+---
+
+## ADR-020 · El total es la suma de lo que se ve, no un número más exacto
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Contexto:** al sumar en euros movimientos cargados en otra moneda hay dos
+caminos, y dan resultados distintos:
+
+1. Convertir cada movimiento, **redondear al céntimo**, y sumar los redondeados.
+2. Convertir sin redondear, sumar, y redondear **una sola vez al final**.
+
+El camino 2 es aritméticamente más exacto: arrastra menos error acumulado.
+
+**Decisión:** el camino 1. Cada movimiento se redondea al céntimo antes de
+sumarse.
+
+**Por qué el menos exacto:** el céntimo es la unidad en que la app **muestra y
+exporta** cada importe. Con el camino 2, alguien que sume a mano las filas de la
+pantalla puede obtener un céntimo distinto del total que la app muestra abajo. Es
+un error de un céntimo y no le cambia la vida a nadie — pero un total que no
+coincide con la suma de lo que está en pantalla es un total que el usuario deja
+de creer, y a partir de ahí deja de creer todos los demás números.
+
+**No contradice ADR-005.** Ahí la regla es redondear una sola vez *por cálculo*,
+para no acumular error dentro de una misma conversión: eso se sigue cumpliendo,
+`convertirAEuros()` redondea una única vez. Lo de acá es otra cosa: cuál es el
+valor de un movimiento **una vez expresado en euros**, y la respuesta es el que se
+muestra.
+
+**Lo que cuesta:** un total de mil movimientos convertidos puede diferir en unos
+pocos céntimos del cálculo teóricamente perfecto. A cambio, todo lo que la app
+muestra cierra consigo mismo.

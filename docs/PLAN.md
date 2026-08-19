@@ -60,7 +60,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-002 | Aritmética de dinero (`core/dinero.js`) | **Hecha** | T-001 |
 | T-003 | Modelo y validación del movimiento | **Hecha** | T-002 |
 | T-004 | Almacenamiento local | **Hecha** | T-003 |
-| T-005 | Tipos de cambio y conversión a euros | En curso (claude, 2026-08-19) | T-002, T-008 |
+| T-005 | Tipos de cambio y conversión a euros | **Hecha** | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | **Lista** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
 | T-008 | Catálogo de monedas | **Hecha** | T-002 |
@@ -69,7 +69,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-010 | Armazón de la interfaz | **Lista** | T-001 |
 | T-011 | Pantalla de carga de movimiento | Pendiente | T-003, T-004, T-010 |
 | T-012 | Pedir el tipo de cambio al vuelo | Pendiente | T-005, T-011 |
-| T-013 | Cálculos del mes | Pendiente | T-003, T-005 |
+| T-013 | Cálculos del mes | **Lista** | T-003, T-005 |
 | T-014 | Pantalla de resumen del mes | Pendiente | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | Pendiente | T-011 |
 | T-016 | Exportar a JSON | **Lista** | T-004 |
@@ -219,15 +219,35 @@ el estado inicial le pasa la lista.
 ---
 
 ### T-005 · Tipos de cambio y conversión a euros
-**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-002, T-008 · *Se puede hacer en paralelo con T-003 y T-004*
-**Toca:** `src/core/cambio.js`, `test/cambio.test.js`
+**Estado:** Hecha (2026-08-19) · **Depende de:** T-002, T-008
+**Toca:** `src/core/cambio.js`, `test/cambio.test.js`, `tools/build.mjs`
 
 Guardar y buscar el tipo de cambio por `(moneda, mes)`, convertir un movimiento a
 euros (RN-04, RN-05), y responder "¿falta el tipo de cambio para esto?".
 
-**Terminada cuando:** hay tests para euro sin conversión, para una moneda con dos
-meses de tipos distintos, para tipo de cambio faltante, y para el cálculo inverso
-("cuántos colones es un euro" → guardado como euros por colón).
+**Terminada cuando:**
+- [x] Hay tests para euro sin conversión, para una moneda con dos meses de tipos
+      distintos, para tipo de cambio faltante, y para el cálculo inverso
+      ("cuántos colones es un euro" → guardado como euros por colón). Son 26
+      tests; los 156 del proyecto pasan.
+- [x] Los tests **muerden**: comprobado rompiendo el módulo en cuatro puntos
+      —contar como cero lo que no se puede convertir, ignorar el mes, no invertir
+      el cálculo inverso, duplicar en vez de reemplazar—. Cada rotura hizo fallar
+      tests.
+- [x] El recorrido de un viaje a Costa Rica —cargar en colones, que la app pida
+      el tipo de cambio, escribirlo como "un euro son 630 colones", y ver el
+      total en euros— se ejercitó **dentro de `dist/viajecor.html`**.
+
+**Lo que salió de hacerla:** ADR-020, sobre en qué momento se redondea al sumar
+monedas distintas. El total es la suma de lo que se ve en pantalla, aunque el
+otro camino sea aritméticamente más exacto.
+
+**Decisiones que ya estaban y este módulo hace cumplir:**
+- Un movimiento sin tipo de cambio **no se cuenta como cero**: tira. Un
+  movimiento que vale cero desaparece de un total sin dejar rastro.
+- El importe en euros **no se guarda**, se deriva (RN-05). Por eso corregir un
+  tipo de cambio arregla el mes entero, y por eso hay que avisar cuántos
+  movimientos toca antes de aplicarlo.
 
 ---
 
@@ -353,7 +373,7 @@ afecta una corrección.
 ---
 
 ### T-013 · Cálculos del mes — CU-04
-**Estado:** Pendiente · **Depende de:** T-003, T-005
+**Estado:** Lista · **Depende de:** T-003, T-005
 **Toca:** `src/core/calculos.js`, `test/calculos.test.js`
 
 Funciones puras: total de gastos, de ingresos y saldo de un mes; desglose por

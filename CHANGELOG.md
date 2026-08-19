@@ -22,6 +22,12 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- Tipos de cambio y conversión a euros (T-005): el tipo de cambio se guarda por
+  moneda y por mes, se puede escribir en cualquiera de los dos sentidos ("un euro
+  son 630 colones"), y el importe en euros se recalcula siempre — así, corregir un
+  tipo de cambio mal cargado arregla el mes entero en vez de obligar a editar
+  gasto por gasto. Un movimiento sin tipo de cambio **no se cuenta como cero**: la
+  app avisa antes de guardar. 26 tests.
 - Catálogo de monedas (T-008, CU-15): arranca con euro, peso uruguayo, dólar y
   colón, y se le pueden agregar las que hagan falta indicando código, nombre y
   cuántos decimales usa. El euro es intocable —es la moneda base—, un código
