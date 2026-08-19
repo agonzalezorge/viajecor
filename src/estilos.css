@@ -108,3 +108,114 @@ body {
 
 ul.pasos { margin: 0.5rem 0 0; padding-left: 1.25rem; }
 ul.pasos li { margin-bottom: 0.25rem; }
+
+/* ── Armazón (T-010) ──────────────────────────────────────────────────────────
+   Pensado para un celular sostenido con una mano. Dos reglas mandan:
+   los controles se tocan con el pulgar, y los números se leen en columna. */
+
+body {
+  /* El teléfono con muesca: que la barra de abajo no quede debajo del borde. */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.app {
+  /* Sitio para la barra de navegación, que va fija abajo. */
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0));
+}
+
+/* El mes que se está mirando. Es la pregunta que la app viene a responder,
+   así que está arriba de todo y se cambia sin buscar nada. */
+.mes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.mes-nombre {
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-align: center;
+  flex: 1;
+  /* Sin esto, el nombre del mes salta de lugar al pasar de mayo a septiembre. */
+  min-width: 10rem;
+}
+
+.flecha {
+  /* 2,75rem = 44px: el mínimo que una persona acierta con el pulgar sin mirar.
+     Un botón de 24px obliga a apuntar, y apuntar en el subte es fallar. */
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  cursor: pointer;
+}
+
+.flecha:active { background: var(--borde); }
+
+/* Los avisos del almacenamiento: datos que no se pudieron leer, espacio
+   agotado. Es la información que evita perder datos, así que se ve. */
+.aviso.importante {
+  border-color: var(--gasto);
+  border-left-width: 4px;
+  margin-bottom: 1.25rem;
+}
+
+.aviso.importante h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--gasto); }
+.aviso.importante ul { margin: 0; padding-left: 1.25rem; }
+.aviso.importante li { margin-bottom: 0.375rem; }
+.aviso.importante li:last-child { margin-bottom: 0; }
+
+.pendiente { font-style: italic; }
+
+/* La barra de navegación va ABAJO: en un celular sostenido con una mano, la
+   parte de arriba de la pantalla es donde el pulgar no llega. */
+.navegacion {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.pestania {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.625rem 0.25rem;
+  min-height: 3.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: var(--texto-suave);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.pestania .icono { font-size: 1.25rem; line-height: 1; }
+.pestania.activa { color: var(--acento); font-weight: 600; }
+.pestania.nueva { color: var(--acento); }
+.pestania:active { background: var(--fondo); }
+
+/* Los importes se leen comparándolos entre sí, y para eso todas las cifras
+   tienen que ocupar lo mismo. Sin esto, un 1 es más angosto que un 8 y las
+   columnas de una lista de gastos quedan dentadas. */
+.importe, .mes-nombre, td.numero { font-variant-numeric: tabular-nums; }
+
+/* Nadie llega a un dato de dinero por accidente: el foco tiene que verse. */
+:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pestania, .flecha { transition: background-color 0.12s ease; }
+}

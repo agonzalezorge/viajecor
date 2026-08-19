@@ -533,3 +533,39 @@ mismo cambio con un año de historial encima obligaría a migrar el esquema.
 mostrar `2026-03-14` sigue exigiendo construir un `Date`, y ahí la zona horaria
 vuelve a aparecer. La diferencia es que ahora es un problema de una sola función
 de presentación, con sus tests, y no algo que pueda contaminar un dato guardado.
+
+---
+
+## ADR-022 · La interfaz se parte en "qué se muestra" y "cómo se engancha"
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Contexto:** `src/ui/` es la parte que toca el navegador, así que por definición
+no se puede testear con `node --test`. Si toda la interfaz fuera código que
+manipula el DOM, cada error de "el mes sale mal", "la pestaña marcada es la que no
+es" o "el comentario del usuario rompe la página" solo aparecería abriendo la app
+y mirando.
+
+**Decisión:** cada pantalla se escribe como **funciones puras que reciben datos y
+devuelven texto HTML**, más una única función (`iniciar()`) que las mete en el
+documento y engancha los clics. La segunda capa se mantiene lo más chica posible.
+
+**Por qué:** casi todos los errores de una interfaz son de la primera clase —qué
+texto, qué número, qué está marcado— y esa clase entera se vuelve testeable sin
+inventar un DOM falso ni arrancar un navegador. Queda del otro lado solo lo que
+de verdad necesita un navegador para comprobarse.
+
+Los 22 tests del armazón (T-010) son todos de la primera capa. Lo de la segunda
+—que un clic en la flecha cambie el mes— se comprobó abriendo
+`dist/viajecor.html` en un Chromium real, con pantalla de celular y zona horaria
+de Montevideo: 0 peticiones de red, 0 errores de consola.
+
+**Lo que cuesta:** armar HTML como texto obliga a escapar a mano todo lo que
+venga de los datos (`escapar()`), y olvidarse una vez rompe la página con un `<`
+en un comentario. A cambio, no entra ninguna librería de interfaz —que habría
+que empaquetar dentro del entregable (ADR-003)— y el HTML resultante se puede
+leer, que es parte de la garantía de privacidad.
+
+**Cuándo revisar esto:** si una pantalla necesita conservar estado mientras se
+edita (un formulario largo a medio llenar), redibujar todo con `innerHTML`
+borraría lo escrito. Ahí habrá que dibujar solo el trozo que cambia — T-011 es la
+primera que se va a topar con esto.

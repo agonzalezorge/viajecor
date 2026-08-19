@@ -196,6 +196,32 @@ export function mesDe(fecha) {
 }
 
 /**
+ * El mes anterior y el siguiente, `AAAA-MM`.
+ *
+ * Se calculan con aritmética sobre los números, no moviendo un `Date`: restarle
+ * un mes a un `Date` del 31 de marzo da el 3 de marzo, porque febrero no tiene
+ * 31 días. Acá no hay días de por medio, así que el problema no puede aparecer.
+ */
+export function mesAnterior(mes) {
+  const [anio, numero] = partesDelMes(mes);
+  return numero === 1 ? `${anio - 1}-12` : `${anio}-${String(numero - 1).padStart(2, '0')}`;
+}
+
+export function mesSiguiente(mes) {
+  const [anio, numero] = partesDelMes(mes);
+  return numero === 12 ? `${anio + 1}-01` : `${anio}-${String(numero + 1).padStart(2, '0')}`;
+}
+
+function partesDelMes(mes) {
+  if (typeof mes !== 'string' || !/^\d{4}-\d{2}$/.test(mes)) {
+    throw new Error(`El mes se escribe como AAAA-MM (por ejemplo 2026-03), y llegó ${JSON.stringify(mes)}.`);
+  }
+  const numero = Number(mes.slice(5));
+  if (numero < 1 || numero > 12) throw new Error(`No existe el mes ${mes}.`);
+  return [Number(mes.slice(0, 4)), numero];
+}
+
+/**
  * Una fecha futura se PERMITE —se puede querer anotar algo ya pagado que
  * corresponde a otro día (CU-01)— pero la app avisa. Esta función es la que le
  * permite avisar; no rechaza nada.

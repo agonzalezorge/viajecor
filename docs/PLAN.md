@@ -66,8 +66,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-008 | Catálogo de monedas | **Hecha** | T-002 |
 | T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
-| T-010 | Armazón de la interfaz | En curso (claude, 2026-08-19) | T-001 |
-| T-011 | Pantalla de carga de movimiento | Pendiente | T-003, T-004, T-010 |
+| T-010 | Armazón de la interfaz | **Hecha** | T-001 |
+| T-011 | Pantalla de carga de movimiento | **Lista** | T-003, T-004, T-010 |
 | T-012 | Pedir el tipo de cambio al vuelo | Pendiente | T-005, T-011 |
 | T-013 | Cálculos del mes | **Lista** | T-003, T-005 |
 | T-014 | Pantalla de resumen del mes | Pendiente | T-013, T-010, T-006 |
@@ -81,7 +81,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-021 | Evolución mes a mes | Pendiente | T-013 |
 | T-022 | Promedio de gastos fijos | Pendiente | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
-| T-024 | Pantalla de monedas | Pendiente (falta T-010) | T-008, T-010 |
+| T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | Pendiente | T-003, T-009 |
 | T-031 | Lector de `.xlsx` sin librerías | Pendiente | T-009 |
@@ -92,9 +92,9 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Independientes** ||||
 | T-900 | README de uso | Lista | — |
 | T-901 | Versionado y CHANGELOG | Lista | — |
-| T-902 | Uso cómodo en celular | Pendiente | T-010 |
+| T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio de respaldo | Pendiente | T-016 |
-| T-904 | Modo oscuro | Pendiente | T-010 |
+| T-904 | Modo oscuro | **Hecha** (venía de T-001) | T-010 |
 | T-905 | Respaldo cómodo a la nube, sin red | Pendiente | T-016 |
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
@@ -359,16 +359,44 @@ siempre el mismo archivo y un test que dependa de él no cambia entre corridas.
 ## Etapa 1 — v0.1: registrar, ver y exportar
 
 ### T-010 · Armazón de la interfaz
-**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-001
-**Toca:** `src/ui/app.js`, `src/estilos.css`
+**Estado:** Hecha (2026-08-19) · **Depende de:** T-001
+**Toca:** `src/ui/app.js`, `src/estilos.css`, `src/core/modelo.js`, `test/app.test.js`
 
 Navegación entre pantallas, encabezado con el mes visible y la versión, y los
 estilos base pensados para celular.
 
+**Terminada cuando:**
+- [x] Tres pantallas registradas (Mes, Movimientos, Datos) con marcadores que
+      dicen qué van a tener y qué tarea las trae, más el botón de cargar. 22
+      tests; los 202 del proyecto pasan.
+- [x] El mes se cambia con flechas desde el encabezado, y el selector **no** se
+      dibuja en las pantallas que no son de un mes.
+- [x] Los avisos que produce `almacenamiento.js` al leer se muestran arriba de
+      todo. Que ese cuidado llegue a la pantalla era la mitad de su sentido.
+- [x] **Comprobado en un navegador real**, no deducido: `dist/viajecor.html`
+      abierto desde el disco en Chromium, pantalla de celular (390×844), zona
+      horaria de Montevideo. Navegación entre las tres pantallas y cambio de mes
+      funcionando, **0 peticiones a internet y 0 errores de consola**.
+
+**Lo que salió de hacerla:**
+- ADR-022: la interfaz se parte en funciones puras que devuelven texto y una sola
+  función que toca el documento.
+- La aritmética de meses (`mesAnterior`/`mesSiguiente`) se hace con números y no
+  moviendo un `Date`: a un `Date` del 31 de marzo restarle un mes da el **3 de
+  marzo**, porque febrero no tiene 31 días. Comprobado, y hay un test que lo
+  documenta.
+- El modo oscuro ya funcionaba desde T-001 (`prefers-color-scheme`), así que
+  T-904 queda hecha sin trabajo propio.
+
+**Lo que T-011 se va a topar:** el armazón redibuja todo con `innerHTML` en cada
+cambio. Para un formulario a medio llenar eso borraría lo escrito, así que la
+pantalla de carga va a tener que dibujar solo el trozo que cambia. Está anotado
+en ADR-022.
+
 ---
 
 ### T-011 · Pantalla de carga de movimiento — CU-01, CU-02
-**Estado:** Pendiente · **Depende de:** T-003, T-004, T-010
+**Estado:** Lista · **Depende de:** T-003, T-004, T-010
 **Toca:** `src/ui/pantallas/movimiento.js`
 
 Formulario con fecha (hoy por defecto), tipo, monto, moneda (la última usada),

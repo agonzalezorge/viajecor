@@ -113,6 +113,117 @@ body {
 
 ul.pasos { margin: 0.5rem 0 0; padding-left: 1.25rem; }
 ul.pasos li { margin-bottom: 0.25rem; }
+
+/* ── Armazón (T-010) ──────────────────────────────────────────────────────────
+   Pensado para un celular sostenido con una mano. Dos reglas mandan:
+   los controles se tocan con el pulgar, y los números se leen en columna. */
+
+body {
+  /* El teléfono con muesca: que la barra de abajo no quede debajo del borde. */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.app {
+  /* Sitio para la barra de navegación, que va fija abajo. */
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0));
+}
+
+/* El mes que se está mirando. Es la pregunta que la app viene a responder,
+   así que está arriba de todo y se cambia sin buscar nada. */
+.mes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.mes-nombre {
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-align: center;
+  flex: 1;
+  /* Sin esto, el nombre del mes salta de lugar al pasar de mayo a septiembre. */
+  min-width: 10rem;
+}
+
+.flecha {
+  /* 2,75rem = 44px: el mínimo que una persona acierta con el pulgar sin mirar.
+     Un botón de 24px obliga a apuntar, y apuntar en el subte es fallar. */
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  cursor: pointer;
+}
+
+.flecha:active { background: var(--borde); }
+
+/* Los avisos del almacenamiento: datos que no se pudieron leer, espacio
+   agotado. Es la información que evita perder datos, así que se ve. */
+.aviso.importante {
+  border-color: var(--gasto);
+  border-left-width: 4px;
+  margin-bottom: 1.25rem;
+}
+
+.aviso.importante h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--gasto); }
+.aviso.importante ul { margin: 0; padding-left: 1.25rem; }
+.aviso.importante li { margin-bottom: 0.375rem; }
+.aviso.importante li:last-child { margin-bottom: 0; }
+
+.pendiente { font-style: italic; }
+
+/* La barra de navegación va ABAJO: en un celular sostenido con una mano, la
+   parte de arriba de la pantalla es donde el pulgar no llega. */
+.navegacion {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.pestania {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.625rem 0.25rem;
+  min-height: 3.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: var(--texto-suave);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.pestania .icono { font-size: 1.25rem; line-height: 1; }
+.pestania.activa { color: var(--acento); font-weight: 600; }
+.pestania.nueva { color: var(--acento); }
+.pestania:active { background: var(--fondo); }
+
+/* Los importes se leen comparándolos entre sí, y para eso todas las cifras
+   tienen que ocupar lo mismo. Sin esto, un 1 es más angosto que un 8 y las
+   columnas de una lista de gastos quedan dentadas. */
+.importe, .mes-nombre, td.numero { font-variant-numeric: tabular-nums; }
+
+/* Nadie llega a un dato de dinero por accidente: el foco tiene que verse. */
+:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pestania, .flecha { transition: background-color 0.12s ease; }
+}
 </style>
 
 <div id="app" class="app">
@@ -584,6 +695,32 @@ function hoy(momento = new Date()) {
 /** El mes al que pertenece un movimiento, `AAAA-MM`. Se DERIVA de la fecha. */
 function mesDe(fecha) {
   return validarFecha(fecha).slice(0, 7);
+}
+
+/**
+ * El mes anterior y el siguiente, `AAAA-MM`.
+ *
+ * Se calculan con aritmética sobre los números, no moviendo un `Date`: restarle
+ * un mes a un `Date` del 31 de marzo da el 3 de marzo, porque febrero no tiene
+ * 31 días. Acá no hay días de por medio, así que el problema no puede aparecer.
+ */
+function mesAnterior(mes) {
+  const [anio, numero] = partesDelMes(mes);
+  return numero === 1 ? `${anio - 1}-12` : `${anio}-${String(numero - 1).padStart(2, '0')}`;
+}
+
+function mesSiguiente(mes) {
+  const [anio, numero] = partesDelMes(mes);
+  return numero === 12 ? `${anio + 1}-01` : `${anio}-${String(numero + 1).padStart(2, '0')}`;
+}
+
+function partesDelMes(mes) {
+  if (typeof mes !== 'string' || !/^\d{4}-\d{2}$/.test(mes)) {
+    throw new Error(`El mes se escribe como AAAA-MM (por ejemplo 2026-03), y llegó ${JSON.stringify(mes)}.`);
+  }
+  const numero = Number(mes.slice(5));
+  if (numero < 1 || numero > 12) throw new Error(`No existe el mes ${mes}.`);
+  return [Number(mes.slice(0, 4)), numero];
 }
 
 /**
@@ -1600,50 +1737,283 @@ function listarRescates(almacen = almacenPorDefecto()) {
 }
 
 // ── src/ui/app.js ───────────────────────────────────────────────
-// Arranque de la aplicación. Por ahora solo dibuja la pantalla inicial: su
-// trabajo real es demostrar que el archivo construido abre sin conexión.
-// Las pantallas de verdad llegan con T-011 en adelante (docs/PLAN.md).
+// El armazón de la interfaz: encabezado, navegación entre pantallas y el hueco
+// donde cada pantalla dibuja lo suyo.
+//
+// Está partido en dos capas a propósito:
+//
+//   1. Funciones que reciben datos y devuelven TEXTO HTML. Son puras: no tocan
+//      el navegador, así que se pueden testear con node --test sin inventar un
+//      DOM falso. Es donde vive casi toda la lógica de qué se muestra.
+//   2. `iniciar()`, que es la única que toca el documento y engancha los clics.
+//
+// La frontera importa: un error de "qué se muestra" se puede cazar con un test;
+// uno de "cómo se engancha un clic" solo se ve abriendo la app. Cuanto más de lo
+// primero y menos de lo segundo, más barato es equivocarse.
 
-// La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
-// VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
-// versión publicada, y decirlo es más honesto que inventar un número.
+
+
+
+/**
+ * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
+ * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
+ * versión publicada, y decirlo es más honesto que inventar un número.
+ */
 function versionApp() {
   return globalThis.__VIAJECOR_VERSION__ || 'sin construir';
 }
 
-function pantallaInicial() {
-  return `
-    <header class="encabezado">
-      <h1>Viajecor</h1>
-      <span class="version">v${versionApp()}</span>
-    </header>
+/**
+ * Escapa un texto para meterlo en HTML.
+ *
+ * No es una precaución teórica: el comentario y el detalle de un movimiento son
+ * texto libre que escribe el usuario, y alcanza con un `<` para romper la
+ * página. Todo lo que venga de los datos pasa por acá antes de entrar en una
+ * plantilla; lo que no pase, es un error.
+ */
+function escapar(texto) {
+  return String(texto ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
+// ── Las pantallas ────────────────────────────────────────────────────────────
+//
+// Cada pantalla se registra acá con su nombre, su etiqueta en la barra de abajo
+// y una función que dibuja su contenido. Las de verdad llegan con T-011 y
+// siguientes; por ahora hay marcadores, para que el armazón se pueda ver y usar
+// antes de que exista ninguna.
+
+const PANTALLAS = new Map();
+
+function registrarPantalla(nombre, definicion) {
+  PANTALLAS.set(nombre, { nombre, ...definicion });
+  return PANTALLAS.get(nombre);
+}
+
+function pantallasRegistradas() {
+  return [...PANTALLAS.values()];
+}
+
+function pantalla(nombre) {
+  return PANTALLAS.get(nombre) ?? null;
+}
+
+/** Un marcador honesto: dice qué va a haber acá y qué tarea lo trae. */
+function marcador(titulo, explicacion, tarea) {
+  return () => `
     <section class="tarjeta">
-      <h2>Todavía no hay nada que registrar</h2>
-      <p class="suave">El esqueleto de la aplicación funciona: este archivo se abrió
-      desde tu dispositivo, sin conexión y sin pedirle nada a internet.</p>
+      <h2>${escapar(titulo)}</h2>
+      <p class="suave">${escapar(explicacion)}</p>
+      <p class="suave pendiente">Todavía no está construida — ${escapar(tarea)}.</p>
     </section>
-
-    <section class="tarjeta">
-      <h2>Qué sigue</h2>
-      <ul class="pasos suave">
-        <li>Aritmética de dinero y modelo del movimiento</li>
-        <li>Cargar un gasto o un ingreso</li>
-        <li>Tipo de cambio por moneda y por mes</li>
-        <li>Resumen del mes</li>
-        <li>Exportar tus datos</li>
-      </ul>
-      <p class="suave">El orden y el estado de cada paso están en
-      <code>docs/PLAN.md</code>.</p>
-    </section>
-
-    <p class="estado"><span class="punto"></span>Tus datos se guardan solo en este
-    dispositivo.</p>
   `;
 }
 
-function iniciar(documento) {
-  documento.getElementById('app').innerHTML = pantallaInicial();
+registrarPantalla('mes', {
+  etiqueta: 'Mes',
+  icono: '◧',
+  conMes: true,
+  dibujar: marcador(
+    'Resumen del mes',
+    'Cuánto gastaste, cuánto entró y el saldo, con el desglose por rubro.',
+    'T-014'
+  ),
+});
+
+registrarPantalla('movimientos', {
+  etiqueta: 'Movimientos',
+  icono: '≡',
+  conMes: true,
+  dibujar: marcador(
+    'Movimientos del mes',
+    'La lista de lo que cargaste, para revisarlo, corregirlo o borrarlo.',
+    'T-015'
+  ),
+});
+
+registrarPantalla('datos', {
+  etiqueta: 'Datos',
+  icono: '↧',
+  conMes: false,
+  dibujar: marcador(
+    'Tus datos',
+    'Exportar un respaldo, volver a importarlo, y la lista de monedas.',
+    'T-016 y T-024'
+  ),
+});
+
+// ── Piezas de la pantalla ────────────────────────────────────────────────────
+
+/**
+ * El encabezado. Muestra el mes que se está mirando con flechas para moverse,
+ * porque "¿cómo viene el mes?" es la pregunta que la app viene a responder y
+ * tener que buscar dónde cambiarlo sería absurdo.
+ *
+ * En las pantallas que no son de un mes (los datos, las monedas) el selector no
+ * se dibuja: un control que no hace nada enseña a desconfiar de los controles.
+ */
+function dibujarEncabezado({ mes, conMes }) {
+  const selector = conMes
+    ? `
+      <nav class="mes" aria-label="Mes que se está viendo">
+        <button type="button" class="flecha" data-accion="mes-anterior" aria-label="Mes anterior">‹</button>
+        <span class="mes-nombre" data-mes="${escapar(mes)}">${escapar(formatearMes(mes))}</span>
+        <button type="button" class="flecha" data-accion="mes-siguiente" aria-label="Mes siguiente">›</button>
+      </nav>`
+    : '';
+
+  return `
+    <header class="encabezado">
+      <h1>Viajecor</h1>
+      <span class="version">v${escapar(versionApp())}</span>
+    </header>
+    ${selector}
+  `;
+}
+
+/**
+ * La barra de navegación, abajo y no arriba: en un celular sostenido con una
+ * mano, la parte de arriba de la pantalla es donde el pulgar no llega.
+ */
+function dibujarNavegacion(actual) {
+  const botones = pantallasRegistradas()
+    .map((p) => {
+      const seleccionada = p.nombre === actual;
+      return `
+        <button type="button" class="pestania${seleccionada ? ' activa' : ''}"
+                data-accion="ir" data-pantalla="${escapar(p.nombre)}"
+                ${seleccionada ? 'aria-current="page"' : ''}>
+          <span class="icono" aria-hidden="true">${escapar(p.icono)}</span>
+          <span>${escapar(p.etiqueta)}</span>
+        </button>`;
+    })
+    .join('');
+
+  return `
+    <nav class="navegacion" aria-label="Secciones">
+      ${botones}
+      <button type="button" class="pestania nueva" data-accion="nuevo">
+        <span class="icono" aria-hidden="true">+</span>
+        <span>Cargar</span>
+      </button>
+    </nav>
+  `;
+}
+
+/**
+ * Los avisos que devuelve el almacenamiento al leer (T-004): datos que no se
+ * pudieron interpretar, registros descartados, espacio agotado.
+ *
+ * Se muestran arriba de todo y no se pueden cerrar de un toque distraído: son
+ * exactamente la información que el usuario necesita para no perder datos, y
+ * `almacenamiento.js` se toma el trabajo de producirla. Tragárnosla acá haría
+ * inútil todo ese cuidado.
+ */
+function dibujarAvisos(incidencias = []) {
+  if (incidencias.length === 0) return '';
+  const items = incidencias.map((texto) => `<li>${escapar(texto)}</li>`).join('');
+  const titulo = incidencias.length === 1 ? 'Hay algo que tenés que saber' : 'Hay cosas que tenés que saber';
+
+  return `
+    <section class="aviso importante" role="alert">
+      <h2>${titulo}</h2>
+      <ul>${items}</ul>
+    </section>
+  `;
+}
+
+/** La app entera, como texto. Es la función que los tests miran. */
+function dibujarApp(vista) {
+  const definicion = pantalla(vista.pantalla) ?? pantalla('mes');
+  const contenido = definicion.dibujar(vista);
+
+  return `
+    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes })}
+    ${dibujarAvisos(vista.incidencias)}
+    <main class="contenido">${contenido}</main>
+    ${dibujarNavegacion(definicion.nombre)}
+  `;
+}
+
+// ── El estado de la vista ────────────────────────────────────────────────────
+
+/**
+ * Qué se está mirando: la pantalla, el mes y los datos. Es lo único mutable de
+ * la interfaz, y vive en un solo lugar para que "por qué se ve esto" tenga una
+ * sola respuesta posible.
+ */
+function vistaInicial({ estado, incidencias = [], mes } = {}) {
+  return {
+    pantalla: 'mes',
+    mes: mes ?? mesDe(hoy()),
+    estado,
+    incidencias,
+  };
+}
+
+/** Mueve el mes visible. Devuelve una vista nueva, sin tocar la que recibe. */
+function moverMes(vista, direccion) {
+  const mes = direccion === 'anterior' ? mesAnterior(vista.mes) : mesSiguiente(vista.mes);
+  return { ...vista, mes };
+}
+
+function irA(vista, nombre) {
+  return pantalla(nombre) ? { ...vista, pantalla: nombre } : vista;
+}
+
+// ── Lo único que toca el navegador ───────────────────────────────────────────
+
+/**
+ * Arranca la app dentro de un documento.
+ *
+ * El primer arranque necesita que alguien junte las piezas: el estado vacío lo
+ * da `almacenamiento.js` y la lista de monedas la da `monedas.js`, a propósito
+ * separados (dos listas de monedas se desincronizan). Acá se juntan, que es el
+ * único lugar donde tiene sentido.
+ */
+function iniciar(documento, almacen) {
+  const lectura = leerEstado(almacen);
+  let estado = lectura.estado;
+
+  if (lectura.primerArranque) {
+    estado = { ...estado, monedas: monedasIniciales() };
+    // No se guarda todavía: escribir en el primer arranque, antes de que el
+    // usuario cargue nada, es la forma más fácil de pisar algo que estaba y no
+    // se entendió (ADR-015). Se guardará con el primer movimiento.
+  }
+
+  let vista = vistaInicial({ estado, incidencias: lectura.incidencias });
+  const raiz = documento.getElementById('app');
+
+  function pintar() {
+    raiz.innerHTML = dibujarApp(vista);
+  }
+
+  raiz.addEventListener('click', (evento) => {
+    const boton = evento.target.closest('[data-accion]');
+    if (!boton) return;
+
+    const { accion, pantalla: destino } = boton.dataset;
+    if (accion === 'mes-anterior') vista = moverMes(vista, 'anterior');
+    else if (accion === 'mes-siguiente') vista = moverMes(vista, 'siguiente');
+    else if (accion === 'ir') vista = irA(vista, destino);
+    else if (accion === 'nuevo') vista = irA(vista, 'movimientos');
+    else return;
+
+    pintar();
+  });
+
+  pintar();
+  return {
+    get vista() {
+      return vista;
+    },
+    pintar,
+    guardar: () => guardarEstado(vista.estado, almacen),
+  };
 }
 
 if (typeof document !== 'undefined') {

@@ -22,6 +22,13 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **La app ya se puede recorrer** (T-010): encabezado con el mes que se está
+  mirando y flechas para moverse, y una barra abajo con las tres secciones —Mes,
+  Movimientos y Datos— más el botón de cargar. Las pantallas todavía son
+  marcadores que dicen qué va a haber en cada una. Comprobado en un navegador
+  real, abierto desde el disco: 0 peticiones a internet y 0 errores. 22 tests.
+- La app no registra horas, solo días (ADR-021): ni la fecha del gasto ni la de
+  carga guardan a qué hora pasó nada.
 - Formateo en español de montos, fechas y tipos de cambio (T-006): `1250` se ve
   como `12,50 €`, y el tipo de cambio se muestra como lo conoce el usuario
   (`1 EUR = 630,00 CRC`) aunque por dentro se guarde al revés. Las fechas **no se
