@@ -377,6 +377,18 @@ leer" sin decir cuáles no sirve para nada.
 ## ADR-018 · Preguntar los decimales de una moneda que no está en la lista tira
 **Fecha:** 2026-08-19 · **Estado:** Vigente
 
+**Lo primero, porque se presta a confusión:** `decimales` **no dice cómo hay que
+escribir un monto.** En euros podés escribir `15`, `15,0` o `15,00` y las tres
+cosas se guardan igual, como 1500. `decimales` dice **cuántas subunidades tiene
+la moneda**: el euro tiene céntimos, el yen no tiene nada más chico que el yen.
+Es una propiedad de la moneda, no del movimiento.
+
+**Y por eso tiene que ser una sola para toda la moneda:** el monto se guarda como
+entero, y ese entero solo significa algo en relación a la escala de su moneda. Si
+cada movimiento trajera su propia escala —uno guardado como `15` porque escribiste
+"15", y otro como `1500` porque escribiste "15,00"— sumarlos daría 1515 en vez de
+30,00 €. La escala uniforme es lo que permite que sumar sea sumar.
+
 **Contexto:** `decimalesDe(monedas, codigo)` es lo que le dice al resto de la app
 cómo interpretar un monto en una moneda. Si el código no está en la lista del
 usuario, hay dos salidas: devolver 2 —que es lo que usan casi todas las monedas—
