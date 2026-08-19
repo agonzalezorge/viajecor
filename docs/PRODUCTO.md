@@ -134,10 +134,11 @@ chico que el yen. La app propone 2 y explica qué significa.
 **Si te equivocás al elegirlos, no pasa nada grave** — mientras no los cambies
 después. Un yen configurado con 2 decimales guarda tus 1500 yenes de una forma un
 poco rara por dentro, pero los muestra y los convierte a euros perfectamente.
-**Lo que sí cambia los números es corregir los decimales de una moneda que ya
-tiene movimientos cargados**: ahí los importes se reinterpretan y quedan cien
-veces más grandes o más chicos. Por eso la app avisa cuántos movimientos afecta
-antes de aplicarlo. Ver ADR-019.
+**Y si los corregís más adelante, la app ajusta tus gastos** para que sigan
+valiendo lo mismo: 1500 yenes siguen siendo 1500 yenes (decidido el 2026-08-19,
+ver T-908). El único caso en que se pierde algo es al **bajar** los decimales —
+1500,50 no puede existir en una moneda sin decimales—, y ahí la app dice cuántos
+movimientos se redondean **antes** de aplicar el cambio. Ver ADR-019.
 
 Una moneda **que ya tiene movimientos cargados no se puede borrar** — dejaría
 movimientos huérfanos sin forma de convertirlos. Se puede ocultar de la lista.

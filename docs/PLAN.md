@@ -97,6 +97,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-904 | Modo oscuro | Pendiente | T-010 |
 | T-905 | Respaldo cómodo a la nube, sin red | Pendiente | T-016 |
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
+| T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
 | T-906 | Exportar a `.xlsx` con la forma de la planilla | Pendiente | T-016, T-018 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
@@ -565,6 +566,19 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   siendo una **sugerencia**: el usuario la puede cambiar, y la lista de monedas la
   sigue manejando él (ADR-011). Pedido por el usuario el 2026-08-19.
   *(Depende de T-008. Se muestra en T-024.)*
+- **T-908 · Reescalar los montos al corregir los decimales de una moneda** —
+  decidido por el usuario el 2026-08-19. Hoy `cambiarDecimalesDe()` deja los
+  montos como están y por lo tanto los **reinterpreta**: 1500 yenes cargados con
+  2 decimales pasan a ser 150.000 yenes si se corrige a 0 (ADR-019). Tiene que
+  ajustarlos para que sigan valiendo lo mismo.
+
+  **El caso feo que hay que resolver, no esquivar:** bajar de 2 decimales a 0
+  puede **perder información**. Un monto de 1500,50 no tiene forma de existir en
+  una moneda sin decimales: hay que redondear, y eso cambia el importe. La app
+  tiene que decir **cuántos movimientos pierden decimales y cuánto** antes de
+  aplicar el cambio, no después. Subir de 0 a 2 decimales, en cambio, es exacto y
+  no pierde nada.
+  *(Depende de T-008. Se muestra en T-024.)*
 - **T-906 · Exportar a `.xlsx` con la forma de la planilla** — una planilla de
   verdad, con fechas como fechas, además del CSV de T-018.
   *(Depende de T-016, T-018.)*
@@ -634,7 +648,19 @@ ellas quedan `Necesita decisión`.
 
    Hasta que se decida, se construye la primera. Ver T-905.
 
-6. **Corregir los decimales de una moneda: ¿reinterpreta o reescala? (2026-08-19)**
+6. ~~**Corregir los decimales de una moneda: ¿reinterpreta o reescala?**~~
+   **Respondida (2026-08-19): reescalar.** Al corregir los decimales de una
+   moneda, los montos ya cargados se ajustan para que sigan valiendo lo mismo:
+   tus 1500 yenes siguen siendo 1500 yenes. Corregir un dato de la moneda no
+   cambia el valor de ningún gasto. → T-908.
+
+   El usuario planteó también la alternativa de **no dejar cambiar los decimales
+   nunca** una vez elegidos. Es más simple y más segura, pero deja sin salida a
+   quien se equivoca al agregar una moneda, así que se prefiere reescalar. Si
+   T-908 resultara más frágil de lo previsto, prohibir el cambio es el plan B —
+   y con T-907 (decimales sugeridos) el error se vuelve raro de entrada.
+
+   Contexto original:
    Hoy, si cargaste 1500 yenes con la moneda configurada en 2 decimales y después
    la corregís a 0, esos movimientos pasan a valer 150.000 yenes — el número
    guardado se lee con otra escala (ADR-019). La app avisa cuántos movimientos
