@@ -60,7 +60,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-002 | Aritmética de dinero (`core/dinero.js`) | **Hecha** | T-001 |
 | T-003 | Modelo y validación del movimiento | **Hecha** | T-002 |
 | T-004 | Almacenamiento local | **Hecha** | T-003 |
-| T-005 | Tipos de cambio y conversión a euros | **Lista** | T-002, T-008 |
+| T-005 | Tipos de cambio y conversión a euros | En curso (claude, 2026-08-19) | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | **Lista** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
 | T-008 | Catálogo de monedas | **Hecha** | T-002 |
@@ -219,7 +219,7 @@ el estado inicial le pasa la lista.
 ---
 
 ### T-005 · Tipos de cambio y conversión a euros
-**Estado:** Lista · **Depende de:** T-002, T-008 · *Se puede hacer en paralelo con T-003 y T-004*
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-002, T-008 · *Se puede hacer en paralelo con T-003 y T-004*
 **Toca:** `src/core/cambio.js`, `test/cambio.test.js`
 
 Guardar y buscar el tipo de cambio por `(moneda, mes)`, convertir un movimiento a
