@@ -4,7 +4,7 @@
 > función, nunca "después". Si cambiás una regla de negocio en el código y no la
 > cambiás acá, el cambio está incompleto.
 >
-> Última actualización: 2026-08-18 · Versión del documento: v0.1
+> Última actualización: 2026-08-19 · Versión del documento: v0.1
 
 ---
 
@@ -85,6 +85,13 @@ Todo texto que sirva para agrupar (rubro, comentario, moneda) se compara
 de minúsculas. `VIAJES`, `viajes` y ` Viajes ` son el mismo rubro. Esta regla
 existe porque el Excel ya tiene esa inconsistencia y ahí no molesta (Excel compara
 así por defecto); una app que compare exacto rompería los totales en silencio.
+
+**El comentario se muestra tal como lo escribiste.** Si escribís `Roma`, la app
+dice `Roma`, no `roma`: la normalización decide cuándo dos comentarios son el
+mismo, no cómo se ven (ADR-013).
+
+**Las tildes sí cuentan:** hoy `Perú` y `Peru` son dos comentarios distintos. Es
+una decisión pendiente, anotada en `docs/PLAN.md`.
 
 ### RN-04 — Multimoneda con tipo de cambio mensual
 - Cada movimiento se carga **en la moneda en que se gastó**, con su monto original.

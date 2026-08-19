@@ -4,7 +4,7 @@
 > instrucción específica del usuario, lo que sigue es lo que dice este archivo.
 > No hay una segunda lista en otro lado.
 >
-> Última actualización: 2026-08-18
+> Última actualización: 2026-08-19
 
 ---
 
@@ -58,8 +58,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Etapa 0 — Cimientos** ||||
 | T-001 | Esqueleto del proyecto y construcción | **Hecha** | — |
 | T-002 | Aritmética de dinero (`core/dinero.js`) | **Hecha** | T-001 |
-| T-003 | Modelo y validación del movimiento | En curso (claude, 2026-08-19) | T-002 |
-| T-004 | Almacenamiento local | Pendiente | T-003 |
+| T-003 | Modelo y validación del movimiento | **Hecha** | T-002 |
+| T-004 | Almacenamiento local | **Lista** | T-003 |
 | T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | **Lista** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
@@ -153,21 +153,40 @@ silencio. Lo encontró un test escrito para otra cosa. Ver ADR-012 y L-008.
 ---
 
 ### T-003 · Modelo y validación del movimiento
-**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-002
-**Toca:** `src/core/modelo.js`, `test/modelo.test.js`
+**Estado:** Hecha (2026-08-19) · **Depende de:** T-002
+**Toca:** `src/core/modelo.js`, `test/modelo.test.js`, `tools/build.mjs`
 
 Crear un movimiento válido, normalizar textos (RN-03), validar fecha (RN-01) y
 la correspondencia tipo↔rubro (RN-02). Las listas de rubros viven acá, tal como
 están en `docs/PRODUCTO.md` §4.
 
-**Terminada cuando:** hay tests para `VIAJES`/`viajes`/` Viajes ` como el mismo
-rubro, para un rubro de ingreso rechazado en un gasto, y para monto cero o
-negativo rechazado.
+**Terminada cuando:**
+- [x] Hay tests para `VIAJES`/`viajes`/` Viajes ` como el mismo rubro, para un
+      rubro de ingreso rechazado en un gasto, y para monto cero o negativo
+      rechazado. Son 43 tests nuevos; los 81 del proyecto pasan.
+- [x] Los tests **muerden**: comprobado rompiendo el código a propósito en tres
+      puntos (sin `normalize('NFC')`, sin comprobar que el día exista, con
+      identificadores de 4 bytes). Cada rotura hizo fallar tests.
+- [x] El modelo se ejercitó **dentro de `dist/viajecor.html`**, no solo en el
+      código fuente: el build borra los `import`/`export` y pega todo en un
+      ámbito único, y esa transformación podría romper algo que los tests de Node
+      no ven.
+
+**Lo que salió de hacerla:**
+- Dos textos idénticos en pantalla pueden ser distintos para la máquina, sin
+  ningún síntoma visible. Ver L-009.
+- El comentario se guarda como se escribió y se agrupa por una clave aparte, para
+  que la app pueda mostrar `Roma` y no `roma`. Ver ADR-013.
+- Crear un movimiento e interpretar uno ya guardado son dos puertas separadas,
+  porque `1250` significa cosas distintas en cada una. Ver ADR-014.
+- El identificador usa 16 dígitos hexadecimales y no 8: con 8, la probabilidad de
+  que dos movimientos compartan identificador ronda el 10% a los 30.000
+  movimientos. Se corrigió el ejemplo de `docs/ARQUITECTURA.md` §5.
 
 ---
 
 ### T-004 · Almacenamiento local
-**Estado:** Pendiente · **Depende de:** T-003
+**Estado:** Lista · **Depende de:** T-003
 **Toca:** `src/datos/almacenamiento.js`, `test/almacenamiento.test.js`
 
 Leer y escribir el estado completo bajo `viajecor:datos:v1`, con el número de
@@ -483,6 +502,10 @@ ellas quedan `Necesita decisión`.
    totales de meses ya cerrados. ¿Está bien así, o preferís que un movimiento
    quede congelado al tipo de cambio del momento en que lo cargaste?
 2. **Viajes (T-023).** Las tres preguntas de esa tarea.
+3. **Tildes al agrupar (ADR-013).** Hoy `Perú` y `Peru` son dos comentarios
+   distintos, así que dos gastos del mismo viaje escritos con y sin tilde no se
+   suman juntos. Ignorar las tildes lo arreglaría, pero también juntaría palabras
+   que quizá quieras separadas. ¿Cómo lo preferís?
 
 ### Respondidas
 

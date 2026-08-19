@@ -214,3 +214,38 @@ que molesta es preferible a un número mal que nadie ve.
 comprobar otra cosa. La regla parecía correcta al leerla; solo se cayó al
 ejecutarla contra un caso concreto. Es exactamente por qué "lo probé y anda" y
 "debería andar" se escriben distinto.
+
+---
+
+## L-009 · Dos textos idénticos en pantalla pueden ser distintos para la máquina
+
+**De dónde salió:** de escribir la normalización de textos de `core/modelo.js`
+(T-003), buscando en qué otras formas puede fallar la comparación de L-002.
+
+En Unicode, `Perú` se puede escribir de dos maneras: con una `ú` de una sola
+pieza (U+00FA) o con una `u` seguida de una tilde combinante (U+0075 U+0301). Se
+dibujan **exactamente igual** en cualquier pantalla, y `===` dice que son
+distintas. No es un caso de laboratorio: el teclado de iOS y el texto copiado
+desde macOS producen a veces la segunda forma, y este proyecto se usa
+principalmente desde un celular.
+
+Sin normalizar, dos comentarios que el usuario ve iguales serían dos viajes
+distintos. Y a diferencia de `Roma ` con un espacio de más (L-003), **acá no hay
+nada que mirar**: se puede tener el dato en la pantalla, leerlo con atención, y
+no ver ninguna diferencia. La única forma de descubrirlo es comparar los códigos
+de los caracteres, que es algo que a nadie se le ocurre hacer.
+
+**El patrón:** *"iguales" para una persona e "iguales" para la máquina no son la
+misma relación, y la diferencia no siempre es visible.* L-002 era el caso
+visible (mayúsculas, espacios); este es el mismo problema sin síntoma.
+
+**Qué hacemos en la app:** `normalizarTextoVisible()` aplica `normalize('NFC')`
+antes que nada, así que las dos formas se guardan y se comparan como una sola.
+Está en `core/modelo.js`, en el mismo lugar donde se sacan los espacios y se
+bajan las mayúsculas: un texto pasa por una función o por ninguna.
+
+**Y una lección de método:** este error no lo encontró un test que falló. Se
+encontró preguntando *"¿de qué otra forma pueden dos textos parecer iguales sin
+serlo?"* después de leer L-002. Vale la pena hacerse esa pregunta cada vez que se
+implementa la contramedida a una lección vieja: las lecciones describen una
+categoría de error, no un caso.

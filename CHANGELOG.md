@@ -6,6 +6,12 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Cambiado
+- **Arreglado `npm test`**, que no corría ningún test: el script le pasaba una
+  ruta al ejecutor de Node y fallaba antes de empezar. Salía en rojo, pero por el
+  motivo equivocado.
+- **El proyecto se movió a la raíz del repositorio**, para que `CLAUDE.md` esté
+  donde un agente nuevo lo carga solo y los comandos de la documentación
+  funcionen tal como están escritos.
 - **El importador va a leer el `.xlsx` directamente**, sin pedirle al usuario que
   lo convierta a CSV. La decisión anterior (ADR-007) se apoyaba en una premisa
   falsa que nadie había comprobado: el navegador trae `DecompressionStream` y
@@ -16,6 +22,12 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- Modelo del movimiento: la única puerta por la que entra un gasto o un ingreso.
+  Valida que la fecha exista de verdad (`2026-02-30` se rechaza en vez de
+  convertirse en marzo), que el rubro pertenezca a la lista de su tipo, y que el
+  monto no sea cero ni negativo. Normaliza los textos que agrupan, incluidas las
+  dos formas Unicode de una misma palabra acentuada (T-003, ADR-013, ADR-014,
+  L-009). 43 tests.
 - Generador de una planilla de ejemplo con la estructura real y montos inventados,
   para construir y probar el importador sin usar datos confidenciales (T-009).
 - Aritmética de dinero en enteros: interpreta lo que escribe el usuario, suma sin

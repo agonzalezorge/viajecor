@@ -4,7 +4,7 @@
 > modelo de datos. Las decisiones con su justificación están en
 > `docs/DECISIONES.md`; acá está el resultado.
 >
-> Última actualización: 2026-08-18 · Versión del documento: v0.1
+> Última actualización: 2026-08-19 · Versión del documento: v0.1
 
 ---
 
@@ -133,7 +133,7 @@ app. La persona estaría en otro país, sin poder registrar nada. Ver ADR-011.
 
 ```jsonc
 {
-  "id": "mov_9f2c1a4b",     // identificador estable, generado al crear
+  "id": "mov_9f2c1a4b3d7e5602",  // 8 bytes al azar, generados al crear
   "fecha": "2026-03-14",    // AAAA-MM-DD. Una sola fecha (RN-01)
   "tipo": "G",              // "G" gasto | "I" ingreso
   "rubro": "supermercado",  // siempre normalizado (RN-03)
@@ -146,6 +146,21 @@ app. La persona estaría en otro país, sin poder registrar nada. Ver ADR-011.
 ```
 
 No se guarda el importe convertido a euros: **se calcula** (RN-05).
+
+**Por qué el identificador es tan largo:** son 16 dígitos hexadecimales (8 bytes)
+y no 8. Con 8 dígitos hay unos 4.300 millones de valores posibles, que suena de
+sobra, pero por la paradoja del cumpleaños la probabilidad de que **dos**
+movimientos compartan identificador ronda el 10% con 30.000 movimientos — el
+volumen que la sección 6 da por esperable. Dos movimientos con el mismo
+identificador significan que editar uno cambia el otro y que borrar uno borra el
+que no era. Con 16 dígitos la probabilidad se vuelve despreciable, y cuesta ocho
+caracteres por movimiento.
+
+**El comentario se guarda tal como se escribió** (`Roma`, no `roma`), y agrupar
+por comentario es agrupar por su **clave** —`claveDeComentario()` de
+`core/modelo.js`—, nunca por el texto. Ver ADR-013. El rubro, el tipo y el código
+de moneda sí se guardan ya normalizados, porque salen de listas cerradas y su
+forma canónica es la que se muestra.
 
 ### Tipo de cambio
 

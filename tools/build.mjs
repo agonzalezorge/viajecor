@@ -19,6 +19,7 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Al agregar un módulo nuevo, agregarlo acá en la posición que le corresponde.
 const MODULOS = [
   'src/core/dinero.js',
+  'src/core/modelo.js',
   'src/ui/app.js',
 ];
 

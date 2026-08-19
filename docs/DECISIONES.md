@@ -242,3 +242,57 @@ monto entre mal en silencio.
 cargados. Suena más inteligente, pero convierte un error visible en uno que
 depende del historial y aparece de forma intermitente — mucho más difícil de
 notar y de explicar.
+
+---
+
+## ADR-013 · El comentario se guarda como se escribió y se agrupa por una clave
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Contexto:** RN-03 dice que todo texto que agrupe se compara normalizado. El
+rubro y el tipo salen de listas cerradas, así que guardarlos normalizados no
+pierde nada: `supermercado` ya es su forma canónica. El **comentario** no: es lo
+que el usuario escribe para nombrar un viaje, y si se guardara en minúsculas la
+app mostraría `roma` para siempre.
+
+**Decisión:**
+- `rubro`, `tipo` y `moneda` se **guardan ya normalizados** (minúsculas el rubro,
+  mayúsculas el código de moneda).
+- `comentario` se **guarda tal como se escribió**, sin espacios de sobra, y todo
+  cálculo que agrupe por comentario usa `claveDeComentario()`, que es la única
+  función que decide cuándo dos comentarios son el mismo.
+
+**Por qué:** separar "lo que se muestra" de "lo que agrupa" permite tener las dos
+cosas. La alternativa —guardar minúsculas— cambia lo que el usuario ve por una
+razón interna, y la otra —comparar exacto— es la trampa de L-002 y L-003.
+
+**Lo que cuesta:** hay una regla que recordar: agrupar por comentario es agrupar
+por su clave, nunca por el texto. Está en una sola función, con tests, y las
+tareas que agrupan (T-013, T-021, T-022, T-023) tienen que usarla.
+
+**Lo que esta clave NO hace: sacar las tildes.** `Perú` y `Peru` quedan como dos
+grupos distintos. Sacarlas juntaría también palabras que el usuario quiso separar
+y es una decisión de producto, no técnica: **queda como pregunta abierta** en
+`docs/PLAN.md`. Se anota acá para que el que venga sepa que fue a propósito y no
+un olvido (L-006).
+
+---
+
+## ADR-014 · Crear un movimiento y validar uno guardado son dos puertas distintas
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Contexto:** un movimiento entra a la app por dos caminos: alguien lo escribe en
+un formulario, o se lee de `localStorage` o de un respaldo. En el primer caso el
+monto viene como lo tipeó una persona (`"12,50"`); en el segundo ya es un entero
+de unidades mínimas (`1250`).
+
+**Decisión:** dos funciones separadas. `crearMovimiento()` interpreta lo escrito y
+necesita saber cuántos decimales usa la moneda; `validarMovimiento()` comprueba un
+movimiento ya guardado y **no reinterpreta el monto**.
+
+**Por qué:** una sola función tendría que adivinar qué significa `1250`, y las dos
+lecturas —1250 € o 12,50 €— difieren por un factor de cien. Es exactamente la
+clase de error que ADR-005 vino a evitar, y sería peor: aparecería solo al
+reimportar un respaldo, meses después, sobre datos que ya se creían correctos.
+
+**Lo que cuesta:** quien llama tiene que saber cuál usar. A cambio, la unidad del
+monto nunca depende de una adivinanza: cada puerta la sabe por definición.
