@@ -153,6 +153,21 @@ La app avisa cuántos movimientos se ven afectados antes de aplicar el cambio.
 La app no hace ninguna petición de red, nunca. No carga fuentes, íconos, ni
 librerías desde internet. Ver sección 6.
 
+### RN-07b — El respaldo se comparte, la app no lo sube
+Se puede guardar el respaldo en OneDrive, en Drive o donde sea, **pero lo sube el
+usuario, no la app**: la app arma el archivo y se lo entrega al sistema operativo,
+que abre el menú de compartir de siempre. Así se puede tener el respaldo en la
+nube **sin que la app haga una sola petición de red** (RN-06 intacta).
+
+La app **avisa una vez por semana** si hace más de siete días que no se respalda.
+No es una notificación del sistema —eso exigiría permisos y un servidor, que la
+app no tiene—: es un aviso dentro de la app, cuando se abre.
+
+> Decidido el 2026-08-19. La alternativa era que la app subiera sola a la API de
+> OneDrive o de GitHub: más cómodo, pero obliga a guardar una credencial dentro
+> del archivo HTML y hace que "abrís el HTML y ves que no le habla a nadie" deje
+> de ser comprobable. Ver `docs/PLAN.md`, pregunta 4.
+
 ### RN-07 — Los datos se pueden sacar siempre
 En cualquier momento, con la app abierta y sin conexión, se puede exportar el
 total de los datos a un archivo que el usuario guarda donde quiera. El formato es
@@ -319,7 +334,11 @@ suyos. Sin esto, un borrado de datos del navegador pierde todo.
    configuración, y el navegador lo descarga.
 3. Funciona sin conexión.
 
-**Formatos:** JSON (completo, sirve para reimportar) y CSV (para abrir en Excel).
+**Formatos:** JSON (completo, sirve para reimportar), CSV, y `.xlsx` con la
+forma de la planilla actual — bloques mensuales, los mismos encabezados y los
+mismos cuadros de totales, pero **con los números ya calculados en vez de
+fórmulas con rangos escritos a mano**, que es el error que esta app viene a
+eliminar (L-001). Ver T-906.
 
 ---
 

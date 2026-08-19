@@ -95,8 +95,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-902 | Uso cómodo en celular | Pendiente | T-010 |
 | T-903 | Recordatorio de respaldo | Pendiente | T-016 |
 | T-904 | Modo oscuro | Pendiente | T-010 |
-| T-905 | Respaldo cómodo a la nube, sin red | Necesita decisión | T-016 |
-| T-906 | Exportar a `.xlsx` | Necesita decisión | T-016, T-018 |
+| T-905 | Respaldo cómodo a la nube, sin red | Pendiente | T-016 |
+| T-906 | Exportar a `.xlsx` con la forma de la planilla | Pendiente | T-016, T-018 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -523,9 +523,12 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   la regla de `docs/PRODUCTO.md` §9 aplicada de verdad en cada publicación.
 - **T-902 · Uso cómodo en celular** — botones grandes, teclado numérico al cargar
   montos, nada de texto de 11 píxeles. *(Depende de T-010.)*
-- **T-903 · Recordatorio de respaldo** — la app avisa si hace mucho que no se
-  exporta. Es la contramedida al riesgo más grave de la arquitectura.
-  *(Depende de T-016.)*
+- **T-903 · Recordatorio semanal de respaldo** — la app avisa si hace **más de
+  una semana** que no se exporta (decidido por el usuario, 2026-08-19). Es la
+  contramedida al riesgo más grave de la arquitectura: los datos viven en un solo
+  navegador. El aviso se muestra dentro de la app, no como notificación del
+  sistema — una notificación exigiría permisos y un servicio, y la app no tiene
+  ni puede tener servidor. *(Depende de T-016.)*
 - **T-904 · Modo oscuro** — *(Depende de T-010.)*
 - **T-905 · Respaldo cómodo a la nube, sin red** — que exportar termine en un
   botón "compartir" que ofrezca OneDrive, Drive o correo, usando el propio
@@ -535,10 +538,36 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   abierto desde el disco (`file://`) en iOS y en Android. Hay que probarlo en un
   celular real antes de prometerlo; si no anda, la salida es la descarga normal
   más subir el archivo a mano. *(Depende de T-016. Pregunta abierta 4.)*
-- **T-906 · Exportar a `.xlsx`** — una planilla de verdad, con fechas como fechas
-  y encabezados, además del CSV de T-018. Comprobado que se puede sin librerías
-  (pregunta abierta 5). Incluye decidir qué hacer con la guardia de privacidad y
-  los espacios de nombres XML. *(Depende de T-016, T-018. Pregunta abierta 5.)*
+- **T-906 · Exportar a `.xlsx` con la forma de la planilla** — una planilla de
+  verdad, con fechas como fechas, además del CSV de T-018.
+  *(Depende de T-016, T-018.)*
+
+  **Qué reproduce de la planilla actual**, decidido con el usuario (2026-08-19):
+  los bloques mensuales con su título (`OCTUBRE 2025`), los mismos encabezados de
+  columna (`Comentarios`, `DÍA`, `MES`, `DETALLES`, `RUBRO`, `MONTO`, `I/G`), los
+  bloques `GASTOS POR TIPO`, `INGRESOS POR TIPO`, `TOTALES` y `GASTO POR DÍA`, y
+  una hoja de análisis con la matriz mes × rubro.
+
+  **Qué NO reproduce, a propósito:** las fórmulas con rangos escritos a mano
+  (`SUMIFS($G$8:$G$1027, …)`). Son exactamente el error que esta app existe para
+  eliminar: el día que el registro pase esa fila, los totales dan de menos sin
+  ningún aviso (L-001). El `.xlsx` exportado lleva **los números ya calculados**,
+  no fórmulas. Si alguna vez se quieren fórmulas vivas para seguir trabajando en
+  Excel, tienen que cubrir la columna entera (`G:G`) y no un rango con final
+  escrito a mano — y eso es una decisión aparte, no un detalle de implementación.
+
+  **Qué hay que resolver antes de escribir una línea:** el formato obliga a
+  escribir espacios de nombres XML que son direcciones `http://…`, y la guardia de
+  privacidad (T-007) rechaza cualquier `http://` en el archivo construido. No es
+  una petición de red —nadie visita esa dirección, es un identificador— pero la
+  guardia no puede distinguirlos hoy. La salida NO es debilitar la guardia con una
+  excepción genérica: hay que declarar esos identificadores en un solo lugar,
+  documentado, y que la guardia acepte esa lista y nada más.
+
+  **Comprobado, no supuesto:** se generó un `.xlsx` con encabezados en negrita,
+  fechas, textos y números armando el ZIP a mano —sin librerías y sin comprimir,
+  porque el formato ZIP admite entradas *stored*— y lo abrió openpyxl, un lector
+  de Excel real, devolviendo las fechas como fechas.
 
 ---
 
@@ -556,7 +585,13 @@ ellas quedan `Necesita decisión`.
    suman juntos. Ignorar las tildes lo arreglaría, pero también juntaría palabras
    que quizá quieras separadas. ¿Cómo lo preferís?
 
-4. **Respaldo periódico a GitHub o a OneDrive (2026-08-19).** El usuario quiere
+4. ~~**Respaldo periódico a GitHub o a OneDrive.**~~ **Respondida (2026-08-19):**
+   se hace **sin red** — la app entrega el archivo al sistema operativo y el
+   usuario elige dónde va (T-905) — **más un recordatorio semanal** de que hay
+   que respaldar (T-903). La app no habla con ninguna nube: RN-06 queda intacta.
+   Lo que sigue abajo es el razonamiento que llevó a esa decisión.
+
+   **Contexto original.** El usuario quiere
    subir sus datos a la nube cada semana o cada quince días, de forma cómoda.
    Hay dos formas y **no son equivalentes**:
 
@@ -572,7 +607,11 @@ ellas quedan `Necesita decisión`.
 
    Hasta que se decida, se construye la primera. Ver T-905.
 
-5. **Exportar a un Excel de verdad, no solo a CSV (2026-08-19).** El usuario
+5. ~~**Exportar a un Excel de verdad.**~~ **Respondida (2026-08-19):** sí, un
+   `.xlsx` que además **reproduzca la forma de la planilla actual** (T-906).
+   Lo que sigue abajo es el contexto.
+
+   **Contexto original.** El usuario
    quiere abrir sus datos en una planilla parecida a la que usa hoy. T-018 solo
    prevé CSV, que Excel abre pero sin fechas ni formato.
 
