@@ -22,6 +22,11 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- Formateo en español de montos, fechas y tipos de cambio (T-006): `1250` se ve
+  como `12,50 €`, y el tipo de cambio se muestra como lo conoce el usuario
+  (`1 EUR = 630,00 CRC`) aunque por dentro se guarde al revés. Las fechas **no se
+  corren de día** según la zona horaria del dispositivo, que es un error real que
+  aparecía en Montevideo (L-011). 19 tests.
 - Tipos de cambio y conversión a euros (T-005): el tipo de cambio se guarda por
   moneda y por mes, se puede escribir en cualquiera de los dos sentidos ("un euro
   son 630 colones"), y el importe en euros se recalcula siempre — así, corregir un

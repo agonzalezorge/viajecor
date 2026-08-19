@@ -61,7 +61,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-003 | Modelo y validación del movimiento | **Hecha** | T-002 |
 | T-004 | Almacenamiento local | **Hecha** | T-003 |
 | T-005 | Tipos de cambio y conversión a euros | **Hecha** | T-002, T-008 |
-| T-006 | Formateo de montos y fechas | En curso (claude, 2026-08-19) | T-002 |
+| T-006 | Formateo de montos y fechas | **Hecha** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
 | T-008 | Catálogo de monedas | **Hecha** | T-002 |
 | T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
@@ -253,11 +253,34 @@ otro camino sea aritméticamente más exacto.
 ---
 
 ### T-006 · Formateo de montos y fechas
-**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-002
-**Toca:** `src/core/formato.js`, `test/formato.test.js`
+**Estado:** Hecha (2026-08-19) · **Depende de:** T-002
+**Toca:** `src/core/formato.js`, `test/formato.test.js`, `tools/build.mjs`
 
 Mostrar `1250` como `12,50 €` en formato español, y las fechas de forma legible.
 Sin librerías: `Intl` viene en el navegador.
+
+**Terminada cuando:**
+- [x] Montos, fechas, meses, días de la semana y tipos de cambio se muestran en
+      español. Son 19 tests; los 175 del proyecto pasan.
+- [x] Los tests **muerden**: comprobado rompiendo el módulo en tres puntos —no
+      cuidar la zona horaria, dejar que `Intl` decida los decimales, mostrar el
+      tipo de cambio siempre con dos decimales—. Cada rotura hizo fallar tests.
+- [x] Se ejercitó **dentro de `dist/viajecor.html`**: `14/03/2026 · 12.500,00 CRC
+      · 19,84 € · 1 EUR = 630,00 CRC`.
+
+**Lo que salió de hacerla:** L-011, la zona horaria corriendo una fecha de día.
+En Montevideo, el 14 de marzo se mostraba como 13 de marzo.
+
+**Tres cosas que quedaron decididas y conviene no deshacer:**
+- Los decimales de un monto los manda el catálogo del usuario, **no `Intl`**, que
+  tiene su propia idea para cada moneda. Si `Intl` decidiera, una moneda que el
+  usuario configuró distinto se mostraría con otros decimales de los que se
+  guardó: el número correcto por dentro y la pantalla mintiendo.
+- Los números de cuatro cifras van **sin** punto de miles (`1234,56 €`) y a partir
+  de cinco lo llevan (`12.345,67 €`). Es la norma del español, no un olvido.
+- El espacio entre el importe y el símbolo es un **espacio duro** (U+00A0), para
+  que no queden en renglones distintos. Se ve igual que un espacio común y no lo
+  es — L-009 otra vez, ahora del lado de la presentación.
 
 ---
 

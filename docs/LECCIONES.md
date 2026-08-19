@@ -290,3 +290,51 @@ ni una revisión. Lo encontró el usuario, que no programa, preguntando por qué
 no le cerraba. La pregunta ingenua sobre una explicación que no cierra es un
 método de detección de errores, y hay que tratarla como tal en vez de volver a
 explicar lo mismo con más palabras.
+
+---
+
+## L-011 · La zona horaria convierte una fecha sin hora en un día distinto
+
+**De dónde salió:** de escribir el formateo de fechas (T-006), comprobando cómo
+se comporta `Intl` antes de usarlo.
+
+La fecha de un movimiento es un día del calendario: `2026-03-14`. No tiene hora ni
+zona horaria, porque un gasto pasó el 14 y punto. Pero para mostrarla hay que
+convertirla a un `Date`, y ahí aparece el problema:
+
+```
+new Date('2026-03-14')  →  la MEDIANOCHE del 14, en UTC
+```
+
+Mostrada en el dispositivo, el navegador la traduce a la zona horaria de donde
+esté la persona. En Montevideo (UTC−3), la medianoche UTC del 14 son **las 21:00
+del día 13**:
+
+```
+America/Montevideo  →  13/3/2026     ← el gasto aparece el día anterior
+Europe/Madrid       →  14/3/2026
+```
+
+No es un caso de laboratorio: este usuario tiene gastos y ahorros en pesos
+uruguayos. Y el síntoma es de los peores, porque **es indistinguible de un error
+de carga**: la persona ve un gasto el día 13, piensa que se equivocó al anotarlo,
+y "lo corrige". Además ensucia el gasto por día (CU-05) y puede mandar un
+movimiento al mes anterior si cae un día 1.
+
+**El patrón:** *un dato sin hora convertido a un instante adquiere una hora que
+nadie eligió, y esa hora lo puede correr de día.* La conversión parece inocua
+porque no se pierde información —el `Date` "contiene" la fecha— pero al mostrarlo
+se le aplica una zona que el dato nunca tuvo.
+
+**Qué hacemos en la app:** `core/formato.js` construye la fecha al **mediodía
+UTC** y la formatea con `timeZone: 'UTC'`. Al mediodía, ninguna zona del mundo
+—de UTC−12 a UTC+14— la corre de día. Hay un test que formatea la misma fecha en
+cinco zonas horarias, en procesos aparte, y exige que las cinco den `14/03/2026`;
+y otro que comprueba que **la forma ingenua sí se corre**, para que el día que
+deje de correrse sepamos que el cuidado dejó de hacer falta.
+
+**Y una lección sobre cómo se encontró:** no apareció por un error, apareció por
+probar `Intl` antes de usarlo. La primera prueba dio bien —el contenedor corre en
+UTC— y eso **no probaba nada**. Solo al repetirla con una zona horaria real salió
+el fallo. Una prueba que corre en el entorno más favorable puede ser peor que
+ninguna: da confianza sin dar información.
