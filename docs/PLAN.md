@@ -59,7 +59,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-001 | Esqueleto del proyecto y construcción | **Hecha** | — |
 | T-002 | Aritmética de dinero (`core/dinero.js`) | **Hecha** | T-001 |
 | T-003 | Modelo y validación del movimiento | **Hecha** | T-002 |
-| T-004 | Almacenamiento local | **Lista** | T-003 |
+| T-004 | Almacenamiento local | En curso (claude, 2026-08-19) | T-003 |
 | T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | **Lista** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
@@ -186,7 +186,7 @@ están en `docs/PRODUCTO.md` §4.
 ---
 
 ### T-004 · Almacenamiento local
-**Estado:** Lista · **Depende de:** T-003
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-003
 **Toca:** `src/datos/almacenamiento.js`, `test/almacenamiento.test.js`
 
 Leer y escribir el estado completo bajo `viajecor:datos:v1`, con el número de
