@@ -67,3 +67,4 @@ node --test            # corre los tests
 | [`docs/LECCIONES.md`](docs/LECCIONES.md) | Las trampas en las que este proyecto ya cayó. |
 | [`docs/AGENTES.md`](docs/AGENTES.md) | Cómo trabajan varios agentes de IA sin pisarse. |
 | [`CLAUDE.md`](CLAUDE.md) | Puerta de entrada para un agente de IA. |
+| [`docs/HISTORIAL-INICIAL.md`](docs/HISTORIAL-INICIAL.md) | El porqué de los seis primeros commits, que la subida por la web aplastó en uno. |

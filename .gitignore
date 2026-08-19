@@ -1,10 +1,21 @@
-# El proyecto no tiene dependencias (ADR-003): no debería haber un node_modules.
-# Si aparece, es que alguien corrió npm install por costumbre.
+# El proyecto no tiene dependencias (ADR-003). Si aparece node_modules, es de
+# alguna herramienta puntual y no va al repositorio.
 node_modules/
 
-# Basura de los sistemas operativos
-.DS_Store
-Thumbs.db
+# Datos personales: si alguna vez se deja un export en la carpeta, no se sube.
+# Los gastos del usuario no van a un repositorio, ni siquiera a uno privado.
+*.local.json
+viajecor-*.json
+viajecor-*.csv
 
-# dist/viajecor.html SÍ va al repositorio: es lo que el usuario descarga
-# (ARQUITECTURA §9). No se ignora.
+# Ninguna planilla real entra al repositorio: los gastos del usuario son suyos.
+*.xlsx
+# Excepción: la planilla de ejemplo tiene montos inventados y la genera
+# tools/generar-planilla-ejemplo.mjs. Sirve para construir y probar el importador.
+!test/ejemplo/planilla-ejemplo.xlsx
+
+# Respaldos del propio repositorio: son una copia binaria de este historial, no
+# tiene sentido guardarlos adentro de lo que copian.
+*.bundle
+
+.DS_Store

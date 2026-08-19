@@ -58,6 +58,7 @@ Estos los toca todo el mundo, así que hay reglas especiales:
 | `docs/PRODUCTO.md` | Solo la fila del caso de uso que la tarea completa, y las reglas de negocio que la tarea cambia. |
 | `docs/DECISIONES.md`, `docs/LECCIONES.md` | Solo se **agrega al final**. No se reescribe lo que ya está. |
 | `CHANGELOG.md` | Se agrega bajo el encabezado `Sin publicar`. |
+| `docs/HISTORIAL-INICIAL.md` | **Cerrado.** Es el rescate de unos mensajes de commit que se perdieron. No se agrega ni se corrige nada. |
 | `dist/viajecor.html` | Generado. **No se edita a mano jamás.** Se regenera con `node tools/build.mjs`. |
 | `VERSION` | Lo cambia solo la tarea que publica una versión. |
 

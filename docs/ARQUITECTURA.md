@@ -65,7 +65,8 @@ viajecor/
 │   ├── PLAN.md              # qué se hace después  ← fuente de verdad del trabajo
 │   ├── DECISIONES.md        # decisiones técnicas con su porqué (ADR)
 │   ├── LECCIONES.md         # trampas en las que este proyecto ya cayó
-│   └── AGENTES.md           # cómo trabajan varios agentes sin pisarse
+│   ├── AGENTES.md           # cómo trabajan varios agentes sin pisarse
+│   └── HISTORIAL-INICIAL.md # documento cerrado: el porqué de los 6 primeros commits
 ├── src/
 │   ├── core/                # lógica pura, sin navegador. Testeable.
 │   │   ├── dinero.js        # aritmética de dinero en unidades enteras
