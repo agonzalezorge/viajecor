@@ -95,6 +95,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-902 | Uso cómodo en celular | Pendiente | T-010 |
 | T-903 | Recordatorio de respaldo | Pendiente | T-016 |
 | T-904 | Modo oscuro | Pendiente | T-010 |
+| T-905 | Respaldo cómodo a la nube, sin red | Necesita decisión | T-016 |
+| T-906 | Exportar a `.xlsx` | Necesita decisión | T-016, T-018 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -525,6 +527,18 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   exporta. Es la contramedida al riesgo más grave de la arquitectura.
   *(Depende de T-016.)*
 - **T-904 · Modo oscuro** — *(Depende de T-010.)*
+- **T-905 · Respaldo cómodo a la nube, sin red** — que exportar termine en un
+  botón "compartir" que ofrezca OneDrive, Drive o correo, usando el propio
+  sistema operativo. La app no hace ninguna petición: le entrega el archivo al
+  teléfono y el teléfono hace el resto, así que RN-06 queda intacta.
+  **Sin comprobar todavía:** que el compartir del navegador funcione con un HTML
+  abierto desde el disco (`file://`) en iOS y en Android. Hay que probarlo en un
+  celular real antes de prometerlo; si no anda, la salida es la descarga normal
+  más subir el archivo a mano. *(Depende de T-016. Pregunta abierta 4.)*
+- **T-906 · Exportar a `.xlsx`** — una planilla de verdad, con fechas como fechas
+  y encabezados, además del CSV de T-018. Comprobado que se puede sin librerías
+  (pregunta abierta 5). Incluye decidir qué hacer con la guardia de privacidad y
+  los espacios de nombres XML. *(Depende de T-016, T-018. Pregunta abierta 5.)*
 
 ---
 
@@ -541,6 +555,39 @@ ellas quedan `Necesita decisión`.
    distintos, así que dos gastos del mismo viaje escritos con y sin tilde no se
    suman juntos. Ignorar las tildes lo arreglaría, pero también juntaría palabras
    que quizá quieras separadas. ¿Cómo lo preferís?
+
+4. **Respaldo periódico a GitHub o a OneDrive (2026-08-19).** El usuario quiere
+   subir sus datos a la nube cada semana o cada quince días, de forma cómoda.
+   Hay dos formas y **no son equivalentes**:
+
+   - **Compartir el archivo exportado** desde el propio celular: la app genera el
+     respaldo y lo entrega al sistema operativo, que muestra OneDrive, Drive,
+     correo, lo que haya. **La app no hace ninguna petición de red**, así que
+     RN-06 queda intacta. Requiere que el usuario toque "compartir" cada vez.
+   - **Subir sola a una nube**: la app tendría que hablar con la API de OneDrive
+     o de GitHub. Eso es **una petición de red**, rompe RN-06, rompe la guardia
+     de privacidad de T-007, y obliga a guardar una credencial dentro del
+     archivo. Deja de ser cierto que "abrís el HTML y ves que no le habla a
+     nadie".
+
+   Hasta que se decida, se construye la primera. Ver T-905.
+
+5. **Exportar a un Excel de verdad, no solo a CSV (2026-08-19).** El usuario
+   quiere abrir sus datos en una planilla parecida a la que usa hoy. T-018 solo
+   prevé CSV, que Excel abre pero sin fechas ni formato.
+
+   **Comprobado, no supuesto:** se puede generar un `.xlsx` de verdad sin ninguna
+   librería. Un `.xlsx` es un ZIP con XML adentro, y el formato ZIP admite
+   entradas **sin comprimir**, así que ni siquiera hace falta comprimir: alcanza
+   con armar el ZIP a mano y calcular un CRC-32 (unas veinte líneas). Se probó
+   generando una planilla con encabezados en negrita, fechas, textos y números, y
+   abriéndola con un lector de Excel real (openpyxl), que devolvió **las fechas
+   como fechas**. Ver T-906.
+
+   **Lo que hay que resolver antes:** el formato obliga a escribir espacios de
+   nombres XML que son direcciones `http://…`, y la guardia de privacidad (T-007)
+   rechaza cualquier `http://` en el archivo construido. No es una petición de
+   red —es un identificador—, pero la guardia no puede distinguirlos hoy.
 
 ### Respondidas
 
