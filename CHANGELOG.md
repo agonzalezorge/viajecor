@@ -22,6 +22,13 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- Catálogo de monedas (T-008, CU-15): arranca con euro, peso uruguayo, dólar y
+  colón, y se le pueden agregar las que hagan falta indicando código, nombre y
+  cuántos decimales usa. El euro es intocable —es la moneda base—, un código
+  repetido se rechaza aunque venga en otra caja, y una moneda con movimientos
+  cargados no se borra: se oculta, así sus gastos siguen contando. Preguntar los
+  decimales de una moneda que no está en la lista falla en vez de suponer 2
+  (ADR-018). 24 tests.
 - Almacenamiento local: los movimientos sobreviven a cerrar la app (T-004). Si lo
   guardado no se entiende, la app **abre igual, avisa, y no pisa nada**: aparta lo
   ilegible bajo una clave de rescate para que se pueda recuperar a mano. Un

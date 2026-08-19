@@ -20,6 +20,7 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MODULOS = [
   'src/core/dinero.js',
   'src/core/modelo.js',
+  'src/core/monedas.js',
   'src/datos/almacenamiento.js',
   'src/ui/app.js',
 ];

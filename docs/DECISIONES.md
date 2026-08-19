@@ -371,3 +371,32 @@ importar.
 **Lo que cuesta:** la app tiene que mostrar esas incidencias en algún lado, y no
 alcanza con un mensaje genérico. Un aviso que dice "algunos datos no se pudieron
 leer" sin decir cuáles no sirve para nada.
+
+---
+
+## ADR-018 · Preguntar los decimales de una moneda que no está en la lista tira
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Contexto:** `decimalesDe(monedas, codigo)` es lo que le dice al resto de la app
+cómo interpretar un monto en una moneda. Si el código no está en la lista del
+usuario, hay dos salidas: devolver 2 —que es lo que usan casi todas las monedas—
+o negarse.
+
+**Decisión:** se niega. Tira un error que nombra la moneda y dice qué hacer
+("agregala antes de cargar el movimiento").
+
+**Por qué:** el valor por omisión sería correcto casi siempre, y ese *casi* es el
+problema. Cuando esté mal —el yen, el peso chileno, el guaraní: monedas sin
+decimales— todos los importes de esa moneda quedan **cien veces más grandes o más
+chicos**, sin ningún error, sin ninguna pantalla roja. Y no se nota en el momento:
+se nota meses después, en un total del año que no cierra y que nadie sabe
+explicar.
+
+Es el mismo razonamiento de ADR-012 con los montos ambiguos: **un caso raro que
+molesta hoy es preferible a un número mal que nadie ve nunca.** Un error visible
+se arregla en diez segundos agregando la moneda; una suposición silenciosa
+contamina un histórico entero.
+
+**Lo que cuesta:** cada pantalla que cargue un movimiento tiene que tener el
+catálogo a mano, y no puede improvisar. Es exactamente la disciplina que se
+quiere.

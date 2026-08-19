@@ -210,7 +210,7 @@ qué existe.
 | CU-12 | Ver el promedio de un gasto fijo | Pendiente |
 | CU-13 | Importar el historial del Excel | Pendiente |
 | CU-14 | Llevar los ahorros conjuntos | Pendiente |
-| CU-15 | Agregar una moneda | Pendiente |
+| CU-15 | Agregar una moneda | Lógica hecha (T-008); falta la pantalla (T-024) |
 
 ---
 

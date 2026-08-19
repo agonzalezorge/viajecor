@@ -60,10 +60,10 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-002 | Aritmética de dinero (`core/dinero.js`) | **Hecha** | T-001 |
 | T-003 | Modelo y validación del movimiento | **Hecha** | T-002 |
 | T-004 | Almacenamiento local | **Hecha** | T-003 |
-| T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
+| T-005 | Tipos de cambio y conversión a euros | **Lista** | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | **Lista** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
-| T-008 | Catálogo de monedas | En curso (claude, 2026-08-19) | T-002 |
+| T-008 | Catálogo de monedas | **Hecha** | T-002 |
 | T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
 | T-010 | Armazón de la interfaz | **Lista** | T-001 |
@@ -81,7 +81,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-021 | Evolución mes a mes | Pendiente | T-013 |
 | T-022 | Promedio de gastos fijos | Pendiente | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
-| T-024 | Pantalla de monedas | Pendiente | T-008, T-010 |
+| T-024 | Pantalla de monedas | Pendiente (falta T-010) | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | Pendiente | T-003, T-009 |
 | T-031 | Lector de `.xlsx` sin librerías | Pendiente | T-009 |
@@ -216,7 +216,7 @@ el estado inicial le pasa la lista.
 ---
 
 ### T-005 · Tipos de cambio y conversión a euros
-**Estado:** Pendiente · **Depende de:** T-002, T-008 · *Se puede hacer en paralelo con T-003 y T-004*
+**Estado:** Lista · **Depende de:** T-002, T-008 · *Se puede hacer en paralelo con T-003 y T-004*
 **Toca:** `src/core/cambio.js`, `test/cambio.test.js`
 
 Guardar y buscar el tipo de cambio por `(moneda, mes)`, convertir un movimiento a
@@ -260,17 +260,29 @@ en cada cambio.
 ---
 
 ### T-008 · Catálogo de monedas — CU-15
-**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-002 · *Paralelizable con T-003 y T-004*
-**Toca:** `src/core/monedas.js`, `test/monedas.test.js`
+**Estado:** Hecha (2026-08-19) · **Depende de:** T-002
+**Toca:** `src/core/monedas.js`, `test/monedas.test.js`, `tools/build.mjs`
 
 La lista de monedas vive en los datos, no en el código (RN-04b, ADR-011). Este
 módulo la maneja: las cuatro precargadas (`EUR`, `UYU`, `USD`, `CRC`), agregar una
 nueva con código, nombre y decimales, validar, y ocultar en vez de borrar cuando
 ya tiene movimientos.
 
-**Terminada cuando:** hay tests para código repetido rechazado, para el euro que
-no se puede borrar ni cambiar de decimales, para una moneda de 0 decimales, y para
-el rechazo de borrar una moneda con movimientos.
+**Terminada cuando:**
+- [x] Hay tests para código repetido rechazado, para el euro que no se puede
+      borrar ni cambiar de decimales, para una moneda de 0 decimales, y para el
+      rechazo de borrar una moneda con movimientos. Son 24 tests; los 130 del
+      proyecto pasan.
+- [x] Los tests **muerden**: comprobado rompiendo el módulo a propósito en cinco
+      puntos. Cada rotura hizo fallar tests.
+- [x] El recorrido de un gasto en una moneda nueva se ejercitó **dentro de
+      `dist/viajecor.html`**.
+
+**Lo que salió de hacerla:** preguntar los decimales de una moneda que no está en
+la lista **tira**, no supone 2. Ver ADR-018.
+
+**Lo que este módulo NO hace:** guardar. Recibe la lista y devuelve una lista
+nueva, sin modificar la que recibe; quien persiste es `datos/almacenamiento.js`.
 
 ---
 
@@ -314,6 +326,12 @@ estilos base pensados para celular.
 
 Formulario con fecha (hoy por defecto), tipo, monto, moneda (la última usada),
 rubro, comentario y detalle. Guarda y vuelve a la lista.
+
+**Enchufado que le toca a esta tarea:** el estado de un primer arranque sale de
+`estadoInicial()` (T-004) con la lista de `monedasIniciales()` (T-008) — el
+almacenamiento no la trae solo, a propósito. Y los decimales que necesita
+`crearMovimiento()` salen de `decimalesDe(monedas, codigo)`, nunca de un 2
+escrito a mano.
 
 **Terminada cuando:** se puede cargar un gasto y un ingreso, quedan guardados
 después de recargar la página, y los errores de validación se muestran claros.
