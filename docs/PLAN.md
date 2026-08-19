@@ -61,7 +61,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-003 | Modelo y validación del movimiento | **Hecha** | T-002 |
 | T-004 | Almacenamiento local | **Hecha** | T-003 |
 | T-005 | Tipos de cambio y conversión a euros | **Hecha** | T-002, T-008 |
-| T-006 | Formateo de montos y fechas | **Lista** | T-002 |
+| T-006 | Formateo de montos y fechas | En curso (claude, 2026-08-19) | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
 | T-008 | Catálogo de monedas | **Hecha** | T-002 |
 | T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
@@ -253,7 +253,7 @@ otro camino sea aritméticamente más exacto.
 ---
 
 ### T-006 · Formateo de montos y fechas
-**Estado:** Lista · **Depende de:** T-002 · *Paralelizable*
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-002
 **Toca:** `src/core/formato.js`, `test/formato.test.js`
 
 Mostrar `1250` como `12,50 €` en formato español, y las fechas de forma legible.
