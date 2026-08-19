@@ -96,6 +96,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-903 | Recordatorio de respaldo | Pendiente | T-016 |
 | T-904 | Modo oscuro | Pendiente | T-010 |
 | T-905 | Respaldo cómodo a la nube, sin red | Pendiente | T-016 |
+| T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-906 | Exportar a `.xlsx` con la forma de la planilla | Pendiente | T-016, T-018 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
@@ -538,6 +539,12 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   abierto desde el disco (`file://`) en iOS y en Android. Hay que probarlo en un
   celular real antes de prometerlo; si no anda, la salida es la descarga normal
   más subir el archivo a mano. *(Depende de T-016. Pregunta abierta 4.)*
+- **T-907 · Decimales sugeridos por moneda** — al agregar una moneda, que la app
+  proponga sola los decimales correctos según el estándar ISO 4217 (`JPY` → 0,
+  `CLP` → 0, `KRW` → 0, `EUR` → 2…), con las veinte o treinta más usadas. Sigue
+  siendo una **sugerencia**: el usuario la puede cambiar, y la lista de monedas la
+  sigue manejando él (ADR-011). Pedido por el usuario el 2026-08-19.
+  *(Depende de T-008. Se muestra en T-024.)*
 - **T-906 · Exportar a `.xlsx` con la forma de la planilla** — una planilla de
   verdad, con fechas como fechas, además del CSV de T-018.
   *(Depende de T-016, T-018.)*
@@ -606,6 +613,18 @@ ellas quedan `Necesita decisión`.
      nadie".
 
    Hasta que se decida, se construye la primera. Ver T-905.
+
+6. **Corregir los decimales de una moneda: ¿reinterpreta o reescala? (2026-08-19)**
+   Hoy, si cargaste 1500 yenes con la moneda configurada en 2 decimales y después
+   la corregís a 0, esos movimientos pasan a valer 150.000 yenes — el número
+   guardado se lee con otra escala (ADR-019). La app avisa cuántos movimientos
+   afecta, pero no los toca.
+   La alternativa es **reescalar**: al corregir los decimales, ajustar los montos
+   guardados para que sigan valiendo lo mismo, y que tus 1500 yenes sigan siendo
+   1500 yenes.
+   *Lo que yo recomendaría:* reescalar, porque corregir un dato de la moneda no
+   debería cambiar el valor de ningún gasto. Pero cambia lo que pasa con datos ya
+   cargados, así que lo decidís vos.
 
 5. ~~**Exportar a un Excel de verdad.**~~ **Respondida (2026-08-19):** sí, un
    `.xlsx` que además **reproduzca la forma de la planilla actual** (T-906).

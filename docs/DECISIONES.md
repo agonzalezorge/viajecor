@@ -375,7 +375,12 @@ leer" sin decir cuáles no sirve para nada.
 ---
 
 ## ADR-018 · Preguntar los decimales de una moneda que no está en la lista tira
-**Fecha:** 2026-08-19 · **Estado:** Vigente
+**Fecha:** 2026-08-19 · **Estado:** Vigente · **Porqué corregido por:** ADR-019
+
+> ⚠️ La decisión de abajo sigue en pie, pero **su justificación era falsa** y está
+> corregida en ADR-019. No es cierto que elegir 2 decimales para el yen deje los
+> importes cien veces más chicos: si la escala es consistente, los números salen
+> bien. Leer ADR-019 antes que esto.
 
 **Lo primero, porque se presta a confusión:** `decimales` **no dice cómo hay que
 escribir un monto.** En euros podés escribir `15`, `15,0` o `15,00` y las tres
@@ -412,3 +417,51 @@ contamina un histórico entero.
 **Lo que cuesta:** cada pantalla que cargue un movimiento tiene que tener el
 catálogo a mano, y no puede improvisar. Es exactamente la disciplina que se
 quiere.
+
+---
+
+## ADR-019 · Lo peligroso no es el valor de `decimales`, es que cambie
+**Fecha:** 2026-08-19 · **Estado:** Vigente · **Corrige el porqué de:** ADR-018
+
+**De dónde salió:** el usuario leyó ADR-018, no le cerró la justificación y
+preguntó: *"si pongo 2 decimales al yen y después siempre escribo 1500 sin
+decimales, ¿no se guarda igual 1500?"*. Tenía razón. La justificación que yo
+había escrito era falsa.
+
+**Lo que decía ADR-018 y es falso:** que elegir 2 decimales para el yen deja
+"todos los importes de esa moneda cien veces más chicos".
+
+**Lo comprobado, corriendo el código:**
+
+| JPY configurado con | Escribís | Se guarda | Se muestra | En euros |
+|---|---|---|---|---|
+| 0 decimales | `1500` | `1500` | 1500 yenes | 9,30 € |
+| 2 decimales | `1500` | `150000` | 1500 yenes | 9,30 € |
+
+Nada se rompe. El entero guardado es distinto, pero **el valor es el mismo**,
+porque la app siempre entra y sale por la misma escala. Una escala "equivocada"
+pero **consistente** no produce ningún error.
+
+**Dónde está el peligro de verdad, entonces:** en que la escala usada al
+**escribir** y la usada al **leer** no coincidan. Eso pasa en dos situaciones:
+
+1. **Cambiar los decimales de una moneda que ya tiene movimientos.** Un `150000`
+   guardado con escala 2 (1500 yenes) leído con escala 0 son 150.000 yenes: cien
+   veces más. Esto ya está previsto —`cambiarDecimalesDe()` obliga a avisar
+   cuántos movimientos se reinterpretan— pero ahora se entiende que **es el único
+   momento en que el número se corrompe**, no un riesgo difuso.
+2. **Inventar una escala que no queda registrada en ningún lado.** Si el código
+   supusiera 2 para una moneda que no está en la lista, esa suposición no se
+   escribe en ninguna parte; el día que el usuario agregue esa moneda con 0
+   decimales, todos esos movimientos cambian de significado. Es el caso 1
+   disfrazado, y sin nadie que avise.
+
+**La decisión de ADR-018 sigue en pie** —preguntar los decimales de una moneda
+que no está en la lista tira, no supone 2— pero por este motivo, que es más
+preciso: **no porque adivinar dé un número mal, sino porque adivinar deja una
+escala sin registrar que después no coincide con la real.**
+
+**Consecuencia práctica para el usuario:** elegir mal los decimales al agregar
+una moneda es **mucho menos grave** de lo que decían PRODUCTO §RN-04b y CU-15.
+Si te queda mal y lo dejás así, tus números están bien. Lo que hay que mirar con
+cuidado es el momento de **corregirlos**.

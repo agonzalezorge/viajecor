@@ -249,3 +249,44 @@ encontró preguntando *"¿de qué otra forma pueden dos textos parecer iguales s
 serlo?"* después de leer L-002. Vale la pena hacerse esa pregunta cada vez que se
 implementa la contramedida a una lección vieja: las lecciones describen una
 categoría de error, no un caso.
+
+---
+
+## L-010 · Explicar una consecuencia sin probarla es inventarla con voz de experto
+
+**De dónde salió:** de este proyecto, explicándole a su dueño una decisión que yo
+mismo había tomado (ADR-018).
+
+Escribí que elegir 2 decimales para el yen dejaría "todos los importes de esa
+moneda cien veces más chicos". Sonaba obvio: el yen no tiene decimales, poner 2
+tiene que desplazar la coma. La frase pasó por un ADR, por un mensaje de commit y
+por dos explicaciones al usuario sin que nadie —yo incluido— la comprobara.
+
+El usuario preguntó: *"si pongo 2 y siempre escribo 1500 sin decimales, ¿no se
+guarda igual 1500?"*. Cinco líneas de código después: **sí, se guarda bien, se
+muestra bien y se convierte a euros bien.** Una escala equivocada pero consistente
+no produce ningún error, porque la app entra y sale siempre por la misma escala.
+
+Lo grave no es que la conclusión fuera falsa. Es que la decisión que apoyaba era
+**correcta** —hay que preguntar los decimales, no adivinarlos— pero por otro
+motivo, y ese motivo verdadero es más preciso y más útil: el número se corrompe
+solo cuando la escala **cambia** entre que se escribe y que se lee. Con la
+justificación falsa, cualquiera que leyera el ADR mañana habría buscado el peligro
+en el lugar equivocado.
+
+**El patrón:** *L-007 dijo que una decisión apoyada en una premisa no comprobada
+se ve igual que una correcta. Esto es lo mismo un escalón más abajo: una
+**consecuencia** narrada sin comprobar se ve igual que una medida.* Y es más fácil
+que se cuele, porque una consecuencia suena a razonamiento y no a dato — nadie
+siente que haya nada que verificar.
+
+**Qué hacemos:** cuando una explicación diga "si pasa X, entonces Y", **Y se
+prueba**, con el mismo criterio que se prueba el código. Vale para los ADR, para
+los mensajes de commit y para lo que se le dice al usuario. Si no se probó, se
+escribe "creo que" con todas las letras.
+
+**Y una lección sobre quién encuentra los errores:** este no lo encontró un test
+ni una revisión. Lo encontró el usuario, que no programa, preguntando por qué algo
+no le cerraba. La pregunta ingenua sobre una explicación que no cierra es un
+método de detección de errores, y hay que tratarla como tal en vez de volver a
+explicar lo mismo con más palabras.

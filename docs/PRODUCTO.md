@@ -126,10 +126,18 @@ alguien publique una versión nueva de la app.
 El **euro es distinto**: es la moneda base, viene fija, y no se puede borrar ni
 cambiarle los decimales, porque todos los totales se expresan en euros.
 
-**Los decimales importan de verdad:** de ese número depende cómo se guarda el
-monto internamente (ver ADR-005). El yen y el peso chileno no usan decimales;
-poner 2 donde van 0 desplaza todos los importes de esa moneda por un factor de
-cien. La app propone 2 y explica qué significa.
+**Qué son los decimales, y qué NO son:** no dicen cómo tenés que escribir un
+monto. En euros podés escribir `15` o `15,00` y es lo mismo. Dicen cuántas
+subunidades tiene la moneda: el euro tiene céntimos, el yen no tiene nada más
+chico que el yen. La app propone 2 y explica qué significa.
+
+**Si te equivocás al elegirlos, no pasa nada grave** — mientras no los cambies
+después. Un yen configurado con 2 decimales guarda tus 1500 yenes de una forma un
+poco rara por dentro, pero los muestra y los convierte a euros perfectamente.
+**Lo que sí cambia los números es corregir los decimales de una moneda que ya
+tiene movimientos cargados**: ahí los importes se reinterpretan y quedan cien
+veces más grandes o más chicos. Por eso la app avisa cuántos movimientos afecta
+antes de aplicarlo. Ver ADR-019.
 
 Una moneda **que ya tiene movimientos cargados no se puede borrar** — dejaría
 movimientos huérfanos sin forma de convertirlos. Se puede ocultar de la lista.
@@ -451,9 +459,11 @@ viaje y perderlos.
 
 **Qué puede salir mal:**
 - Código repetido → no se acepta.
-- Decimales mal elegidos → los importes de esa moneda quedan cien veces más
-  grandes o más chicos. Es corregible después, y al corregirlo la app avisa
-  cuántos movimientos se reinterpretan.
+- Decimales mal elegidos → **no rompe nada mientras no los cambies**: los montos
+  se guardan y se muestran bien igual. Lo delicado es **corregirlos más
+  adelante**, cuando ya hay movimientos cargados: ahí los importes se
+  reinterpretan y quedan cien veces más grandes o más chicos, así que la app
+  avisa cuántos movimientos afecta antes de aplicar el cambio. Ver ADR-019.
 - Borrar una moneda con movimientos cargados → no se permite; se puede ocultar.
 
 ---
