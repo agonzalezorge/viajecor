@@ -63,7 +63,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-005 | Tipos de cambio y conversión a euros | Pendiente | T-002, T-008 |
 | T-006 | Formateo de montos y fechas | **Lista** | T-002 |
 | T-007 | Guardia automática de privacidad | **Hecha** | T-001 |
-| T-008 | Catálogo de monedas | **Lista** | T-002 |
+| T-008 | Catálogo de monedas | En curso (claude, 2026-08-19) | T-002 |
 | T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
 | T-010 | Armazón de la interfaz | **Lista** | T-001 |
@@ -260,7 +260,7 @@ en cada cambio.
 ---
 
 ### T-008 · Catálogo de monedas — CU-15
-**Estado:** Lista · **Depende de:** T-002 · *Paralelizable con T-003 y T-004*
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-002 · *Paralelizable con T-003 y T-004*
 **Toca:** `src/core/monedas.js`, `test/monedas.test.js`
 
 La lista de monedas vive en los datos, no en el código (RN-04b, ADR-011). Este
