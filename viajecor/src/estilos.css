@@ -1,0 +1,110 @@
+/* Estilos base. Sin fuentes externas: usar una fuente de un CDN haría que ese
+   CDN viera la IP y la hora de uso de la app, lo que rompe RN-06. */
+
+:root {
+  --fondo: #fbfaf8;
+  --superficie: #ffffff;
+  --borde: #e3ded6;
+  --texto: #1c1a17;
+  --texto-suave: #6b645b;
+  --acento: #2f6f4e;
+  --gasto: #a4342c;
+  --ingreso: #2f6f4e;
+  --radio: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #171614;
+    --superficie: #211f1c;
+    --borde: #38342f;
+    --texto: #f0ece6;
+    --texto-suave: #a49c91;
+    --acento: #6fbb90;
+    --gasto: #e08b83;
+    --ingreso: #6fbb90;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+}
+
+.encabezado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--borde);
+  margin-bottom: 1.25rem;
+}
+
+.encabezado h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.version {
+  font-size: 0.8125rem;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 1rem 1.125rem;
+  margin-bottom: 1rem;
+}
+
+.tarjeta h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.tarjeta p { margin: 0 0 0.5rem; }
+.tarjeta p:last-child { margin-bottom: 0; }
+
+.suave { color: var(--texto-suave); font-size: 0.9375rem; }
+
+.estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+}
+
+.punto {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--acento);
+}
+
+.aviso {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 1rem;
+}
+
+ul.pasos { margin: 0.5rem 0 0; padding-left: 1.25rem; }
+ul.pasos li { margin-bottom: 0.25rem; }
