@@ -16,6 +16,7 @@ import { hoy, mesDe, mesAnterior, mesSiguiente } from '../core/modelo.js';
 import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
+import { dibujarNuevo, borradorNuevo, intentarGuardar } from './pantallas/movimiento.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -108,6 +109,14 @@ registrarPantalla('datos', {
   ),
 });
 
+registrarPantalla('nuevo', {
+  etiqueta: 'Cargar',
+  icono: '+',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarNuevo,
+});
+
 // ── Piezas de la pantalla ────────────────────────────────────────────────────
 
 /**
@@ -143,6 +152,7 @@ export function dibujarEncabezado({ mes, conMes }) {
  */
 export function dibujarNavegacion(actual) {
   const botones = pantallasRegistradas()
+    .filter((p) => p.enBarra !== false)
     .map((p) => {
       const seleccionada = p.nombre === actual;
       return `
@@ -158,7 +168,9 @@ export function dibujarNavegacion(actual) {
   return `
     <nav class="navegacion" aria-label="Secciones">
       ${botones}
-      <button type="button" class="pestania nueva" data-accion="nuevo">
+      <button type="button" class="pestania nueva${actual === 'nuevo' ? ' activa' : ''}"
+              data-accion="ir" data-pantalla="nuevo"
+              ${actual === 'nuevo' ? 'aria-current="page"' : ''}>
         <span class="icono" aria-hidden="true">+</span>
         <span>Cargar</span>
       </button>
@@ -224,7 +236,15 @@ export function moverMes(vista, direccion) {
 }
 
 export function irA(vista, nombre) {
-  return pantalla(nombre) ? { ...vista, pantalla: nombre } : vista;
+  if (!pantalla(nombre)) return vista;
+
+  // El aviso de "guardado" y el error de validación son de un momento, no del
+  // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
+  // media hora después y vería un error que ya no significa nada.
+  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null };
+  return nombre === 'nuevo'
+    ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
+    : limpia;
 }
 
 // ── Lo único que toca el navegador ───────────────────────────────────────────
@@ -255,16 +275,88 @@ export function iniciar(documento, almacen) {
     raiz.innerHTML = dibujarApp(vista);
   }
 
+  /**
+   * Lee lo que hay escrito en el formulario ahora mismo.
+   *
+   * Se lee del documento en vez de ir guardando cada tecla en el estado: así no
+   * hay dos versiones de lo que el usuario escribió, que es la trampa de L-005
+   * aplicada a un formulario.
+   */
+  function leerFormulario() {
+    const formulario = raiz.querySelector('[data-formulario="movimiento"]');
+    if (!formulario) return vista.borrador;
+
+    const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
+    return {
+      ...vista.borrador,
+      fecha: campo('fecha'),
+      monto: campo('monto'),
+      moneda: campo('moneda'),
+      rubro: campo('rubro'),
+      comentario: campo('comentario'),
+      detalle: campo('detalle'),
+    };
+  }
+
+  function guardarMovimiento() {
+    const resultado = intentarGuardar(vista.estado, leerFormulario());
+
+    if (resultado.error) {
+      // No se guardó nada, así que el borrador se conserva TAL CUAL: perder lo
+      // escrito por un rubro sin elegir sería castigar dos veces el mismo error.
+      vista = { ...vista, borrador: resultado.borrador, error: resultado.error, aviso: null };
+      pintar();
+      return;
+    }
+
+    // Se escribe en el almacenamiento ANTES de decir que se guardó. Si el
+    // navegador no puede escribir (memoria llena), guardarEstado tira y el
+    // usuario ve el error en vez de una confirmación falsa (ADR-016).
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borrador: leerFormulario(), error: error.message, aviso: null };
+      pintar();
+      return;
+    }
+
+    vista = {
+      ...vista,
+      estado: resultado.estado,
+      borrador: resultado.borrador,
+      aviso: resultado.aviso,
+      error: null,
+      // El mes que se está mirando pasa a ser el del movimiento recién cargado:
+      // si no, cargar un gasto de otro mes lo haría desaparecer de la vista.
+      mes: mesDe(resultado.aviso.movimiento.fecha),
+    };
+    pintar();
+  }
+
+  raiz.addEventListener('submit', (evento) => {
+    if (!evento.target.matches('[data-formulario="movimiento"]')) return;
+    evento.preventDefault();
+    guardarMovimiento();
+  });
+
   raiz.addEventListener('click', (evento) => {
     const boton = evento.target.closest('[data-accion]');
     if (!boton) return;
 
-    const { accion, pantalla: destino } = boton.dataset;
+    const { accion, pantalla: destino, tipo } = boton.dataset;
     if (accion === 'mes-anterior') vista = moverMes(vista, 'anterior');
     else if (accion === 'mes-siguiente') vista = moverMes(vista, 'siguiente');
     else if (accion === 'ir') vista = irA(vista, destino);
-    else if (accion === 'nuevo') vista = irA(vista, 'movimientos');
-    else return;
+    else if (accion === 'guardar') {
+      evento.preventDefault();
+      guardarMovimiento();
+      return;
+    } else if (accion === 'tipo') {
+      // Cambiar de gasto a ingreso cambia la lista de rubros (RN-02), así que hay
+      // que volver a dibujar. Lo escrito no se pierde porque se lee antes; el
+      // rubro sí se vacía, y tiene que vaciarse: el de antes ya no es válido.
+      vista = { ...vista, borrador: { ...leerFormulario(), tipo, rubro: '' }, error: null };
+    } else return;
 
     pintar();
   });

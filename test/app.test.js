@@ -108,13 +108,22 @@ test('en una pantalla que no es de un mes, el selector no se dibuja', () => {
 
 // ── Navegación ───────────────────────────────────────────────────────────────
 
-test('la barra tiene una pestaña por pantalla registrada, más cargar', () => {
+test('la barra tiene una pestaña por pantalla, más el botón de cargar', () => {
   const html = dibujarNavegacion('mes');
   for (const p of pantallasRegistradas()) {
     assert.ok(html.includes(`data-pantalla="${p.nombre}"`), `falta la pestaña ${p.nombre}`);
     assert.ok(html.includes(p.etiqueta));
   }
-  assert.ok(html.includes('data-accion="nuevo"'));
+  assert.ok(html.includes('class="pestania nueva'));
+});
+
+test('la pantalla de carga no aparece como una pestaña más', () => {
+  // Tiene su propio botón, destacado y al final: es la acción que se hace
+  // treinta veces por mes, no una sección que se visita.
+  const html = dibujarNavegacion('mes');
+  const pestanias = html.match(/class="pestania[^"]*"/g) ?? [];
+  assert.equal(pestanias.filter((c) => c.includes('nueva')).length, 1);
+  assert.equal(pantalla('nuevo').enBarra, false);
 });
 
 test('la pestaña actual se marca, y solo una', () => {
@@ -127,8 +136,8 @@ test('la pestaña actual se marca, y solo una', () => {
   assert.ok(trozo.includes('activa'));
 });
 
-test('están las tres secciones previstas', () => {
-  assert.deepEqual(pantallasRegistradas().map((p) => p.nombre), ['mes', 'movimientos', 'datos']);
+test('están las secciones previstas, y la carga', () => {
+  assert.deepEqual(pantallasRegistradas().map((p) => p.nombre), ['mes', 'movimientos', 'datos', 'nuevo']);
 });
 
 // ── Avisos ───────────────────────────────────────────────────────────────────
@@ -166,13 +175,13 @@ test('la app dibuja encabezado, contenido y navegación', () => {
   assert.ok(html.includes('class="navegacion"'));
 });
 
-test('cada pantalla dibuja lo suyo y dice qué tarea la trae', () => {
+test('las pantallas sin construir dicen qué tarea las trae', () => {
   // Un marcador honesto: en vez de una pantalla vacía que parece rota, dice qué
   // va a haber ahí y cuándo.
-  for (const p of pantallasRegistradas()) {
-    const html = dibujarApp({ ...VISTA, pantalla: p.nombre });
-    assert.ok(html.includes('Todavía no está construida'), `${p.nombre} sin marcador`);
-    assert.ok(/T-0\d\d/.test(html), `${p.nombre} no dice qué tarea la trae`);
+  for (const nombre of ['mes', 'movimientos', 'datos']) {
+    const html = dibujarApp({ ...VISTA, pantalla: nombre });
+    assert.ok(html.includes('Todavía no está construida'), `${nombre} sin marcador`);
+    assert.ok(/T-0\d\d/.test(html), `${nombre} no dice qué tarea la trae`);
   }
 });
 

@@ -228,8 +228,8 @@ qué existe.
 
 | ID | Caso de uso | Estado |
 |---|---|---|
-| CU-01 | Registrar un gasto | Pendiente |
-| CU-02 | Registrar un ingreso | Pendiente |
+| CU-01 | Registrar un gasto | **Hecho** (T-011) |
+| CU-02 | Registrar un ingreso | **Hecho** (T-011) |
 | CU-03 | Definir el tipo de cambio de una moneda para un mes | Lógica hecha (T-005); falta la pantalla (T-012) |
 | CU-04 | Ver el resumen del mes | Pendiente |
 | CU-05 | Ver el gasto día por día del mes | Pendiente |

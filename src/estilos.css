@@ -219,3 +219,116 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   .pestania, .flecha { transition: background-color 0.12s ease; }
 }
+
+/* ── Pantalla de carga (T-011) ───────────────────────────────────────────────
+   El objetivo es anotar un gasto en quince segundos, parado en la calle. Todo
+   lo de acá sale de eso: campos grandes, teclado correcto, y el botón de
+   guardar donde cae el pulgar. */
+
+.formulario { display: flex; flex-direction: column; gap: 0.875rem; }
+.formulario h2 { margin: 0; }
+
+.campo { display: flex; flex-direction: column; gap: 0.3rem; }
+.campo > span { font-size: 0.875rem; color: var(--texto-suave); }
+.campo em { font-style: normal; }
+
+.formulario input,
+.formulario select {
+  /* 16px exactos: con menos, Safari en iPhone hace zoom al enfocar el campo y
+     la pantalla queda corrida. Es un comportamiento del sistema, no un estilo. */
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--texto);
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 0.75rem;
+  min-height: 2.75rem;
+  width: 100%;
+}
+
+.monto-fila { display: flex; gap: 0.5rem; }
+.monto-fila input {
+  /* El monto es lo único que la app no puede adivinar, así que es lo más
+     grande de la pantalla. */
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: right;
+}
+.monto-fila select { width: 6rem; flex: none; text-align: center; }
+
+.tipo { display: flex; gap: 0.5rem; }
+
+.opcion-tipo {
+  flex: 1;
+  min-height: 2.75rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--texto-suave);
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  cursor: pointer;
+}
+
+.opcion-tipo.activa {
+  color: var(--superficie);
+  background: var(--acento);
+  border-color: var(--acento);
+  font-weight: 600;
+}
+
+.principal {
+  min-height: 3rem;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--superficie);
+  background: var(--acento);
+  border: none;
+  border-radius: var(--radio);
+  cursor: pointer;
+}
+
+.principal:active { filter: brightness(0.92); }
+
+/* El error se lee ANTES del formulario, no después: si estuviera abajo, en un
+   celular habría que desplazarse para enterarse de por qué no se guardó. */
+.error-carga {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: var(--radio);
+  border: 1px solid var(--gasto);
+  border-left-width: 4px;
+  color: var(--gasto);
+  font-size: 0.9375rem;
+}
+
+.confirmacion {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: var(--radio);
+  border: 1px solid var(--ingreso);
+  border-left-width: 4px;
+  font-size: 0.9375rem;
+}
+
+/* Las últimas líneas cargadas, solo para confirmar que entraron. */
+.lineas { list-style: none; margin: 0; padding: 0; }
+
+.linea {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--borde);
+  font-size: 0.9375rem;
+}
+
+.linea:last-child { border-bottom: none; }
+.linea .fecha { color: var(--texto-suave); font-variant-numeric: tabular-nums; }
+.linea .rubro { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linea .importe { font-variant-numeric: tabular-nums; font-weight: 600; }
+.linea.gasto .importe { color: var(--gasto); }
+.linea.ingreso .importe { color: var(--ingreso); }

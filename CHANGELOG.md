@@ -22,6 +22,12 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **Ya se pueden cargar gastos e ingresos** (T-011, CU-01 y CU-02). El formulario
+  viene con la fecha de hoy, el tipo en gasto y la última moneda que usaste, y el
+  monto abre el teclado numérico. Los movimientos **sobreviven a cerrar la app**.
+  Si algo está mal, el error se muestra arriba y **no se pierde lo escrito**
+  (L-012). Un gasto en otra moneda sin tipo de cambio todavía no se guarda: avisa
+  de cuál falta, y pedirlo llega con T-012. 27 tests.
 - **La app ya se puede recorrer** (T-010): encabezado con el mes que se está
   mirando y flechas para moverse, y una barra abajo con las tres secciones —Mes,
   Movimientos y Datos— más el botón de cargar. Las pantallas todavía son

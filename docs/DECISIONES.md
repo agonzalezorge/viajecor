@@ -569,3 +569,35 @@ leer, que es parte de la garantía de privacidad.
 edita (un formulario largo a medio llenar), redibujar todo con `innerHTML`
 borraría lo escrito. Ahí habrá que dibujar solo el trozo que cambia — T-011 es la
 primera que se va a topar con esto.
+
+---
+
+## ADR-023 · Lo escrito en el formulario vive en el documento, no en el estado
+**Fecha:** 2026-08-19 · **Estado:** Vigente
+
+**Contexto:** el armazón (T-010) redibuja la pantalla entera con `innerHTML` en
+cada cambio. Un formulario a medio llenar se borraría. Había dos salidas:
+redibujar solo el trozo que cambia, o guardar cada tecla en el estado de la app.
+
+**Decisión:** ninguna de las dos. Lo escrito **se lee del documento en el momento
+en que hace falta** —al guardar, o al cambiar de gasto a ingreso— y recién ahí
+pasa al estado.
+
+**Por qué no guardar cada tecla:** serían dos versiones del mismo dato, el
+`<input>` y el estado, que hay que mantener en sincronía. Es la trampa de L-005
+aplicada a un formulario: un dato, dos lugares, y tarde o temprano dicen cosas
+distintas. Además obliga a redibujar en cada tecla, que en un celular viejo se
+nota.
+
+**Por qué no redibujar solo un trozo:** habría que decidir, para cada cambio, qué
+parte de la pantalla se ve afectada. Esa decisión es donde aparecen los errores
+de "cambié el tipo pero el rubro quedó del anterior".
+
+**Cómo funciona:** hay un solo momento en que la pantalla se redibuja con datos
+escritos —al pasar de gasto a ingreso, porque cambia la lista de rubros (RN-02)—
+y ahí se lee el formulario primero y se vuelve a dibujar con esos valores. El
+rubro sí se vacía, y tiene que vaciarse: el de antes ya no es válido.
+
+**Lo que cuesta:** `ui/app.js` tiene una función que lee campos por nombre, y si
+se agrega un campo al formulario hay que agregarlo también ahí. Es un punto de
+olvido real. A cambio, no hay estado duplicado ni redibujado por tecla.

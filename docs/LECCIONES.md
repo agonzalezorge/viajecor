@@ -338,3 +338,39 @@ probar `Intl` antes de usarlo. La primera prueba dio bien —el contenedor corre
 UTC— y eso **no probaba nada**. Solo al repetirla con una zona horaria real salió
 el fallo. Una prueba que corre en el entorno más favorable puede ser peor que
 ninguna: da confianza sin dar información.
+
+---
+
+## L-012 · Un formulario que borra lo escrito al fallar enseña a no usarlo
+
+**De dónde salió:** de decidir qué hace la pantalla de carga (T-011) cuando la
+validación rechaza un movimiento.
+
+La app rechaza cosas a propósito y con motivo: un monto ambiguo (ADR-012), un
+rubro que no corresponde al tipo (RN-02), una fecha que no existe (RN-01), una
+moneda sin tipo de cambio (RN-04). Cada uno de esos rechazos evita un número mal.
+
+Pero hay una forma fácil de escribir esa pantalla —redibujarla entera con el
+formulario limpio— que convierte cada rechazo en **dos castigos**: no se guardó,
+y además hay que volver a escribir todo. Y el segundo castigo cae sobre alguien
+que ya hizo bien nueve de los diez campos.
+
+El resultado no es que la persona escriba mejor la próxima vez. El resultado es
+que deja de cargar gastos en el momento, que es exactamente el problema que la
+app venía a resolver.
+
+**El patrón:** *una validación estricta y un formulario que se vacía se
+combinan para castigar al usuario por un error que la app ya detectó.* Cada una
+por separado es razonable; juntas hacen que la app se vuelva incómoda justo
+cuando más está trabajando bien.
+
+**Qué hacemos en la app:** ante un error, `intentarGuardar()` devuelve el
+borrador **tal cual llegó**, y la pantalla lo vuelve a dibujar con todo lo
+escrito. El error se muestra arriba del formulario, no abajo: en un celular, un
+mensaje abajo obliga a desplazarse para enterarse de por qué no se guardó. Y hay
+un test que rompe a propósito la carga para comprobar que lo escrito sobrevive.
+
+**La otra cara:** cuando la carga sí funciona, el formulario se vacía **pero
+conserva la fecha**. Cargar tres gastos del sábado no puede obligar a poner la
+fecha tres veces. La regla general que queda: *después de un error se conserva
+todo; después de un acierto se conserva lo que probablemente se repita.*
