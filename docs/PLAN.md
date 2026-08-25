@@ -67,7 +67,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-009 | Planilla de ejemplo para probar el importador | **Hecha** | — |
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
 | T-010 | Armazón de la interfaz | **Hecha** | T-001 |
-| T-011 | Pantalla de carga de movimiento | **Lista** | T-003, T-004, T-010 |
+| T-011 | Pantalla de carga de movimiento | En curso (claude, 2026-08-19) | T-003, T-004, T-010 |
 | T-012 | Pedir el tipo de cambio al vuelo | Pendiente | T-005, T-011 |
 | T-013 | Cálculos del mes | **Lista** | T-003, T-005 |
 | T-014 | Pantalla de resumen del mes | Pendiente | T-013, T-010, T-006 |
@@ -396,8 +396,8 @@ en ADR-022.
 ---
 
 ### T-011 · Pantalla de carga de movimiento — CU-01, CU-02
-**Estado:** Lista · **Depende de:** T-003, T-004, T-010
-**Toca:** `src/ui/pantallas/movimiento.js`
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-003, T-004, T-010
+**Toca:** `src/ui/pantallas/movimiento.js`, `src/ui/app.js`, `src/estilos.css`, `test/movimiento.test.js`, `tools/build.mjs`
 
 Formulario con fecha (hoy por defecto), tipo, monto, moneda (la última usada),
 rubro, comentario y detalle. Guarda y vuelve a la lista.
