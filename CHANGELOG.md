@@ -22,6 +22,13 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **Ya se pueden cargar gastos en otra moneda** (T-012, CU-03). La primera vez
+  que cargás un gasto en colones de un mes, la app se detiene y te pregunta
+  *"1 EUR son… CRC"* — como viene el dato en la calle— y **guarda el gasto sola**
+  en cuanto lo escribís. Los siguientes ya no preguntan. Desde *Datos → Tipos de
+  cambio* podés ver y corregir cualquiera, y antes de aplicar una corrección la
+  app te dice **a cuántos movimientos afecta y cómo queda el total del mes**.
+  25 tests.
 - **Ya se pueden cargar gastos e ingresos** (T-011, CU-01 y CU-02). El formulario
   viene con la fecha de hoy, el tipo en gasto y la última moneda que usaste, y el
   monto abre el teclado numérico. Los movimientos **sobreviven a cerrar la app**.

@@ -17,6 +17,7 @@ import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
 import { dibujarNuevo, borradorNuevo, intentarGuardar, fechaEnPalabras } from './pantallas/movimiento.js';
+import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -102,11 +103,28 @@ registrarPantalla('datos', {
   etiqueta: 'Datos',
   icono: '↧',
   conMes: false,
-  dibujar: marcador(
-    'Tus datos',
-    'Exportar un respaldo, volver a importarlo, y la lista de monedas.',
-    'T-016 y T-024'
-  ),
+  dibujar: (vista) => `
+    ${marcador(
+      'Tus datos',
+      'Exportar un respaldo, volver a importarlo, y la lista de monedas.',
+      'T-016 y T-024'
+    )(vista)}
+    <section class="tarjeta">
+      <h2>Tipos de cambio</h2>
+      <p class="suave">Ver y corregir cuánto vale cada moneda en cada mes.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">
+        Ver tipos de cambio
+      </button>
+    </section>
+  `,
+});
+
+registrarPantalla('cambios', {
+  etiqueta: 'Tipos de cambio',
+  icono: '⇄',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarCambios,
 });
 
 registrarPantalla('nuevo', {
@@ -301,6 +319,21 @@ export function iniciar(documento, almacen) {
   function guardarMovimiento() {
     const resultado = intentarGuardar(vista.estado, leerFormulario());
 
+    if (resultado.faltaCambio) {
+      // No es un error del usuario: es un dato que la app necesita y no tiene.
+      // Se interrumpe, se pide, y el movimiento queda esperando (CU-03).
+      vista = {
+        ...vista,
+        borrador: resultado.borrador,
+        faltaCambio: resultado.faltaCambio,
+        borradorCambio: '',
+        error: null,
+        aviso: null,
+      };
+      pintar();
+      return;
+    }
+
     if (resultado.error) {
       // No se guardó nada, así que el borrador se conserva TAL CUAL: perder lo
       // escrito por un rubro sin elegir sería castigar dos veces el mismo error.
@@ -326,6 +359,7 @@ export function iniciar(documento, almacen) {
       borrador: resultado.borrador,
       aviso: resultado.aviso,
       error: null,
+      faltaCambio: null,
       // El mes que se está mirando pasa a ser el del movimiento recién cargado:
       // si no, cargar un gasto de otro mes lo haría desaparecer de la vista.
       mes: mesDe(resultado.aviso.movimiento.fecha),
@@ -337,15 +371,110 @@ export function iniciar(documento, almacen) {
   // escrita en palabras. Redibujar entero acá sacaría el foco del calendario
   // que el usuario está usando, que es peor que el problema que resuelve.
   raiz.addEventListener('input', (evento) => {
-    if (!evento.target.matches('input[name="fecha"]')) return;
-    const etiqueta = raiz.querySelector('[data-fecha-legible]');
-    if (etiqueta) etiqueta.textContent = fechaEnPalabras(evento.target.value);
+    if (evento.target.matches('input[name="fecha"]')) {
+      const etiqueta = raiz.querySelector('[data-fecha-legible]');
+      if (etiqueta) etiqueta.textContent = fechaEnPalabras(evento.target.value);
+      return;
+    }
+
+    // El aviso de "esto cambia el total de 2 movimientos, de 31,74 a 40,00 €"
+    // solo sirve MIENTRAS se escribe el valor nuevo. Sin esto quedaba con el
+    // texto genérico y nunca mostraba los números, que son todo su valor.
+    if (evento.target.matches('input[name="unidadesPorEuro"]')) {
+      const hueco = raiz.querySelector('[data-aviso-correccion]');
+      if (!hueco || !vista.faltaCambio) return;
+      vista = { ...vista, borradorCambio: evento.target.value };
+      hueco.innerHTML = dibujarAvisoCorreccion(
+        efectoDeCorregir(vista.estado, vista.faltaCambio.moneda, vista.faltaCambio.mes, evento.target.value),
+        vista.faltaCambio.moneda
+      );
+    }
   });
 
+  /**
+   * Guarda el tipo de cambio que se acaba de pedir y REINTENTA el movimiento
+   * solo.
+   *
+   * El reintento es lo que hace que la interrupción sea una interrupción y no un
+   * desvío: el usuario escribió un número y su gasto quedó guardado. Obligarlo a
+   * volver al formulario y darle a guardar otra vez sería hacerle pagar dos
+   * veces por un dato que la app le pidió a él.
+   */
+  function guardarTipoDeCambio() {
+    const formulario = raiz.querySelector('[data-formulario="cambio"]');
+    if (!formulario) return;
+    const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
+    const escrito = campo('unidadesPorEuro');
+
+    const resultado = intentarGuardarCambio(vista.estado, {
+      moneda: campo('moneda'),
+      mes: campo('mes'),
+      unidadesPorEuro: escrito,
+    });
+
+    if (resultado.error) {
+      vista = { ...vista, borradorCambio: escrito, error: resultado.error };
+      pintar();
+      return;
+    }
+
+    // El tipo de cambio se PERSISTE ya, antes de cualquier otra cosa. Antes esto
+    // pasaba después del reintento del movimiento, y si el reintento fallaba
+    // —por ejemplo al corregir un tipo de cambio sin ningún gasto esperando— la
+    // corrección se perdía en silencio: la pantalla la mostraba aplicada y al
+    // recargar volvía el valor viejo. Lo encontró el recorrido en el navegador.
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorCambio: escrito, error: error.message };
+      pintar();
+      return;
+    }
+
+    const conCambio = { ...vista, estado: resultado.estado, faltaCambio: null, borradorCambio: '', error: null };
+
+    // ¿Había un movimiento esperando, o esto era solo corregir un tipo de
+    // cambio? No es lo mismo, y confundirlos era el otro medio error.
+    const esperaba = Boolean(vista.faltaCambio && vista.borrador?.monto);
+    if (!esperaba) {
+      vista = { ...conCambio, pantalla: 'cambios' };
+      pintar();
+      return;
+    }
+
+    const reintento = intentarGuardar(conCambio.estado, conCambio.borrador);
+    if (reintento.error) {
+      vista = { ...conCambio, error: reintento.error };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(reintento.estado, almacen);
+    } catch (error) {
+      vista = { ...conCambio, error: error.message };
+      pintar();
+      return;
+    }
+
+    vista = {
+      ...conCambio,
+      estado: reintento.estado,
+      borrador: reintento.borrador,
+      aviso: reintento.aviso,
+      mes: mesDe(reintento.aviso.movimiento.fecha),
+    };
+    pintar();
+  }
+
   raiz.addEventListener('submit', (evento) => {
-    if (!evento.target.matches('[data-formulario="movimiento"]')) return;
-    evento.preventDefault();
-    guardarMovimiento();
+    if (evento.target.matches('[data-formulario="movimiento"]')) {
+      evento.preventDefault();
+      guardarMovimiento();
+    } else if (evento.target.matches('[data-formulario="cambio"]')) {
+      evento.preventDefault();
+      guardarTipoDeCambio();
+    }
   });
 
   raiz.addEventListener('click', (evento) => {
@@ -360,6 +489,26 @@ export function iniciar(documento, almacen) {
       evento.preventDefault();
       guardarMovimiento();
       return;
+    } else if (accion === 'guardar-cambio') {
+      evento.preventDefault();
+      guardarTipoDeCambio();
+      return;
+    } else if (accion === 'cancelar-cambio') {
+      // "Ahora no": se vuelve al formulario con el gasto tal como estaba. No se
+      // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
+      // quedaría fuera de todos los totales (RN-04).
+      vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
+    } else if (accion === 'corregir-cambio') {
+      // Corregir uno existente reusa el mismo pedido, con su aviso de cuántos
+      // movimientos toca.
+      vista = {
+        ...vista,
+        pantalla: 'nuevo',
+        faltaCambio: { moneda: boton.dataset.moneda, mes: boton.dataset.mes },
+        borradorCambio: '',
+        error: null,
+        aviso: null,
+      };
     } else if (accion === 'tipo') {
       // Cambiar de gasto a ingreso cambia la lista de rubros (RN-02), así que hay
       // que volver a dibujar. Lo escrito no se pierde porque se lee antes; el

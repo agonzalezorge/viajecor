@@ -15,6 +15,7 @@ import { monedasVisibles, decimalesDe } from '../../core/monedas.js';
 import { faltaCambioPara } from '../../core/cambio.js';
 import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana, formatearMes } from '../../core/formato.js';
 import { escapar } from '../app.js';
+import { dibujarPedido, dibujarMovimientoEnEspera } from './cambio.js';
 
 /**
  * Los campos vacíos de un formulario nuevo.
@@ -178,6 +179,14 @@ function dibujarUltimos(estado) {
 export function dibujarNuevo(vista) {
   const estado = vista.estado;
   const borrador = vista.borrador ?? borradorNuevo({ estado });
+
+  // Si el gasto que se está cargando necesita un tipo de cambio, la app
+  // interrumpe y lo pide (CU-03). Se reemplaza el formulario en vez de agregar
+  // el pedido debajo: dos formularios a la vez son dos cosas para decidir, y
+  // este es un momento en que el usuario ya fue interrumpido una vez.
+  if (vista.faltaCambio) {
+    return dibujarMovimientoEnEspera(estado, borrador) + dibujarPedido(vista);
+  }
   const esGasto = borrador.tipo !== TIPO_INGRESO;
 
   // Solo el código, no "EUR — Euro": el nombre completo no entra al lado del

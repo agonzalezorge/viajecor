@@ -108,13 +108,18 @@ test('en una pantalla que no es de un mes, el selector no se dibuja', () => {
 
 // ── Navegación ───────────────────────────────────────────────────────────────
 
-test('la barra tiene una pestaña por pantalla, más el botón de cargar', () => {
+test('la barra tiene una pestaña por sección, más el botón de cargar', () => {
   const html = dibujarNavegacion('mes');
-  for (const p of pantallasRegistradas()) {
+  for (const p of pantallasRegistradas().filter((x) => x.enBarra !== false)) {
     assert.ok(html.includes(`data-pantalla="${p.nombre}"`), `falta la pestaña ${p.nombre}`);
     assert.ok(html.includes(p.etiqueta));
   }
   assert.ok(html.includes('class="pestania nueva'));
+});
+
+test('la barra tiene tres pestañas y nada más, para que entren en un celular', () => {
+  const enBarra = pantallasRegistradas().filter((p) => p.enBarra !== false);
+  assert.deepEqual(enBarra.map((p) => p.nombre), ['mes', 'movimientos', 'datos']);
 });
 
 test('la pantalla de carga no aparece como una pestaña más', () => {
@@ -136,8 +141,11 @@ test('la pestaña actual se marca, y solo una', () => {
   assert.ok(trozo.includes('activa'));
 });
 
-test('están las secciones previstas, y la carga', () => {
-  assert.deepEqual(pantallasRegistradas().map((p) => p.nombre), ['mes', 'movimientos', 'datos', 'nuevo']);
+test('están las secciones previstas, la carga y los tipos de cambio', () => {
+  assert.deepEqual(
+    pantallasRegistradas().map((p) => p.nombre),
+    ['mes', 'movimientos', 'datos', 'cambios', 'nuevo']
+  );
 });
 
 // ── Avisos ───────────────────────────────────────────────────────────────────

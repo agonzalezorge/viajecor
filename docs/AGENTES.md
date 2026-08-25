@@ -75,6 +75,12 @@ Una tarea se marca `Hecha` cuando **todas** estas cosas son ciertas:
 - [ ] Se cumple lo que la tarea dice en *Terminada cuando*, comprobado, no supuesto.
 - [ ] `node --test` pasa entero.
 - [ ] `node tools/build.mjs` corre y `dist/viajecor.html` está actualizado y commiteado.
+- [ ] **Si la tarea agrega o cambia una pantalla: se recorrió en un navegador
+      real**, abriendo `dist/viajecor.html` desde el disco, y el recorrido
+      terminó **recargando la página** para ver qué sobrevivió. No es una buena
+      costumbre, es un requisito: los tests prueban que cada pieza es correcta,
+      no que la app las use bien, y ahí es donde caen los errores que el usuario
+      vive como "la app perdió mi dato". Ver L-014.
 - [ ] Los documentos afectados están actualizados **en el mismo commit**:
       caso de uso en `PRODUCTO.md`, decisión no trivial en `DECISIONES.md`,
       trampa descubierta en `LECCIONES.md`.

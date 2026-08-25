@@ -341,3 +341,63 @@ body {
   color: var(--texto-suave);
   min-height: 1.25rem;
 }
+
+/* ── Tipos de cambio (T-012) ─────────────────────────────────────────────── */
+
+.secundario {
+  min-height: 2.75rem;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--acento);
+  background: none;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 0 1rem;
+  cursor: pointer;
+}
+
+.secundario.chico { min-height: 2.25rem; font-size: 0.875rem; padding: 0 0.75rem; }
+.secundario:active { background: var(--fondo); }
+
+/* El sufijo de la moneda al lado del número: "1 EUR son [630] CRC". Escribir
+   el tipo de cambio al revés es el error más fácil acá, y tenerlo escrito en
+   la misma línea es lo que lo hace difícil de cometer. */
+.sufijo {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+/* El gasto que quedó esperando mientras se pide el tipo de cambio. Sin esto,
+   la interrupción parece que salió de la nada. */
+.en-espera {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border-radius: var(--radio);
+  border: 1px dashed var(--borde);
+  color: var(--texto-suave);
+  font-size: 0.9375rem;
+}
+
+.linea-cambio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.linea-cambio:last-child { border-bottom: none; }
+.mes-cambio { font-weight: 600; margin-right: 0.5rem; }
+
+.valor-cambio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}

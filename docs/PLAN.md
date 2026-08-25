@@ -68,7 +68,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
 | T-010 | Armazón de la interfaz | **Hecha** | T-001 |
 | T-011 | Pantalla de carga de movimiento | **Hecha** | T-003, T-004, T-010 |
-| T-012 | Pedir el tipo de cambio al vuelo | En curso (claude, 2026-08-19) | T-005, T-011 |
+| T-012 | Pedir el tipo de cambio al vuelo | **Hecha** | T-005, T-011 |
 | T-013 | Cálculos del mes | **Lista** | T-003, T-005 |
 | T-014 | Pantalla de resumen del mes | Pendiente | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | **Lista** | T-011 |
@@ -444,6 +444,26 @@ Al guardar un movimiento en una moneda sin tipo de cambio para ese mes, pedirlo
 antes de guardar, aceptando el valor en cualquiera de los dos sentidos. Más una
 pantalla para ver y corregir tipos de cambio, que avisa cuántos movimientos
 afecta una corrección.
+
+**Terminada cuando:**
+- [x] Al cargar el primer gasto en una moneda nueva, la app interrumpe, pide el
+      tipo de cambio y **el gasto se guarda solo** al cargarlo. 25 tests; 257 en
+      total.
+- [x] El valor se escribe como se conoce ("1 EUR son 630 CRC") y se guarda
+      invertido, con el sentido escrito al lado del campo. Los tests muerden:
+      guardarlo sin invertir hace fallar 6 tests.
+- [x] Corregir uno ya usado avisa **a cuántos movimientos afecta y en cuánto
+      cambia el total del mes**, antes de aplicarlo (RN-05).
+- [x] **Recorrido completo en un navegador real**, terminando con una recarga:
+      12.500 colones cargados con la app pidiendo el cambio, un segundo gasto que
+      ya no interrumpe, y una corrección de 630 a 500 que sobrevivió a recargar.
+      0 peticiones a internet, 0 errores de consola.
+
+**Lo que salió de hacerla, y es lo más valioso:** el recorrido en el navegador
+encontró **dos errores que los 257 tests no veían**, los dos en el enganche. Ver
+L-014. Uno mostraba siempre un aviso pobre sin los números; el otro **perdía en
+silencio** la corrección de un tipo de cambio cuando no había ningún gasto
+esperando — la pantalla decía que se aplicó y al recargar volvía el valor viejo.
 
 ---
 

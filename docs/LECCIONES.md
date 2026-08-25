@@ -408,3 +408,49 @@ dice la fecha correcta en español.
 depende del entorno y no se puede controlar, **agregar al lado un dato que sí se
 controle**, en vez de intentar forzar el entorno o de suponer que va a portarse
 bien. Es más barato y no depende de averiguar nada.
+
+---
+
+## L-014 · Una función con tests puede estar muerta en la app de verdad
+
+**De dónde salió:** de recorrer T-012 en un navegador, con los 257 tests en
+verde. Aparecieron dos errores que ningún test veía, y los dos estaban en la
+misma frontera.
+
+**El primero, y es el que más enseña.** `dibujarAvisoCorreccion()` muestra la
+consecuencia de corregir un tipo de cambio: *"afecta a 2 movimientos; el total de
+ese mes sube de 24,60 € a 31,00 €"*. Tenía tests, pasaban, y el texto que
+producía era correcto.
+
+En la app mostraba siempre la versión pobre: *"este tipo de cambio lo usan 2
+movimientos"*, sin ningún número. El motivo: la pantalla se dibuja una vez, con
+el campo vacío, y **no se vuelve a dibujar mientras el usuario escribe**. La
+función se llamaba siempre con el valor vacío. Los números —lo único que hacía
+valiosa esa función— no se veían nunca.
+
+Los tests la llamaban directamente, con un valor escrito. Probaban que la función
+está bien. No probaban que la app la use bien, que es otra cosa.
+
+**El segundo, más grave.** Corregir un tipo de cambio **sin ningún gasto
+esperando** no se guardaba. La pantalla mostraba el valor nuevo aplicado; al
+recargar volvía el viejo. El código guardaba el tipo de cambio recién después de
+reintentar el movimiento pendiente, y si no había ninguno, ese reintento fallaba
+y se salía antes de escribir. Un dato perdido en silencio, con la pantalla
+diciendo que todo salió bien.
+
+**El patrón:** *los tests de una capa pura prueban que la pieza es correcta, no
+que la app la use.* Todo lo que vive en el enganche —cuándo se redibuja, en qué
+orden se guarda, qué pasa cuando el caso es el otro— es invisible para ellos. Y
+es donde caen los errores más caros, porque son los que el usuario ve como "la
+app perdió mi dato".
+
+**Qué hacemos:** ADR-022 ya decía que la capa de enganche se prueba abriendo la
+app. Esto la convierte en una obligación, no en una buena costumbre: **toda tarea
+que agregue una pantalla tiene que recorrerse en un navegador antes de darse por
+hecha**, y el recorrido tiene que terminar recargando la página para comprobar
+qué sobrevivió de verdad. Los dos errores de arriba los encontró exactamente eso.
+
+**Y una regla que sale del segundo:** cuando una acción del usuario produce dos
+efectos —guardar el tipo de cambio y guardar el movimiento— **se persiste el
+primero antes de intentar el segundo**. Si el segundo falla, el primero ya está a
+salvo. Encadenarlos hace que el fallo de uno se lleve puesto al otro.
