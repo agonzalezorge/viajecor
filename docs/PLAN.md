@@ -68,7 +68,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Etapa 1 — v0.1: registrar, ver y exportar** ||||
 | T-010 | Armazón de la interfaz | **Hecha** | T-001 |
 | T-011 | Pantalla de carga de movimiento | **Hecha** | T-003, T-004, T-010 |
-| T-012 | Pedir el tipo de cambio al vuelo | **Lista** | T-005, T-011 |
+| T-012 | Pedir el tipo de cambio al vuelo | En curso (claude, 2026-08-19) | T-005, T-011 |
 | T-013 | Cálculos del mes | **Lista** | T-003, T-005 |
 | T-014 | Pantalla de resumen del mes | Pendiente | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | **Lista** | T-011 |
@@ -437,8 +437,8 @@ deducirlo. Es parte de T-019.
 ---
 
 ### T-012 · Pedir el tipo de cambio al vuelo — CU-03
-**Estado:** Lista · **Depende de:** T-005, T-011
-**Toca:** `src/ui/pantallas/cambio.js`, `src/ui/pantallas/movimiento.js`
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-005, T-011
+**Toca:** `src/ui/pantallas/cambio.js`, `src/ui/pantallas/movimiento.js`, `src/ui/app.js`, `src/estilos.css`, `test/pantalla-cambio.test.js`, `tools/build.mjs`
 
 Al guardar un movimiento en una moneda sin tipo de cambio para ese mes, pedirlo
 antes de guardar, aceptando el valor en cualquiera de los dos sentidos. Más una
