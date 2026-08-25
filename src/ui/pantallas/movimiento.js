@@ -13,7 +13,7 @@
 import { crearMovimiento, rubrosDe, TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../../core/modelo.js';
 import { monedasVisibles, decimalesDe } from '../../core/monedas.js';
 import { faltaCambioPara } from '../../core/cambio.js';
-import { formatearMonto, formatearFecha, formatearMes } from '../../core/formato.js';
+import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana, formatearMes } from '../../core/formato.js';
 import { escapar } from '../app.js';
 
 /**
@@ -95,6 +95,20 @@ export function intentarGuardar(estado, borrador) {
 }
 
 // ── Dibujo ───────────────────────────────────────────────────────────────────
+
+/**
+ * La fecha escrita en palabras, para poner debajo del calendario del sistema.
+ *
+ * Si la fecha no se puede leer todavía —el campo a medio escribir— devuelve
+ * vacío en vez de tirar: un formulario a medio llenar no es un error.
+ */
+export function fechaEnPalabras(iso) {
+  try {
+    return `${formatearDiaSemana(iso)}, ${formatearFechaLarga(iso)}`;
+  } catch {
+    return '';
+  }
+}
 
 function opciones(valores, elegido) {
   return valores
@@ -211,6 +225,12 @@ export function dibujarNuevo(vista) {
       <label class="campo">
         <span>Fecha</span>
         <input name="fecha" type="date" value="${escapar(borrador.fecha)}">
+        <!-- El calendario de "type=date" lo dibuja el SISTEMA, no la app, y cada
+             navegador elige el formato según su propio idioma: puede mostrar
+             25/08/2026 o 08/25/2026 y no hay forma de decidirlo desde acá.
+             En vez de confiar en que salga bien, la app escribe debajo la fecha
+             en español, sin ambigüedad posible. Ver L-013. -->
+        <span class="fecha-legible" data-fecha-legible>${escapar(fechaEnPalabras(borrador.fecha))}</span>
       </label>
 
       <label class="campo">

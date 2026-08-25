@@ -42,6 +42,19 @@ Una sola persona, en su propio dispositivo (celular como uso principal,
 computadora para revisar y exportar). No hay usuarios múltiples, no hay roles, no
 hay compartición. Si eso cambia, cambia este documento primero.
 
+**El celular es Android** (dicho por el usuario, 2026-08-19). Eso fija en qué hay
+que probar de verdad y qué deja de importar:
+
+- La prueba que cuenta es **Chrome en Android**, con el archivo abierto desde el
+  almacenamiento del teléfono. Es lo que hay que verificar en T-019.
+- Los riesgos específicos de **Safari en iOS** —que puede borrar el
+  almacenamiento tras semanas sin uso— dejan de aplicar mientras el uso sea
+  Android. Quedan anotados igual en `ARQUITECTURA.md` §12 por si algún día se
+  abre en un iPhone.
+- Lo que **no** cambia: la app se sigue escribiendo sin nada específico de un
+  navegador. Está hecha con lo que traen todos, y probarla en Android no es lo
+  mismo que atarla a Android.
+
 ## 4. Vocabulario del dominio
 
 Los nombres vienen del Excel y **se respetan tal cual** — cambiarlos obligaría a

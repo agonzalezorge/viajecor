@@ -332,3 +332,12 @@ body {
 .linea .importe { font-variant-numeric: tabular-nums; font-weight: 600; }
 .linea.gasto .importe { color: var(--gasto); }
 .linea.ingreso .importe { color: var(--ingreso); }
+
+/* La fecha en palabras, debajo del calendario del sistema. El formato de ese
+   control lo elige el navegador según su idioma —puede mostrar 08/25/2026— y no
+   hay forma de decidirlo desde la app. Esto lo vuelve irrelevante. Ver L-013. */
+.fecha-legible {
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+  min-height: 1.25rem;
+}

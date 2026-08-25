@@ -337,6 +337,15 @@ body {
 .linea .importe { font-variant-numeric: tabular-nums; font-weight: 600; }
 .linea.gasto .importe { color: var(--gasto); }
 .linea.ingreso .importe { color: var(--ingreso); }
+
+/* La fecha en palabras, debajo del calendario del sistema. El formato de ese
+   control lo elige el navegador según su idioma —puede mostrar 08/25/2026— y no
+   hay forma de decidirlo desde la app. Esto lo vuelve irrelevante. Ver L-013. */
+.fecha-legible {
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+  min-height: 1.25rem;
+}
 </style>
 
 <div id="app" class="app">
@@ -1946,6 +1955,20 @@ function intentarGuardar(estado, borrador) {
 
 // ── Dibujo ───────────────────────────────────────────────────────────────────
 
+/**
+ * La fecha escrita en palabras, para poner debajo del calendario del sistema.
+ *
+ * Si la fecha no se puede leer todavía —el campo a medio escribir— devuelve
+ * vacío en vez de tirar: un formulario a medio llenar no es un error.
+ */
+function fechaEnPalabras(iso) {
+  try {
+    return `${formatearDiaSemana(iso)}, ${formatearFechaLarga(iso)}`;
+  } catch {
+    return '';
+  }
+}
+
 function opciones(valores, elegido) {
   return valores
     .map((v) => {
@@ -2061,6 +2084,12 @@ function dibujarNuevo(vista) {
       <label class="campo">
         <span>Fecha</span>
         <input name="fecha" type="date" value="${escapar(borrador.fecha)}">
+        <!-- El calendario de "type=date" lo dibuja el SISTEMA, no la app, y cada
+             navegador elige el formato según su propio idioma: puede mostrar
+             25/08/2026 o 08/25/2026 y no hay forma de decidirlo desde acá.
+             En vez de confiar en que salga bien, la app escribe debajo la fecha
+             en español, sin ambigüedad posible. Ver L-013. -->
+        <span class="fecha-legible" data-fecha-legible>${escapar(fechaEnPalabras(borrador.fecha))}</span>
       </label>
 
       <label class="campo">
@@ -2422,6 +2451,15 @@ function iniciar(documento, almacen) {
     };
     pintar();
   }
+
+  // El único trozo que se actualiza solo, sin redibujar la pantalla: la fecha
+  // escrita en palabras. Redibujar entero acá sacaría el foco del calendario
+  // que el usuario está usando, que es peor que el problema que resuelve.
+  raiz.addEventListener('input', (evento) => {
+    if (!evento.target.matches('input[name="fecha"]')) return;
+    const etiqueta = raiz.querySelector('[data-fecha-legible]');
+    if (etiqueta) etiqueta.textContent = fechaEnPalabras(evento.target.value);
+  });
 
   raiz.addEventListener('submit', (evento) => {
     if (!evento.target.matches('[data-formulario="movimiento"]')) return;

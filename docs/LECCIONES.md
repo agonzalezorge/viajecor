@@ -374,3 +374,37 @@ un test que rompe a propósito la carga para comprobar que lo escrito sobrevive.
 conserva la fecha**. Cargar tres gastos del sábado no puede obligar a poner la
 fecha tres veces. La regla general que queda: *después de un error se conserva
 todo; después de un acierto se conserva lo que probablemente se repita.*
+
+---
+
+## L-013 · Un control que dibuja el sistema no habla necesariamente tu idioma
+
+**De dónde salió:** de mirar la pantalla de carga (T-011) en un navegador real y
+ver la fecha escrita `08/25/2026`.
+
+`<input type="date">` no lo dibuja la app: lo dibuja el navegador, y elige el
+formato según **su propio idioma**, no el de la página. La app puede estar
+enteramente en español, con `Intl` configurado en `es-ES`, y ese control seguir
+mostrando el mes primero. Comprobado: forzando el idioma del navegador a español
+el formato **no cambió**.
+
+El problema no es estético. `08/25/2026` es leíble —no existe el mes 25— pero
+`08/09/2026` es genuinamente ambiguo: puede ser el 8 de septiembre o el 9 de
+agosto. Alguien que revisa sus gastos no tiene forma de saber cuál.
+
+**El patrón:** *un control nativo se ve como parte de la app y no lo es.* Todo lo
+que la app dibuja se puede controlar y testear; lo que dibuja el sistema
+—calendarios, selectores, teclados, menús de compartir— responde a la
+configuración del dispositivo, y desde el código no hay forma de decidirlo ni,
+muchas veces, de averiguarlo.
+
+**Qué hacemos en la app:** no se pelea con el control, se lo vuelve irrelevante.
+Debajo del campo, la app escribe la fecha en palabras —*jueves, 31 de diciembre
+de 2026*— con su propio formateo, que sí controla y sí está testeado. Comprobado
+con el navegador en inglés: el control muestra `12/31/2026` y la línea de abajo
+dice la fecha correcta en español.
+
+**La forma general de la solución, que sirve para los otros casos:** cuando algo
+depende del entorno y no se puede controlar, **agregar al lado un dato que sí se
+controle**, en vez de intentar forzar el entorno o de suponer que va a portarse
+bien. Es más barato y no depende de averiguar nada.

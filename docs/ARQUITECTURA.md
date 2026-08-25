@@ -225,6 +225,23 @@ operación tira un error en vez de seguir como si nada: una app que dice haber
 guardado y no guardó le hace perder al usuario una tarde entera de carga. Ver
 ADR-016.
 
+**Cómo se comporta el almacenamiento con un archivo abierto desde el disco**
+(comprobado en Chromium, 2026-08-19 — no supuesto):
+
+- **Todas las páginas `file://` comparten un mismo almacenamiento.** Se cargó un
+  gasto desde una carpeta y se leyó desde otra carpeta y con otro nombre de
+  archivo: los datos estaban.
+- La consecuencia buena, y es importante: **descargar una versión nueva de la app
+  no borra los datos**. El archivo nuevo ve lo que cargó el viejo, aunque quede
+  en otra carpeta o con otro nombre.
+- La consecuencia incómoda: ese almacenamiento no es privado de Viajecor. **Otro
+  archivo HTML abierto desde el disco en el mismo navegador podría leerlo.** No
+  es un agujero para nadie de afuera —hace falta abrir a mano un archivo en el
+  propio teléfono— pero conviene saberlo antes que descubrirlo.
+- **Falta comprobarlo en Chrome de Android**, que es donde se va a usar (T-019).
+  Es el mismo motor, así que debería comportarse igual, pero *debería* no es
+  *comprobé*.
+
 **Riesgo asumido, y no es menor:** borrar los datos del navegador borra todo.
 Por eso exportar (CU-07) no es una función secundaria: es la copia de seguridad.
 La app tiene que empujar a exportar de forma visible y periódica.
@@ -293,7 +310,8 @@ directamente.
 | Riesgo | Impacto | Qué hacemos |
 |---|---|---|
 | Borrado de datos del navegador | Pérdida total | Exportación visible y recordatorios (CU-07) |
-| Safari en iOS puede borrar `localStorage` tras semanas sin uso | Pérdida total, silenciosa | Documentado acá y en la app; refuerza el respaldo periódico |
+| Safari en iOS puede borrar `localStorage` tras semanas sin uso | Pérdida total, silenciosa | **No aplica hoy:** el uso es Android (PRODUCTO §3). Queda anotado por si se abre en un iPhone |
+| Un control nativo (`type=date`) muestra la fecha en el idioma del navegador, no en el de la app | Una fecha ambigua leída al revés | La app escribe la fecha en palabras al lado. Ver L-013 |
 | Errores de redondeo en dinero | Totales que no cierran | Enteros + redondeo único al final (5.1) |
 | Un tipo de cambio mal cargado cambia totales históricos | Números que "cambian solos" | Aviso con cantidad de movimientos afectados antes de aplicar (RN-05) |
 | El HTML crece y se vuelve lento en celulares viejos | App pesada | Medir antes de optimizar; sin minificar el archivo queda en decenas de KB |

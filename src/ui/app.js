@@ -16,7 +16,7 @@ import { hoy, mesDe, mesAnterior, mesSiguiente } from '../core/modelo.js';
 import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
-import { dibujarNuevo, borradorNuevo, intentarGuardar } from './pantallas/movimiento.js';
+import { dibujarNuevo, borradorNuevo, intentarGuardar, fechaEnPalabras } from './pantallas/movimiento.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -332,6 +332,15 @@ export function iniciar(documento, almacen) {
     };
     pintar();
   }
+
+  // El único trozo que se actualiza solo, sin redibujar la pantalla: la fecha
+  // escrita en palabras. Redibujar entero acá sacaría el foco del calendario
+  // que el usuario está usando, que es peor que el problema que resuelve.
+  raiz.addEventListener('input', (evento) => {
+    if (!evento.target.matches('input[name="fecha"]')) return;
+    const etiqueta = raiz.querySelector('[data-fecha-legible]');
+    if (etiqueta) etiqueta.textContent = fechaEnPalabras(evento.target.value);
+  });
 
   raiz.addEventListener('submit', (evento) => {
     if (!evento.target.matches('[data-formulario="movimiento"]')) return;

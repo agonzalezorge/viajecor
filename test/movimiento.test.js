@@ -12,6 +12,7 @@ import {
   borradorNuevo,
   intentarGuardar,
   dibujarNuevo,
+  fechaEnPalabras,
   movimientosDelMes,
 } from '../src/ui/pantallas/movimiento.js';
 
@@ -285,6 +286,27 @@ test('un comentario con HTML no rompe la página', () => {
 
   assert.equal(html.includes('<b>Roma</b>'), false);
   assert.ok(html.includes('&lt;b&gt;Roma&lt;/b&gt;'));
+});
+
+// ── La fecha, sin depender del idioma del navegador (L-013) ──────────────────
+
+test('la fecha se escribe también en español, debajo del calendario', () => {
+  // El control "type=date" lo dibuja el sistema y elige el formato según SU
+  // idioma: puede mostrar 08/25/2026. La app no puede decidirlo, así que en vez
+  // de confiar en que salga bien, escribe la fecha sin ambigüedad posible.
+  assert.equal(fechaEnPalabras('2026-08-25'), 'martes, 25 de agosto de 2026');
+  assert.equal(fechaEnPalabras('2026-01-01'), 'jueves, 1 de enero de 2026');
+
+  const html = dibujarNuevo({ estado: estadoLimpio(), borrador: borradorDe({ fecha: '2026-08-25' }) });
+  assert.ok(html.includes('25 de agosto de 2026'));
+});
+
+test('una fecha a medio escribir no rompe la etiqueta', () => {
+  // Mientras se usa el calendario el campo pasa por estados incompletos. Eso no
+  // es un error: es alguien escribiendo.
+  for (const media of ['', '2026-', '2026-08', 'nada', null]) {
+    assert.equal(fechaEnPalabras(media), '');
+  }
 });
 
 // ── Filtrar por mes ──────────────────────────────────────────────────────────
