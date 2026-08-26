@@ -470,3 +470,83 @@ body {
 
 .barra.gasto { background: var(--gasto); }
 .barra.ingreso { background: var(--ingreso); }
+
+/* ── Un color por rubro (T-909) ──────────────────────────────────────────────
+   Los ocho tonos NO se eligieron a ojo: salen de la paleta categórica de la
+   guía de visualización y se comprobaron con su validador contra las dos
+   superficies de esta app. Pasan las seis comprobaciones en claro y en oscuro
+   —banda de luminosidad, croma mínimo, separación para daltonismo (peor par
+   ΔE 9,1 y 8,4), separación en visión normal (ΔE 19,6 y 19,3) y contraste—.
+
+   La única advertencia es que tres tonos quedan por debajo de 3:1 sobre el
+   fondo claro. Está cubierta porque cada barra lleva su nombre y su importe
+   escritos al lado: el color nunca es la única forma de saber qué es. Una
+   pantalla que muestre estos colores SIN texto tiene que resolverlo de nuevo.
+
+   Ocho es el techo. Un noveno tono generado sería indistinguible de alguno de
+   estos bajo daltonismo: si hiciera falta, se agrupa, no se inventa un color.
+   El porqué de la asignación está en src/ui/colores.js. */
+
+:root {
+  --rubro-1: #2a78d6;   /* azul     */
+  --rubro-2: #eb6834;   /* naranja  */
+  --rubro-3: #1baf7a;   /* aguamarina */
+  --rubro-4: #eda100;   /* amarillo */
+  --rubro-5: #e87ba4;   /* magenta  */
+  --rubro-6: #008300;   /* verde    */
+  --rubro-7: #4a3aa7;   /* violeta  */
+  --rubro-8: #e34948;   /* rojo     */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* No es el mismo color aclarado: son los pasos elegidos para el fondo
+       oscuro, validados contra él por separado. */
+    --rubro-1: #3987e5;
+    --rubro-2: #d95926;
+    --rubro-3: #199e70;
+    --rubro-4: #c98500;
+    --rubro-5: #d55181;
+    --rubro-6: #008300;
+    --rubro-7: #9085e9;
+    --rubro-8: #e66767;
+  }
+}
+
+.barra.rubro-1, .punto-rubro.rubro-1 { background: var(--rubro-1); }
+.barra.rubro-2, .punto-rubro.rubro-2 { background: var(--rubro-2); }
+.barra.rubro-3, .punto-rubro.rubro-3 { background: var(--rubro-3); }
+.barra.rubro-4, .punto-rubro.rubro-4 { background: var(--rubro-4); }
+.barra.rubro-5, .punto-rubro.rubro-5 { background: var(--rubro-5); }
+.barra.rubro-6, .punto-rubro.rubro-6 { background: var(--rubro-6); }
+.barra.rubro-7, .punto-rubro.rubro-7 { background: var(--rubro-7); }
+.barra.rubro-8, .punto-rubro.rubro-8 { background: var(--rubro-8); }
+
+/* El punto que acompaña al nombre en las listas. Es chico a propósito: el
+   nombre escrito es lo que manda, el color solo ayuda a encontrarlo. */
+.punto-rubro {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  margin-right: 0.375rem;
+  vertical-align: baseline;
+  background: var(--texto-suave);
+}
+
+/* El campo del formulario se pinta del color del rubro elegido: es la
+   confirmación de que quedó puesto el que se quería, sin volver a leerlo. */
+.campo-rubro {
+  border-left: 4px solid var(--borde);
+  border-radius: var(--radio);
+  transition: border-color 0.12s ease;
+}
+
+.campo-rubro.rubro-1 { border-left-color: var(--rubro-1); }
+.campo-rubro.rubro-2 { border-left-color: var(--rubro-2); }
+.campo-rubro.rubro-3 { border-left-color: var(--rubro-3); }
+.campo-rubro.rubro-4 { border-left-color: var(--rubro-4); }
+.campo-rubro.rubro-5 { border-left-color: var(--rubro-5); }
+.campo-rubro.rubro-6 { border-left-color: var(--rubro-6); }
+.campo-rubro.rubro-7 { border-left-color: var(--rubro-7); }
+.campo-rubro.rubro-8 { border-left-color: var(--rubro-8); }

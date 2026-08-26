@@ -210,12 +210,12 @@ test('los rubros que se ofrecen son los del tipo elegido (RN-02)', () => {
   const estado = estadoLimpio();
 
   const gasto = dibujarNuevo({ estado, borrador: borradorDe({ tipo: TIPO_GASTO }) });
-  assert.ok(gasto.includes('>supermercado<'));
-  assert.equal(gasto.includes('>trabajo<'), false);
+  assert.ok(gasto.includes('>Supermercado<'));
+  assert.equal(gasto.includes('>Trabajo<'), false);
 
   const ingreso = dibujarNuevo({ estado, borrador: borradorDe({ tipo: TIPO_INGRESO, rubro: '' }) });
-  assert.ok(ingreso.includes('>trabajo<'));
-  assert.equal(ingreso.includes('>supermercado<'), false);
+  assert.ok(ingreso.includes('>Trabajo<'));
+  assert.equal(ingreso.includes('>Supermercado<'), false);
 });
 
 test('el título y el botón dicen si es gasto o ingreso', () => {

@@ -475,6 +475,86 @@ body {
 
 .barra.gasto { background: var(--gasto); }
 .barra.ingreso { background: var(--ingreso); }
+
+/* ── Un color por rubro (T-909) ──────────────────────────────────────────────
+   Los ocho tonos NO se eligieron a ojo: salen de la paleta categórica de la
+   guía de visualización y se comprobaron con su validador contra las dos
+   superficies de esta app. Pasan las seis comprobaciones en claro y en oscuro
+   —banda de luminosidad, croma mínimo, separación para daltonismo (peor par
+   ΔE 9,1 y 8,4), separación en visión normal (ΔE 19,6 y 19,3) y contraste—.
+
+   La única advertencia es que tres tonos quedan por debajo de 3:1 sobre el
+   fondo claro. Está cubierta porque cada barra lleva su nombre y su importe
+   escritos al lado: el color nunca es la única forma de saber qué es. Una
+   pantalla que muestre estos colores SIN texto tiene que resolverlo de nuevo.
+
+   Ocho es el techo. Un noveno tono generado sería indistinguible de alguno de
+   estos bajo daltonismo: si hiciera falta, se agrupa, no se inventa un color.
+   El porqué de la asignación está en src/ui/colores.js. */
+
+:root {
+  --rubro-1: #2a78d6;   /* azul     */
+  --rubro-2: #eb6834;   /* naranja  */
+  --rubro-3: #1baf7a;   /* aguamarina */
+  --rubro-4: #eda100;   /* amarillo */
+  --rubro-5: #e87ba4;   /* magenta  */
+  --rubro-6: #008300;   /* verde    */
+  --rubro-7: #4a3aa7;   /* violeta  */
+  --rubro-8: #e34948;   /* rojo     */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* No es el mismo color aclarado: son los pasos elegidos para el fondo
+       oscuro, validados contra él por separado. */
+    --rubro-1: #3987e5;
+    --rubro-2: #d95926;
+    --rubro-3: #199e70;
+    --rubro-4: #c98500;
+    --rubro-5: #d55181;
+    --rubro-6: #008300;
+    --rubro-7: #9085e9;
+    --rubro-8: #e66767;
+  }
+}
+
+.barra.rubro-1, .punto-rubro.rubro-1 { background: var(--rubro-1); }
+.barra.rubro-2, .punto-rubro.rubro-2 { background: var(--rubro-2); }
+.barra.rubro-3, .punto-rubro.rubro-3 { background: var(--rubro-3); }
+.barra.rubro-4, .punto-rubro.rubro-4 { background: var(--rubro-4); }
+.barra.rubro-5, .punto-rubro.rubro-5 { background: var(--rubro-5); }
+.barra.rubro-6, .punto-rubro.rubro-6 { background: var(--rubro-6); }
+.barra.rubro-7, .punto-rubro.rubro-7 { background: var(--rubro-7); }
+.barra.rubro-8, .punto-rubro.rubro-8 { background: var(--rubro-8); }
+
+/* El punto que acompaña al nombre en las listas. Es chico a propósito: el
+   nombre escrito es lo que manda, el color solo ayuda a encontrarlo. */
+.punto-rubro {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  margin-right: 0.375rem;
+  vertical-align: baseline;
+  background: var(--texto-suave);
+}
+
+/* El campo del formulario se pinta del color del rubro elegido: es la
+   confirmación de que quedó puesto el que se quería, sin volver a leerlo. */
+.campo-rubro {
+  border-left: 4px solid var(--borde);
+  border-radius: var(--radio);
+  transition: border-color 0.12s ease;
+}
+
+.campo-rubro.rubro-1 { border-left-color: var(--rubro-1); }
+.campo-rubro.rubro-2 { border-left-color: var(--rubro-2); }
+.campo-rubro.rubro-3 { border-left-color: var(--rubro-3); }
+.campo-rubro.rubro-4 { border-left-color: var(--rubro-4); }
+.campo-rubro.rubro-5 { border-left-color: var(--rubro-5); }
+.campo-rubro.rubro-6 { border-left-color: var(--rubro-6); }
+.campo-rubro.rubro-7 { border-left-color: var(--rubro-7); }
+.campo-rubro.rubro-8 { border-left-color: var(--rubro-8); }
 </style>
 
 <div id="app" class="app">
@@ -1806,6 +1886,23 @@ function formatearNumero(minimas, decimales) {
   }).format(aNumero(minimas, decimales));
 }
 
+/**
+ * El rótulo de un rubro, con la primera letra en mayúscula: `gastos fijos` se
+ * muestra como `Gastos fijos`.
+ *
+ * Solo cambia cómo SE VE. Guardado sigue en minúsculas, que es su forma
+ * canónica y la que hace que `VIAJES` y `viajes` sean el mismo rubro (RN-03).
+ * Poner la mayúscula acá y no en el dato es lo que permite tener las dos cosas.
+ *
+ * Va la primera letra de la frase y no la de cada palabra: en español se escribe
+ * "Gastos fijos", no "Gastos Fijos".
+ */
+function formatearRubro(rubro) {
+  const texto = String(rubro ?? '').trim();
+  if (texto === '') return '';
+  return texto[0].toLocaleUpperCase(IDIOMA) + texto.slice(1);
+}
+
 // ── Fechas ───────────────────────────────────────────────────────────────────
 
 const MESES = [
@@ -2206,6 +2303,71 @@ function listarRescates(almacen = almacenPorDefecto()) {
   return claves.sort().reverse();
 }
 
+// ── src/ui/colores.js ───────────────────────────────────────────
+// Un color propio para cada rubro, el mismo en todas las pantallas.
+//
+// Para qué sirve: cuando `supermercado` es siempre del mismo color, la barra más
+// larga del mes se reconoce sin leer su nombre, y el formulario confirma de un
+// vistazo qué rubro quedó elegido. El color deja de ser decoración y pasa a ser
+// una segunda forma de leer el mismo dato.
+//
+// ── La regla que no se rompe ─────────────────────────────────────────────────
+//
+// **El color se asigna por la POSICIÓN del rubro en su lista, nunca por su
+// tamaño.** Si dependiera del tamaño, cargar un gasto nuevo repintaría media
+// pantalla, y el color dejaría de significar "supermercado" para pasar a
+// significar "el más grande de este mes" — que ya lo dice el largo de la barra.
+// Un color que cambia de significado no se puede aprender.
+//
+// ── La paleta ────────────────────────────────────────────────────────────────
+//
+// Los ocho tonos NO se eligieron a ojo. Salen de la paleta categórica de la guía
+// de visualización del proyecto y se comprobaron con su validador contra las dos
+// superficies reales de la app. Pasan las seis comprobaciones en claro y en
+// oscuro: banda de luminosidad, croma mínimo, separación para daltonismo
+// (peor par ΔE 9,1 en claro y 8,4 en oscuro), separación en visión normal
+// (ΔE 19,6 y 19,3) y contraste.
+//
+// La única advertencia es que tres tonos quedan por debajo de 3:1 sobre el fondo
+// claro. Está cubierta: **cada barra lleva su nombre y su importe escritos al
+// lado**, así que el color nunca es la única manera de saber qué es. Si alguna
+// pantalla futura mostrara estos colores sin texto, esa advertencia volvería a
+// contar y habría que resolverla ahí.
+//
+// **Ocho es el techo.** No se agregan más tonos: un noveno color generado es
+// indistinguible de alguno de estos bajo daltonismo. Si algún día hay más de
+// ocho rubros de un tipo, la salida es agrupar, no inventar un color.
+
+/** Cuántos colores hay. Es un tope, no un valor por omisión. */
+const COLORES = 8;
+
+/**
+ * En qué franja de color cae un rubro: un número de 1 a 8, estable para
+ * siempre. Los rubros de gasto usan las ocho; los de ingreso, las primeras
+ * cuatro.
+ *
+ * Que `otros` de gasto y `otros` de ingreso caigan en franjas distintas es
+ * correcto y buscado: son cosas distintas (PRODUCTO §4).
+ *
+ * Que `gastos fijos` (gasto, franja 1) y `trabajo` (ingreso, franja 1) compartan
+ * tono también es correcto: no aparecen nunca en la misma tabla, y cada tabla
+ * asigna los tonos desde el principio de la lista.
+ */
+function franjaDeRubro(tipo, rubro) {
+  const lista = tipo === TIPO_GASTO ? RUBROS_GASTO : RUBROS_INGRESO;
+  const clave = normalizarClave(String(rubro ?? ''));
+  const posicion = lista.indexOf(clave);
+
+  // Un rubro que no está en la lista no debería existir (RN-02), pero si llega
+  // de un dato viejo se le da la última franja en vez de romper la pantalla.
+  return posicion === -1 ? COLORES : posicion + 1;
+}
+
+/** La clase CSS que pinta un rubro. Los tonos viven en `src/estilos.css`. */
+function claseDeRubro(tipo, rubro) {
+  return `rubro-${franjaDeRubro(tipo, rubro)}`;
+}
+
 // ── src/ui/pantallas/cambio.js ──────────────────────────────────
 // Pedir y corregir tipos de cambio — CU-03.
 //
@@ -2497,7 +2659,7 @@ function dibujarMovimientoEnEspera(estado, borrador) {
   return `
     <p class="en-espera">
       Esperando para guardar: <strong>${escapar(importe)}</strong>
-      ${borrador.rubro ? `· ${escapar(borrador.rubro)}` : ''}
+      ${borrador.rubro ? `· ${escapar(formatearRubro(borrador.rubro))}` : ''}
     </p>
   `;
 }
@@ -2523,6 +2685,7 @@ function dibujarMovimientoEnEspera(estado, borrador) {
 //
 // Igual que el resto de la interfaz (ADR-022), son funciones puras que devuelven
 // texto HTML.
+
 
 
 
@@ -2602,7 +2765,6 @@ function dibujarDesglose(estado, mes, tipo) {
   if (filas.length === 0) return '';
 
   const titulo = tipo === TIPO_GASTO ? 'En qué se fue' : 'De dónde vino';
-  const clase = tipo === TIPO_GASTO ? 'gasto' : 'ingreso';
   const mayor = filas[0].total || 1;
 
   // Con un solo rubro no hay nada que comparar: la barra estaría siempre llena y
@@ -2614,12 +2776,15 @@ function dibujarDesglose(estado, mes, tipo) {
     .map((fila) => `
       <li class="fila-rubro">
         <div class="rubro-cabeza">
-          <span class="nombre">${escapar(fila.rubro)}</span>
+          <span class="nombre">
+            <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
+            ${escapar(formatearRubro(fila.rubro))}
+          </span>
           <span class="importe">${escapar(formatearEuros(fila.total))}</span>
         </div>
         ${hayComparacion ? `
         <div class="barra-pista">
-          <div class="barra ${clase}" style="width: ${(fila.total / mayor) * 100}%"></div>
+          <div class="barra ${claseDeRubro(tipo, fila.rubro)}" style="width: ${(fila.total / mayor) * 100}%"></div>
         </div>` : ''}
         <div class="rubro-pie suave">
           <span>${hayComparacion ? escapar(porcentaje(fila.porcentaje)) : ''}</span>
@@ -2707,6 +2872,7 @@ function dibujarResumen(vista) {
 //
 // Igual que el armazón (ADR-022), esto son funciones puras que devuelven texto
 // HTML. Quien las mete en el documento es `ui/app.js`.
+
 
 
 
@@ -2826,7 +2992,7 @@ function dibujarAviso(aviso) {
   return `
     <p class="confirmacion" role="status">
       ${que} guardado: <strong>${escapar(importe)}</strong> ·
-      ${escapar(movimiento.rubro)} · ${escapar(formatearFecha(movimiento.fecha))}
+      ${escapar(formatearRubro(movimiento.rubro))} · ${escapar(formatearFecha(movimiento.fecha))}
     </p>
   `;
 }
@@ -2857,7 +3023,9 @@ function dibujarUltimos(estado) {
       return `
         <li class="linea ${signo}">
           <span class="fecha">${escapar(formatearFecha(m.fecha))}</span>
-          <span class="rubro">${escapar(m.rubro)}${m.comentario ? ` · ${escapar(m.comentario)}` : ''}</span>
+          <span class="rubro">
+            <span class="punto-rubro ${claseDeRubro(m.tipo, m.rubro)}" aria-hidden="true"></span>
+            ${escapar(formatearRubro(m.rubro))}${m.comentario ? ` · ${escapar(m.comentario)}` : ''}</span>
           <span class="importe">${escapar(importe)}</span>
         </li>`;
     })
@@ -2921,10 +3089,19 @@ function dibujarNuevo(vista) {
 
       <label class="campo">
         <span>Rubro</span>
-        <select name="rubro">
-          <option value=""${borrador.rubro ? '' : ' selected'} disabled>Elegí un rubro</option>
-          ${opciones([...rubrosDe(borrador.tipo)], borrador.rubro)}
-        </select>
+        <!-- El campo se pinta del color del rubro elegido: es la confirmación
+             de que quedó puesto el que se quería, sin volver a leerlo. El mismo
+             color que va a tener después en el resumen del mes. -->
+        <div class="campo-rubro ${borrador.rubro ? claseDeRubro(borrador.tipo, borrador.rubro) : 'sin-elegir'}"
+             data-campo-rubro>
+          <select name="rubro">
+            <option value=""${borrador.rubro ? '' : ' selected'} disabled>Elegí un rubro</option>
+            ${opciones(
+              rubrosDe(borrador.tipo).map((r) => ({ valor: r, texto: formatearRubro(r) })),
+              borrador.rubro
+            )}
+          </select>
+        </div>
       </label>
 
       <label class="campo">
@@ -2973,6 +3150,7 @@ function dibujarNuevo(vista) {
 // La frontera importa: un error de "qué se muestra" se puede cazar con un test;
 // uno de "cómo se engancha un clic" solo se ve abriendo la app. Cuanto más de lo
 // primero y menos de lo segundo, más barato es equivocarse.
+
 
 
 
@@ -3337,6 +3515,18 @@ function iniciar(documento, almacen) {
     // El aviso de "esto cambia el total de 2 movimientos, de 31,74 a 40,00 €"
     // solo sirve MIENTRAS se escribe el valor nuevo. Sin esto quedaba con el
     // texto genérico y nunca mostraba los números, que son todo su valor.
+    // Elegir un rubro repinta su campo, sin redibujar la pantalla: redibujar
+    // cerraría el desplegable en el mismo gesto en que se está usando.
+    if (evento.target.matches('select[name="rubro"]')) {
+      const campo = raiz.querySelector('[data-campo-rubro]');
+      if (!campo) return;
+      const tipo = vista.borrador?.tipo;
+      for (let i = 1; i <= COLORES; i += 1) campo.classList.remove(`rubro-${i}`);
+      campo.classList.remove('sin-elegir');
+      campo.classList.add(evento.target.value ? claseDeRubro(tipo, evento.target.value) : 'sin-elegir');
+      return;
+    }
+
     if (evento.target.matches('input[name="unidadesPorEuro"]')) {
       const hueco = raiz.querySelector('[data-aviso-correccion]');
       if (!hueco || !vista.faltaCambio) return;

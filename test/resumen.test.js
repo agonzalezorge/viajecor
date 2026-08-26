@@ -21,6 +21,7 @@ import { totalesDelMes } from '../src/core/calculos.js';
 import { crearMovimiento, TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../src/core/modelo.js';
 import { estadoInicial } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
+import { claseDeRubro, franjaDeRubro } from '../src/ui/colores.js';
 import { crearCambio, desdeUnidadesPorEuro } from '../src/core/cambio.js';
 
 const DURO = ' ';
@@ -120,25 +121,63 @@ test('el desglose va de mayor a menor y muestra el porcentaje', () => {
   ]);
   const html = dibujarDesglose(estado, MES, TIPO_GASTO);
 
-  assert.ok(html.indexOf('supermercado') < html.indexOf('transporte'));
+  assert.ok(html.indexOf('Supermercado') < html.indexOf('Transporte'));
   assert.ok(html.includes('75 %'));
   assert.ok(html.includes('25 %'));
 });
 
-test('todas las barras son del mismo color, no una escala por tamaño', () => {
-  // Pintar más oscuro al rubro más grande codifica dos veces lo mismo —el largo
-  // ya lo dice— y le pone colores distintos a categorías que no significan nada
-  // distinto.
+test('cada rubro tiene su propio color, y son distintos entre sí', () => {
   const estado = estadoCon([
     mov({ monto: '90', rubro: 'viajes' }),
     mov({ monto: '30', rubro: 'salud' }),
     mov({ monto: '10', rubro: 'transporte' }),
   ]);
-  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
-  const clases = html.match(/class="barra [^"]*"/g) ?? [];
+  const clases = dibujarDesglose(estado, MES, TIPO_GASTO).match(/class="barra ([^"]*)"/g) ?? [];
 
   assert.equal(clases.length, 3);
-  assert.equal(new Set(clases).size, 1, 'las tres barras tienen la misma clase');
+  assert.equal(new Set(clases).size, 3, 'tres rubros, tres colores');
+});
+
+test('el color de un rubro NO depende de su tamaño (T-909)', () => {
+  // Es LA regla. Si el color dependiera del tamaño, cargar un gasto nuevo
+  // repintaría media pantalla y el color dejaría de significar "salud" para
+  // significar "el más grande de este mes" — que ya lo dice el largo de la barra.
+  const pocos = estadoCon([mov({ monto: '10', rubro: 'salud' }), mov({ monto: '90', rubro: 'viajes' })]);
+  const claseAntes = dibujarDesglose(pocos, MES, TIPO_GASTO).match(/Salud[\s\S]*?class="barra ([^"]*)"/)[1];
+
+  // Ahora salud pasa a ser el rubro más grande del mes.
+  const muchos = estadoCon([...pocos.movimientos, mov({ monto: '500', rubro: 'salud' })]);
+  const claseDespues = dibujarDesglose(muchos, MES, TIPO_GASTO).match(/Salud[\s\S]*?class="barra ([^"]*)"/)[1];
+
+  assert.equal(claseAntes, claseDespues, 'el color de salud no cambió al cambiar su tamaño');
+  assert.equal(claseAntes, claseDeRubro(TIPO_GASTO, 'salud'));
+});
+
+test('el mismo rubro tiene el mismo color en todas las pantallas', () => {
+  // Es para lo que sirve: reconocer "supermercado" sin leer su nombre.
+  assert.equal(claseDeRubro(TIPO_GASTO, 'supermercado'), claseDeRubro(TIPO_GASTO, 'SUPERMERCADO'));
+  assert.equal(claseDeRubro(TIPO_GASTO, 'supermercado'), claseDeRubro(TIPO_GASTO, ' Supermercado '));
+});
+
+test('cada rubro de gasto cae en una franja distinta, y son ocho', () => {
+  const franjas = ['gastos fijos', 'supermercado', 'comida hecha', 'viajes',
+    'entretenimiento', 'transporte', 'salud', 'otros'].map((r) => franjaDeRubro(TIPO_GASTO, r));
+
+  assert.deepEqual(franjas, [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(new Set(franjas).size, 8);
+});
+
+test('"otros" de gasto y "otros" de ingreso tienen colores distintos', () => {
+  // Son cosas distintas (PRODUCTO §4), así que no pueden verse iguales.
+  assert.notEqual(claseDeRubro(TIPO_GASTO, 'otros'), claseDeRubro(TIPO_INGRESO, 'otros'));
+});
+
+test('los rótulos se muestran con mayúscula inicial', () => {
+  const estado = estadoCon([mov({ monto: '10', rubro: 'gastos fijos' })]);
+  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
+
+  assert.ok(html.includes('Gastos fijos'));
+  assert.equal(html.includes('>gastos fijos'), false);
 });
 
 test('la barra más larga es la del rubro más grande, y llena el ancho', () => {
@@ -160,8 +199,8 @@ test('gastos e ingresos se muestran por separado, con títulos distintos', () =>
 
   assert.ok(html.includes('En qué se fue'));
   assert.ok(html.includes('De dónde vino'));
-  assert.ok(html.includes('supermercado'));
-  assert.ok(html.includes('trabajo'));
+  assert.ok(html.includes('Supermercado'));
+  assert.ok(html.includes('Trabajo'));
 });
 
 test('un mes sin ingresos no dibuja una sección de ingresos vacía', () => {
@@ -190,7 +229,7 @@ test('con un solo rubro no se dibuja una barra llena ni un 100 %', () => {
   const estado = estadoCon([mov({ monto: '2100', tipo: TIPO_INGRESO, rubro: 'trabajo' })]);
   const html = dibujarDesglose(estado, MES, TIPO_INGRESO);
 
-  assert.ok(html.includes('trabajo'));
+  assert.ok(html.includes('Trabajo'));
   assert.ok(html.includes(`2100,00${DURO}€`));
   assert.equal(html.includes('class="barra'), false);
   assert.equal(html.includes('100 %'), false);

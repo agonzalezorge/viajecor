@@ -22,6 +22,12 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **Cada rubro tiene su color**, el mismo en todas las pantallas: en la barra del
+  resumen, en el punto de la lista y en el borde del campo al elegirlo. El color
+  depende del rubro y **nunca de cuánto gastaste en él**, así que no se repinta al
+  cargar un gasto nuevo. Los ocho tonos están comprobados con un validador contra
+  las dos superficies de la app, incluida la separación para daltonismo (T-909).
+  Y los rubros ahora se muestran con mayúscula inicial.
 - **La pantalla del mes ya muestra cómo venís** (T-014, CU-04): gastos, ingresos
   y saldo, el promedio por día, y en qué se fue la plata —por rubro, de mayor a
   menor, con su porcentaje—. Si falta un tipo de cambio, **la pantalla avisa que

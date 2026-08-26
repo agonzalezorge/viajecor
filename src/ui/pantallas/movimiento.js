@@ -13,7 +13,8 @@
 import { crearMovimiento, rubrosDe, TIPO_GASTO, TIPO_INGRESO, hoy } from '../../core/modelo.js';
 import { monedasVisibles, decimalesDe } from '../../core/monedas.js';
 import { faltaCambioPara } from '../../core/cambio.js';
-import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana, formatearMes } from '../../core/formato.js';
+import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana, formatearMes, formatearRubro } from '../../core/formato.js';
+import { claseDeRubro } from '../colores.js';
 import { escapar } from '../app.js';
 import { dibujarPedido, dibujarMovimientoEnEspera } from './cambio.js';
 
@@ -130,7 +131,7 @@ function dibujarAviso(aviso) {
   return `
     <p class="confirmacion" role="status">
       ${que} guardado: <strong>${escapar(importe)}</strong> ·
-      ${escapar(movimiento.rubro)} · ${escapar(formatearFecha(movimiento.fecha))}
+      ${escapar(formatearRubro(movimiento.rubro))} · ${escapar(formatearFecha(movimiento.fecha))}
     </p>
   `;
 }
@@ -161,7 +162,9 @@ function dibujarUltimos(estado) {
       return `
         <li class="linea ${signo}">
           <span class="fecha">${escapar(formatearFecha(m.fecha))}</span>
-          <span class="rubro">${escapar(m.rubro)}${m.comentario ? ` · ${escapar(m.comentario)}` : ''}</span>
+          <span class="rubro">
+            <span class="punto-rubro ${claseDeRubro(m.tipo, m.rubro)}" aria-hidden="true"></span>
+            ${escapar(formatearRubro(m.rubro))}${m.comentario ? ` · ${escapar(m.comentario)}` : ''}</span>
           <span class="importe">${escapar(importe)}</span>
         </li>`;
     })
@@ -225,10 +228,19 @@ export function dibujarNuevo(vista) {
 
       <label class="campo">
         <span>Rubro</span>
-        <select name="rubro">
-          <option value=""${borrador.rubro ? '' : ' selected'} disabled>Elegí un rubro</option>
-          ${opciones([...rubrosDe(borrador.tipo)], borrador.rubro)}
-        </select>
+        <!-- El campo se pinta del color del rubro elegido: es la confirmación
+             de que quedó puesto el que se quería, sin volver a leerlo. El mismo
+             color que va a tener después en el resumen del mes. -->
+        <div class="campo-rubro ${borrador.rubro ? claseDeRubro(borrador.tipo, borrador.rubro) : 'sin-elegir'}"
+             data-campo-rubro>
+          <select name="rubro">
+            <option value=""${borrador.rubro ? '' : ' selected'} disabled>Elegí un rubro</option>
+            ${opciones(
+              rubrosDe(borrador.tipo).map((r) => ({ valor: r, texto: formatearRubro(r) })),
+              borrador.rubro
+            )}
+          </select>
+        </div>
       </label>
 
       <label class="campo">

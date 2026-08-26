@@ -25,7 +25,7 @@ import {
   desdeUnidadesPorEuro,
   movimientosAfectadosPor,
 } from '../../core/cambio.js';
-import { formatearMes, formatearMonto, formatearTipoDeCambio, formatearEuros } from '../../core/formato.js';
+import { formatearMes, formatearMonto, formatearTipoDeCambio, formatearEuros, formatearRubro } from '../../core/formato.js';
 import { buscarMoneda, decimalesDe, MONEDA_BASE } from '../../core/monedas.js';
 import { convertirAEuros, aMinimas } from '../../core/dinero.js';
 import { normalizarMoneda } from '../../core/modelo.js';
@@ -296,7 +296,7 @@ export function dibujarMovimientoEnEspera(estado, borrador) {
   return `
     <p class="en-espera">
       Esperando para guardar: <strong>${escapar(importe)}</strong>
-      ${borrador.rubro ? `· ${escapar(borrador.rubro)}` : ''}
+      ${borrador.rubro ? `· ${escapar(formatearRubro(borrador.rubro))}` : ''}
     </p>
   `;
 }

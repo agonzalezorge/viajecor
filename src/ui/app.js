@@ -17,6 +17,7 @@ import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
 import { dibujarNuevo, borradorNuevo, intentarGuardar, fechaEnPalabras } from './pantallas/movimiento.js';
+import { claseDeRubro, COLORES } from './colores.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
 import { dibujarResumen } from './pantallas/resumen.js';
 
@@ -377,6 +378,18 @@ export function iniciar(documento, almacen) {
     // El aviso de "esto cambia el total de 2 movimientos, de 31,74 a 40,00 €"
     // solo sirve MIENTRAS se escribe el valor nuevo. Sin esto quedaba con el
     // texto genérico y nunca mostraba los números, que son todo su valor.
+    // Elegir un rubro repinta su campo, sin redibujar la pantalla: redibujar
+    // cerraría el desplegable en el mismo gesto en que se está usando.
+    if (evento.target.matches('select[name="rubro"]')) {
+      const campo = raiz.querySelector('[data-campo-rubro]');
+      if (!campo) return;
+      const tipo = vista.borrador?.tipo;
+      for (let i = 1; i <= COLORES; i += 1) campo.classList.remove(`rubro-${i}`);
+      campo.classList.remove('sin-elegir');
+      campo.classList.add(evento.target.value ? claseDeRubro(tipo, evento.target.value) : 'sin-elegir');
+      return;
+    }
+
     if (evento.target.matches('input[name="unidadesPorEuro"]')) {
       const hueco = raiz.querySelector('[data-aviso-correccion]');
       if (!hueco || !vista.faltaCambio) return;

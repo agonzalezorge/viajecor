@@ -78,7 +78,19 @@ retraducir mentalmente todo lo que ya está en la cabeza del usuario.
 `trabajo` · `inversiones` · `regalos` · `otros`
 
 > El rubro `otros` existe en las dos listas y son cosas distintas: "otros gastos"
-> y "otros ingresos" no se mezclan nunca en un mismo total.
+> y "otros ingresos" no se mezclan nunca en un mismo total — y por eso tampoco se
+> muestran del mismo color.
+
+**Cada rubro tiene su color, y es siempre el mismo.** `supermercado` se ve igual
+en el resumen del mes, en la lista y en el formulario, así que la barra más larga
+se reconoce sin leer su nombre. **El color depende del rubro, nunca de cuánto
+gastaste en él:** si dependiera del tamaño, cargar un gasto repintaría media
+pantalla y el color pasaría a significar "el más grande de este mes" en vez de
+"supermercado".
+
+Los rubros se **muestran** con mayúscula inicial (`Gastos fijos`) y se **guardan**
+en minúscula, que es la forma que hace que `VIAJES` y `viajes` sean el mismo
+rubro (RN-03).
 
 ## 5. Reglas de negocio
 

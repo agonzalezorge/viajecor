@@ -21,7 +21,8 @@
 
 import { escapar } from '../app.js';
 import { totalesDelMes, porRubro, promedioPorDia } from '../../core/calculos.js';
-import { formatearEuros, formatearMes } from '../../core/formato.js';
+import { formatearEuros, formatearMes, formatearRubro } from '../../core/formato.js';
+import { claseDeRubro } from '../colores.js';
 import { TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../../core/modelo.js';
 
 /** Un porcentaje para mostrar: sin decimales, que en un desglose no aportan. */
@@ -99,7 +100,6 @@ export function dibujarDesglose(estado, mes, tipo) {
   if (filas.length === 0) return '';
 
   const titulo = tipo === TIPO_GASTO ? 'En qué se fue' : 'De dónde vino';
-  const clase = tipo === TIPO_GASTO ? 'gasto' : 'ingreso';
   const mayor = filas[0].total || 1;
 
   // Con un solo rubro no hay nada que comparar: la barra estaría siempre llena y
@@ -111,12 +111,15 @@ export function dibujarDesglose(estado, mes, tipo) {
     .map((fila) => `
       <li class="fila-rubro">
         <div class="rubro-cabeza">
-          <span class="nombre">${escapar(fila.rubro)}</span>
+          <span class="nombre">
+            <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
+            ${escapar(formatearRubro(fila.rubro))}
+          </span>
           <span class="importe">${escapar(formatearEuros(fila.total))}</span>
         </div>
         ${hayComparacion ? `
         <div class="barra-pista">
-          <div class="barra ${clase}" style="width: ${(fila.total / mayor) * 100}%"></div>
+          <div class="barra ${claseDeRubro(tipo, fila.rubro)}" style="width: ${(fila.total / mayor) * 100}%"></div>
         </div>` : ''}
         <div class="rubro-pie suave">
           <span>${hayComparacion ? escapar(porcentaje(fila.porcentaje)) : ''}</span>

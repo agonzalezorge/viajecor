@@ -235,7 +235,7 @@ test('el gasto que quedó esperando se muestra mientras se pide el dato', () => 
   const html = dibujarMovimientoEnEspera(estadoLimpio(), borradorDe());
   assert.ok(html.includes('Esperando para guardar'));
   assert.ok(html.includes(`10.000,00${DURO}CRC`));
-  assert.ok(html.includes('viajes'));
+  assert.ok(html.includes('Viajes'));
 });
 
 test('sin monto escrito no se muestra nada esperando', () => {

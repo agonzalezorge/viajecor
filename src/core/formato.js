@@ -59,6 +59,23 @@ export function formatearNumero(minimas, decimales) {
   }).format(aNumero(minimas, decimales));
 }
 
+/**
+ * El rótulo de un rubro, con la primera letra en mayúscula: `gastos fijos` se
+ * muestra como `Gastos fijos`.
+ *
+ * Solo cambia cómo SE VE. Guardado sigue en minúsculas, que es su forma
+ * canónica y la que hace que `VIAJES` y `viajes` sean el mismo rubro (RN-03).
+ * Poner la mayúscula acá y no en el dato es lo que permite tener las dos cosas.
+ *
+ * Va la primera letra de la frase y no la de cada palabra: en español se escribe
+ * "Gastos fijos", no "Gastos Fijos".
+ */
+export function formatearRubro(rubro) {
+  const texto = String(rubro ?? '').trim();
+  if (texto === '') return '';
+  return texto[0].toLocaleUpperCase(IDIOMA) + texto.slice(1);
+}
+
 // ── Fechas ───────────────────────────────────────────────────────────────────
 
 const MESES = [
