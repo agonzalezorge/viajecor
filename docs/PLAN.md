@@ -96,6 +96,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-903 | Recordatorio de respaldo | Pendiente | T-016 |
 | T-904 | Modo oscuro | **Hecha** (venía de T-001) | T-010 |
 | T-905 | Respaldo cómodo a la nube, sin red | Pendiente | T-016 |
+| T-909 | Color y rótulo propios por rubro | En curso (claude, 2026-08-19) | T-014 |
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
 | T-906 | Exportar a `.xlsx` con la forma de la planilla | Pendiente | T-016, T-018 |
@@ -715,6 +716,25 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   abierto desde el disco (`file://`) en iOS y en Android. Hay que probarlo en un
   celular real antes de prometerlo; si no anda, la salida es la descarga normal
   más subir el archivo a mano. *(Depende de T-016. Pregunta abierta 4.)*
+- **T-909 · Color y rótulo propios por rubro** — pedido por el usuario el
+  2026-08-19. Cada rubro se muestra con la primera letra en mayúscula
+  (`Gastos fijos`) y con **un color propio, el mismo en todas las pantallas**:
+  en la barra del desglose, en el punto de la lista, y en el campo del formulario
+  cuando se elige ese rubro.
+
+  **El color se asigna por la posición del rubro en su lista, nunca por su
+  tamaño.** Si dependiera del tamaño, cargar un gasto nuevo repintaría media
+  pantalla y el color dejaría de significar "supermercado" para significar "el
+  más grande de este mes".
+
+  **Paleta comprobada, no elegida a ojo:** ocho tonos validados con el
+  comprobador de la guía de visualización, contra las dos superficies de la app.
+  Pasan las seis comprobaciones —banda de luminosidad, croma mínimo, separación
+  para daltonismo, separación en visión normal y contraste— en claro y en oscuro.
+  La única advertencia (tres tonos por debajo de 3:1 sobre fondo claro) está
+  cubierta: cada barra lleva su nombre y su importe escritos al lado, así que el
+  color nunca es la única forma de saber qué es.
+
 - **T-907 · Decimales sugeridos por moneda** — al agregar una moneda, que la app
   proponga sola los decimales correctos según el estándar ISO 4217 (`JPY` → 0,
   `CLP` → 0, `KRW` → 0, `EUR` → 2…), con las veinte o treinta más usadas. Sigue
