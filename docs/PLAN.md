@@ -70,7 +70,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-011 | Pantalla de carga de movimiento | **Hecha** | T-003, T-004, T-010 |
 | T-012 | Pedir el tipo de cambio al vuelo | **Hecha** | T-005, T-011 |
 | T-013 | Cálculos del mes | **Hecha** | T-003, T-005 |
-| T-014 | Pantalla de resumen del mes | **Lista** | T-013, T-010, T-006 |
+| T-014 | Pantalla de resumen del mes | En curso (claude, 2026-08-19) | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | **Lista** | T-011 |
 | T-016 | Exportar a JSON | **Lista** | T-004 |
 | T-017 | Importar un respaldo JSON | Pendiente | T-016 |
@@ -505,8 +505,8 @@ rubro; serie por día. Todo en euros.
 ---
 
 ### T-014 · Pantalla de resumen del mes — CU-04
-**Estado:** Lista · **Depende de:** T-013, T-010, T-006
-**Toca:** `src/ui/pantallas/resumen.js`
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-013, T-010, T-006
+**Toca:** `src/ui/pantallas/resumen.js`, `src/ui/app.js`, `src/estilos.css`, `test/resumen.test.js`, `tools/build.mjs`
 
 ---
 
