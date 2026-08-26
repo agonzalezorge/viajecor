@@ -555,6 +555,76 @@ body {
 .campo-rubro.rubro-6 { border-left-color: var(--rubro-6); }
 .campo-rubro.rubro-7 { border-left-color: var(--rubro-7); }
 .campo-rubro.rubro-8 { border-left-color: var(--rubro-8); }
+
+/* ── Lista de movimientos (T-015) ────────────────────────────────────────────
+   Es la única pantalla que destruye datos, y detrás no hay papelera. De ahí que
+   el borrar tenga dos redes: confirmar antes y deshacer después. */
+
+.cuantos { margin: 0 0.125rem 0.75rem; }
+.tarjeta.dia h2 { font-size: 0.9375rem; color: var(--texto-suave); font-weight: 500; }
+
+.movimientos { list-style: none; margin: 0; padding: 0; }
+
+.movimiento {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.movimiento:last-child { border-bottom: none; }
+.movimiento.confirmando { background: var(--fondo); border-radius: var(--radio); padding: 0.75rem; }
+
+.movimiento-datos,
+.movimiento-pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.movimiento-datos .nombre { font-weight: 500; }
+.movimiento-datos .importe { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.movimiento-datos .importe.gasto { color: var(--gasto); }
+.movimiento-datos .importe.ingreso { color: var(--ingreso); }
+.movimiento-pie { font-size: 0.8125rem; margin-top: 0.125rem; }
+.movimiento-pie span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.movimiento-acciones { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+.confirmar-borrado { margin-top: 0.625rem; }
+.confirmar-borrado p { margin: 0 0 0.5rem; font-weight: 500; }
+.confirmar-borrado .botones { display: flex; gap: 0.5rem; }
+
+/* El botón que destruye se ve distinto de todos los demás: es el único de la
+   app que hace algo que no se puede rehacer desde otro lado. */
+.peligro {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--superficie);
+  background: var(--gasto);
+  border: none;
+  border-radius: var(--radio);
+  cursor: pointer;
+}
+
+/* El deshacer NO se cierra solo: en un celular, los tres segundos que suelen
+   durar estos avisos son el tiempo que tarda alguien en darse cuenta. */
+.deshacer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--acento);
+  border-left-width: 4px;
+  border-radius: var(--radio);
+}
+
+.deshacer p { margin: 0; font-size: 0.9375rem; }
 </style>
 
 <div id="app" class="app">
@@ -2860,6 +2930,194 @@ function dibujarResumen(vista) {
   `;
 }
 
+// ── src/ui/pantallas/lista.js ───────────────────────────────────
+// La lista del mes, corregir y borrar — CU-06.
+//
+// Un monto mal tipeado no puede quedar para siempre, así que esta pantalla es
+// necesaria. Pero también es la única de la app que **destruye datos**, y no hay
+// papelera ni historial detrás (ARQUITECTURA §11): lo que se borra acá se fue.
+//
+// De ahí las dos redes de contención, que son lo que más código ocupa en este
+// archivo:
+//
+//   1. **Confirmar antes.** Un toque no borra: pregunta, mostrando qué
+//      movimiento es. En un celular, el borrar y el editar quedan a milímetros.
+//   2. **Deshacer después.** Confirmar no alcanza: la gente confirma en
+//      automático. El deshacer es la red que atrapa al que ya dijo que sí.
+//
+// La segunda es la que de verdad sirve. La primera frena los accidentes; la
+// segunda frena los arrepentimientos, que son más frecuentes.
+
+
+
+
+
+
+
+/**
+ * Saca un movimiento del estado y devuelve lo necesario para volver a ponerlo
+ * donde estaba.
+ *
+ * Se guarda **la posición**, no solo el movimiento: restaurarlo al final de la
+ * lista lo dejaría en otro lugar del que estaba, y el usuario que deshizo un
+ * borrado espera encontrar todo exactamente como lo tenía.
+ */
+function borrarMovimiento(estado, id) {
+  const posicion = estado.movimientos.findIndex((m) => m.id === id);
+  if (posicion === -1) return { estado, borrado: null };
+
+  return {
+    estado: { ...estado, movimientos: estado.movimientos.filter((m) => m.id !== id) },
+    borrado: { movimiento: estado.movimientos[posicion], posicion },
+  };
+}
+
+/** Vuelve a poner un movimiento borrado en su lugar exacto. */
+function restaurarMovimiento(estado, borrado) {
+  if (!borrado) return estado;
+
+  const movimientos = [...estado.movimientos];
+  movimientos.splice(Math.min(borrado.posicion, movimientos.length), 0, borrado.movimiento);
+  return { ...estado, movimientos };
+}
+
+function buscarMovimiento(estado, id) {
+  return estado.movimientos.find((m) => m.id === id) ?? null;
+}
+
+// ── Dibujo ───────────────────────────────────────────────────────────────────
+
+function importeDe(estado, movimiento) {
+  try {
+    const decimales = decimalesDe(estado.monedas, movimiento.moneda);
+    const propio = formatearMonto(movimiento.monto, decimales, movimiento.moneda);
+    if (movimiento.moneda === 'EUR') return { propio, enEuros: null };
+
+    if (faltaCambioPara(movimiento, estado.tipos_cambio)) {
+      return { propio, enEuros: null, sinCambio: true };
+    }
+    return { propio, enEuros: formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas)) };
+  } catch {
+    // Un dato que no se puede formatear se muestra crudo antes que no mostrarse:
+    // el usuario tiene que poder verlo para poder corregirlo o borrarlo.
+    return { propio: `${movimiento.monto} ${movimiento.moneda}`, enEuros: null };
+  }
+}
+
+function dibujarMovimiento(estado, movimiento, vista) {
+  const importe = importeDe(estado, movimiento);
+  const esGasto = movimiento.tipo === TIPO_GASTO;
+  const confirmando = vista.borrando === movimiento.id;
+
+  const detalle = [movimiento.comentario, movimiento.detalle].filter(Boolean).join(' · ');
+
+  return `
+    <li class="movimiento${confirmando ? ' confirmando' : ''}">
+      <div class="movimiento-datos">
+        <span class="nombre">
+          <span class="punto-rubro ${claseDeRubro(movimiento.tipo, movimiento.rubro)}" aria-hidden="true"></span>
+          ${escapar(formatearRubro(movimiento.rubro))}
+        </span>
+        <span class="importe ${esGasto ? 'gasto' : 'ingreso'}">${escapar(importe.propio)}</span>
+      </div>
+
+      ${detalle || importe.enEuros || importe.sinCambio ? `
+      <div class="movimiento-pie suave">
+        <span>${escapar(detalle)}</span>
+        <span>${
+          importe.sinCambio
+            ? 'sin tipo de cambio'
+            : importe.enEuros ? escapar(importe.enEuros) : ''
+        }</span>
+      </div>` : ''}
+
+      ${confirmando ? `
+      <div class="confirmar-borrado" role="alertdialog" aria-label="Confirmar borrado">
+        <p>¿Borrar este movimiento?</p>
+        <div class="botones">
+          <button type="button" class="peligro" data-accion="borrar-si" data-id="${escapar(movimiento.id)}">Sí, borrar</button>
+          <button type="button" class="secundario" data-accion="borrar-no">No</button>
+        </div>
+      </div>` : `
+      <div class="movimiento-acciones">
+        <button type="button" class="secundario chico" data-accion="editar" data-id="${escapar(movimiento.id)}">Corregir</button>
+        <button type="button" class="secundario chico" data-accion="borrar" data-id="${escapar(movimiento.id)}">Borrar</button>
+      </div>`}
+    </li>
+  `;
+}
+
+/**
+ * El aviso de deshacer.
+ *
+ * No se cierra solo a los tres segundos, como suelen hacerse: en un celular, tres
+ * segundos es el tiempo que tarda alguien en darse cuenta de lo que hizo. Se
+ * queda hasta que se lo cierra o hasta que se cambia de pantalla.
+ */
+function dibujarDeshacer(vista) {
+  if (!vista.borrado) return '';
+
+  const { movimiento } = vista.borrado;
+  return `
+    <section class="deshacer" role="status">
+      <p>Borraste <strong>${escapar(formatearRubro(movimiento.rubro))}</strong>
+      del ${escapar(formatearFecha(movimiento.fecha))}.</p>
+      <button type="button" class="secundario" data-accion="deshacer">Deshacer</button>
+    </section>
+  `;
+}
+
+/**
+ * La lista del mes, agrupada por día y del más nuevo al más viejo.
+ *
+ * Del más nuevo al más viejo porque lo que se corrige casi siempre es lo último
+ * que se cargó: tenerlo arriba evita desplazarse por un mes entero para arreglar
+ * un dedazo de hace dos minutos.
+ */
+function dibujarLista(vista) {
+  const { estado, mes } = vista;
+  const delMes = movimientosDelMes(estado.movimientos, mes);
+
+  if (delMes.length === 0) {
+    return `
+      ${dibujarDeshacer(vista)}
+      <section class="tarjeta">
+        <h2>${escapar(formatearMes(mes))}</h2>
+        <p class="suave">No hay movimientos en este mes.</p>
+        <button type="button" class="principal" data-accion="ir" data-pantalla="nuevo">
+          Cargar un movimiento
+        </button>
+      </section>
+    `;
+  }
+
+  // Sin ningún tope de filas: se muestran todos los del mes (L-001).
+  const porFecha = new Map();
+  for (const movimiento of delMes) {
+    if (!porFecha.has(movimiento.fecha)) porFecha.set(movimiento.fecha, []);
+    porFecha.get(movimiento.fecha).push(movimiento);
+  }
+
+  const dias = [...porFecha.keys()].sort().reverse();
+  const cuerpo = dias
+    .map((fecha) => `
+      <section class="tarjeta dia">
+        <h2>${escapar(formatearFechaLarga(fecha))}</h2>
+        <ul class="movimientos">
+          ${porFecha.get(fecha).map((m) => dibujarMovimiento(estado, m, vista)).join('')}
+        </ul>
+      </section>`)
+    .join('');
+
+  const cuantos = delMes.length === 1 ? '1 movimiento' : `${delMes.length} movimientos`;
+
+  return `
+    ${dibujarDeshacer(vista)}
+    <p class="cuantos suave">${cuantos} en ${escapar(formatearMes(mes))}.</p>
+    ${cuerpo}
+  `;
+}
+
 // ── src/ui/pantallas/movimiento.js ──────────────────────────────
 // La pantalla de carga: CU-01 (registrar un gasto) y CU-02 (registrar un
 // ingreso). Es la razón de ser de la app — todo lo demás mira datos que entran
@@ -2900,6 +3158,26 @@ function borradorNuevo({ estado, fecha } = {}) {
 }
 
 /**
+ * El formulario cargado con un movimiento que ya existe, para corregirlo.
+ *
+ * El monto vuelve a texto con la coma decimal del español: si volviera como
+ * `12.5`, el usuario vería su gasto escrito de una forma en la que él nunca lo
+ * escribiría.
+ */
+function borradorDesde(movimiento, decimales) {
+  return {
+    id: movimiento.id,
+    fecha: movimiento.fecha,
+    tipo: movimiento.tipo,
+    monto: formatearNumero(movimiento.monto, decimales),
+    moneda: movimiento.moneda,
+    rubro: movimiento.rubro,
+    comentario: movimiento.comentario,
+    detalle: movimiento.detalle,
+  };
+}
+
+/**
  * Intenta guardar. Devuelve `{ estado, borrador, aviso, error }` — nunca tira.
  *
  * Es una función pura: recibe el estado y devuelve uno nuevo. Quien lo persiste
@@ -2915,9 +3193,18 @@ function intentarGuardar(estado, borrador) {
     return { estado, borrador, error: error.message };
   }
 
+  const original = borrador.id ? estado.movimientos.find((m) => m.id === borrador.id) : null;
+
   let movimiento;
   try {
-    movimiento = crearMovimiento(borrador, { decimales });
+    // Al corregir se conservan el identificador y el día de carga: es el mismo
+    // movimiento con otros datos, no uno nuevo. Cambiarle el id rompería
+    // cualquier cosa que lo señale, y cambiarle `creado` borraría cuándo entró.
+    movimiento = crearMovimiento(borrador, {
+      decimales,
+      id: original?.id,
+      creado: original?.creado,
+    });
   } catch (error) {
     // El mensaje viene del modelo, ya escrito para una persona. Repetirlo acá
     // con otras palabras sería tener dos versiones de la misma regla.
@@ -2940,20 +3227,30 @@ function intentarGuardar(estado, borrador) {
     };
   }
 
+  // Corregir un movimiento pasa por acá y no por otro camino: si hubiera dos
+  // puertas, tarde o temprano una tendría una validación que la otra no.
+  const posicion = borrador.id ? estado.movimientos.findIndex((m) => m.id === borrador.id) : -1;
+  const corrigiendo = posicion !== -1;
+
+  const movimientos = corrigiendo
+    ? estado.movimientos.map((m, i) => (i === posicion ? movimiento : m))
+    : [...estado.movimientos, movimiento];
+
   const nuevoEstado = {
     ...estado,
-    movimientos: [...estado.movimientos, movimiento],
+    movimientos,
     // La moneda elegida queda como predeterminada para la próxima carga (RN-04).
     preferencias: { ...estado.preferencias, moneda_predeterminada: movimiento.moneda },
   };
 
   return {
     estado: nuevoEstado,
+    corrigiendo,
     // El formulario se vacía pero conserva la fecha: cuando alguien carga tres
     // gastos del sábado, volver a poner la fecha en cada uno es exactamente el
     // trabajo repetido que esta app viene a sacar.
     borrador: borradorNuevo({ estado: nuevoEstado, fecha: movimiento.fecha }),
-    aviso: { movimiento, decimales },
+    aviso: { movimiento, decimales, corrigiendo },
   };
 }
 
@@ -2988,10 +3285,11 @@ function dibujarAviso(aviso) {
   const { movimiento, decimales } = aviso;
   const importe = formatearMonto(movimiento.monto, decimales, movimiento.moneda);
   const que = movimiento.tipo === TIPO_GASTO ? 'Gasto' : 'Ingreso';
+  const accion = aviso.corrigiendo ? 'corregido' : 'guardado';
 
   return `
     <p class="confirmacion" role="status">
-      ${que} guardado: <strong>${escapar(importe)}</strong> ·
+      ${que} ${accion}: <strong>${escapar(importe)}</strong> ·
       ${escapar(formatearRubro(movimiento.rubro))} · ${escapar(formatearFecha(movimiento.fecha))}
     </p>
   `;
@@ -3063,7 +3361,7 @@ function dibujarNuevo(vista) {
 
   return `
     <form class="tarjeta formulario" data-formulario="movimiento" novalidate>
-      <h2>${esGasto ? 'Nuevo gasto' : 'Nuevo ingreso'}</h2>
+      <h2>${borrador.id ? (esGasto ? 'Corregir gasto' : 'Corregir ingreso') : (esGasto ? 'Nuevo gasto' : 'Nuevo ingreso')}</h2>
 
       ${dibujarError(vista.error)}
       ${dibujarAviso(vista.aviso)}
@@ -3128,8 +3426,12 @@ function dibujarNuevo(vista) {
       </label>
 
       <button type="submit" class="principal" data-accion="guardar">
-        Guardar ${esGasto ? 'gasto' : 'ingreso'}
+        ${borrador.id ? 'Guardar los cambios' : `Guardar ${esGasto ? 'gasto' : 'ingreso'}`}
       </button>
+      ${borrador.id ? `
+      <button type="button" class="secundario" data-accion="cancelar-edicion">
+        Dejar como estaba
+      </button>` : ''}
     </form>
 
     ${dibujarUltimos(estado)}
@@ -3150,6 +3452,8 @@ function dibujarNuevo(vista) {
 // La frontera importa: un error de "qué se muestra" se puede cazar con un test;
 // uno de "cómo se engancha un clic" solo se ve abriendo la app. Cuanto más de lo
 // primero y menos de lo segundo, más barato es equivocarse.
+
+
 
 
 
@@ -3227,11 +3531,7 @@ registrarPantalla('movimientos', {
   etiqueta: 'Movimientos',
   icono: '≡',
   conMes: true,
-  dibujar: marcador(
-    'Movimientos del mes',
-    'La lista de lo que cargaste, para revisarlo, corregirlo o borrarlo.',
-    'T-015'
-  ),
+  dibujar: dibujarLista,
 });
 
 registrarPantalla('datos', {
@@ -3394,7 +3694,7 @@ function irA(vista, nombre) {
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
   // media hora después y vería un error que ya no significa nada.
-  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null };
+  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null };
   return nombre === 'nuevo'
     ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
     : limpia;
@@ -3498,6 +3798,9 @@ function iniciar(documento, almacen) {
       // El mes que se está mirando pasa a ser el del movimiento recién cargado:
       // si no, cargar un gasto de otro mes lo haría desaparecer de la vista.
       mes: mesDe(resultado.aviso.movimiento.fecha),
+      // Al corregir se vuelve a la lista, que es de donde se vino. Al cargar uno
+      // nuevo se sigue en el formulario, listo para el siguiente.
+      pantalla: resultado.corrigiendo ? 'movimientos' : vista.pantalla,
     };
     pintar();
   }
@@ -3656,6 +3959,59 @@ function iniciar(documento, almacen) {
         error: null,
         aviso: null,
       };
+    } else if (accion === 'editar') {
+      const movimiento = buscarMovimiento(vista.estado, boton.dataset.id);
+      if (!movimiento) return;
+      let decimales;
+      try {
+        decimales = decimalesDe(vista.estado.monedas, movimiento.moneda);
+      } catch {
+        decimales = 2;
+      }
+      vista = {
+        ...vista,
+        pantalla: 'nuevo',
+        borrador: borradorDesde(movimiento, decimales),
+        aviso: null,
+        error: null,
+        borrando: null,
+        borrado: null,
+      };
+    } else if (accion === 'cancelar-edicion') {
+      vista = { ...vista, pantalla: 'movimientos', borrador: borradorNuevo({ estado: vista.estado }), error: null, aviso: null };
+    } else if (accion === 'borrar') {
+      // Primer toque: no borra, pregunta. En un celular el borrar y el corregir
+      // quedan a milímetros.
+      vista = { ...vista, borrando: boton.dataset.id, borrado: null };
+    } else if (accion === 'borrar-no') {
+      vista = { ...vista, borrando: null };
+    } else if (accion === 'borrar-si') {
+      const resultado = borrarMovimiento(vista.estado, boton.dataset.id);
+      if (!resultado.borrado) {
+        vista = { ...vista, borrando: null };
+      } else {
+        try {
+          guardarEstado(resultado.estado, almacen);
+        } catch (error) {
+          // No se pudo escribir: NO se saca de la pantalla lo que sigue estando
+          // guardado. Decir "borrado" sobre un dato que sigue ahí sería mentir
+          // en la dirección más confusa posible.
+          vista = { ...vista, borrando: null, error: error.message };
+          pintar();
+          return;
+        }
+        vista = { ...vista, estado: resultado.estado, borrando: null, borrado: resultado.borrado };
+      }
+    } else if (accion === 'deshacer') {
+      const estado = restaurarMovimiento(vista.estado, vista.borrado);
+      try {
+        guardarEstado(estado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado, borrado: null };
     } else if (accion === 'tipo') {
       // Cambiar de gasto a ingreso cambia la lista de rubros (RN-02), así que hay
       // que volver a dibujar. Lo escrito no se pierde porque se lee antes; el

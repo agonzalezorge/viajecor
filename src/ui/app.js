@@ -16,10 +16,12 @@ import { hoy, mesDe, mesAnterior, mesSiguiente } from '../core/modelo.js';
 import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
-import { dibujarNuevo, borradorNuevo, intentarGuardar, fechaEnPalabras } from './pantallas/movimiento.js';
+import { dibujarNuevo, borradorNuevo, borradorDesde, intentarGuardar, fechaEnPalabras } from './pantallas/movimiento.js';
 import { claseDeRubro, COLORES } from './colores.js';
+import { decimalesDe } from '../core/monedas.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
 import { dibujarResumen } from './pantallas/resumen.js';
+import { dibujarLista, borrarMovimiento, restaurarMovimiento, buscarMovimiento } from './pantallas/lista.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -90,11 +92,7 @@ registrarPantalla('movimientos', {
   etiqueta: 'Movimientos',
   icono: '≡',
   conMes: true,
-  dibujar: marcador(
-    'Movimientos del mes',
-    'La lista de lo que cargaste, para revisarlo, corregirlo o borrarlo.',
-    'T-015'
-  ),
+  dibujar: dibujarLista,
 });
 
 registrarPantalla('datos', {
@@ -257,7 +255,7 @@ export function irA(vista, nombre) {
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
   // media hora después y vería un error que ya no significa nada.
-  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null };
+  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null };
   return nombre === 'nuevo'
     ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
     : limpia;
@@ -361,6 +359,9 @@ export function iniciar(documento, almacen) {
       // El mes que se está mirando pasa a ser el del movimiento recién cargado:
       // si no, cargar un gasto de otro mes lo haría desaparecer de la vista.
       mes: mesDe(resultado.aviso.movimiento.fecha),
+      // Al corregir se vuelve a la lista, que es de donde se vino. Al cargar uno
+      // nuevo se sigue en el formulario, listo para el siguiente.
+      pantalla: resultado.corrigiendo ? 'movimientos' : vista.pantalla,
     };
     pintar();
   }
@@ -519,6 +520,59 @@ export function iniciar(documento, almacen) {
         error: null,
         aviso: null,
       };
+    } else if (accion === 'editar') {
+      const movimiento = buscarMovimiento(vista.estado, boton.dataset.id);
+      if (!movimiento) return;
+      let decimales;
+      try {
+        decimales = decimalesDe(vista.estado.monedas, movimiento.moneda);
+      } catch {
+        decimales = 2;
+      }
+      vista = {
+        ...vista,
+        pantalla: 'nuevo',
+        borrador: borradorDesde(movimiento, decimales),
+        aviso: null,
+        error: null,
+        borrando: null,
+        borrado: null,
+      };
+    } else if (accion === 'cancelar-edicion') {
+      vista = { ...vista, pantalla: 'movimientos', borrador: borradorNuevo({ estado: vista.estado }), error: null, aviso: null };
+    } else if (accion === 'borrar') {
+      // Primer toque: no borra, pregunta. En un celular el borrar y el corregir
+      // quedan a milímetros.
+      vista = { ...vista, borrando: boton.dataset.id, borrado: null };
+    } else if (accion === 'borrar-no') {
+      vista = { ...vista, borrando: null };
+    } else if (accion === 'borrar-si') {
+      const resultado = borrarMovimiento(vista.estado, boton.dataset.id);
+      if (!resultado.borrado) {
+        vista = { ...vista, borrando: null };
+      } else {
+        try {
+          guardarEstado(resultado.estado, almacen);
+        } catch (error) {
+          // No se pudo escribir: NO se saca de la pantalla lo que sigue estando
+          // guardado. Decir "borrado" sobre un dato que sigue ahí sería mentir
+          // en la dirección más confusa posible.
+          vista = { ...vista, borrando: null, error: error.message };
+          pintar();
+          return;
+        }
+        vista = { ...vista, estado: resultado.estado, borrando: null, borrado: resultado.borrado };
+      }
+    } else if (accion === 'deshacer') {
+      const estado = restaurarMovimiento(vista.estado, vista.borrado);
+      try {
+        guardarEstado(estado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado, borrado: null };
     } else if (accion === 'tipo') {
       // Cambiar de gasto a ingreso cambia la lista de rubros (RN-02), así que hay
       // que volver a dibujar. Lo escrito no se pierde porque se lee antes; el

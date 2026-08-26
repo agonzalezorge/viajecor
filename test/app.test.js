@@ -194,12 +194,10 @@ test('la app dibuja encabezado, contenido y navegación', () => {
 
 test('las pantallas sin construir dicen qué tarea las trae', () => {
   // Un marcador honesto: en vez de una pantalla vacía que parece rota, dice qué
-  // va a haber ahí y cuándo.
-  for (const nombre of ['movimientos', 'datos']) {
-    const html = dibujarApp({ ...VISTA, pantalla: nombre });
-    assert.ok(html.includes('Todavía no está construida'), `${nombre} sin marcador`);
-    assert.ok(/T-0\d\d/.test(html), `${nombre} no dice qué tarea la trae`);
-  }
+  // va a haber ahí y cuándo. Va quedando una sola.
+  const html = dibujarApp({ ...VISTA, pantalla: 'datos' });
+  assert.ok(html.includes('Todavía no está construida'));
+  assert.ok(/T-0\d\d/.test(html));
 });
 
 test('una pantalla que no existe cae en la del mes, sin romperse', () => {

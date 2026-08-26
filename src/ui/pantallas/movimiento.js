@@ -13,7 +13,7 @@
 import { crearMovimiento, rubrosDe, TIPO_GASTO, TIPO_INGRESO, hoy } from '../../core/modelo.js';
 import { monedasVisibles, decimalesDe } from '../../core/monedas.js';
 import { faltaCambioPara } from '../../core/cambio.js';
-import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana, formatearMes, formatearRubro } from '../../core/formato.js';
+import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana, formatearMes, formatearRubro, formatearNumero } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
 import { escapar } from '../app.js';
 import { dibujarPedido, dibujarMovimientoEnEspera } from './cambio.js';
@@ -39,6 +39,26 @@ export function borradorNuevo({ estado, fecha } = {}) {
 }
 
 /**
+ * El formulario cargado con un movimiento que ya existe, para corregirlo.
+ *
+ * El monto vuelve a texto con la coma decimal del español: si volviera como
+ * `12.5`, el usuario vería su gasto escrito de una forma en la que él nunca lo
+ * escribiría.
+ */
+export function borradorDesde(movimiento, decimales) {
+  return {
+    id: movimiento.id,
+    fecha: movimiento.fecha,
+    tipo: movimiento.tipo,
+    monto: formatearNumero(movimiento.monto, decimales),
+    moneda: movimiento.moneda,
+    rubro: movimiento.rubro,
+    comentario: movimiento.comentario,
+    detalle: movimiento.detalle,
+  };
+}
+
+/**
  * Intenta guardar. Devuelve `{ estado, borrador, aviso, error }` — nunca tira.
  *
  * Es una función pura: recibe el estado y devuelve uno nuevo. Quien lo persiste
@@ -54,9 +74,18 @@ export function intentarGuardar(estado, borrador) {
     return { estado, borrador, error: error.message };
   }
 
+  const original = borrador.id ? estado.movimientos.find((m) => m.id === borrador.id) : null;
+
   let movimiento;
   try {
-    movimiento = crearMovimiento(borrador, { decimales });
+    // Al corregir se conservan el identificador y el día de carga: es el mismo
+    // movimiento con otros datos, no uno nuevo. Cambiarle el id rompería
+    // cualquier cosa que lo señale, y cambiarle `creado` borraría cuándo entró.
+    movimiento = crearMovimiento(borrador, {
+      decimales,
+      id: original?.id,
+      creado: original?.creado,
+    });
   } catch (error) {
     // El mensaje viene del modelo, ya escrito para una persona. Repetirlo acá
     // con otras palabras sería tener dos versiones de la misma regla.
@@ -79,20 +108,30 @@ export function intentarGuardar(estado, borrador) {
     };
   }
 
+  // Corregir un movimiento pasa por acá y no por otro camino: si hubiera dos
+  // puertas, tarde o temprano una tendría una validación que la otra no.
+  const posicion = borrador.id ? estado.movimientos.findIndex((m) => m.id === borrador.id) : -1;
+  const corrigiendo = posicion !== -1;
+
+  const movimientos = corrigiendo
+    ? estado.movimientos.map((m, i) => (i === posicion ? movimiento : m))
+    : [...estado.movimientos, movimiento];
+
   const nuevoEstado = {
     ...estado,
-    movimientos: [...estado.movimientos, movimiento],
+    movimientos,
     // La moneda elegida queda como predeterminada para la próxima carga (RN-04).
     preferencias: { ...estado.preferencias, moneda_predeterminada: movimiento.moneda },
   };
 
   return {
     estado: nuevoEstado,
+    corrigiendo,
     // El formulario se vacía pero conserva la fecha: cuando alguien carga tres
     // gastos del sábado, volver a poner la fecha en cada uno es exactamente el
     // trabajo repetido que esta app viene a sacar.
     borrador: borradorNuevo({ estado: nuevoEstado, fecha: movimiento.fecha }),
-    aviso: { movimiento, decimales },
+    aviso: { movimiento, decimales, corrigiendo },
   };
 }
 
@@ -127,10 +166,11 @@ function dibujarAviso(aviso) {
   const { movimiento, decimales } = aviso;
   const importe = formatearMonto(movimiento.monto, decimales, movimiento.moneda);
   const que = movimiento.tipo === TIPO_GASTO ? 'Gasto' : 'Ingreso';
+  const accion = aviso.corrigiendo ? 'corregido' : 'guardado';
 
   return `
     <p class="confirmacion" role="status">
-      ${que} guardado: <strong>${escapar(importe)}</strong> ·
+      ${que} ${accion}: <strong>${escapar(importe)}</strong> ·
       ${escapar(formatearRubro(movimiento.rubro))} · ${escapar(formatearFecha(movimiento.fecha))}
     </p>
   `;
@@ -202,7 +242,7 @@ export function dibujarNuevo(vista) {
 
   return `
     <form class="tarjeta formulario" data-formulario="movimiento" novalidate>
-      <h2>${esGasto ? 'Nuevo gasto' : 'Nuevo ingreso'}</h2>
+      <h2>${borrador.id ? (esGasto ? 'Corregir gasto' : 'Corregir ingreso') : (esGasto ? 'Nuevo gasto' : 'Nuevo ingreso')}</h2>
 
       ${dibujarError(vista.error)}
       ${dibujarAviso(vista.aviso)}
@@ -267,8 +307,12 @@ export function dibujarNuevo(vista) {
       </label>
 
       <button type="submit" class="principal" data-accion="guardar">
-        Guardar ${esGasto ? 'gasto' : 'ingreso'}
+        ${borrador.id ? 'Guardar los cambios' : `Guardar ${esGasto ? 'gasto' : 'ingreso'}`}
       </button>
+      ${borrador.id ? `
+      <button type="button" class="secundario" data-accion="cancelar-edicion">
+        Dejar como estaba
+      </button>` : ''}
     </form>
 
     ${dibujarUltimos(estado)}

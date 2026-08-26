@@ -28,6 +28,7 @@ const MODULOS = [
   'src/ui/colores.js',
   'src/ui/pantallas/cambio.js',
   'src/ui/pantallas/resumen.js',
+  'src/ui/pantallas/lista.js',
   'src/ui/pantallas/movimiento.js',
   'src/ui/app.js',
 ];

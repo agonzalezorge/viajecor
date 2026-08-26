@@ -22,6 +22,11 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **Ya se puede corregir y borrar** (T-015, CU-06). La pantalla *Movimientos*
+  muestra lo del mes agrupado por día, del más nuevo al más viejo. Borrar tiene
+  **dos redes**: pregunta antes, y después ofrece **deshacer** —que devuelve el
+  movimiento a su lugar exacto, no al final de la lista—. Corregir conserva el
+  movimiento: cambia sus datos sin crear uno nuevo. 24 tests.
 - **Cada rubro tiene su color**, el mismo en todas las pantallas: en la barra del
   resumen, en el punto de la lista y en el borde del campo al elegirlo. El color
   depende del rubro y **nunca de cuánto gastaste en él**, así que no se repinta al

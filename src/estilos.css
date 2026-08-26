@@ -550,3 +550,73 @@ body {
 .campo-rubro.rubro-6 { border-left-color: var(--rubro-6); }
 .campo-rubro.rubro-7 { border-left-color: var(--rubro-7); }
 .campo-rubro.rubro-8 { border-left-color: var(--rubro-8); }
+
+/* ── Lista de movimientos (T-015) ────────────────────────────────────────────
+   Es la única pantalla que destruye datos, y detrás no hay papelera. De ahí que
+   el borrar tenga dos redes: confirmar antes y deshacer después. */
+
+.cuantos { margin: 0 0.125rem 0.75rem; }
+.tarjeta.dia h2 { font-size: 0.9375rem; color: var(--texto-suave); font-weight: 500; }
+
+.movimientos { list-style: none; margin: 0; padding: 0; }
+
+.movimiento {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.movimiento:last-child { border-bottom: none; }
+.movimiento.confirmando { background: var(--fondo); border-radius: var(--radio); padding: 0.75rem; }
+
+.movimiento-datos,
+.movimiento-pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.movimiento-datos .nombre { font-weight: 500; }
+.movimiento-datos .importe { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.movimiento-datos .importe.gasto { color: var(--gasto); }
+.movimiento-datos .importe.ingreso { color: var(--ingreso); }
+.movimiento-pie { font-size: 0.8125rem; margin-top: 0.125rem; }
+.movimiento-pie span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.movimiento-acciones { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+.confirmar-borrado { margin-top: 0.625rem; }
+.confirmar-borrado p { margin: 0 0 0.5rem; font-weight: 500; }
+.confirmar-borrado .botones { display: flex; gap: 0.5rem; }
+
+/* El botón que destruye se ve distinto de todos los demás: es el único de la
+   app que hace algo que no se puede rehacer desde otro lado. */
+.peligro {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--superficie);
+  background: var(--gasto);
+  border: none;
+  border-radius: var(--radio);
+  cursor: pointer;
+}
+
+/* El deshacer NO se cierra solo: en un celular, los tres segundos que suelen
+   durar estos avisos son el tiempo que tarda alguien en darse cuenta. */
+.deshacer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--acento);
+  border-left-width: 4px;
+  border-radius: var(--radio);
+}
+
+.deshacer p { margin: 0; font-size: 0.9375rem; }
