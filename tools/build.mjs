@@ -22,6 +22,7 @@ const MODULOS = [
   'src/core/modelo.js',
   'src/core/monedas.js',
   'src/core/cambio.js',
+  'src/core/calculos.js',
   'src/core/formato.js',
   'src/datos/almacenamiento.js',
   'src/ui/pantallas/cambio.js',

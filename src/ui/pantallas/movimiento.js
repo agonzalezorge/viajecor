@@ -10,7 +10,7 @@
 // Igual que el armazón (ADR-022), esto son funciones puras que devuelven texto
 // HTML. Quien las mete en el documento es `ui/app.js`.
 
-import { crearMovimiento, rubrosDe, TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../../core/modelo.js';
+import { crearMovimiento, rubrosDe, TIPO_GASTO, TIPO_INGRESO, hoy } from '../../core/modelo.js';
 import { monedasVisibles, decimalesDe } from '../../core/monedas.js';
 import { faltaCambioPara } from '../../core/cambio.js';
 import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana, formatearMes } from '../../core/formato.js';
@@ -261,9 +261,4 @@ export function dibujarNuevo(vista) {
 
     ${dibujarUltimos(estado)}
   `;
-}
-
-/** Los movimientos de un mes. Lo usa la pantalla para saber qué mostrar. */
-export function movimientosDelMes(estado, mes) {
-  return estado.movimientos.filter((m) => mesDe(m.fecha) === mes);
 }

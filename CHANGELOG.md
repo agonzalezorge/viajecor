@@ -22,6 +22,12 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- Los cálculos del mes (T-013): total de gastos, de ingresos y saldo; el desglose
+  por rubro de mayor a menor; el gasto día por día con su acumulado; y el total
+  por comentario, que es la base de "cuánto costó un viaje". Todo en euros,
+  mezclando monedas. **Ningún cálculo tiene un tope de filas escrito a mano**,
+  que es como la planilla original empieza a dar totales de menos sin avisar
+  (L-001). 29 tests.
 - **Ya se pueden cargar gastos en otra moneda** (T-012, CU-03). La primera vez
   que cargás un gasto en colones de un mes, la app se detiene y te pregunta
   *"1 EUR son… CRC"* — como viene el dato en la calle— y **guarda el gasto sola**

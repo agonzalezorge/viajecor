@@ -69,17 +69,17 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-010 | Armazón de la interfaz | **Hecha** | T-001 |
 | T-011 | Pantalla de carga de movimiento | **Hecha** | T-003, T-004, T-010 |
 | T-012 | Pedir el tipo de cambio al vuelo | **Hecha** | T-005, T-011 |
-| T-013 | Cálculos del mes | En curso (claude, 2026-08-19) | T-003, T-005 |
-| T-014 | Pantalla de resumen del mes | Pendiente | T-013, T-010, T-006 |
+| T-013 | Cálculos del mes | **Hecha** | T-003, T-005 |
+| T-014 | Pantalla de resumen del mes | **Lista** | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | **Lista** | T-011 |
 | T-016 | Exportar a JSON | **Lista** | T-004 |
 | T-017 | Importar un respaldo JSON | Pendiente | T-016 |
 | T-018 | Exportar a CSV | Pendiente | T-005, T-016 |
 | T-019 | Verificación real sin conexión | Pendiente | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
-| T-020 | Gasto día por día del mes | Pendiente | T-013 |
-| T-021 | Evolución mes a mes | Pendiente | T-013 |
-| T-022 | Promedio de gastos fijos | Pendiente | T-013 |
+| T-020 | Gasto día por día del mes | **Lista** | T-013 |
+| T-021 | Evolución mes a mes | **Lista** | T-013 |
+| T-022 | Promedio de gastos fijos | **Lista** | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
@@ -474,13 +474,38 @@ esperando — la pantalla decía que se aplicó y al recargar volvía el valor v
 Funciones puras: total de gastos, de ingresos y saldo de un mes; desglose por
 rubro; serie por día. Todo en euros.
 
-**Terminada cuando:** hay tests con movimientos en más de una moneda y en más de
-un mes, comprobando que ninguno se cuenta en el mes equivocado.
+**Terminada cuando:**
+- [x] Hay tests con movimientos en más de una moneda y en más de un mes,
+      comprobando que ninguno se cuenta en el mes equivocado — con los bordes,
+      que es donde falla: el día 1 y el último día. 29 tests; 286 en total.
+- [x] Los tests **muerden**: comprobado rompiendo el módulo en cinco puntos,
+      incluido copiarle al Excel su tope de 1027 filas. Cada rotura hizo fallar
+      tests.
+- [x] Un test suma **2000 movimientos**, a propósito por encima de la fila donde
+      la planilla original empieza a dar de menos (L-001).
+- [x] Los números **cierran entre sí**: el desglose por rubro suma exactamente el
+      total de gastos, y el día por día también. Si no cerraran, el usuario vería
+      dos números distintos sin forma de saber cuál creer.
+- [x] Comprobado **dentro de `dist/viajecor.html`** y además cargando un mes real
+      por la pantalla: 122,24 € de gastos, que da igual hecho a mano, y el gasto
+      de abril no se coló en marzo.
+
+**Lo que salió de hacerla:**
+- Un movimiento que **no se puede convertir a euros** (falta su tipo de cambio)
+  no se cuenta como cero ni se descarta: sale aparte en `sinConvertir`, para que
+  la pantalla pueda decir que el total está incompleto. Un total al que le falta
+  un gasto y que no lo dice es peor que no mostrar ningún total. **T-014 tiene
+  que mostrarlo.**
+- El promedio por día divide por los **días transcurridos**, no por los del mes.
+  A mitad de mes, dividir por 31 da un promedio artificialmente bajo.
+- `movimientosDelMes()` estaba duplicado en la pantalla de carga y se movió acá:
+  filtrar por mes es un cálculo, y dos copias de la misma regla terminan diciendo
+  cosas distintas (L-005 aplicada al código).
 
 ---
 
 ### T-014 · Pantalla de resumen del mes — CU-04
-**Estado:** Pendiente · **Depende de:** T-013, T-010, T-006
+**Estado:** Lista · **Depende de:** T-013, T-010, T-006
 **Toca:** `src/ui/pantallas/resumen.js`
 
 ---

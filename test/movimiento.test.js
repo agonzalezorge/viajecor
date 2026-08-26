@@ -13,8 +13,9 @@ import {
   intentarGuardar,
   dibujarNuevo,
   fechaEnPalabras,
-  movimientosDelMes,
 } from '../src/ui/pantallas/movimiento.js';
+
+import { movimientosDelMes } from '../src/core/calculos.js';
 
 import { estadoInicial } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
@@ -317,7 +318,7 @@ test('los movimientos de un mes son los de ese mes, sin límite de filas', () =>
     estado = intentarGuardar(estado, borradorDe({ fecha })).estado;
   }
 
-  assert.equal(movimientosDelMes(estado, '2026-03').length, 2);
-  assert.equal(movimientosDelMes(estado, '2026-04').length, 1);
-  assert.equal(movimientosDelMes(estado, '2026-01').length, 0);
+  assert.equal(movimientosDelMes(estado.movimientos, '2026-03').length, 2);
+  assert.equal(movimientosDelMes(estado.movimientos, '2026-04').length, 1);
+  assert.equal(movimientosDelMes(estado.movimientos, '2026-01').length, 0);
 });
