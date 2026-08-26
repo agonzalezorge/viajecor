@@ -18,6 +18,7 @@ import { leerEstado, guardarEstado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
 import { dibujarNuevo, borradorNuevo, intentarGuardar, fechaEnPalabras } from './pantallas/movimiento.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
+import { dibujarResumen } from './pantallas/resumen.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -81,11 +82,7 @@ registrarPantalla('mes', {
   etiqueta: 'Mes',
   icono: '◧',
   conMes: true,
-  dibujar: marcador(
-    'Resumen del mes',
-    'Cuánto gastaste, cuánto entró y el saldo, con el desglose por rubro.',
-    'T-014'
-  ),
+  dibujar: dibujarResumen,
 });
 
 registrarPantalla('movimientos', {

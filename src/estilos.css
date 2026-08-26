@@ -401,3 +401,72 @@ body {
   justify-content: space-between;
   gap: 0.75rem;
 }
+
+/* ── Resumen del mes (T-014) ─────────────────────────────────────────────────
+   Los tres números de arriba y el desglose por rubro. Las decisiones de forma
+   y su porqué están en src/ui/pantallas/resumen.js. */
+
+.totales {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.25rem;
+}
+
+.total { display: flex; flex-direction: column; gap: 0.125rem; }
+.total.saldo { grid-column: 1 / -1; padding-top: 0.875rem; border-top: 1px solid var(--borde); }
+
+.etiqueta { font-size: 0.8125rem; color: var(--texto-suave); }
+
+/* Deliberadamente SIN cifras de ancho fijo: en un número grande, el ancho fijo
+   abre huecos entre los dígitos y se lee peor. El ancho fijo es para las
+   columnas de la tabla de abajo, donde sirve para comparar. */
+.cifra {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.total.saldo .cifra { font-size: 1.875rem; }
+.cifra.gasto { color: var(--gasto); }
+.cifra.ingreso { color: var(--ingreso); }
+
+.promedio { margin: -0.5rem 0 1rem; padding: 0 0.125rem; }
+
+/* El desglose. Filas separadas por aire, no por líneas: una lista de ocho
+   rubros con ocho divisorias se lee como una reja. */
+.rubros { list-style: none; margin: 0; padding: 0; }
+.fila-rubro { margin-bottom: 1rem; }
+.fila-rubro:last-child { margin-bottom: 0; }
+
+.rubro-cabeza,
+.rubro-pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.rubro-cabeza .nombre { font-weight: 500; }
+.rubro-cabeza .importe { font-variant-numeric: tabular-nums; font-weight: 600; }
+.rubro-pie { font-size: 0.8125rem; margin-top: 0.25rem; }
+
+/* La barra: fina, todas del mismo color, todas arrancando del mismo borde. Lo
+   que se compara es el largo, así que el color no tiene que decir nada más. */
+.barra-pista {
+  height: 0.5rem;
+  margin-top: 0.375rem;
+  background: var(--borde);
+  border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.barra {
+  height: 100%;
+  min-width: 0.25rem;
+  /* Cuadrada donde arranca, redondeada en la punta: el borde izquierdo es la
+     línea de base contra la que se comparan todas. */
+  border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.barra.gasto { background: var(--gasto); }
+.barra.ingreso { background: var(--ingreso); }

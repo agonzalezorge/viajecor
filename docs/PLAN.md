@@ -70,7 +70,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-011 | Pantalla de carga de movimiento | **Hecha** | T-003, T-004, T-010 |
 | T-012 | Pedir el tipo de cambio al vuelo | **Hecha** | T-005, T-011 |
 | T-013 | Cálculos del mes | **Hecha** | T-003, T-005 |
-| T-014 | Pantalla de resumen del mes | En curso (claude, 2026-08-19) | T-013, T-010, T-006 |
+| T-014 | Pantalla de resumen del mes | **Hecha** | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | **Lista** | T-011 |
 | T-016 | Exportar a JSON | **Lista** | T-004 |
 | T-017 | Importar un respaldo JSON | Pendiente | T-016 |
@@ -505,8 +505,44 @@ rubro; serie por día. Todo en euros.
 ---
 
 ### T-014 · Pantalla de resumen del mes — CU-04
-**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-013, T-010, T-006
-**Toca:** `src/ui/pantallas/resumen.js`, `src/ui/app.js`, `src/estilos.css`, `test/resumen.test.js`, `tools/build.mjs`
+**Estado:** Hecha (2026-08-19) · **Depende de:** T-013, T-010, T-006
+**Toca:** `src/ui/pantallas/resumen.js`, `src/ui/app.js`, `src/estilos.css`, `test/resumen.test.js`, `test/app.test.js`, `tools/build.mjs`
+
+Gastos, ingresos y saldo del mes; el desglose por rubro de mayor a menor; y el
+promedio por día. Todo en euros.
+
+**Terminada cuando:**
+- [x] Los tres números, el desglose de gastos y el de ingresos. 21 tests; 307 en
+      total.
+- [x] **Si falta un tipo de cambio, la pantalla dice que el total está
+      incompleto** y ofrece cargarlo. Era la obligación que dejaba T-013: sin
+      esto, apartar los movimientos no convertibles no habría servido de nada.
+- [x] Los tests **muerden**: comprobado rompiendo la pantalla en cuatro puntos
+      —tragarse el aviso de incompleto, pintar más oscuro el rubro más grande,
+      mostrar tres ceros en un mes vacío, promediar el mes en curso sobre el mes
+      entero—. Cada rotura hizo fallar tests.
+- [x] **Recorrido en un navegador real** con un mes cargado por la pantalla:
+      323,14 € de gastos, que da igual hecho a mano, y los porcentajes suman 100.
+      0 peticiones a internet, 0 errores de consola.
+
+**Decisiones de presentación, con su motivo:**
+- Los tres números son **números destacados, no un gráfico**: tres barras para
+  tres cifras que ya se leen de un vistazo agregan trabajo visual y ninguna
+  información.
+- Las barras del desglose son **todas del mismo color**. Pintar más oscuro al
+  rubro más grande codifica dos veces lo mismo —el largo ya lo dice— y le pone
+  colores distintos a categorías que no significan nada distinto.
+- Los importes de la tabla llevan cifras de ancho fijo; **los tres números
+  grandes no**, porque en un número grande el ancho fijo abre huecos entre los
+  dígitos y se lee peor.
+- **Con un solo rubro no se dibuja la barra ni el porcentaje**: serían una barra
+  siempre llena y un 100 % siempre igual. Se vio mirando la pantalla, no en un
+  test.
+- El saldo lleva el signo **en el número**, no solo en el color.
+
+**Lo que salió de mirar la pantalla:** decía "10,42 € por día por día en el
+mes" — la palabra repetida. Ningún test lo veía porque ninguno leía la frase
+entera.
 
 ---
 

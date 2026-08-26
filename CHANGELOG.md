@@ -22,6 +22,11 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **La pantalla del mes ya muestra cómo venís** (T-014, CU-04): gastos, ingresos
+  y saldo, el promedio por día, y en qué se fue la plata —por rubro, de mayor a
+  menor, con su porcentaje—. Si falta un tipo de cambio, **la pantalla avisa que
+  el total está incompleto** en vez de mostrar un número que parece completo.
+  21 tests.
 - Los cálculos del mes (T-013): total de gastos, de ingresos y saldo; el desglose
   por rubro de mayor a menor; el gasto día por día con su acumulado; y el total
   por comentario, que es la base de "cuánto costó un viaje". Todo en euros,

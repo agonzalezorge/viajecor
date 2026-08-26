@@ -24,8 +24,17 @@ import {
 } from '../src/ui/app.js';
 
 import { mesAnterior, mesSiguiente, mesDe, hoy } from '../src/core/modelo.js';
+import { estadoInicial } from '../src/datos/almacenamiento.js';
+import { monedasIniciales } from '../src/core/monedas.js';
 
-const VISTA = { pantalla: 'mes', mes: '2026-03', estado: null, incidencias: [] };
+// Un estado vacío de verdad: desde que la pantalla del mes está construida
+// (T-014), dibujar la app lee los datos, y pasarle null probaría otra cosa.
+const VISTA = {
+  pantalla: 'mes',
+  mes: '2026-03',
+  estado: estadoInicial({ monedas: monedasIniciales() }),
+  incidencias: [],
+};
 
 // ── Aritmética de meses ──────────────────────────────────────────────────────
 
@@ -186,7 +195,7 @@ test('la app dibuja encabezado, contenido y navegación', () => {
 test('las pantallas sin construir dicen qué tarea las trae', () => {
   // Un marcador honesto: en vez de una pantalla vacía que parece rota, dice qué
   // va a haber ahí y cuándo.
-  for (const nombre of ['mes', 'movimientos', 'datos']) {
+  for (const nombre of ['movimientos', 'datos']) {
     const html = dibujarApp({ ...VISTA, pantalla: nombre });
     assert.ok(html.includes('Todavía no está construida'), `${nombre} sin marcador`);
     assert.ok(/T-0\d\d/.test(html), `${nombre} no dice qué tarea la trae`);
@@ -195,7 +204,9 @@ test('las pantallas sin construir dicen qué tarea las trae', () => {
 
 test('una pantalla que no existe cae en la del mes, sin romperse', () => {
   const html = dibujarApp({ ...VISTA, pantalla: 'inventada' });
-  assert.ok(html.includes('Resumen del mes'));
+  // Con el mes vacío, la pantalla del mes ofrece cargar algo.
+  assert.ok(html.includes('marzo de 2026'));
+  assert.ok(html.includes('Cargar un movimiento'));
 });
 
 test('la app no contiene ninguna dirección de internet (RN-06)', () => {

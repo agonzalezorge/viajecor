@@ -26,6 +26,7 @@ const MODULOS = [
   'src/core/formato.js',
   'src/datos/almacenamiento.js',
   'src/ui/pantallas/cambio.js',
+  'src/ui/pantallas/resumen.js',
   'src/ui/pantallas/movimiento.js',
   'src/ui/app.js',
 ];
