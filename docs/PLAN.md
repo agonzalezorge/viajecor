@@ -72,7 +72,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-013 | Cálculos del mes | **Hecha** | T-003, T-005 |
 | T-014 | Pantalla de resumen del mes | **Hecha** | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | **Hecha** | T-011 |
-| T-016 | Exportar a JSON | **Lista** | T-004 |
+| T-016 | Exportar a JSON | En curso (claude, 2026-08-19) | T-004 |
 | T-017 | Importar un respaldo JSON | Pendiente | T-016 |
 | T-018 | Exportar a CSV | Pendiente | T-005, T-016 |
 | T-019 | Verificación real sin conexión | Pendiente | T-011…T-018 |
@@ -579,8 +579,8 @@ haberlo perdido y volvería a encontrarlo al recargar.
 ---
 
 ### T-016 · Exportar a JSON — CU-07
-**Estado:** Lista · **Depende de:** T-004
-**Toca:** `src/datos/exportar.js`, `test/exportar.test.js`, `src/ui/pantallas/datos.js`
+**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-004
+**Toca:** `src/datos/exportar.js`, `test/exportar.test.js`, `src/ui/pantallas/datos.js`, `src/ui/app.js`, `src/estilos.css`, `tools/build.mjs`
 
 **Prioridad alta pese al número:** hasta que esto exista, los datos del usuario
 solo viven en un navegador y un borrado accidental los pierde para siempre.
