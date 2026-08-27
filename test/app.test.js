@@ -192,11 +192,11 @@ test('la app dibuja encabezado, contenido y navegación', () => {
   assert.ok(html.includes('class="navegacion"'));
 });
 
-test('las pantallas sin construir dicen qué tarea las trae', () => {
-  // Un marcador honesto: en vez de una pantalla vacía que parece rota, dice qué
-  // va a haber ahí y cuándo. Va quedando una sola.
+test('lo que falta de una pantalla se dice, con la tarea que lo trae', () => {
+  // Ya no quedan pantallas enteras sin construir. Lo que queda son partes, y se
+  // nombran igual: una pantalla que no dice lo que le falta parece terminada.
   const html = dibujarApp({ ...VISTA, pantalla: 'datos' });
-  assert.ok(html.includes('Todavía no está construida'));
+  assert.ok(html.includes('Todavía no'));
   assert.ok(/T-0\d\d/.test(html));
 });
 

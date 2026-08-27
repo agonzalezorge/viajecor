@@ -22,6 +22,8 @@ import { decimalesDe } from '../core/monedas.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
 import { dibujarResumen } from './pantallas/resumen.js';
 import { dibujarLista, borrarMovimiento, restaurarMovimiento, buscarMovimiento } from './pantallas/lista.js';
+import { dibujarDatos } from './pantallas/datos.js';
+import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -99,20 +101,7 @@ registrarPantalla('datos', {
   etiqueta: 'Datos',
   icono: '↧',
   conMes: false,
-  dibujar: (vista) => `
-    ${marcador(
-      'Tus datos',
-      'Exportar un respaldo, volver a importarlo, y la lista de monedas.',
-      'T-016 y T-024'
-    )(vista)}
-    <section class="tarjeta">
-      <h2>Tipos de cambio</h2>
-      <p class="suave">Ver y corregir cuánto vale cada moneda en cada mes.</p>
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">
-        Ver tipos de cambio
-      </button>
-    </section>
-  `,
+  dibujar: dibujarDatos,
 });
 
 registrarPantalla('cambios', {
@@ -255,7 +244,7 @@ export function irA(vista, nombre) {
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
   // media hora después y vería un error que ya no significa nada.
-  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null };
+  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null, avisoRespaldo: null, mostrarRespaldo: false };
   return nombre === 'nuevo'
     ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
     : limpia;
@@ -369,6 +358,65 @@ export function iniciar(documento, almacen) {
   // El único trozo que se actualiza solo, sin redibujar la pantalla: la fecha
   // escrita en palabras. Redibujar entero acá sacaría el foco del calendario
   // que el usuario está usando, que es peor que el problema que resuelve.
+  /**
+   * Entrega el respaldo al navegador para que lo descargue.
+   *
+   * Es lo único de toda la app que crea un archivo, y se hace sin ninguna
+   * petición de red: el contenido se arma en memoria, se envuelve en un `Blob` y
+   * se le pasa al navegador con un enlace de descarga (ARQUITECTURA §7).
+   *
+   * Si algo falla —y puede fallar: la app se abre desde un archivo del disco, y
+   * ahí las descargas dependen del navegador y del sistema— **se abre solo el
+   * texto para copiar**, que es el camino que no depende de nadie. Un respaldo
+   * que solo funciona si el navegador coopera no es un respaldo.
+   */
+  function descargarRespaldo() {
+    const respaldo = prepararRespaldo(vista.estado);
+
+    try {
+      const url = URL.createObjectURL(new Blob([respaldo.contenido], { type: respaldo.tipo }));
+      const enlace = documento.createElement('a');
+      enlace.href = url;
+      enlace.download = respaldo.nombre;
+      documento.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      // Se libera después, no en el acto: revocarla enseguida le saca al
+      // navegador el archivo de las manos mientras todavía lo está escribiendo.
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      vista = {
+        ...vista,
+        mostrarRespaldo: true,
+        error: `No se pudo descargar el archivo (${error.message}). ` +
+          'Copiá el texto de abajo y guardalo donde quieras: sirve igual.',
+      };
+      pintar();
+      return;
+    }
+
+    // El día del respaldo se anota DESPUÉS de pedir la descarga, nunca antes:
+    // decir que se respaldó algo que no se respaldó es peor que no anotar nada.
+    const conRespaldo = anotarRespaldo(vista.estado);
+    try {
+      guardarEstado(conRespaldo, almacen);
+    } catch {
+      // Que no se pueda anotar la fecha no invalida el respaldo: el archivo ya
+      // salió. Se sigue sin avisar de esto, que sería ruido sobre algo que salió
+      // bien.
+    }
+
+    vista = {
+      ...vista,
+      estado: conRespaldo,
+      error: null,
+      avisoRespaldo:
+        `Se preparó ${respaldo.nombre} con ${respaldo.cuantos === 1 ? '1 movimiento' : `${respaldo.cuantos} movimientos`}. ` +
+        'Si no aparece en tus descargas, usá el texto para copiarlo.',
+    };
+    pintar();
+  }
+
   raiz.addEventListener('input', (evento) => {
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
@@ -520,6 +568,11 @@ export function iniciar(documento, almacen) {
         error: null,
         aviso: null,
       };
+    } else if (accion === 'exportar') {
+      descargarRespaldo();
+      return;
+    } else if (accion === 'ver-respaldo') {
+      vista = { ...vista, mostrarRespaldo: !vista.mostrarRespaldo, error: null };
     } else if (accion === 'editar') {
       const movimiento = buscarMovimiento(vista.estado, boton.dataset.id);
       if (!movimiento) return;

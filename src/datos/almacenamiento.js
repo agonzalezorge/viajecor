@@ -13,7 +13,7 @@
 // que nunca hace es pisar en silencio un dato que no entendió: un dato ilegible
 // todavía se puede rescatar a mano; uno sobrescrito, no.
 
-import { validarMovimiento } from '../core/modelo.js';
+import { validarMovimiento, validarFecha } from '../core/modelo.js';
 
 export const CLAVE_DATOS = 'viajecor:datos:v1';
 
@@ -169,11 +169,34 @@ export function migrarEstado(guardado, incidencias = []) {
     incidencias.push('La lista de monedas guardada no era una lista y se ignoró.');
   }
 
+  // ── Preferencias ───────────────────────────────────────────────────────────
+  //
+  // ⚠️ Cada preferencia se lee EXPLÍCITAMENTE, y la que no esté acá **se pierde
+  // al recargar**, sin ningún error. Agregar una preferencia y olvidarse de esta
+  // lista da el peor síntoma posible: funciona mientras la app está abierta y
+  // desaparece al volver, que es justo cuando nadie está mirando. Pasó con
+  // `ultimo_respaldo` en T-016. Ver L-015.
+  //
+  // Se leen una por una igual, en vez de copiar el objeto entero, porque un
+  // respaldo editado a mano puede traer cualquier cosa ahí adentro.
   const preferencias = guardado.preferencias;
   if (preferencias !== null && typeof preferencias === 'object' && !Array.isArray(preferencias)) {
     const moneda = preferencias.moneda_predeterminada;
     if (typeof moneda === 'string' && /^[A-Za-z]{3}$/.test(moneda.trim())) {
       estado.preferencias.moneda_predeterminada = moneda.trim().toUpperCase();
+    }
+
+    // El día del último respaldo. Sin esto, la app no puede avisar "hace tres
+    // semanas que no respaldás", que es la contramedida al riesgo más grave de
+    // toda la arquitectura.
+    // Se valida con validarFecha y no con una expresión regular: "2026-13-01"
+    // tiene la forma correcta y no existe. Comprobar la forma no es comprobar la
+    // fecha — es la misma trampa que RN-01 (L-005), acá aplicada a un ajuste.
+    try {
+      estado.preferencias.ultimo_respaldo = validarFecha(preferencias.ultimo_respaldo);
+    } catch {
+      // No había fecha de respaldo, o no era una fecha. Se sigue sin ella: la
+      // app va a decir "nunca respaldaste", que es lo correcto si no se sabe.
     }
   }
 

@@ -625,6 +625,45 @@ body {
 }
 
 .deshacer p { margin: 0; font-size: 0.9375rem; }
+
+/* ── Datos y respaldo (T-016) ────────────────────────────────────────────── */
+
+.formulario .principal + .secundario,
+.tarjeta .principal + .secundario { margin-top: 0.5rem; }
+.tarjeta .principal,
+.tarjeta > .secundario { width: 100%; margin-top: 0.75rem; }
+.tarjeta .principal[disabled],
+.tarjeta .secundario[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.aviso-respaldo { margin: 0 0 0.75rem; }
+
+/* Cuando hace falta respaldar se ve distinto de cuando no. Un aviso que está
+   siempre igual enseña a no mirarlo. */
+.pendiente-respaldo {
+  padding: 0.75rem;
+  border-radius: var(--radio);
+  border: 1px solid var(--gasto);
+  border-left-width: 4px;
+  font-size: 0.9375rem;
+}
+
+/* El texto del respaldo, para copiar cuando la descarga no funciona. */
+.respaldo-texto {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--texto);
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
 </style>
 
 <div id="app" class="app">
@@ -2246,11 +2285,34 @@ function migrarEstado(guardado, incidencias = []) {
     incidencias.push('La lista de monedas guardada no era una lista y se ignoró.');
   }
 
+  // ── Preferencias ───────────────────────────────────────────────────────────
+  //
+  // ⚠️ Cada preferencia se lee EXPLÍCITAMENTE, y la que no esté acá **se pierde
+  // al recargar**, sin ningún error. Agregar una preferencia y olvidarse de esta
+  // lista da el peor síntoma posible: funciona mientras la app está abierta y
+  // desaparece al volver, que es justo cuando nadie está mirando. Pasó con
+  // `ultimo_respaldo` en T-016. Ver L-015.
+  //
+  // Se leen una por una igual, en vez de copiar el objeto entero, porque un
+  // respaldo editado a mano puede traer cualquier cosa ahí adentro.
   const preferencias = guardado.preferencias;
   if (preferencias !== null && typeof preferencias === 'object' && !Array.isArray(preferencias)) {
     const moneda = preferencias.moneda_predeterminada;
     if (typeof moneda === 'string' && /^[A-Za-z]{3}$/.test(moneda.trim())) {
       estado.preferencias.moneda_predeterminada = moneda.trim().toUpperCase();
+    }
+
+    // El día del último respaldo. Sin esto, la app no puede avisar "hace tres
+    // semanas que no respaldás", que es la contramedida al riesgo más grave de
+    // toda la arquitectura.
+    // Se valida con validarFecha y no con una expresión regular: "2026-13-01"
+    // tiene la forma correcta y no existe. Comprobar la forma no es comprobar la
+    // fecha — es la misma trampa que RN-01 (L-005), acá aplicada a un ajuste.
+    try {
+      estado.preferencias.ultimo_respaldo = validarFecha(preferencias.ultimo_respaldo);
+    } catch {
+      // No había fecha de respaldo, o no era una fecha. Se sigue sin ella: la
+      // app va a decir "nunca respaldaste", que es lo correcto si no se sabe.
     }
   }
 
@@ -2371,6 +2433,122 @@ function listarRescates(almacen = almacenPorDefecto()) {
     if (typeof clave === 'string' && clave.startsWith(PREFIJO_RESCATE)) claves.push(clave);
   }
   return claves.sort().reverse();
+}
+
+// ── src/datos/exportar.js ───────────────────────────────────────
+// Exportar los datos — CU-07.
+//
+// Esta no es una función más de la app: **es la única copia de seguridad que el
+// usuario va a tener**. Los datos viven en un solo navegador, sin servidor y sin
+// papelera; "limpiar datos de navegación" en el celular se lleva meses de
+// registro y no hay de dónde recuperarlos (ARQUITECTURA §6).
+//
+// De eso salen las tres decisiones de este archivo:
+//
+//   1. **Se exporta TODO**, no lo que se está mirando. Un respaldo que solo
+//      guarda el mes en pantalla es un respaldo que descubrís incompleto el día
+//      que lo necesitás.
+//   2. **El archivo se puede leer sin la app.** Es JSON con nombres en
+//      castellano, con saltos de línea y sangría. Si dentro de cinco años esta
+//      app no abre, el respaldo se sigue entendiendo con cualquier editor de
+//      texto — que es media garantía de que los datos son del usuario.
+//   3. **El archivo dice de dónde salió y cuándo.** Un `viajecor-2026-08-25.json`
+//      encontrado dentro de tres años tiene que poder explicarse solo.
+//
+// Este archivo no toca el navegador: arma el contenido y el nombre, y quien lo
+// descarga es la pantalla. Así se puede testear el respaldo sin un navegador.
+
+
+const TIPO_JSON = 'application/json';
+
+/**
+ * El nombre del archivo: `viajecor-2026-08-25.json`.
+ *
+ * Con la fecha al principio en formato AAAA-MM-DD para que varios respaldos en
+ * una carpeta queden ordenados por fecha al ordenarlos por nombre, que es como
+ * los va a ordenar el celular.
+ */
+function nombreDelRespaldo(fecha = hoy(), extension = 'json') {
+  return `viajecor-${fecha}.${extension}`;
+}
+
+/**
+ * El contenido del respaldo.
+ *
+ * Lleva **más cosas de las que la app necesita** para reimportarlo: la versión
+ * que lo escribió y el día en que se exportó. Ninguna de las dos se usa al
+ * importar; están para que el archivo se explique solo dentro de tres años.
+ *
+ * Con sangría de dos espacios, a propósito. Ocupa alrededor de un tercio más de
+ * lugar y a cambio el archivo se puede abrir y leer: para un respaldo de unos
+ * cientos de kilobytes, es un intercambio que conviene siempre.
+ */
+function contenidoDelRespaldo(estado, { fecha = hoy() } = {}) {
+  const respaldo = {
+    // Estos tres campos son para quien LEA el archivo, no para la app.
+    aplicacion: 'Viajecor',
+    exportado: fecha,
+    version_app: estado.version_app ?? 'desconocida',
+
+    esquema: ESQUEMA_ACTUAL,
+    movimientos: estado.movimientos ?? [],
+    tipos_cambio: estado.tipos_cambio ?? [],
+    monedas: estado.monedas ?? [],
+    preferencias: estado.preferencias ?? {},
+  };
+
+  return `${JSON.stringify(respaldo, null, 2)}\n`;
+}
+
+/**
+ * Un respaldo listo para descargar: nombre, contenido y tipo.
+ *
+ * Devuelve también `cuantos`, porque la pantalla tiene que poder decir qué se
+ * llevó el archivo. "Se exportó" no informa nada; "se exportaron 312
+ * movimientos" permite darse cuenta de que faltan.
+ */
+function prepararRespaldo(estado, { fecha = hoy() } = {}) {
+  const contenido = contenidoDelRespaldo(estado, { fecha });
+  return {
+    nombre: nombreDelRespaldo(fecha),
+    contenido,
+    tipo: TIPO_JSON,
+    cuantos: (estado.movimientos ?? []).length,
+    bytes: new TextEncoder().encode(contenido).length,
+  };
+}
+
+/**
+ * Deja anotado en los datos el día del último respaldo.
+ *
+ * Sin este dato no hay forma de avisar "hace tres semanas que no respaldás"
+ * (T-903), que es la contramedida al riesgo más grave de toda la arquitectura.
+ * Se anota **después** de que la descarga se haya pedido, nunca antes: decir que
+ * se respaldó algo que no se respaldó es peor que no anotar nada.
+ */
+function anotarRespaldo(estado, { fecha = hoy() } = {}) {
+  return {
+    ...estado,
+    preferencias: { ...estado.preferencias, ultimo_respaldo: fecha },
+  };
+}
+
+/**
+ * Cuántos días pasaron desde el último respaldo. `null` si nunca se hizo uno.
+ *
+ * Cuenta días de calendario, no horas: la app no guarda horas (ADR-021).
+ */
+function diasSinRespaldar(estado, { fecha = hoy() } = {}) {
+  const ultimo = estado.preferencias?.ultimo_respaldo;
+  if (typeof ultimo !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(ultimo)) return null;
+
+  return Math.max(0, Math.round((enDias(fecha) - enDias(ultimo)) / 86400000));
+}
+
+/** Un día del calendario como milisegundos, para poder restar dos días. */
+function enDias(iso) {
+  const [anio, mes, dia] = iso.split('-').map(Number);
+  return Date.UTC(anio, mes - 1, dia);
 }
 
 // ── src/ui/colores.js ───────────────────────────────────────────
@@ -2744,10 +2922,12 @@ function dibujarMovimientoEnEspera(estado, borrador) {
 //      gráfico de tres barras para tres cifras que ya se leen en un vistazo
 //      agrega trabajo visual y no agrega información.
 //
-//   2. El desglose por rubro es una **tabla con barras de proporción**, y todas
-//      las barras son del **mismo color**. Pintar más oscuro al rubro más grande
-//      sería codificar dos veces lo mismo —el largo ya lo dice— y le pondría
-//      colores distintos a categorías que no significan nada distinto.
+//   2. El desglose por rubro es una **tabla con barras de proporción**, y cada
+//      barra lleva **el color de su rubro** (T-909), el mismo que ese rubro tiene
+//      en todas las demás pantallas. El color identifica al rubro y **nunca a su
+//      tamaño**: pintar más oscuro al más grande codificaría dos veces lo mismo
+//      —el largo ya lo dice— y haría que el color cambiara de significado cada
+//      vez que se carga un gasto.
 //
 //   3. Los importes de la tabla llevan cifras de ancho fijo, para poder
 //      compararlos en columna. Los tres números grandes de arriba **no**: en un
@@ -3118,6 +3298,133 @@ function dibujarLista(vista) {
   `;
 }
 
+// ── src/ui/pantallas/datos.js ───────────────────────────────────
+// La pantalla de Datos — CU-07: sacar los datos del dispositivo.
+//
+// Es la pantalla más importante de la app y la que menos se usa. Los gastos
+// viven en un solo navegador: "limpiar datos de navegación" en el celular se los
+// lleva todos, y no hay servidor ni papelera de donde recuperarlos. Este archivo
+// es la única salida.
+//
+// Por eso hay **dos caminos** para el mismo respaldo y no uno:
+//
+//   1. **Descargar el archivo.** Es el camino normal.
+//   2. **Ver el texto y copiarlo.** Es el camino para cuando el primero no
+//      funciona — y puede no funcionar: la app se abre desde un archivo del
+//      disco (`file://`), y ahí las descargas dependen del navegador y del
+//      sistema. Un respaldo que solo funciona si el navegador coopera no es un
+//      respaldo. El texto a la vista se puede copiar y pegar en cualquier lado.
+//
+// La segunda no es una curiosidad para programadores: es la red de contención de
+// la única red de contención que tiene el usuario.
+
+
+
+
+/** Un tamaño legible: 12 kB dice más que 12.283 bytes. */
+function tamanoLegible(bytes) {
+  if (bytes < 1024) return `${bytes} bytes`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1).replace('.', ',')} kB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
+}
+
+/**
+ * El aviso de cuánto hace que no se respalda.
+ *
+ * Se dice siempre, no solo cuando pasó mucho: saber que respaldaste ayer es
+ * información útil, y un aviso que solo aparece cuando hay problema enseña a
+ * ignorarlo cuando aparece.
+ */
+function dibujarEstadoRespaldo(estado, { fecha = hoy() } = {}) {
+  const dias = diasSinRespaldar(estado, { fecha });
+  const cuantos = (estado.movimientos ?? []).length;
+
+  if (cuantos === 0) {
+    return `<p class="suave">Todavía no cargaste nada, así que no hay nada que respaldar.</p>`;
+  }
+
+  if (dias === null) {
+    return `
+      <p class="aviso-respaldo pendiente-respaldo" role="status">
+        <strong>Nunca respaldaste.</strong> Tus ${cuantos === 1 ? 'datos viven' : `${cuantos} movimientos viven`}
+        solo en este navegador: si se borran los datos de navegación, se pierden.
+      </p>`;
+  }
+
+  if (dias === 0) return `<p class="aviso-respaldo suave">Respaldaste hoy.</p>`;
+  if (dias === 1) return `<p class="aviso-respaldo suave">Respaldaste ayer.</p>`;
+
+  const hace = `Hace ${dias} días que no respaldás.`;
+  return dias >= 7
+    ? `<p class="aviso-respaldo pendiente-respaldo" role="status"><strong>${hace}</strong>
+       Todo lo que cargaste desde entonces existe en un solo lugar.</p>`
+    : `<p class="aviso-respaldo suave">${escapar(hace)}</p>`;
+}
+
+function dibujarDatos(vista) {
+  const estado = vista.estado;
+  const respaldo = prepararRespaldo(estado);
+  const cuantos = (estado.movimientos ?? []).length;
+
+  return `
+    <section class="tarjeta">
+      <h2>Respaldo</h2>
+
+      ${dibujarEstadoRespaldo(estado)}
+
+      ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
+      ${vista.avisoRespaldo ? `<p class="confirmacion" role="status">${escapar(vista.avisoRespaldo)}</p>` : ''}
+
+      <p class="suave">El archivo lleva <strong>todo</strong>: los
+      ${cuantos === 1 ? '1 movimiento' : `${cuantos} movimientos`}, los tipos de
+      cambio y tus monedas. Pesa ${escapar(tamanoLegible(respaldo.bytes))} y se
+      puede abrir con cualquier editor de texto, sin esta app.</p>
+
+      <button type="button" class="principal" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
+        Descargar ${escapar(respaldo.nombre)}
+      </button>
+
+      <!-- El segundo camino. No es una curiosidad: la app se abre desde un
+           archivo del disco, y ahí las descargas dependen del navegador. Un
+           respaldo que solo funciona si el navegador coopera no es un respaldo. -->
+      <button type="button" class="secundario" data-accion="ver-respaldo"${cuantos === 0 ? ' disabled' : ''}>
+        ${vista.mostrarRespaldo ? 'Ocultar el texto' : 'Ver el texto para copiarlo'}
+      </button>
+
+      ${vista.mostrarRespaldo ? `
+      <p class="suave">Copiá todo este texto y pegalo en una nota, un correo o
+      donde lo quieras guardar. Sirve igual que el archivo.</p>
+      <textarea class="respaldo-texto" readonly rows="12"
+                aria-label="Contenido del respaldo">${escapar(respaldo.contenido)}</textarea>` : ''}
+    </section>
+
+    <section class="tarjeta">
+      <h2>Dónde guardarlo</h2>
+      <p class="suave">La app no sube nada a ningún lado y nunca lo va a hacer
+      (RN-06). Una vez descargado, el archivo es tuyo: guardalo donde quieras
+      —OneDrive, Drive, un correo a vos mismo— con el botón de compartir de tu
+      teléfono.</p>
+      <p class="suave">Ojo con esto: un respaldo guardado en la nube deja de ser
+      privado. La app garantiza la privacidad hasta que el archivo sale; de ahí
+      en adelante la garantizás vos.</p>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Tipos de cambio</h2>
+      <p class="suave">Ver y corregir cuánto vale cada moneda en cada mes.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">
+        Ver tipos de cambio
+      </button>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Todavía no</h2>
+      <p class="suave pendiente">Volver a cargar un respaldo — T-017. Exportar a
+      CSV para abrir en Excel — T-018. Ver y agregar monedas — T-024.</p>
+    </section>
+  `;
+}
+
 // ── src/ui/pantallas/movimiento.js ──────────────────────────────
 // La pantalla de carga: CU-01 (registrar un gasto) y CU-02 (registrar un
 // ingreso). Es la razón de ser de la app — todo lo demás mira datos que entran
@@ -3462,6 +3769,8 @@ function dibujarNuevo(vista) {
 
 
 
+
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -3538,20 +3847,7 @@ registrarPantalla('datos', {
   etiqueta: 'Datos',
   icono: '↧',
   conMes: false,
-  dibujar: (vista) => `
-    ${marcador(
-      'Tus datos',
-      'Exportar un respaldo, volver a importarlo, y la lista de monedas.',
-      'T-016 y T-024'
-    )(vista)}
-    <section class="tarjeta">
-      <h2>Tipos de cambio</h2>
-      <p class="suave">Ver y corregir cuánto vale cada moneda en cada mes.</p>
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">
-        Ver tipos de cambio
-      </button>
-    </section>
-  `,
+  dibujar: dibujarDatos,
 });
 
 registrarPantalla('cambios', {
@@ -3694,7 +3990,7 @@ function irA(vista, nombre) {
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
   // media hora después y vería un error que ya no significa nada.
-  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null };
+  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null, avisoRespaldo: null, mostrarRespaldo: false };
   return nombre === 'nuevo'
     ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
     : limpia;
@@ -3808,6 +4104,65 @@ function iniciar(documento, almacen) {
   // El único trozo que se actualiza solo, sin redibujar la pantalla: la fecha
   // escrita en palabras. Redibujar entero acá sacaría el foco del calendario
   // que el usuario está usando, que es peor que el problema que resuelve.
+  /**
+   * Entrega el respaldo al navegador para que lo descargue.
+   *
+   * Es lo único de toda la app que crea un archivo, y se hace sin ninguna
+   * petición de red: el contenido se arma en memoria, se envuelve en un `Blob` y
+   * se le pasa al navegador con un enlace de descarga (ARQUITECTURA §7).
+   *
+   * Si algo falla —y puede fallar: la app se abre desde un archivo del disco, y
+   * ahí las descargas dependen del navegador y del sistema— **se abre solo el
+   * texto para copiar**, que es el camino que no depende de nadie. Un respaldo
+   * que solo funciona si el navegador coopera no es un respaldo.
+   */
+  function descargarRespaldo() {
+    const respaldo = prepararRespaldo(vista.estado);
+
+    try {
+      const url = URL.createObjectURL(new Blob([respaldo.contenido], { type: respaldo.tipo }));
+      const enlace = documento.createElement('a');
+      enlace.href = url;
+      enlace.download = respaldo.nombre;
+      documento.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      // Se libera después, no en el acto: revocarla enseguida le saca al
+      // navegador el archivo de las manos mientras todavía lo está escribiendo.
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      vista = {
+        ...vista,
+        mostrarRespaldo: true,
+        error: `No se pudo descargar el archivo (${error.message}). ` +
+          'Copiá el texto de abajo y guardalo donde quieras: sirve igual.',
+      };
+      pintar();
+      return;
+    }
+
+    // El día del respaldo se anota DESPUÉS de pedir la descarga, nunca antes:
+    // decir que se respaldó algo que no se respaldó es peor que no anotar nada.
+    const conRespaldo = anotarRespaldo(vista.estado);
+    try {
+      guardarEstado(conRespaldo, almacen);
+    } catch {
+      // Que no se pueda anotar la fecha no invalida el respaldo: el archivo ya
+      // salió. Se sigue sin avisar de esto, que sería ruido sobre algo que salió
+      // bien.
+    }
+
+    vista = {
+      ...vista,
+      estado: conRespaldo,
+      error: null,
+      avisoRespaldo:
+        `Se preparó ${respaldo.nombre} con ${respaldo.cuantos === 1 ? '1 movimiento' : `${respaldo.cuantos} movimientos`}. ` +
+        'Si no aparece en tus descargas, usá el texto para copiarlo.',
+    };
+    pintar();
+  }
+
   raiz.addEventListener('input', (evento) => {
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
@@ -3959,6 +4314,11 @@ function iniciar(documento, almacen) {
         error: null,
         aviso: null,
       };
+    } else if (accion === 'exportar') {
+      descargarRespaldo();
+      return;
+    } else if (accion === 'ver-respaldo') {
+      vista = { ...vista, mostrarRespaldo: !vista.mostrarRespaldo, error: null };
     } else if (accion === 'editar') {
       const movimiento = buscarMovimiento(vista.estado, boton.dataset.id);
       if (!movimiento) return;

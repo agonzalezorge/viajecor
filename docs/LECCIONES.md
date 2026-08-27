@@ -454,3 +454,42 @@ qué sobrevivió de verdad. Los dos errores de arriba los encontró exactamente 
 efectos —guardar el tipo de cambio y guardar el movimiento— **se persiste el
 primero antes de intentar el segundo**. Si el segundo falla, el primero ya está a
 salvo. Encadenarlos hace que el fallo de uno se lleve puesto al otro.
+
+---
+
+## L-015 · Una lista blanca que hay que acordarse de actualizar falla hacia el lado que parece funcionar
+
+**De dónde salió:** de exportar el respaldo (T-016). La app guardaba el día del
+último respaldo, la pantalla decía *"Respaldaste hoy"*, y al recargar volvía a
+decir *"Nunca respaldaste"*.
+
+`datos/almacenamiento.js` lee las preferencias guardadas **una por una**, a
+propósito: un respaldo editado a mano puede traer cualquier cosa ahí adentro, y
+copiar el objeto entero metería esa basura en los datos. La decisión es correcta.
+
+El problema es cómo falla cuando alguien agrega una preferencia y se olvida de
+esa lista. No hay error, no hay aviso, y —esto es lo importante— **funciona
+perfectamente mientras la app está abierta**: el dato está en memoria, la
+pantalla lo muestra, todo se ve bien. Desaparece al recargar, que es justo cuando
+nadie está mirando la pantalla.
+
+**El patrón:** *una lista blanca que hay que mantener a mano no falla al
+escribir, falla al leer — y por eso falla tarde, en otra sesión, lejos del cambio
+que la causó.* La forma equivocada se ve exactamente igual que la correcta
+durante todo el rato en que uno está probando.
+
+**Qué hacemos:**
+- La lista lleva un aviso escrito arriba, nombrando el síntoma: *agregar una
+  preferencia y olvidarse acá la hace desaparecer al recargar*.
+- Hay un test que guarda **todas** las preferencias y exige que vuelvan todas.
+  No comprueba una en particular: compara el objeto entero, así que la próxima
+  que se agregue sin actualizar la lista lo rompe.
+- Y la regla de método, que ya venía de L-014 y esto confirma: **el recorrido en
+  el navegador termina recargando la página.** Sin esa recarga, este error habría
+  llegado al celular del usuario intacto.
+
+**Y un detalle de paso.** Al validar la fecha del respaldo escribí primero una
+expresión regular de la forma `\d{4}-\d{2}-\d{2}`. `2026-13-01` la pasa, y el mes
+13 no existe. Comprobar la forma no es comprobar la fecha: hay que usar
+`validarFecha()`, que mira el calendario. Es L-005 otra vez, del lado de un
+ajuste en vez de un movimiento — las lecciones vuelven disfrazadas.

@@ -259,7 +259,7 @@ qué existe.
 | CU-04 | Ver el resumen del mes | **Hecho** (T-013, T-014) |
 | CU-05 | Ver el gasto día por día del mes | Pendiente |
 | CU-06 | Corregir o borrar un movimiento | **Hecho** (T-015) |
-| CU-07 | Exportar todos los datos | Pendiente |
+| CU-07 | Exportar todos los datos | **Hecho** en JSON (T-016); el CSV es T-018 |
 | CU-08 | Importar un respaldo | Pendiente |
 | CU-09 | Usar la app sin conexión | Pendiente |
 | CU-10 | Ver la evolución mes a mes | Pendiente |

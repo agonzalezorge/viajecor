@@ -274,6 +274,29 @@ test('faltar campos enteros no rompe nada', () => {
   assert.deepEqual(incidencias, []);
 });
 
+test('TODAS las preferencias sobreviven a guardar y volver a leer', () => {
+  // Este test existe por un error real: `ultimo_respaldo` se guardaba bien y
+  // desaparecía al recargar, porque migrarEstado leía una sola preferencia y
+  // descartaba el resto en silencio. El síntoma era el peor posible — funcionaba
+  // con la app abierta y se perdía al volver. Ver L-015.
+  const almacen = almacenFalso();
+  const preferencias = { moneda_predeterminada: 'CRC', ultimo_respaldo: '2026-08-25' };
+
+  guardarEstado({ ...estadoInicial(), preferencias }, almacen);
+  const { estado } = leerEstado(almacen);
+
+  assert.deepEqual(estado.preferencias, preferencias);
+});
+
+test('una fecha de respaldo inventada no se acepta', () => {
+  for (const mala of ['ayer', '25/08/2026', '2026-13-01', 42, null]) {
+    const almacen = almacenFalso({
+      [CLAVE_DATOS]: JSON.stringify({ esquema: 1, preferencias: { ultimo_respaldo: mala } }),
+    });
+    assert.equal(leerEstado(almacen).estado.preferencias.ultimo_respaldo, undefined);
+  }
+});
+
 test('una preferencia con basura no pisa el valor por omisión', () => {
   for (const mala of [{ moneda_predeterminada: 'EUROS' }, { moneda_predeterminada: 7 }, 'EUR', null]) {
     const almacen = almacenFalso({

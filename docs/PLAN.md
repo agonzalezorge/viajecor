@@ -72,9 +72,9 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-013 | Cálculos del mes | **Hecha** | T-003, T-005 |
 | T-014 | Pantalla de resumen del mes | **Hecha** | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | **Hecha** | T-011 |
-| T-016 | Exportar a JSON | En curso (claude, 2026-08-19) | T-004 |
-| T-017 | Importar un respaldo JSON | Pendiente | T-016 |
-| T-018 | Exportar a CSV | Pendiente | T-005, T-016 |
+| T-016 | Exportar a JSON | **Hecha** | T-004 |
+| T-017 | Importar un respaldo JSON | **Lista** | T-016 |
+| T-018 | Exportar a CSV | **Lista** | T-005, T-016 |
 | T-019 | Verificación real sin conexión | Pendiente | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
 | T-020 | Gasto día por día del mes | **Lista** | T-013 |
@@ -93,9 +93,9 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-900 | README de uso | Lista | — |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
-| T-903 | Recordatorio de respaldo | Pendiente | T-016 |
+| T-903 | Recordatorio semanal de respaldo | **Lista** | T-016 |
 | T-904 | Modo oscuro | **Hecha** (venía de T-001) | T-010 |
-| T-905 | Respaldo cómodo a la nube, sin red | Pendiente | T-016 |
+| T-905 | Respaldo cómodo a la nube, sin red | **Lista** | T-016 |
 | T-909 | Color y rótulo propios por rubro | **Hecha** | T-014 |
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
@@ -585,10 +585,34 @@ haberlo perdido y volvería a encontrarlo al recargar.
 **Prioridad alta pese al número:** hasta que esto exista, los datos del usuario
 solo viven en un navegador y un borrado accidental los pierde para siempre.
 
+**Terminada cuando:**
+- [x] El respaldo lleva **todo** —movimientos, tipos de cambio, monedas y
+      preferencias—, no lo que se está mirando. 25 tests; 361 en total.
+- [x] Lo exportado **se puede volver a leer sin perder nada**: hay un test de ida
+      y vuelta que compara el estado entero.
+- [x] El archivo **se explica solo**: dice qué aplicación lo escribió, cuándo y
+      con qué formato, y va con sangría para poder leerlo con cualquier editor.
+- [x] **Comprobado que descarga de verdad desde `file://`**, que era lo que podía
+      fallar: el navegador guardó `viajecor-2026-08-27.json` y el archivo en
+      disco tenía los 3 movimientos con sus montos correctos.
+- [x] La pantalla dice **cuánto hace que no respaldás**, siempre, y lo destaca a
+      partir de la semana.
+
+**La decisión que más importa: hay DOS caminos para el mismo respaldo.** Además de
+descargar el archivo, se puede ver el texto y copiarlo. No es una curiosidad: la
+app se abre desde un archivo del disco, y ahí las descargas dependen del navegador
+y del sistema. **Un respaldo que solo funciona si el navegador coopera no es un
+respaldo.** Si la descarga falla, la app abre el texto sola.
+
+**Lo que salió de hacerla:** L-015. `ultimo_respaldo` se guardaba bien y
+desaparecía al recargar, porque las preferencias se leen de a una y esa no estaba
+en la lista. El síntoma era el peor posible: funcionaba con la app abierta. Lo
+encontró el recorrido en el navegador terminando con una recarga.
+
 ---
 
 ### T-017 · Importar un respaldo JSON — CU-08
-**Estado:** Pendiente · **Depende de:** T-016
+**Estado:** Lista · **Depende de:** T-016
 **Toca:** `src/datos/importar.js`, `test/importar.test.js`
 
 Con la elección explícita entre *reemplazar todo* y *agregar*, y con exportación
@@ -597,7 +621,7 @@ sugerida antes de importar.
 ---
 
 ### T-018 · Exportar a CSV — CU-07
-**Estado:** Pendiente · **Depende de:** T-005, T-016
+**Estado:** Lista · **Depende de:** T-005, T-016
 **Toca:** `src/datos/exportar.js`
 
 Con monto original, moneda, tipo de cambio aplicado e importe en euros. UTF-8 con

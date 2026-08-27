@@ -22,6 +22,12 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **Ya podés sacar tus datos** (T-016, CU-07). Desde *Datos* descargás un archivo
+  con **todo** —movimientos, tipos de cambio y monedas—, que se abre con
+  cualquier editor de texto y no necesita esta app para entenderse. Hay **dos
+  caminos**: descargar el archivo, o ver el texto y copiarlo, porque una app que
+  se abre desde un archivo del disco no puede confiar en que la descarga
+  funcione siempre. La pantalla dice cuánto hace que no respaldás. 25 tests.
 - **Ya se puede corregir y borrar** (T-015, CU-06). La pantalla *Movimientos*
   muestra lo del mes agrupado por día, del más nuevo al más viejo. Borrar tiene
   **dos redes**: pregunta antes, y después ofrece **deshacer** —que devuelve el
