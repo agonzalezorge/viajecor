@@ -25,6 +25,7 @@ import { dibujarLista, borrarMovimiento, restaurarMovimiento, buscarMovimiento }
 import { dibujarDatos } from './pantallas/datos.js';
 import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
 import { leerRespaldo, previsualizar, aplicarImportacion } from '../datos/importar.js';
+import { compartirRespaldo, sePuedeCompartir, archivoDelRespaldo } from './compartir.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -224,12 +225,15 @@ export function dibujarApp(vista) {
  * la interfaz, y vive en un solo lugar para que "por qué se ve esto" tenga una
  * sola respuesta posible.
  */
-export function vistaInicial({ estado, incidencias = [], mes } = {}) {
+export function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false } = {}) {
   return {
     pantalla: 'mes',
     mes: mes ?? mesDe(hoy()),
     estado,
     incidencias,
+    // Dato del entorno, no del usuario: se pregunta una vez al arrancar y viaja
+    // en la vista para que las funciones que dibujan no miren el navegador.
+    puedeCompartir,
   };
 }
 
@@ -276,7 +280,24 @@ export function iniciar(documento, almacen) {
     // se entendió (ADR-015). Se guardará con el primer movimiento.
   }
 
-  let vista = vistaInicial({ estado, incidencias: lectura.incidencias });
+  // ¿Este teléfono sabe compartir archivos? Se pregunta UNA vez, al arrancar, y
+  // el resto de la app trabaja con la respuesta. Preguntar en cada dibujado
+  // haría que las funciones que dibujan miren el navegador, que es justo lo que
+  // ADR-022 saca del medio para poder probarlas.
+  const puedeCompartir = sePuedeCompartir(
+    documento.defaultView?.navigator,
+    // Un archivo de mentira, del mismo tipo que el respaldo: `canShare` decide
+    // por el tipo, no por el contenido, y armar el respaldo de verdad para
+    // preguntar sería trabajo tirado en cada arranque.
+    documento.defaultView?.File
+      ? archivoDelRespaldo(
+          { contenido: '{}', nombre: 'viajecor.json', tipo: 'application/json' },
+          documento.defaultView.File
+        )
+      : null
+  );
+
+  let vista = vistaInicial({ estado, incidencias: lectura.incidencias, puedeCompartir });
   const raiz = documento.getElementById('app');
 
   function pintar() {
@@ -400,8 +421,20 @@ export function iniciar(documento, almacen) {
       return;
     }
 
-    // El día del respaldo se anota DESPUÉS de pedir la descarga, nunca antes:
-    // decir que se respaldó algo que no se respaldó es peor que no anotar nada.
+    anotarQueSeRespaldo(
+      `Se preparó ${respaldo.nombre} con ${respaldo.cuantos === 1 ? '1 movimiento' : `${respaldo.cuantos} movimientos`}. ` +
+      'Si no aparece en tus descargas, usá el texto para copiarlo.'
+    );
+  }
+
+  /**
+   * Anota que hoy se respaldó y lo dice.
+   *
+   * **Siempre DESPUÉS de que el archivo salió, nunca antes:** decir que se
+   * respaldó algo que no se respaldó es peor que no anotar nada, porque apaga el
+   * aviso que existe justamente para que no pasen semanas sin respaldo.
+   */
+  function anotarQueSeRespaldo(aviso) {
     const conRespaldo = anotarRespaldo(vista.estado);
     try {
       guardarEstado(conRespaldo, almacen);
@@ -411,15 +444,44 @@ export function iniciar(documento, almacen) {
       // bien.
     }
 
-    vista = {
-      ...vista,
-      estado: conRespaldo,
-      error: null,
-      avisoRespaldo:
-        `Se preparó ${respaldo.nombre} con ${respaldo.cuantos === 1 ? '1 movimiento' : `${respaldo.cuantos} movimientos`}. ` +
-        'Si no aparece en tus descargas, usá el texto para copiarlo.',
-    };
+    vista = { ...vista, estado: conRespaldo, error: null, avisoRespaldo: aviso };
     pintar();
+  }
+
+  /**
+   * Entrega el respaldo al sistema operativo — T-905.
+   *
+   * La app no sube nada: le pasa el archivo al teléfono y el teléfono muestra
+   * OneDrive, Drive o el correo. RN-06 queda intacta, porque no hay ninguna
+   * petición de red de por medio.
+   *
+   * Es `async` y por eso no puede fallar en silencio: se espera el resultado y
+   * recién ahí se anota la fecha. Anotarla al apretar el botón marcaría como
+   * respaldado algo que el usuario todavía puede cancelar.
+   */
+  async function compartirElRespaldo() {
+    const respaldo = prepararRespaldo(vista.estado);
+    const ventana = documento.defaultView;
+    const resultado = await compartirRespaldo(ventana?.navigator, respaldo, ventana?.File);
+
+    // Cancelar no es fallar: si abrió el menú y se arrepintió, no pasó nada y no
+    // hay nada que decirle.
+    if (resultado.cancelado) return;
+
+    if (resultado.error) {
+      vista = {
+        ...vista,
+        mostrarRespaldo: true,
+        error: `${resultado.error} Si no, copiá el texto de abajo: sirve igual.`,
+      };
+      pintar();
+      return;
+    }
+
+    anotarQueSeRespaldo(
+      `Se compartió ${respaldo.nombre} con ${respaldo.cuantos === 1 ? '1 movimiento' : `${respaldo.cuantos} movimientos`}. ` +
+      'Comprobá que haya llegado a donde lo mandaste.'
+    );
   }
 
   /**
@@ -663,6 +725,9 @@ export function iniciar(documento, almacen) {
       vista = { ...vista, importacion: null, errorImportar: null, avisoImportar: null };
     } else if (accion === 'importar') {
       aplicarRespaldo(boton.dataset.modo);
+      return;
+    } else if (accion === 'compartir') {
+      compartirElRespaldo();
       return;
     } else if (accion === 'exportar') {
       descargarRespaldo();

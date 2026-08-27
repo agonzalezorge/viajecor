@@ -9,7 +9,7 @@
 // Uso:  node tools/build.mjs
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -28,6 +28,7 @@ const MODULOS = [
   'src/datos/exportar.js',
   'src/datos/importar.js',
   'src/ui/colores.js',
+  'src/ui/compartir.js',
   'src/ui/pantallas/cambio.js',
   'src/ui/pantallas/resumen.js',
   'src/ui/pantallas/lista.js',
@@ -70,6 +71,31 @@ function nombresDeclarados(codigo) {
   return nombres;
 }
 
+/**
+ * Las rutas que un módulo importa, resueltas contra la raíz del proyecto.
+ *
+ * Sirve para comprobar que la lista de arriba esté completa. Sin esto, importar
+ * un archivo y olvidarse de agregarlo a MODULOS construye un `dist/` que se
+ * rompe recién al abrirlo, con un ReferenceError que no dice de dónde viene: la
+ * construcción sale en verde y el error aparece en el celular del usuario.
+ * Es L-015 otra vez —una lista escrita a mano que hay que acordarse de
+ * actualizar—, así que se comprueba en vez de recordarse.
+ */
+function importaciones(codigo, rutaDelModulo) {
+  const patron = /^\s*import\s[^;]*?\sfrom\s*['"]([^'"]+)['"]\s*;?\s*$/gm;
+  const rutas = [];
+  let coincidencia;
+  while ((coincidencia = patron.exec(codigo)) !== null) {
+    const destino = coincidencia[1];
+    if (!destino.startsWith('.')) continue;
+    // `posix.normalize` sobre el directorio del módulo: las rutas de MODULOS se
+    // escriben con barras normales, así que se comparan como texto.
+    const carpeta = rutaDelModulo.split('/').slice(0, -1).join('/');
+    rutas.push(posix.normalize(`${carpeta}/${destino}`));
+  }
+  return rutas;
+}
+
 async function construir() {
   const version = (await readFile(join(RAIZ, 'VERSION'), 'utf8')).trim();
   const plantilla = await readFile(join(RAIZ, 'src/plantilla.html'), 'utf8');
@@ -78,8 +104,21 @@ async function construir() {
   const partes = [];
   const vistos = new Map();
 
+  const enLaLista = new Set(MODULOS);
+
   for (const ruta of MODULOS) {
-    const codigo = aplanarModulo(await readFile(join(RAIZ, ruta), 'utf8'));
+    const original = await readFile(join(RAIZ, ruta), 'utf8');
+
+    for (const importada of importaciones(original, ruta)) {
+      if (!enLaLista.has(importada)) {
+        throw new Error(
+          `${ruta} importa ${importada}, que no está en MODULOS. Al concatenar, ese ` +
+          `archivo no entraría y la app fallaría recién al abrirla. Agregalo a la lista.`
+        );
+      }
+    }
+
+    const codigo = aplanarModulo(original);
 
     for (const nombre of nombresDeclarados(codigo)) {
       if (vistos.has(nombre)) {

@@ -527,3 +527,39 @@ tiene que leer con atención: cuántos movimientos se van a borrar.
 - La regla de método: en un recorrido, **apretar los botones que no tienen
   sentido**. El camino feliz ya lo cubren los tests; lo que el navegador aporta
   es el camino tonto.
+
+---
+
+## L-017 · El constructor no comprobaba su propia lista
+
+**Qué pasó.** Al agregar `src/ui/compartir.js` y usarlo desde `app.js`, los 401
+tests siguieron en verde, `node tools/build.mjs` dijo *"185.8 kB — 16
+módulo(s)"* sin una sola queja… y el `dist/viajecor.html` resultante **no tenía
+el módulo adentro**. La app construida se habría roto al abrirla, con un
+`ReferenceError` sobre una función que en el código fuente existe.
+
+**Por qué.** `tools/build.mjs` concatena los archivos de una lista escrita a
+mano, `MODULOS`. Los tests corren sobre `src/` con `import` de verdad, así que
+para ellos el módulo existe. La lista era el único lugar donde había que
+acordarse, y nada comprobaba que estuviera completa.
+
+**Es L-015 otra vez, en otro archivo.** Ahí era una lista blanca de preferencias
+que había que acordarse de actualizar; acá es una lista de módulos. El patrón
+es el mismo y la forma de fallar también: **falla hacia el lado que parece
+funcionar**. Todo verde, y el error aparece en el celular del usuario.
+
+**Lo que se hizo.** El constructor ahora lee los `import` de cada módulo y
+**falla si alguno apunta a un archivo que no está en la lista**:
+
+```
+src/ui/app.js importa src/ui/compartir.js, que no está en MODULOS. Al concatenar,
+ese archivo no entraría y la app fallaría recién al abrirla. Agregalo a la lista.
+```
+
+Comprobado sacando el módulo de la lista a propósito y viendo el error aparecer.
+
+**La regla general que deja.** Cuando una lista escrita a mano tiene que estar
+sincronizada con algo que el código ya sabe, **la comprobación la escribe el
+código, no la memoria de quien edita**. Si no se puede comprobar, el olvido es
+cuestión de tiempo — y estas dos lecciones son la prueba de que en este proyecto
+ya pasó dos veces.

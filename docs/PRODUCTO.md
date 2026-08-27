@@ -376,6 +376,21 @@ suyos. Sin esto, un borrado de datos del navegador pierde todo.
    configuración, y el navegador lo descarga.
 3. Funciona sin conexión.
 
+**Cómo llega a la nube (T-905).** En el teléfono, el botón principal es
+**Compartir el respaldo**: abre el menú del sistema y el usuario elige OneDrive,
+Drive o un correo a sí mismo. **La app no sube nada** — le pasa el archivo al
+teléfono y ahí termina su parte, así que RN-06 queda intacta. Es la diferencia
+entre un paso y cuatro, y el respaldo que exige cuatro pasos cada semana es el
+que no se hace.
+
+- El botón **solo aparece si el teléfono sabe compartir archivos**. Si no,
+  *Descargar* sigue siendo el camino principal y no cambia nada.
+- **Cancelar no cuenta como respaldo**: si el usuario abre el menú y se
+  arrepiente, la app no dice nada y no anota la fecha.
+- Sigue valiendo la advertencia: **un respaldo guardado en la nube deja de ser
+  privado.** La app garantiza la privacidad hasta que el archivo sale.
+- Falta comprobarlo en el Android del usuario — es parte de T-019.
+
 **Formatos:** JSON (completo, sirve para reimportar), CSV, y `.xlsx` con la
 forma de la planilla actual — bloques mensuales, los mismos encabezados y los
 mismos cuadros de totales, pero **con los números ya calculados en vez de

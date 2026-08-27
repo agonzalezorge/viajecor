@@ -6,6 +6,11 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Cambiado
+- **El constructor ahora comprueba su propia lista de módulos.** Antes, importar
+  un archivo nuevo y olvidarse de agregarlo a la lista construía un
+  `dist/viajecor.html` sin ese archivo adentro: todo en verde, y la app rota
+  recién al abrirla en el celular. Ahora la construcción falla y dice cuál
+  falta. Ver L-017.
 - **Arreglado `npm test`**, que no corría ningún test: el script le pasaba una
   ruta al ejecutor de Node y fallaba antes de empezar. Salía en rojo, pero por el
   motivo equivocado.
@@ -22,6 +27,14 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **El respaldo ahora sale por el botón de compartir del teléfono** (T-905). En
+  vez de descargar el archivo y después ir a buscarlo con un explorador para
+  subirlo, tocás *Compartir el respaldo* y elegís OneDrive, Drive o un correo a
+  vos mismo. **La app no sube nada**: le pasa el archivo al teléfono y ahí
+  termina su parte, así que sigue sin hacer una sola petición de red (RN-06,
+  ADR-025). Si el teléfono no sabe compartir archivos, el botón no aparece y la
+  descarga de siempre queda igual. Cancelar el menú no cuenta como respaldo.
+  13 tests. **Falta probarlo en un celular de verdad** (T-019).
 - **Y ya podés volver a meterlos** (T-017, CU-08). Desde *Datos*, en «Traer un
   respaldo», elegís el archivo o pegás el texto. Antes de tocar nada la app te
   muestra **qué va a pasar con números**: cuántos trae el archivo, cuántos

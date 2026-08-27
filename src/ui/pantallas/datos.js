@@ -82,7 +82,19 @@ export function dibujarDatos(vista) {
       cambio y tus monedas. Pesa ${escapar(tamanoLegible(respaldo.bytes))} y se
       puede abrir con cualquier editor de texto, sin esta app.</p>
 
-      <button type="button" class="principal" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
+      <!-- Cuando el teléfono sabe compartir, ese es el camino principal: deja
+           el respaldo en OneDrive de un toque, en vez de dejarlo en una carpeta
+           que después hay que ir a buscar. La descarga no desaparece: sigue
+           siendo la salida cuando el compartir no está o falla. -->
+      ${vista.puedeCompartir ? `
+      <button type="button" class="principal" data-accion="compartir"${cuantos === 0 ? ' disabled' : ''}>
+        Compartir el respaldo
+      </button>
+      <p class="suave">Se abre el menú de tu teléfono y elegís dónde va: OneDrive,
+      Drive, un correo a vos mismo. <strong>La app no sube nada</strong>: le pasa
+      el archivo al teléfono y ahí termina su parte.</p>` : ''}
+
+      <button type="button" class="${vista.puedeCompartir ? 'secundario' : 'principal'}" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
         Descargar ${escapar(respaldo.nombre)}
       </button>
 
@@ -103,9 +115,9 @@ export function dibujarDatos(vista) {
     <section class="tarjeta">
       <h2>Dónde guardarlo</h2>
       <p class="suave">La app no sube nada a ningún lado y nunca lo va a hacer
-      (RN-06). Una vez descargado, el archivo es tuyo: guardalo donde quieras
-      —OneDrive, Drive, un correo a vos mismo— con el botón de compartir de tu
-      teléfono.</p>
+      (RN-06). ${vista.puedeCompartir
+        ? 'El botón de compartir le entrega el archivo a tu teléfono, y es el teléfono el que lo sube: para la app, el respaldo termina cuando sale de acá.'
+        : 'Una vez descargado, el archivo es tuyo: guardalo donde quieras —OneDrive, Drive, un correo a vos mismo— con el botón de compartir de tu teléfono.'}</p>
       <p class="suave">Ojo con esto: un respaldo guardado en la nube deja de ser
       privado. La app garantiza la privacidad hasta que el archivo sale; de ahí
       en adelante la garantizás vos.</p>

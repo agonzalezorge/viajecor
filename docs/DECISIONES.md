@@ -630,3 +630,50 @@ recuperar los gastos importa más que el aviso de respaldo.
 pero diría que respaldaste hoy cuando lo que hiciste fue *restaurar* — y si el
 archivo era de hace un mes, oculta que hace un mes que no respaldás, que es
 exactamente lo que el aviso existe para no dejar pasar.
+
+---
+
+## ADR-025 · El respaldo llega a la nube por el sistema operativo, no por la app
+**Fecha:** 2026-08-27 · **Estado:** Vigente · **Cierra:** pregunta abierta 4
+
+**Contexto.** El usuario quiere subir sus datos a OneDrive cada semana o cada
+quince días, cómodamente. Descargar el archivo y después buscarlo con un
+explorador para subirlo son cuatro pasos, y **el respaldo que exige cuatro pasos
+cada semana es el que no se hace**.
+
+**Decisión.** La app le entrega el archivo al sistema operativo con el botón de
+compartir del teléfono. El sistema muestra OneDrive, Drive, el correo, lo que
+haya instalado, y el usuario elige. Cuando el teléfono sabe hacerlo, *Compartir*
+es el botón principal y *Descargar* pasa a secundario.
+
+**Por qué esto no rompe RN-06.** La app no hace ninguna petición de red: pasa un
+archivo y termina su participación. Quien sube es OneDrive, con la sesión del
+usuario, fuera de la app. Es lo mismo que descargar el archivo y arrastrarlo a
+una carpeta sincronizada, sin los pasos del medio. La guardia de privacidad de
+`tools/build.mjs` sigue en verde, y sigue siendo cierto que se puede abrir el
+HTML y comprobar que no le habla a nadie.
+
+**La alternativa que se rechazó** —que la app suba sola a la API de OneDrive o de
+GitHub— es una petición de red: rompe RN-06, rompe la guardia de privacidad, y
+obliga a guardar una credencial dentro del archivo que el usuario copia entre
+teléfonos. Deja de ser verdad la única promesa que la app hace.
+
+**Se pregunta con `canShare({files})`, no con `share`.** Hay navegadores que
+comparten texto y direcciones pero no archivos; ahí `share({files})` falla
+*después* de que el usuario apretó. En esta pantalla eso es especialmente caro:
+el usuario se queda creyendo que respaldó. Si no se puede, el botón no está.
+
+**No se manda `text` ni `url` junto al archivo.** Hay destinos que, si viene
+texto, mandan el texto y se olvidan del archivo — se compartiría "algo" y el
+respaldo no existiría.
+
+**La fecha del respaldo se anota al volver, no al apretar.** Compartir es
+asíncrono y el usuario puede cancelar. Anotar antes apagaría el aviso de "hace
+tantos días que no respaldás" sin que hubiera salido ningún archivo, que es
+exactamente el aviso que existe para que eso no pase.
+
+**Lo que cuesta.** Depende de una API que no está en todos lados —y que no se
+pudo probar en este entorno, porque Chromium de escritorio en Linux no la trae—.
+Por eso el camino de descarga queda intacto y la comprobación en el celular real
+del usuario es parte de T-019. Lo que sí se comprobó es que `file://` es
+contexto seguro, que era el motivo más probable de que no funcionara.

@@ -2833,6 +2833,99 @@ function claseDeRubro(tipo, rubro) {
   return `rubro-${franjaDeRubro(tipo, rubro)}`;
 }
 
+// ── src/ui/compartir.js ─────────────────────────────────────────
+// Entregarle el respaldo al teléfono — T-905.
+//
+// El respaldo ya se puede descargar (T-016), pero en un celular "descargar" deja
+// el archivo en una carpeta que después hay que ir a buscar con un explorador de
+// archivos para subirlo a OneDrive. Son cuatro pasos, y el respaldo que exige
+// cuatro pasos cada semana es el que no se hace.
+//
+// El botón de compartir del sistema lo resuelve en uno: la app le entrega el
+// archivo al teléfono y el teléfono muestra OneDrive, Drive, el correo, lo que
+// haya instalado.
+//
+// ── Por qué esto NO rompe RN-06 ──────────────────────────────────────────────
+//
+// La app no hace ninguna petición de red. Le pasa un archivo al sistema
+// operativo y termina ahí su participación; quien lo sube es OneDrive, con la
+// sesión del usuario, fuera de la app. Es exactamente lo mismo que descargar el
+// archivo y arrastrarlo a una carpeta sincronizada, pero sin los tres pasos del
+// medio. La guardia de privacidad de `tools/build.mjs` lo confirma: no aparece
+// ninguna URL ni ninguna llamada de red en este archivo.
+//
+// Lo que sí hay que decirle al usuario, y la pantalla se lo dice: **un respaldo
+// guardado en la nube deja de ser privado.** La app garantiza la privacidad
+// hasta que el archivo sale; de ahí en adelante la garantiza el usuario.
+
+/**
+ * El respaldo como archivo, para poder entregarlo.
+ *
+ * Recibe `File` en vez de tomarlo del entorno para poder probarlo con
+ * `node --test`, donde no hay navegador (ADR-022).
+ */
+function archivoDelRespaldo(respaldo, ConstructorArchivo) {
+  return new ConstructorArchivo([respaldo.contenido], respaldo.nombre, { type: respaldo.tipo });
+}
+
+/**
+ * ¿Este navegador puede compartir **archivos**?
+ *
+ * Se exige `canShare` y no alcanza con que exista `share`: hay navegadores que
+ * comparten texto y direcciones pero no archivos, y ahí `share({files})` falla
+ * **después** de que el usuario apretó el botón. Un botón que falla al apretarlo
+ * es peor que un botón que no está (L-016): en esta pantalla, encima, el usuario
+ * se quedaría creyendo que respaldó.
+ *
+ * `canShare` puede tirar con datos que no le gustan, así que se pregunta dentro
+ * de un `try`: la respuesta a "¿se puede?" no puede ser una excepción.
+ */
+function sePuedeCompartir(navegador, archivo) {
+  try {
+    return (
+      typeof navegador?.share === 'function' &&
+      typeof navegador?.canShare === 'function' &&
+      navegador.canShare({ files: [archivo] })
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Comparte el respaldo. **Nunca tira**: devuelve qué pasó.
+ *
+ * Tres resultados y no dos, porque **cancelar no es fallar**. Si el usuario abre
+ * el menú de compartir y se arrepiente, el navegador rechaza la promesa con
+ * `AbortError`. Mostrarle un error rojo por haber cambiado de idea le enseñaría
+ * que la app se rompe sola.
+ */
+async function compartirRespaldo(navegador, respaldo, ConstructorArchivo) {
+  let archivo;
+  try {
+    archivo = archivoDelRespaldo(respaldo, ConstructorArchivo);
+  } catch (error) {
+    return { error: `No se pudo preparar el archivo (${error.message}).` };
+  }
+
+  if (!sePuedeCompartir(navegador, archivo)) {
+    return { error: 'Este navegador no puede compartir archivos. Usá el botón de descargar.' };
+  }
+
+  try {
+    await navegador.share({
+      files: [archivo],
+      // Sin `text` ni `url`: hay destinos que, si viene texto, mandan el texto y
+      // se olvidan del archivo. Acá lo único que importa es el archivo.
+      title: respaldo.nombre,
+    });
+    return { compartido: true };
+  } catch (error) {
+    if (error?.name === 'AbortError') return { cancelado: true };
+    return { error: `No se pudo compartir el archivo (${error.message}). Probá con el botón de descargar.` };
+  }
+}
+
 // ── src/ui/pantallas/cambio.js ──────────────────────────────────
 // Pedir y corregir tipos de cambio — CU-03.
 //
@@ -3598,7 +3691,19 @@ function dibujarDatos(vista) {
       cambio y tus monedas. Pesa ${escapar(tamanoLegible(respaldo.bytes))} y se
       puede abrir con cualquier editor de texto, sin esta app.</p>
 
-      <button type="button" class="principal" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
+      <!-- Cuando el teléfono sabe compartir, ese es el camino principal: deja
+           el respaldo en OneDrive de un toque, en vez de dejarlo en una carpeta
+           que después hay que ir a buscar. La descarga no desaparece: sigue
+           siendo la salida cuando el compartir no está o falla. -->
+      ${vista.puedeCompartir ? `
+      <button type="button" class="principal" data-accion="compartir"${cuantos === 0 ? ' disabled' : ''}>
+        Compartir el respaldo
+      </button>
+      <p class="suave">Se abre el menú de tu teléfono y elegís dónde va: OneDrive,
+      Drive, un correo a vos mismo. <strong>La app no sube nada</strong>: le pasa
+      el archivo al teléfono y ahí termina su parte.</p>` : ''}
+
+      <button type="button" class="${vista.puedeCompartir ? 'secundario' : 'principal'}" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
         Descargar ${escapar(respaldo.nombre)}
       </button>
 
@@ -3619,9 +3724,9 @@ function dibujarDatos(vista) {
     <section class="tarjeta">
       <h2>Dónde guardarlo</h2>
       <p class="suave">La app no sube nada a ningún lado y nunca lo va a hacer
-      (RN-06). Una vez descargado, el archivo es tuyo: guardalo donde quieras
-      —OneDrive, Drive, un correo a vos mismo— con el botón de compartir de tu
-      teléfono.</p>
+      (RN-06). ${vista.puedeCompartir
+        ? 'El botón de compartir le entrega el archivo a tu teléfono, y es el teléfono el que lo sube: para la app, el respaldo termina cuando sale de acá.'
+        : 'Una vez descargado, el archivo es tuyo: guardalo donde quieras —OneDrive, Drive, un correo a vos mismo— con el botón de compartir de tu teléfono.'}</p>
       <p class="suave">Ojo con esto: un respaldo guardado en la nube deja de ser
       privado. La app garantiza la privacidad hasta que el archivo sale; de ahí
       en adelante la garantizás vos.</p>
@@ -4091,6 +4196,7 @@ function dibujarNuevo(vista) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -4289,12 +4395,15 @@ function dibujarApp(vista) {
  * la interfaz, y vive en un solo lugar para que "por qué se ve esto" tenga una
  * sola respuesta posible.
  */
-function vistaInicial({ estado, incidencias = [], mes } = {}) {
+function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false } = {}) {
   return {
     pantalla: 'mes',
     mes: mes ?? mesDe(hoy()),
     estado,
     incidencias,
+    // Dato del entorno, no del usuario: se pregunta una vez al arrancar y viaja
+    // en la vista para que las funciones que dibujan no miren el navegador.
+    puedeCompartir,
   };
 }
 
@@ -4341,7 +4450,24 @@ function iniciar(documento, almacen) {
     // se entendió (ADR-015). Se guardará con el primer movimiento.
   }
 
-  let vista = vistaInicial({ estado, incidencias: lectura.incidencias });
+  // ¿Este teléfono sabe compartir archivos? Se pregunta UNA vez, al arrancar, y
+  // el resto de la app trabaja con la respuesta. Preguntar en cada dibujado
+  // haría que las funciones que dibujan miren el navegador, que es justo lo que
+  // ADR-022 saca del medio para poder probarlas.
+  const puedeCompartir = sePuedeCompartir(
+    documento.defaultView?.navigator,
+    // Un archivo de mentira, del mismo tipo que el respaldo: `canShare` decide
+    // por el tipo, no por el contenido, y armar el respaldo de verdad para
+    // preguntar sería trabajo tirado en cada arranque.
+    documento.defaultView?.File
+      ? archivoDelRespaldo(
+          { contenido: '{}', nombre: 'viajecor.json', tipo: 'application/json' },
+          documento.defaultView.File
+        )
+      : null
+  );
+
+  let vista = vistaInicial({ estado, incidencias: lectura.incidencias, puedeCompartir });
   const raiz = documento.getElementById('app');
 
   function pintar() {
@@ -4465,8 +4591,20 @@ function iniciar(documento, almacen) {
       return;
     }
 
-    // El día del respaldo se anota DESPUÉS de pedir la descarga, nunca antes:
-    // decir que se respaldó algo que no se respaldó es peor que no anotar nada.
+    anotarQueSeRespaldo(
+      `Se preparó ${respaldo.nombre} con ${respaldo.cuantos === 1 ? '1 movimiento' : `${respaldo.cuantos} movimientos`}. ` +
+      'Si no aparece en tus descargas, usá el texto para copiarlo.'
+    );
+  }
+
+  /**
+   * Anota que hoy se respaldó y lo dice.
+   *
+   * **Siempre DESPUÉS de que el archivo salió, nunca antes:** decir que se
+   * respaldó algo que no se respaldó es peor que no anotar nada, porque apaga el
+   * aviso que existe justamente para que no pasen semanas sin respaldo.
+   */
+  function anotarQueSeRespaldo(aviso) {
     const conRespaldo = anotarRespaldo(vista.estado);
     try {
       guardarEstado(conRespaldo, almacen);
@@ -4476,15 +4614,44 @@ function iniciar(documento, almacen) {
       // bien.
     }
 
-    vista = {
-      ...vista,
-      estado: conRespaldo,
-      error: null,
-      avisoRespaldo:
-        `Se preparó ${respaldo.nombre} con ${respaldo.cuantos === 1 ? '1 movimiento' : `${respaldo.cuantos} movimientos`}. ` +
-        'Si no aparece en tus descargas, usá el texto para copiarlo.',
-    };
+    vista = { ...vista, estado: conRespaldo, error: null, avisoRespaldo: aviso };
     pintar();
+  }
+
+  /**
+   * Entrega el respaldo al sistema operativo — T-905.
+   *
+   * La app no sube nada: le pasa el archivo al teléfono y el teléfono muestra
+   * OneDrive, Drive o el correo. RN-06 queda intacta, porque no hay ninguna
+   * petición de red de por medio.
+   *
+   * Es `async` y por eso no puede fallar en silencio: se espera el resultado y
+   * recién ahí se anota la fecha. Anotarla al apretar el botón marcaría como
+   * respaldado algo que el usuario todavía puede cancelar.
+   */
+  async function compartirElRespaldo() {
+    const respaldo = prepararRespaldo(vista.estado);
+    const ventana = documento.defaultView;
+    const resultado = await compartirRespaldo(ventana?.navigator, respaldo, ventana?.File);
+
+    // Cancelar no es fallar: si abrió el menú y se arrepintió, no pasó nada y no
+    // hay nada que decirle.
+    if (resultado.cancelado) return;
+
+    if (resultado.error) {
+      vista = {
+        ...vista,
+        mostrarRespaldo: true,
+        error: `${resultado.error} Si no, copiá el texto de abajo: sirve igual.`,
+      };
+      pintar();
+      return;
+    }
+
+    anotarQueSeRespaldo(
+      `Se compartió ${respaldo.nombre} con ${respaldo.cuantos === 1 ? '1 movimiento' : `${respaldo.cuantos} movimientos`}. ` +
+      'Comprobá que haya llegado a donde lo mandaste.'
+    );
   }
 
   /**
@@ -4728,6 +4895,9 @@ function iniciar(documento, almacen) {
       vista = { ...vista, importacion: null, errorImportar: null, avisoImportar: null };
     } else if (accion === 'importar') {
       aplicarRespaldo(boton.dataset.modo);
+      return;
+    } else if (accion === 'compartir') {
+      compartirElRespaldo();
       return;
     } else if (accion === 'exportar') {
       descargarRespaldo();

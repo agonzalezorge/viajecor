@@ -95,7 +95,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Lista** | T-016 |
 | T-904 | Modo oscuro | **Hecha** (venía de T-001) | T-010 |
-| T-905 | Respaldo cómodo a la nube, sin red | En curso (claude, 2026-08-27) | T-016 |
+| T-905 | Respaldo cómodo a la nube, sin red | **Hecha** (falta comprobarlo en el celular: T-019) | T-016 |
 | T-909 | Color y rótulo propios por rubro | **Hecha** | T-014 |
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
@@ -669,6 +669,15 @@ desde el disco, en un celular real. Se anota qué se probó y qué falló.
 
 **No se marca `Hecha` por deducción.** Se marca cuando alguien lo hizo.
 
+**Lo que esta tarea tiene que comprobar y nadie más puede:**
+- Que el botón *Compartir el respaldo* **aparezca** en el Android del usuario
+  (T-905), y que al apretarlo salga el menú del sistema con OneDrive.
+- Que el archivo compartido **llegue entero** a OneDrive y se pueda volver a
+  importar desde ahí (T-017). Compartir "sin error" no es lo mismo que llegar.
+- Que la descarga funcione desde `file://` en ese teléfono, que es la salida
+  cuando el compartir no está.
+- Que los datos **sobrevivan a cerrar y reabrir** el navegador del teléfono.
+
 ---
 
 ## Etapa 2 — Análisis
@@ -785,14 +794,37 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   sistema — una notificación exigiría permisos y un servicio, y la app no tiene
   ni puede tener servidor. *(Depende de T-016.)*
 - **T-904 · Modo oscuro** — *(Depende de T-010.)*
-- **T-905 · Respaldo cómodo a la nube, sin red** — que exportar termine en un
-  botón "compartir" que ofrezca OneDrive, Drive o correo, usando el propio
-  sistema operativo. La app no hace ninguna petición: le entrega el archivo al
-  teléfono y el teléfono hace el resto, así que RN-06 queda intacta.
-  **Sin comprobar todavía:** que el compartir del navegador funcione con un HTML
-  abierto desde el disco (`file://`) en iOS y en Android. Hay que probarlo en un
-  celular real antes de prometerlo; si no anda, la salida es la descarga normal
-  más subir el archivo a mano. *(Depende de T-016. Pregunta abierta 4.)*
+- **T-905 · Respaldo cómodo a la nube, sin red** — **Hecha (2026-08-27).**
+  Exportar termina en un botón *Compartir el respaldo* que abre el menú del
+  sistema: OneDrive, Drive, correo, lo que haya. La app no hace ninguna
+  petición; le entrega el archivo al teléfono y ahí termina su parte, así que
+  RN-06 queda intacta. Ver ADR-025.
+
+  **El botón solo aparece si el teléfono sabe compartir archivos**, y se
+  pregunta con `canShare({files})`, no con la mera existencia de `share`: hay
+  navegadores que comparten texto pero no archivos, y ahí el botón fallaría
+  recién al apretarlo, dejando al usuario creyendo que respaldó (L-016). Cuando
+  no aparece, *Descargar* sigue siendo el camino principal, intacto.
+
+  **Cancelar no es fallar:** si el usuario abre el menú y se arrepiente, no se
+  muestra ningún error **y no se anota la fecha del respaldo**. Anotarla al
+  apretar el botón apagaría el aviso de "hace tantos días que no respaldás" sin
+  que hubiera salido ningún archivo.
+
+  **Verificado:** 13 tests del módulo, contra navegadores falsos que cubren lo
+  que puede salir mal (comparte texto pero no archivos, `canShare` que tira, el
+  usuario cancela, el destino falla). Cinco mutaciones: cuatro detectadas y una
+  equivalente —el `try/catch` absorbe la comprobación explícita de `canShare`—.
+  Recorrido en un navegador real desde el disco, en los cuatro caminos.
+
+  **Lo que NO se pudo comprobar acá, y hay que comprobar en el celular:** que el
+  compartir del sistema funcione de verdad en Android con la app abierta desde
+  `file://`. Chromium de escritorio en Linux no trae Web Share, así que el
+  camino feliz se recorrió con un compartir falso inyectado. Lo que sí se
+  comprobó es que `file://` **es** contexto seguro (`isSecureContext === true`),
+  que era el motivo más probable de que no anduviera. Si en el celular no
+  aparece el botón, la app no se rompe: queda la descarga de siempre. → T-019.
+  *(Depende de T-016. Cierra la pregunta abierta 4.)*
 - **T-909 · Color y rótulo propios por rubro** — pedido por el usuario el
   2026-08-19. Cada rubro se muestra con la primera letra en mayúscula
   (`Gastos fijos`) y con **un color propio, el mismo en todas las pantallas**:
