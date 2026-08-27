@@ -93,7 +93,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-900 | README de uso | Lista | — |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
-| T-903 | Recordatorio semanal de respaldo | **Lista** | T-016 |
+| T-903 | Recordatorio semanal de respaldo | En curso (claude, 2026-08-27) | T-016 |
 | T-904 | Modo oscuro | **Hecha** (venía de T-001) | T-010 |
 | T-905 | Respaldo cómodo a la nube, sin red | **Hecha** (falta comprobarlo en el celular: T-019) | T-016 |
 | T-909 | Color y rótulo propios por rubro | **Hecha** | T-014 |
