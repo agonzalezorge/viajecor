@@ -95,7 +95,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Lista** | T-016 |
 | T-904 | Modo oscuro | **Hecha** (venía de T-001) | T-010 |
-| T-905 | Respaldo cómodo a la nube, sin red | **Lista** | T-016 |
+| T-905 | Respaldo cómodo a la nube, sin red | En curso (claude, 2026-08-27) | T-016 |
 | T-909 | Color y rótulo propios por rubro | **Hecha** | T-014 |
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
