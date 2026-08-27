@@ -105,6 +105,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-911 | La barra del desglose mide el porcentaje real | **Hecha** | T-014 |
 | T-912 | Orden de campos y autocompletado del comentario | **Hecha** | T-011 |
 | T-913 | "Cargar" es la primera pestaña | **Hecha** | T-010 |
+| T-914 | Recordar que compartir no funciona en este teléfono | En curso (claude, 2026-08-27) | T-905 |
+| T-915 | Todos los rubros en cada mes del `.xlsx`, aunque estén en cero | En curso (claude, 2026-08-27) | T-906 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -1056,6 +1058,45 @@ eso no pase.
 
 Pedido del usuario (2026-08-27). Es lo que más se hace y lo que se hace apurado,
 parado en la caja de un supermercado.
+
+---
+
+### T-914 · Recordar que compartir no funciona en este teléfono
+**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-905
+
+**Lo que pasó.** En el Android del usuario, abierto por `file:///`, el botón
+*Compartir el respaldo* **aparece** —`canShare({files})` dice que sí— y al
+tocarlo falla con `Permission denied`.
+
+Es el caso que T-905 quiso evitar preguntando antes, y preguntar no alcanzó: el
+navegador dice que puede y después no puede. Un botón que falla al apretarlo es
+peor que un botón que no está (L-016), y en esta pantalla es más caro todavía
+porque el usuario puede quedarse creyendo que respaldó.
+
+**Qué hay que hacer:**
+- Traducir el error. `Permission denied` no le dice nada a nadie.
+- **Recordar el fallo** y dejar de ofrecer el botón en ese dispositivo, en vez de
+  repetir el mismo error cada semana.
+- Que se pueda volver a intentar: puede ser un permiso que el usuario cambie.
+- Que la descarga —que **sí funciona**, lo verificó el usuario— quede como el
+  camino principal apenas se sabe que compartir no anda.
+
+---
+
+### T-915 · Todos los rubros en cada mes del `.xlsx`, aunque estén en cero
+**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-906
+
+Pedido del usuario (2026-08-27): que en los bloques `GASTOS POR TIPO` e
+`INGRESOS POR TIPO` **aparezcan todos los rubros todos los meses**, con 0 cuando
+no hubo movimientos.
+
+**Va contra lo que hace la app en pantalla, y está bien que así sea.** En el
+celular, `porRubro()` devuelve solo los rubros usados a propósito: una fila en
+cero por cada rubro que no usaste llena una pantalla chica de nada. En una
+planilla es al revés — las filas están siempre en el mismo lugar, se pueden
+comparar entre meses de un vistazo y se pueden arrastrar fórmulas. **El mismo
+dato quiere formas distintas según dónde se mire**, y la planilla es para mirar
+meses uno al lado del otro.
 
 ---
 
