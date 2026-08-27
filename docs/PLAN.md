@@ -99,7 +99,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-909 | Color y rótulo propios por rubro | **Hecha** | T-014 |
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
-| T-906 | Exportar a `.xlsx` con la forma de la planilla | Pendiente | T-016, T-018 |
+| T-906 | Exportar a `.xlsx` con la forma de la planilla | En curso (claude, 2026-08-27) | T-016, T-018 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
