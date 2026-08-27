@@ -261,7 +261,7 @@ qué existe.
 | CU-06 | Corregir o borrar un movimiento | **Hecho** (T-015) |
 | CU-07 | Exportar todos los datos | **Hecho** en JSON (T-016); el CSV es T-018 |
 | CU-08 | Importar un respaldo | **Hecho** (T-017) |
-| CU-09 | Usar la app sin conexión | Pendiente |
+| CU-09 | Usar la app sin conexión | **Hecho** — verificado en un Android real (T-019) |
 | CU-10 | Ver la evolución mes a mes | Pendiente |
 | CU-11 | Ver cuánto costó un viaje | Pendiente |
 | CU-12 | Ver el promedio de un gasto fijo | Pendiente |

@@ -75,7 +75,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-016 | Exportar a JSON | **Hecha** | T-004 |
 | T-017 | Importar un respaldo JSON | **Hecha** | T-016 |
 | T-018 | Exportar a CSV | **Lista** | T-005, T-016 |
-| T-019 | Verificación real sin conexión | Pendiente | T-011…T-018 |
+| T-019 | Verificación real sin conexión | **Hecha** (usuario, 2026-08-27) | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
 | T-020 | Gasto día por día del mes | **Lista** | T-013 |
 | T-021 | Evolución mes a mes | **Lista** | T-013 |
@@ -668,7 +668,8 @@ BOM (sin BOM, Excel rompe los acentos).
 ---
 
 ### T-019 · Verificación real sin conexión — CU-09
-**Estado:** Pendiente · **Depende de:** T-011 a T-018
+**Estado:** **Hecha** — la hizo el usuario en su Android el 2026-08-27 ·
+**Depende de:** T-011 a T-018
 **Toca:** `docs/PRODUCTO.md` (marcar casos de uso hechos), `CHANGELOG.md`, `VERSION`
 
 Recorrido completo con el modo avión activado, sobre `dist/viajecor.html` abierto
@@ -684,6 +685,36 @@ desde el disco, en un celular real. Se anota qué se probó y qué falló.
 - Que la descarga funcione desde `file://` en ese teléfono, que es la salida
   cuando el compartir no está.
 - Que los datos **sobrevivan a cerrar y reabrir** el navegador del teléfono.
+
+**Lo que pasó (usuario, 2026-08-27).** Ocho pasos, en un Android con Chrome:
+
+| Qué | Resultado |
+|---|---|
+| Bajar la app de GitHub y abrirla | Anda, pero la dirección queda como `content://` |
+| Modo avión, recorrido completo | **Todo igual.** La app no necesita conexión |
+| Cargar, cerrar Chrome, reabrir | **Se perdió todo.** → T-950 |
+| Abrir por `file:///sdcard/Download/viajecor.html` | **Resuelto.** Los datos sobreviven |
+| Compartir el respaldo | **Falla** con `Permission denied` → T-914 |
+| Descargar el respaldo y subirlo a mano | Anda |
+| Borrar los datos del sitio y recuperar del respaldo | **Anda perfecto** |
+| Abrir el `.xlsx` | **Abre bien** — lo que no se pudo comprobar en el entorno |
+| Bajar una versión nueva del HTML sin perder datos | Anda |
+
+**Las tres cosas que esto enseñó, y que ningún test podía enseñar:**
+
+1. **La app necesita una instrucción de uso, no solo un archivo.** Abrirla mal
+   —desde el explorador de archivos— hace que pierda todo. Va a `docs/USO.md`
+   (T-900), y la app misma lo avisa desde T-950.
+2. **Preguntarle al navegador si puede hacer algo no es lo mismo que poder.**
+   `canShare({files})` dijo que sí y `share()` falló. → T-914.
+3. **Lo que se ve en una planilla no es lo que se ve en una pantalla.** El
+   desglose por rubro quiere filas en cero en el Excel y no las quiere en el
+   celular. → T-915.
+
+**Lo que queda abierto de esta verificación:** el usuario pidió que la planilla
+se parezca **más** a su Excel actual, sin especificar en qué. Hay que preguntar
+antes de tocar nada: adivinar la forma de una planilla que él conoce de memoria
+y yo no vi nunca es la manera más rápida de hacer trabajo que no sirve.
 
 ---
 
