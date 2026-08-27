@@ -11,6 +11,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buscarFugas } from './privacidad.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -38,17 +39,6 @@ const MODULOS = [
   'src/ui/app.js',
 ];
 
-// Nada de esto puede aparecer en el archivo final: cada uno sería una forma de
-// que un dato salga del dispositivo. Ver RN-06 y ADR-009.
-const PROHIBIDO = [
-  /\bhttps?:\/\//i,
-  /\bfetch\s*\(/,
-  /\bXMLHttpRequest\b/,
-  /\bWebSocket\b/,
-  /\bEventSource\b/,
-  /navigator\s*\.\s*sendBeacon/,
-  /\bimport\s*\(/,
-];
 
 // Quita las líneas `import ... from '...'` y la palabra `export`. Los archivos
 // de src/ se escriben como módulos de verdad para que los tests de Node los
@@ -144,15 +134,10 @@ async function construir() {
     .replace('/*{{ESTILOS}}*/', () => estilos.trim())
     .replace('/*{{GUION}}*/', () => `(function () {\n${guion}\n})();`);
 
-  for (const patron of PROHIBIDO) {
-    const encontrado = html.match(patron);
-    if (encontrado) {
-      throw new Error(
-        `El archivo construido contiene "${encontrado[0]}", que permitiría que un dato ` +
-        `salga del dispositivo. La app no hace ninguna petición de red (RN-06).`
-      );
-    }
-  }
+  // La guardia vive en tools/privacidad.mjs, y el test usa exactamente la misma
+  // función: dos copias de esta regla serían dos reglas que se separan.
+  const fuga = buscarFugas(html);
+  if (fuga) throw new Error(fuga);
 
   await mkdir(join(RAIZ, 'dist'), { recursive: true });
   await writeFile(join(RAIZ, 'dist/viajecor.html'), html, 'utf8');

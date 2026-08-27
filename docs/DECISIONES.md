@@ -722,3 +722,50 @@ volvería en cada recarga, que es lo mismo que no poder sacarlo.
 **Lo que cuesta.** Una preferencia más que persistir —`recordatorio_pospuesto`—,
 con el riesgo de L-015 encima. Se agregó a la lista de `migrarEstado` en el mismo
 commit, y el test que compara el objeto entero de preferencias la cubre.
+
+---
+
+## ADR-027 · Los espacios de nombres de XML son la única excepción de la guardia, y está acotada
+**Fecha:** 2026-08-27 · **Estado:** Vigente
+
+**Contexto.** Para exportar a `.xlsx` (T-906) hay que escribir XML, y el XML
+identifica sus vocabularios con **espacios de nombres**: una etiqueta única que,
+por una convención de los años 90, tiene forma de URL. Nadie se conecta ahí:
+Excel abre un `.xlsx` sin conexión, y estas cadenas cumplen el mismo papel que el
+número de serie de un electrodoméstico. Pero la guardia de privacidad rechaza
+cualquier `http://`, así que la construcción fallaría.
+
+**Decisión.** Se permite una lista **cerrada, explícita y acotada por dominio**
+de espacios de nombres, y nada más. Tres condiciones se comprueban en cada
+construcción:
+
+1. Cada excepción tiene que estar bajo un dominio de esquemas conocido
+   (`schemas.openxmlformats.org`, `schemas.microsoft.com`). Agregar
+   `http://loquesea.com` a la lista **rompe la construcción**.
+2. Cada excepción tiene que aparecer en el archivo **entre comillas**, como una
+   cadena de texto. Una URL suelta en el código no pasa.
+3. Sacando las excepciones, no puede quedar ninguna otra dirección.
+
+**Lo que se rechazó, y por qué importa más que lo que se hizo.** La salida fácil
+era partir la cadena en pedazos y volver a unirla en tiempo de ejecución. La
+guardia no la vería y todo seguiría en verde — pero quedaría **en pie y ciega**,
+y la próxima URL, una de verdad armada del mismo modo, pasaría igual. Una
+comprobación que se puede esquivar es peor que ninguna, porque da confianza sin
+darla. La otra salida fácil, apagar la guardia, al menos es honesta; esta no.
+
+**Por qué la excepción no es una puerta.** Aunque estas cadenas estén en el
+archivo, **no hay en todo el archivo una sola función capaz de usarlas**: los
+otros patrones prohíben `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` y
+`sendBeacon`. Una dirección sin nada que la marque es texto.
+
+**Comprobado, no argumentado.** Se abrió `dist/viajecor.html` en Chromium con
+**toda la red bloqueada e instrumentada**, y se recorrió la app entera —cargar,
+corregir, cambiar de pantalla, exportar, descargar, importar, recargar—. Intentos
+de salir a la red: **cero**. Es la diferencia entre "no debería hacer peticiones"
+y "no hizo ninguna".
+
+**De paso.** La lista de la guardia estaba escrita **dos veces**: una en
+`tools/build.mjs` y otra en `test/privacidad.test.js`. Ahora vive una sola vez en
+`tools/privacidad.mjs` y las dos la usan. Dos copias de una regla son dos reglas
+que se separan, y la que se queda atrás es siempre la del test — que es la que se
+mira para creer que todo está bien.

@@ -6,6 +6,14 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Cambiado
+- **La guardia de privacidad se volvió más estricta y más honesta.** Estaba
+  escrita dos veces —en el constructor y en su test—, que es la forma más común
+  de que una regla y su comprobación se separen; ahora vive en un solo lugar que
+  los dos usan. Además ahora los tests le dan de comer archivos sucios y exigen
+  que los rechace: antes solo comprobaban que el archivo limpio pasara, que es
+  lo que una guardia rota también haría. Y se comprobó **midiendo**, no
+  argumentando: la app abierta en un navegador con toda la red bloqueada e
+  instrumentada, recorrida entera, hizo **cero** peticiones. Ver ADR-027.
 - **El constructor ahora comprueba su propia lista de módulos.** Antes, importar
   un archivo nuevo y olvidarse de agregarlo a la lista construía un
   `dist/viajecor.html` sin ese archivo adentro: todo en verde, y la app rota
