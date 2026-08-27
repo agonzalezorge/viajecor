@@ -260,7 +260,7 @@ qué existe.
 | CU-05 | Ver el gasto día por día del mes | Pendiente |
 | CU-06 | Corregir o borrar un movimiento | **Hecho** (T-015) |
 | CU-07 | Exportar todos los datos | **Hecho** en JSON (T-016); el CSV es T-018 |
-| CU-08 | Importar un respaldo | Pendiente |
+| CU-08 | Importar un respaldo | **Hecho** (T-017) |
 | CU-09 | Usar la app sin conexión | Pendiente |
 | CU-10 | Ver la evolución mes a mes | Pendiente |
 | CU-11 | Ver cuánto costó un viaje | Pendiente |
@@ -391,6 +391,25 @@ eliminar (L-001). Ver T-906.
 **Qué puede salir mal:** importar sobre datos existentes puede duplicar o pisar.
 La app **siempre** ofrece exportar antes de importar, y pregunta explícitamente
 si se quiere *reemplazar todo* o *agregar a lo que hay*.
+
+**Cómo funciona (T-017).** Desde *Datos*, en «Traer un respaldo», se elige el
+archivo o se pega el texto. Antes de tocar nada la app muestra **qué va a pasar
+con números**: cuántos movimientos trae el archivo, cuántos hay ahora, cuántos
+entrarían, cuántos quedarían con cada camino y —lo más importante— **cuántos se
+borrarían al reemplazar**. Recién ahí aparecen los dos botones.
+
+- *Agregar* **no duplica**: un movimiento que ya está no entra de nuevo, así que
+  importar dos veces el mismo respaldo deja lo mismo que importarlo una vez. Si
+  no entra ninguno, la app lo dice y no ofrece el botón.
+- *Reemplazar todo* deja solo lo del archivo, y avisa por adelantado cuántos
+  movimientos propios se pierden.
+- En los dos casos los **tipos de cambio y las monedas se suman** a los que hay,
+  con prioridad para los del dispositivo: sin ellos, un gasto en una moneda
+  extranjera entraría sin poder convertirse a euros.
+- Lo que no se pudo leer se lista con nombre y motivo, y el resto entra igual: un
+  registro roto no puede impedir recuperar los otros.
+- Si el archivo es más nuevo que el último respaldo anotado, la app toma esa
+  fecha: el archivo es la prueba de que ese día hubo un respaldo (ADR-024).
 
 ---
 

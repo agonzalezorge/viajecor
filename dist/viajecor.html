@@ -664,6 +664,32 @@ body {
   overflow-wrap: normal;
   overflow-x: auto;
 }
+
+/* ── Traer un respaldo (T-017) ───────────────────────────────────────────────
+   Las dos opciones se ven distintas a propósito: agregar y reemplazar suenan
+   parecido y hacen cosas muy distintas. */
+
+.opcion-importar {
+  margin-top: 1rem;
+  padding: 0.875rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.opcion-importar h3 { margin: 0 0 0.375rem; font-size: 1rem; }
+.opcion-importar p { margin: 0 0 0.75rem; }
+.opcion-importar .principal,
+.opcion-importar .peligro { width: 100%; }
+
+/* La opción que destruye datos se ve como lo que es. */
+.opcion-importar.peligrosa { border-color: var(--gasto); border-left-width: 4px; }
+.perdida { color: var(--gasto); }
+
+.formulario input[type="file"],
+.campo input[type="file"] {
+  padding: 0.625rem;
+  font-size: 0.9375rem;
+}
 </style>
 
 <div id="app" class="app">
@@ -2551,6 +2577,197 @@ function enDias(iso) {
   return Date.UTC(anio, mes - 1, dia);
 }
 
+// ── src/datos/importar.js ───────────────────────────────────────
+// Volver a cargar un respaldo — CU-08.
+//
+// Es la otra mitad de la garantía de que los datos son del usuario: exportar sin
+// poder volver a importar produce un archivo, no un respaldo. Y es el camino que
+// se usa al cambiar de teléfono, que es cuando más caro sale que salga mal.
+//
+// ── Por qué esto es delicado ─────────────────────────────────────────────────
+//
+// Importar es la única operación de la app que puede **destruir datos que el
+// usuario no está mirando**. Borrar un movimiento se ve; importar reemplazando
+// todo se lleva meses de registro de un toque, y quien lo hace suele estar
+// convencido de que está recuperando datos, no perdiéndolos.
+//
+// De ahí las tres reglas de este archivo:
+//
+//   1. **Primero se lee, después se decide.** Nunca se toca el estado sin haber
+//      podido mostrar antes qué va a pasar, con números concretos.
+//   2. **El usuario elige entre reemplazar y agregar**, y la app no elige por
+//      él. Son dos cosas muy distintas y solo él sabe cuál quiere.
+//   3. **Agregar no duplica.** Un movimiento que ya está —mismo identificador—
+//      no entra dos veces. Importar dos veces el mismo respaldo tiene que dejar
+//      lo mismo que importarlo una.
+
+
+/**
+ * Lee el texto de un respaldo. **Nunca tira**: devuelve el resultado o el
+ * motivo, porque el usuario tiene que poder entender qué pasó y volver a
+ * intentar con otro archivo.
+ */
+function leerRespaldo(texto) {
+  if (typeof texto !== 'string' || texto.trim() === '') {
+    return { error: 'El archivo está vacío.' };
+  }
+
+  let leido;
+  try {
+    leido = JSON.parse(texto);
+  } catch {
+    return {
+      error: 'Este archivo no es un respaldo de Viajecor: no se pudo leer como JSON. ' +
+        '¿Puede ser que sea un CSV, o que se haya copiado a medias?',
+    };
+  }
+
+  if (leido === null || typeof leido !== 'object' || Array.isArray(leido)) {
+    return { error: 'Este archivo no tiene la forma de un respaldo de Viajecor.' };
+  }
+
+  if (!Array.isArray(leido.movimientos)) {
+    return {
+      error: 'Este archivo no tiene una lista de movimientos, así que no parece un respaldo de Viajecor. ' +
+        'Los respaldos se llaman viajecor-AAAA-MM-DD.json.',
+    };
+  }
+
+  // Se pasa por la misma puerta que los datos guardados: un respaldo editado a
+  // mano no puede meter nada que el almacenamiento no aceptaría (ADR-017).
+  const incidencias = [];
+  const estado = migrarEstado(leido, incidencias);
+
+  return {
+    estado,
+    incidencias,
+    // Datos del archivo, para que la pantalla pueda decir de cuándo es.
+    exportado: typeof leido.exportado === 'string' ? leido.exportado : null,
+    version_app: typeof leido.version_app === 'string' ? leido.version_app : null,
+  };
+}
+
+/**
+ * Qué pasaría si se importara. **No cambia nada**: es lo que se le muestra al
+ * usuario antes de que decida.
+ *
+ * `yaEstan` son los movimientos del respaldo que ya existen en la app, contados
+ * por identificador. Es el número que explica por qué "agregar" a veces suma
+ * menos de lo que trae el archivo — sin él, alguien creería que se perdieron.
+ */
+function previsualizar(estadoActual, leido) {
+  const actuales = new Set((estadoActual.movimientos ?? []).map((m) => m.id));
+  const delRespaldo = leido.estado.movimientos ?? [];
+
+  const yaEstan = delRespaldo.filter((m) => actuales.has(m.id)).length;
+
+  return {
+    trae: delRespaldo.length,
+    yaEstan,
+    nuevos: delRespaldo.length - yaEstan,
+    tenes: actuales.size,
+    // Cuántos quedarían con cada camino. Son los dos números que hacen la
+    // diferencia entre las dos opciones entendible sin explicarla.
+    siReemplazo: delRespaldo.length,
+    siAgrego: actuales.size + (delRespaldo.length - yaEstan),
+    // Cuántos se PERDERÍAN al reemplazar: los que hay ahora y no están en el
+    // archivo. Es el número que nadie mira y el que más duele.
+    sePierden: (estadoActual.movimientos ?? []).filter(
+      (m) => !delRespaldo.some((r) => r.id === m.id)
+    ).length,
+    incidencias: leido.incidencias ?? [],
+  };
+}
+
+const MODO_REEMPLAZAR = 'reemplazar';
+const MODO_AGREGAR = 'agregar';
+
+/**
+ * Aplica la importación. Devuelve un estado nuevo; no modifica el que recibe.
+ *
+ * **Agregar no duplica:** un movimiento cuyo identificador ya está se saltea.
+ * Importar dos veces el mismo respaldo deja lo mismo que importarlo una vez, que
+ * es lo que cualquiera espera y lo que evita el desastre silencioso de tener
+ * cada gasto contado dos veces en todos los totales.
+ */
+function aplicarImportacion(estadoActual, leido, modo) {
+  if (modo !== MODO_REEMPLAZAR && modo !== MODO_AGREGAR) {
+    throw new Error(`Modo de importación desconocido: ${JSON.stringify(modo)}.`);
+  }
+
+  const importado = leido.estado;
+  const ultimo_respaldo = ultimoRespaldoDespuesDe(estadoActual, leido);
+
+  if (modo === MODO_REEMPLAZAR) {
+    // Se conserva una sola cosa de lo que había: la fecha del último respaldo.
+    // Es un dato sobre el dispositivo, no sobre los gastos, y perderlo haría
+    // que la app dijera "nunca respaldaste" justo después de haber importado un
+    // respaldo, que es lo contrario de la verdad.
+    return {
+      ...importado,
+      preferencias: { ...importado.preferencias, ultimo_respaldo },
+    };
+  }
+
+  const yaEstan = new Set((estadoActual.movimientos ?? []).map((m) => m.id));
+  const nuevos = (importado.movimientos ?? []).filter((m) => !yaEstan.has(m.id));
+
+  return {
+    ...estadoActual,
+    movimientos: [...(estadoActual.movimientos ?? []), ...nuevos],
+    // Los tipos de cambio y las monedas del respaldo se suman a los que hay: si
+    // el archivo trae el cambio del colón de marzo y la app no lo tiene, sin él
+    // esos movimientos entrarían sin poder convertirse a euros.
+    tipos_cambio: unirPorClave(
+      estadoActual.tipos_cambio ?? [],
+      importado.tipos_cambio ?? [],
+      (c) => `${c.moneda}|${c.mes}`
+    ),
+    monedas: unirPorClave(estadoActual.monedas ?? [], importado.monedas ?? [], (m) => m.codigo),
+    preferencias: { ...estadoActual.preferencias, ultimo_respaldo },
+  };
+}
+
+/**
+ * La fecha del último respaldo después de importar: la más reciente entre la
+ * que tenía el dispositivo y la que dice el archivo.
+ *
+ * El archivo **es** la prueba de que ese día hubo un respaldo. Sin esto, un
+ * teléfono nuevo que acaba de importar un archivo de hoy diría "nunca
+ * respaldaste", que es falso y empuja a respaldar de nuevo lo que ya está
+ * respaldado. Si la del dispositivo es más nueva, gana esa: el archivo puede
+ * ser viejo, y decir que el último respaldo es más antiguo de lo que fue
+ * también sería mentir.
+ */
+function ultimoRespaldoDespuesDe(estadoActual, leido) {
+  const propio = estadoActual.preferencias?.ultimo_respaldo ?? null;
+  // `validarFecha` tira: el archivo lo pudo escribir cualquiera, y una fecha
+  // rota ahí no puede impedir recuperar los gastos.
+  let delArchivo = null;
+  try {
+    delArchivo = validarFecha(leido.exportado);
+  } catch {
+    delArchivo = null;
+  }
+
+  if (propio === null) return delArchivo ?? undefined;
+  if (delArchivo === null) return propio;
+  // Las fechas son AAAA-MM-DD: comparar como texto es comparar como calendario.
+  return delArchivo > propio ? delArchivo : propio;
+}
+
+/**
+ * Une dos listas sin repetir, **dando prioridad a lo que ya tenía el usuario**.
+ *
+ * Si el respaldo trae un tipo de cambio para un mes que la app ya tiene, gana el
+ * de la app: el usuario pudo haberlo corregido después de exportar, y pisarlo
+ * con el viejo cambiaría totales que él ya dio por buenos sin decírselo.
+ */
+function unirPorClave(propios, ajenos, clave) {
+  const vistos = new Set(propios.map(clave));
+  return [...propios, ...ajenos.filter((a) => !vistos.has(clave(a)))];
+}
+
 // ── src/ui/colores.js ───────────────────────────────────────────
 // Un color propio para cada rubro, el mismo en todas las pantallas.
 //
@@ -3321,6 +3538,7 @@ function dibujarLista(vista) {
 
 
 
+
 /** Un tamaño legible: 12 kB dice más que 12.283 bytes. */
 function tamanoLegible(bytes) {
   if (bytes < 1024) return `${bytes} bytes`;
@@ -3409,6 +3627,8 @@ function dibujarDatos(vista) {
       en adelante la garantizás vos.</p>
     </section>
 
+    ${dibujarImportar(vista)}
+
     <section class="tarjeta">
       <h2>Tipos de cambio</h2>
       <p class="suave">Ver y corregir cuánto vale cada moneda en cada mes.</p>
@@ -3419,9 +3639,108 @@ function dibujarDatos(vista) {
 
     <section class="tarjeta">
       <h2>Todavía no</h2>
-      <p class="suave pendiente">Volver a cargar un respaldo — T-017. Exportar a
-      CSV para abrir en Excel — T-018. Ver y agregar monedas — T-024.</p>
+      <p class="suave pendiente">Exportar a CSV para abrir en Excel — T-018.
+      Ver y agregar monedas — T-024.</p>
     </section>
+  `;
+}
+
+/**
+ * Traer un respaldo — CU-08.
+ *
+ * Es la única operación de la app que puede **destruir datos que el usuario no
+ * está mirando**, y la hace alguien convencido de que está recuperando datos.
+ * Por eso la pantalla tiene tres pasos y no uno: elegir el archivo, **ver qué va
+ * a pasar con números concretos**, y recién ahí elegir entre las dos formas.
+ */
+function dibujarImportar(vista) {
+  const previa = vista.importacion;
+
+  return `
+    <section class="tarjeta">
+      <h2>Traer un respaldo</h2>
+
+      ${previa ? '' : `
+      <p class="suave">Para recuperar tus datos en un teléfono nuevo, o después de
+      un borrado. Podés elegir el archivo o pegar el texto que copiaste.</p>
+
+      <label class="campo">
+        <span>Elegir el archivo</span>
+        <input type="file" name="archivo" accept="application/json,.json" data-accion="elegir-archivo">
+      </label>
+
+      <label class="campo">
+        <span>O pegar el texto del respaldo</span>
+        <textarea class="respaldo-texto" name="pegado" rows="5"
+                  placeholder="Pegá acá el contenido del respaldo…"></textarea>
+      </label>
+
+      <button type="button" class="secundario" data-accion="leer-pegado">
+        Leer el texto pegado
+      </button>`}
+
+      ${vista.errorImportar ? `<p class="error-carga" role="alert">${escapar(vista.errorImportar)}</p>` : ''}
+      ${vista.avisoImportar ? `<p class="confirmacion" role="status">${escapar(vista.avisoImportar)}</p>` : ''}
+      ${previa ? dibujarPrevia(previa) : ''}
+    </section>
+  `;
+}
+
+/**
+ * Lo que va a pasar, con números.
+ *
+ * El número que más importa es **cuántos movimientos se perderían** al
+ * reemplazar. Es el que nadie mira y el que más duele, así que va escrito con
+ * todas las letras y no como "esto borra todo".
+ */
+function dibujarPrevia(previa) {
+  const { datos, exportado } = previa;
+
+  return `
+    <p class="suave">El archivo${exportado ? ` es del ${escapar(formatearFechaLarga(exportado))} y` : ''}
+    trae <strong>${datos.trae === 1 ? '1 movimiento' : `${datos.trae} movimientos`}</strong>.
+    Ahora tenés ${datos.tenes === 1 ? '1 movimiento' : `${datos.tenes} movimientos`}.</p>
+
+    ${datos.incidencias.length > 0 ? `
+    <div class="aviso importante" role="alert">
+      <h2>Hay cosas que no se pudieron leer</h2>
+      <ul>${datos.incidencias.map((i) => `<li>${escapar(i)}</li>`).join('')}</ul>
+    </div>` : ''}
+
+    <div class="opcion-importar">
+      <h3>Agregar a lo que tenés</h3>
+      <p class="suave">
+        ${datos.nuevos === 0
+          ? `No entra ninguno: ${datos.trae === 1 ? 'el movimiento del archivo ya lo tenías' : `los ${datos.trae} movimientos del archivo ya los tenías`}.
+             Seguirías con <strong>${datos.siAgrego}</strong>.`
+          : `Entran ${datos.nuevos === 1 ? '1 movimiento nuevo' : `${datos.nuevos} movimientos nuevos`}${datos.yaEstan > 0
+              ? ` y se saltea${datos.yaEstan === 1 ? ' 1 que ya tenías' : `n ${datos.yaEstan} que ya tenías`}, para no duplicarlos`
+              : ''}.
+             Te quedarían <strong>${datos.siAgrego}</strong> en total.`}
+      </p>
+      <button type="button" class="principal" data-accion="importar" data-modo="${MODO_AGREGAR}"${datos.nuevos === 0 ? ' disabled' : ''}>
+        Agregar
+      </button>
+    </div>
+
+    <div class="opcion-importar peligrosa">
+      <h3>Reemplazar todo</h3>
+      <p class="suave">
+        Te quedarían <strong>${datos.siReemplazo}</strong>: solo los del archivo.
+        ${datos.sePierden > 0
+          ? `<strong class="perdida">${datos.sePierden === 1
+              ? 'Se borraría 1 movimiento que tenés ahora y no está en el archivo'
+              : `Se borrarían ${datos.sePierden} movimientos que tenés ahora y no están en el archivo`}.</strong>`
+          : 'No perderías ninguno de los que tenés: están todos en el archivo.'}
+      </p>
+      <button type="button" class="peligro" data-accion="importar" data-modo="${MODO_REEMPLAZAR}">
+        Reemplazar todo
+      </button>
+    </div>
+
+    <button type="button" class="secundario" data-accion="cancelar-importar">
+      Dejar como está
+    </button>
   `;
 }
 
@@ -3771,6 +4090,7 @@ function dibujarNuevo(vista) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -3990,7 +4310,11 @@ function irA(vista, nombre) {
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
   // media hora después y vería un error que ya no significa nada.
-  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null, avisoRespaldo: null, mostrarRespaldo: false };
+  const limpia = {
+    ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null,
+    avisoRespaldo: null, mostrarRespaldo: false,
+    importacion: null, errorImportar: null, avisoImportar: null,
+  };
   return nombre === 'nuevo'
     ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
     : limpia;
@@ -4163,6 +4487,88 @@ function iniciar(documento, almacen) {
     pintar();
   }
 
+  /**
+   * Lee un respaldo y **muestra qué pasaría**. No toca nada del estado guardado.
+   *
+   * Es el primero de los tres pasos de CU-08. Separarlo del aplicar es toda la
+   * diferencia entre "importar" y "importar sabiendo lo que va a pasar".
+   */
+  function prepararImportacion(texto) {
+    const leido = leerRespaldo(texto);
+    if (leido.error) {
+      vista = { ...vista, importacion: null, errorImportar: leido.error, avisoImportar: null };
+      pintar();
+      return;
+    }
+
+    vista = {
+      ...vista,
+      importacion: { leido, datos: previsualizar(vista.estado, leido), exportado: leido.exportado },
+      errorImportar: null,
+      avisoImportar: null,
+    };
+    pintar();
+  }
+
+  /** Aplica lo que el usuario eligió, y recién ahí escribe. */
+  function aplicarRespaldo(modo) {
+    if (!vista.importacion) return;
+
+    let nuevoEstado;
+    try {
+      nuevoEstado = aplicarImportacion(vista.estado, vista.importacion.leido, modo);
+    } catch (error) {
+      vista = { ...vista, errorImportar: error.message };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(nuevoEstado, almacen);
+    } catch (error) {
+      // No se pudo escribir: NO se cambia lo que está en pantalla. Mostrar los
+      // datos importados sobre un almacenamiento que no los guardó haría creer
+      // que la recuperación salió bien.
+      vista = { ...vista, errorImportar: error.message };
+      pintar();
+      return;
+    }
+
+    const { datos } = vista.importacion;
+    const cuantos = nuevoEstado.movimientos.length;
+    vista = {
+      ...vista,
+      estado: nuevoEstado,
+      importacion: null,
+      errorImportar: null,
+      avisoImportar: modo === 'reemplazar'
+        ? `Listo. Ahora tenés ${cuantos === 1 ? '1 movimiento' : `${cuantos} movimientos`}: los del archivo.`
+        : datos.nuevos === 0
+          ? `No entró ninguno: ya los tenías a todos. Seguís con ${cuantos}.`
+          : `Listo. Entraron ${datos.nuevos === 1 ? '1 movimiento' : `${datos.nuevos} movimientos`}` +
+            `${datos.yaEstan > 0 ? ` y se saltearon ${datos.yaEstan} que ya tenías` : ''}. ` +
+            `Ahora tenés ${cuantos}.`,
+    };
+    pintar();
+  }
+
+  // Elegir un archivo lo lee y muestra la previa. El archivo se lee con
+  // FileReader, que trabaja sobre el archivo que el usuario eligió a mano: no
+  // hay ninguna petición de red de por medio (RN-06).
+  raiz.addEventListener('change', (evento) => {
+    if (!evento.target.matches('input[type="file"][name="archivo"]')) return;
+    const archivo = evento.target.files?.[0];
+    if (!archivo) return;
+
+    const lector = new FileReader();
+    lector.onload = () => prepararImportacion(String(lector.result ?? ''));
+    lector.onerror = () => {
+      vista = { ...vista, errorImportar: 'No se pudo leer el archivo. Probá pegando el texto.' };
+      pintar();
+    };
+    lector.readAsText(archivo);
+  });
+
   raiz.addEventListener('input', (evento) => {
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
@@ -4314,6 +4720,15 @@ function iniciar(documento, almacen) {
         error: null,
         aviso: null,
       };
+    } else if (accion === 'leer-pegado') {
+      const campo = raiz.querySelector('textarea[name="pegado"]');
+      prepararImportacion(campo?.value ?? '');
+      return;
+    } else if (accion === 'cancelar-importar') {
+      vista = { ...vista, importacion: null, errorImportar: null, avisoImportar: null };
+    } else if (accion === 'importar') {
+      aplicarRespaldo(boton.dataset.modo);
+      return;
     } else if (accion === 'exportar') {
       descargarRespaldo();
       return;

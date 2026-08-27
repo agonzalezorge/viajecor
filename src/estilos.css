@@ -659,3 +659,29 @@ body {
   overflow-wrap: normal;
   overflow-x: auto;
 }
+
+/* ── Traer un respaldo (T-017) ───────────────────────────────────────────────
+   Las dos opciones se ven distintas a propósito: agregar y reemplazar suenan
+   parecido y hacen cosas muy distintas. */
+
+.opcion-importar {
+  margin-top: 1rem;
+  padding: 0.875rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.opcion-importar h3 { margin: 0 0 0.375rem; font-size: 1rem; }
+.opcion-importar p { margin: 0 0 0.75rem; }
+.opcion-importar .principal,
+.opcion-importar .peligro { width: 100%; }
+
+/* La opción que destruye datos se ve como lo que es. */
+.opcion-importar.peligrosa { border-color: var(--gasto); border-left-width: 4px; }
+.perdida { color: var(--gasto); }
+
+.formulario input[type="file"],
+.campo input[type="file"] {
+  padding: 0.625rem;
+  font-size: 0.9375rem;
+}

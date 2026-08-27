@@ -601,3 +601,32 @@ rubro sí se vacía, y tiene que vaciarse: el de antes ya no es válido.
 **Lo que cuesta:** `ui/app.js` tiene una función que lee campos por nombre, y si
 se agrega un campo al formulario hay que agregarlo también ahí. Es un punto de
 olvido real. A cambio, no hay estado duplicado ni redibujado por tecla.
+
+---
+
+## ADR-024 · Importar un respaldo actualiza la fecha del último respaldo
+
+**Contexto.** La pantalla de Datos avisa cuánto hace que no se respalda, leyendo
+`preferencias.ultimo_respaldo`, que se anota al descargar. Al importar, ese dato
+no existía en el dispositivo nuevo: el recorrido en el navegador mostró un
+teléfono recién recuperado con un archivo **de hoy** diciendo *"Nunca
+respaldaste"*.
+
+**Decisión.** Después de importar, el último respaldo es **la fecha más reciente
+entre la del dispositivo y la del archivo** (`exportado`), en los dos modos.
+
+**Por qué.** El archivo *es* la prueba de que ese día hubo un respaldo: decir lo
+contrario es falso y empuja a respaldar de nuevo algo que ya está a salvo. Y al
+revés, un archivo viejo no puede atrasar la fecha: decir que el último respaldo
+es más antiguo de lo que fue también es mentir. Se toma el máximo, que es la
+única respuesta que no miente en ninguna de las dos direcciones.
+
+**Lo que cuesta.** La fecha del archivo la escribe quien exportó, y un archivo
+editado a mano podría traer cualquier cosa. Por eso pasa por `validarFecha()`, y
+si no es una fecha del calendario se ignora en vez de romper la importación:
+recuperar los gastos importa más que el aviso de respaldo.
+
+**Alternativa descartada.** Anotar el día de la importación. Sería más simple,
+pero diría que respaldaste hoy cuando lo que hiciste fue *restaurar* — y si el
+archivo era de hace un mes, oculta que hace un mes que no respaldás, que es
+exactamente lo que el aviso existe para no dejar pasar.

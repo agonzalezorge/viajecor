@@ -493,3 +493,37 @@ expresión regular de la forma `\d{4}-\d{2}-\d{2}`. `2026-13-01` la pasa, y el m
 13 no existe. Comprobar la forma no es comprobar la fecha: hay que usar
 `validarFecha()`, que mira el calendario. Es L-005 otra vez, del lado de un
 ajuste en vez de un movimiento — las lecciones vuelven disfrazadas.
+
+---
+
+## L-016 · Un botón que no puede hacer nada es peor que ninguno
+
+**Qué pasó.** Al recorrer la importación en el navegador, pegué el mismo respaldo
+dos veces. La segunda, la app dijo *"Entran 0 movimientos nuevos y se saltean 3
+que ya tenías"* y ofreció igual el botón **Agregar**. Apretarlo guardaba el
+estado sin cambiar nada y contestaba *"Entraron 0 movimientos"*. En la misma
+pantalla, la advertencia de reemplazo decía *"Se borrarían 1 movimiento"*.
+
+**Por qué ningún test lo vio.** Los 384 tests comprobaban los **números** —que
+agregar no duplica, que `sePierden` cuenta bien— y todos daban bien. Ninguno leía
+la frase completa ni preguntaba si la acción ofrecida tenía sentido. Los tests
+verificaban que la app *calcula* bien; el recorrido verificó que *se entiende*.
+Es L-014 otra vez, del lado de la redacción: una función con tests puede estar
+diciendo una tontería.
+
+**Por qué importa más de lo que parece.** Esta pantalla es la de recuperar datos.
+El usuario que la está usando acaba de perder el teléfono y está buscando señales
+de que la recuperación salió bien. Un botón que no hace nada, o un número
+escrito con el verbo mal conjugado, le enseña a desconfiar justo del número que
+tiene que leer con atención: cuántos movimientos se van a borrar.
+
+**Lo que se hizo.**
+
+- Cuando no entra ningún movimiento, la app lo dice en castellano —*"No entra
+  ninguno: los 3 movimientos del archivo ya los tenías"*— y el botón va
+  `disabled`. No se ofrece una acción imposible.
+- Se arregló la concordancia en singular, y hay tests que leen la frase entera y
+  que **rechazan la versión rota** (`'Se borrarían 1'` tiene que no aparecer).
+- La regla de método: en un recorrido, **apretar los botones que no tienen
+  sentido**. El camino feliz ya lo cubren los tests; lo que el navegador aporta
+  es el camino tonto.

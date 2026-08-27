@@ -22,6 +22,14 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **Y ya podés volver a meterlos** (T-017, CU-08). Desde *Datos*, en «Traer un
+  respaldo», elegís el archivo o pegás el texto. Antes de tocar nada la app te
+  muestra **qué va a pasar con números**: cuántos trae el archivo, cuántos
+  tenés, cuántos entrarían, y **cuántos se borrarían** si reemplazás. Recién ahí
+  elegís entre *agregar* —que no duplica: el mismo respaldo dos veces deja lo
+  mismo que una— y *reemplazar todo*. Los tipos de cambio y las monedas del
+  archivo se suman a los tuyos, así que un gasto en colones no entra sin poder
+  convertirse a euros. Es lo que necesitás al cambiar de teléfono. 27 tests.
 - **Ya podés sacar tus datos** (T-016, CU-07). Desde *Datos* descargás un archivo
   con **todo** —movimientos, tipos de cambio y monedas—, que se abre con
   cualquier editor de texto y no necesita esta app para entenderse. Hay **dos

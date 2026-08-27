@@ -73,7 +73,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-014 | Pantalla de resumen del mes | **Hecha** | T-013, T-010, T-006 |
 | T-015 | Lista de movimientos, editar y borrar | **Hecha** | T-011 |
 | T-016 | Exportar a JSON | **Hecha** | T-004 |
-| T-017 | Importar un respaldo JSON | En curso (claude, 2026-08-19) | T-016 |
+| T-017 | Importar un respaldo JSON | **Hecha** | T-016 |
 | T-018 | Exportar a CSV | **Lista** | T-005, T-016 |
 | T-019 | Verificación real sin conexión | Pendiente | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
@@ -612,11 +612,42 @@ encontró el recorrido en el navegador terminando con una recarga.
 ---
 
 ### T-017 · Importar un respaldo JSON — CU-08
-**Estado:** En curso (claude, 2026-08-19) · **Depende de:** T-016
+**Estado:** **Hecha** · **Depende de:** T-016
 **Toca:** `src/datos/importar.js`, `test/importar.test.js`, `src/ui/pantallas/datos.js`, `src/ui/app.js`, `src/estilos.css`, `tools/build.mjs`
 
 Con la elección explícita entre *reemplazar todo* y *agregar*, y con exportación
 sugerida antes de importar.
+
+**Cómo quedó.** Tres pasos y no uno: elegir el archivo (o pegar el texto), **ver
+qué va a pasar con números concretos**, y recién ahí elegir. Es la única
+operación de la app que puede destruir datos que el usuario no está mirando, y
+la hace alguien convencido de que está recuperando datos.
+
+- `leerRespaldo()` **nunca tira**: devuelve el resultado o el motivo en
+  castellano, porque quien recupera datos tiene que poder entender qué falló y
+  reintentar. Pasa por `migrarEstado()`, la misma puerta que los datos guardados
+  (ADR-017): un archivo editado a mano no puede meter nada que el
+  almacenamiento no aceptaría.
+- `previsualizar()` no toca nada. Da los números que hacen entendible la
+  diferencia entre los dos caminos, incluido **cuántos movimientos se perderían
+  al reemplazar** — el número que nadie mira y el que más duele.
+- **Agregar no duplica** (por identificador): importar dos veces el mismo
+  respaldo deja lo mismo que importarlo una vez.
+- Los tipos de cambio y las monedas del respaldo **se suman** a los que hay,
+  dando prioridad a lo que el usuario ya tenía (pudo haberlos corregido después
+  de exportar). Sin esto, un movimiento en colones entraría sin poder
+  convertirse a euros.
+- La fecha del último respaldo pasa a ser la más reciente entre la del
+  dispositivo y la del archivo (ADR-024).
+
+**Verificado:** 388 tests en verde. Ocho mutaciones deliberadas, ocho detectadas.
+Recorrido en un navegador real desde el disco, terminando con una recarga: se
+simuló un teléfono nuevo (borrar todo → pegar el respaldo → agregar → recargar),
+se pegó el mismo respaldo dos veces sin duplicar nada, se pegó basura y un JSON
+que no es un respaldo, se canceló una previa sin que se tocara el estado, y se
+reemplazó. El recorrido encontró dos defectos que los tests no veían — un botón
+*Agregar* que se ofrecía cuando no entraba ningún movimiento, y "se borrarían 1
+movimiento" — arreglados, con tests que los cubren (L-016).
 
 ---
 

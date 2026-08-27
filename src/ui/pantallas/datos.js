@@ -19,6 +19,7 @@
 
 import { escapar } from '../app.js';
 import { prepararRespaldo, diasSinRespaldar } from '../../datos/exportar.js';
+import { MODO_REEMPLAZAR, MODO_AGREGAR } from '../../datos/importar.js';
 import { formatearFechaLarga } from '../../core/formato.js';
 import { hoy } from '../../core/modelo.js';
 
@@ -110,6 +111,8 @@ export function dibujarDatos(vista) {
       en adelante la garantizás vos.</p>
     </section>
 
+    ${dibujarImportar(vista)}
+
     <section class="tarjeta">
       <h2>Tipos de cambio</h2>
       <p class="suave">Ver y corregir cuánto vale cada moneda en cada mes.</p>
@@ -120,8 +123,107 @@ export function dibujarDatos(vista) {
 
     <section class="tarjeta">
       <h2>Todavía no</h2>
-      <p class="suave pendiente">Volver a cargar un respaldo — T-017. Exportar a
-      CSV para abrir en Excel — T-018. Ver y agregar monedas — T-024.</p>
+      <p class="suave pendiente">Exportar a CSV para abrir en Excel — T-018.
+      Ver y agregar monedas — T-024.</p>
     </section>
+  `;
+}
+
+/**
+ * Traer un respaldo — CU-08.
+ *
+ * Es la única operación de la app que puede **destruir datos que el usuario no
+ * está mirando**, y la hace alguien convencido de que está recuperando datos.
+ * Por eso la pantalla tiene tres pasos y no uno: elegir el archivo, **ver qué va
+ * a pasar con números concretos**, y recién ahí elegir entre las dos formas.
+ */
+export function dibujarImportar(vista) {
+  const previa = vista.importacion;
+
+  return `
+    <section class="tarjeta">
+      <h2>Traer un respaldo</h2>
+
+      ${previa ? '' : `
+      <p class="suave">Para recuperar tus datos en un teléfono nuevo, o después de
+      un borrado. Podés elegir el archivo o pegar el texto que copiaste.</p>
+
+      <label class="campo">
+        <span>Elegir el archivo</span>
+        <input type="file" name="archivo" accept="application/json,.json" data-accion="elegir-archivo">
+      </label>
+
+      <label class="campo">
+        <span>O pegar el texto del respaldo</span>
+        <textarea class="respaldo-texto" name="pegado" rows="5"
+                  placeholder="Pegá acá el contenido del respaldo…"></textarea>
+      </label>
+
+      <button type="button" class="secundario" data-accion="leer-pegado">
+        Leer el texto pegado
+      </button>`}
+
+      ${vista.errorImportar ? `<p class="error-carga" role="alert">${escapar(vista.errorImportar)}</p>` : ''}
+      ${vista.avisoImportar ? `<p class="confirmacion" role="status">${escapar(vista.avisoImportar)}</p>` : ''}
+      ${previa ? dibujarPrevia(previa) : ''}
+    </section>
+  `;
+}
+
+/**
+ * Lo que va a pasar, con números.
+ *
+ * El número que más importa es **cuántos movimientos se perderían** al
+ * reemplazar. Es el que nadie mira y el que más duele, así que va escrito con
+ * todas las letras y no como "esto borra todo".
+ */
+function dibujarPrevia(previa) {
+  const { datos, exportado } = previa;
+
+  return `
+    <p class="suave">El archivo${exportado ? ` es del ${escapar(formatearFechaLarga(exportado))} y` : ''}
+    trae <strong>${datos.trae === 1 ? '1 movimiento' : `${datos.trae} movimientos`}</strong>.
+    Ahora tenés ${datos.tenes === 1 ? '1 movimiento' : `${datos.tenes} movimientos`}.</p>
+
+    ${datos.incidencias.length > 0 ? `
+    <div class="aviso importante" role="alert">
+      <h2>Hay cosas que no se pudieron leer</h2>
+      <ul>${datos.incidencias.map((i) => `<li>${escapar(i)}</li>`).join('')}</ul>
+    </div>` : ''}
+
+    <div class="opcion-importar">
+      <h3>Agregar a lo que tenés</h3>
+      <p class="suave">
+        ${datos.nuevos === 0
+          ? `No entra ninguno: ${datos.trae === 1 ? 'el movimiento del archivo ya lo tenías' : `los ${datos.trae} movimientos del archivo ya los tenías`}.
+             Seguirías con <strong>${datos.siAgrego}</strong>.`
+          : `Entran ${datos.nuevos === 1 ? '1 movimiento nuevo' : `${datos.nuevos} movimientos nuevos`}${datos.yaEstan > 0
+              ? ` y se saltea${datos.yaEstan === 1 ? ' 1 que ya tenías' : `n ${datos.yaEstan} que ya tenías`}, para no duplicarlos`
+              : ''}.
+             Te quedarían <strong>${datos.siAgrego}</strong> en total.`}
+      </p>
+      <button type="button" class="principal" data-accion="importar" data-modo="${MODO_AGREGAR}"${datos.nuevos === 0 ? ' disabled' : ''}>
+        Agregar
+      </button>
+    </div>
+
+    <div class="opcion-importar peligrosa">
+      <h3>Reemplazar todo</h3>
+      <p class="suave">
+        Te quedarían <strong>${datos.siReemplazo}</strong>: solo los del archivo.
+        ${datos.sePierden > 0
+          ? `<strong class="perdida">${datos.sePierden === 1
+              ? 'Se borraría 1 movimiento que tenés ahora y no está en el archivo'
+              : `Se borrarían ${datos.sePierden} movimientos que tenés ahora y no están en el archivo`}.</strong>`
+          : 'No perderías ninguno de los que tenés: están todos en el archivo.'}
+      </p>
+      <button type="button" class="peligro" data-accion="importar" data-modo="${MODO_REEMPLAZAR}">
+        Reemplazar todo
+      </button>
+    </div>
+
+    <button type="button" class="secundario" data-accion="cancelar-importar">
+      Dejar como está
+    </button>
   `;
 }

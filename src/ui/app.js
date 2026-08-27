@@ -24,6 +24,7 @@ import { dibujarResumen } from './pantallas/resumen.js';
 import { dibujarLista, borrarMovimiento, restaurarMovimiento, buscarMovimiento } from './pantallas/lista.js';
 import { dibujarDatos } from './pantallas/datos.js';
 import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
+import { leerRespaldo, previsualizar, aplicarImportacion } from '../datos/importar.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -244,7 +245,11 @@ export function irA(vista, nombre) {
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
   // media hora después y vería un error que ya no significa nada.
-  const limpia = { ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null, avisoRespaldo: null, mostrarRespaldo: false };
+  const limpia = {
+    ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null,
+    avisoRespaldo: null, mostrarRespaldo: false,
+    importacion: null, errorImportar: null, avisoImportar: null,
+  };
   return nombre === 'nuevo'
     ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
     : limpia;
@@ -417,6 +422,88 @@ export function iniciar(documento, almacen) {
     pintar();
   }
 
+  /**
+   * Lee un respaldo y **muestra qué pasaría**. No toca nada del estado guardado.
+   *
+   * Es el primero de los tres pasos de CU-08. Separarlo del aplicar es toda la
+   * diferencia entre "importar" y "importar sabiendo lo que va a pasar".
+   */
+  function prepararImportacion(texto) {
+    const leido = leerRespaldo(texto);
+    if (leido.error) {
+      vista = { ...vista, importacion: null, errorImportar: leido.error, avisoImportar: null };
+      pintar();
+      return;
+    }
+
+    vista = {
+      ...vista,
+      importacion: { leido, datos: previsualizar(vista.estado, leido), exportado: leido.exportado },
+      errorImportar: null,
+      avisoImportar: null,
+    };
+    pintar();
+  }
+
+  /** Aplica lo que el usuario eligió, y recién ahí escribe. */
+  function aplicarRespaldo(modo) {
+    if (!vista.importacion) return;
+
+    let nuevoEstado;
+    try {
+      nuevoEstado = aplicarImportacion(vista.estado, vista.importacion.leido, modo);
+    } catch (error) {
+      vista = { ...vista, errorImportar: error.message };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(nuevoEstado, almacen);
+    } catch (error) {
+      // No se pudo escribir: NO se cambia lo que está en pantalla. Mostrar los
+      // datos importados sobre un almacenamiento que no los guardó haría creer
+      // que la recuperación salió bien.
+      vista = { ...vista, errorImportar: error.message };
+      pintar();
+      return;
+    }
+
+    const { datos } = vista.importacion;
+    const cuantos = nuevoEstado.movimientos.length;
+    vista = {
+      ...vista,
+      estado: nuevoEstado,
+      importacion: null,
+      errorImportar: null,
+      avisoImportar: modo === 'reemplazar'
+        ? `Listo. Ahora tenés ${cuantos === 1 ? '1 movimiento' : `${cuantos} movimientos`}: los del archivo.`
+        : datos.nuevos === 0
+          ? `No entró ninguno: ya los tenías a todos. Seguís con ${cuantos}.`
+          : `Listo. Entraron ${datos.nuevos === 1 ? '1 movimiento' : `${datos.nuevos} movimientos`}` +
+            `${datos.yaEstan > 0 ? ` y se saltearon ${datos.yaEstan} que ya tenías` : ''}. ` +
+            `Ahora tenés ${cuantos}.`,
+    };
+    pintar();
+  }
+
+  // Elegir un archivo lo lee y muestra la previa. El archivo se lee con
+  // FileReader, que trabaja sobre el archivo que el usuario eligió a mano: no
+  // hay ninguna petición de red de por medio (RN-06).
+  raiz.addEventListener('change', (evento) => {
+    if (!evento.target.matches('input[type="file"][name="archivo"]')) return;
+    const archivo = evento.target.files?.[0];
+    if (!archivo) return;
+
+    const lector = new FileReader();
+    lector.onload = () => prepararImportacion(String(lector.result ?? ''));
+    lector.onerror = () => {
+      vista = { ...vista, errorImportar: 'No se pudo leer el archivo. Probá pegando el texto.' };
+      pintar();
+    };
+    lector.readAsText(archivo);
+  });
+
   raiz.addEventListener('input', (evento) => {
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
@@ -568,6 +655,15 @@ export function iniciar(documento, almacen) {
         error: null,
         aviso: null,
       };
+    } else if (accion === 'leer-pegado') {
+      const campo = raiz.querySelector('textarea[name="pegado"]');
+      prepararImportacion(campo?.value ?? '');
+      return;
+    } else if (accion === 'cancelar-importar') {
+      vista = { ...vista, importacion: null, errorImportar: null, avisoImportar: null };
+    } else if (accion === 'importar') {
+      aplicarRespaldo(boton.dataset.modo);
+      return;
     } else if (accion === 'exportar') {
       descargarRespaldo();
       return;
