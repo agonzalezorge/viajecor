@@ -7,10 +7,12 @@
 //      gráfico de tres barras para tres cifras que ya se leen en un vistazo
 //      agrega trabajo visual y no agrega información.
 //
-//   2. El desglose por rubro es una **tabla con barras de proporción**, y todas
-//      las barras son del **mismo color**. Pintar más oscuro al rubro más grande
-//      sería codificar dos veces lo mismo —el largo ya lo dice— y le pondría
-//      colores distintos a categorías que no significan nada distinto.
+//   2. El desglose por rubro es una **tabla con barras de proporción**, y cada
+//      barra lleva **el color de su rubro** (T-909), el mismo que ese rubro tiene
+//      en todas las demás pantallas. El color identifica al rubro y **nunca a su
+//      tamaño**: pintar más oscuro al más grande codificaría dos veces lo mismo
+//      —el largo ya lo dice— y haría que el color cambiara de significado cada
+//      vez que se carga un gasto.
 //
 //   3. Los importes de la tabla llevan cifras de ancho fijo, para poder
 //      compararlos en columna. Los tres números grandes de arriba **no**: en un
