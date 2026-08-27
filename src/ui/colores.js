@@ -32,34 +32,12 @@
 // indistinguible de alguno de estos bajo daltonismo. Si algún día hay más de
 // ocho rubros de un tipo, la salida es agrupar, no inventar un color.
 
-import { RUBROS_GASTO, RUBROS_INGRESO, TIPO_GASTO, normalizarClave } from '../core/modelo.js';
+import { COLORES, franjaDeRubro } from '../core/paleta.js';
 
-/** Cuántos colores hay. Es un tope, no un valor por omisión. */
-export const COLORES = 8;
+// Se reexportan para no obligar a media app a cambiar sus imports: lo que se
+// movió es dónde vive el cálculo, no quién lo usa.
+export { COLORES, franjaDeRubro };
 
-/**
- * En qué franja de color cae un rubro: un número de 1 a 8, estable para
- * siempre. Los rubros de gasto usan las ocho; los de ingreso, las primeras
- * cuatro.
- *
- * Que `otros` de gasto y `otros` de ingreso caigan en franjas distintas es
- * correcto y buscado: son cosas distintas (PRODUCTO §4).
- *
- * Que `gastos fijos` (gasto, franja 1) y `trabajo` (ingreso, franja 1) compartan
- * tono también es correcto: no aparecen nunca en la misma tabla, y cada tabla
- * asigna los tonos desde el principio de la lista.
- */
-export function franjaDeRubro(tipo, rubro) {
-  const lista = tipo === TIPO_GASTO ? RUBROS_GASTO : RUBROS_INGRESO;
-  const clave = normalizarClave(String(rubro ?? ''));
-  const posicion = lista.indexOf(clave);
-
-  // Un rubro que no está en la lista no debería existir (RN-02), pero si llega
-  // de un dato viejo se le da la última franja en vez de romper la pantalla.
-  return posicion === -1 ? COLORES : posicion + 1;
-}
-
-/** La clase CSS que pinta un rubro. Los tonos viven en `src/estilos.css`. */
 export function claseDeRubro(tipo, rubro) {
   return `rubro-${franjaDeRubro(tipo, rubro)}`;
 }

@@ -2255,6 +2255,88 @@ function formatearTipoDeCambio(eurosPorUnidad, moneda) {
   return `1 EUR = ${numero} ${codigo}`;
 }
 
+// ── src/core/paleta.js ──────────────────────────────────────────
+// Los ocho colores de los rubros, en un solo lugar — T-909, T-916.
+//
+// Vivían solo en `src/estilos.css`. Cuando la planilla de Excel pasó a pintar
+// cada rubro (T-916) hicieron falta también fuera del navegador, y la salida
+// fácil era copiarlos. Dos copias de una paleta son dos paletas: alguien cambia
+// un tono en la pantalla, la planilla se queda con el viejo, y el mismo gasto
+// pasa a ser de dos colores según dónde se lo mire.
+//
+// Acá viven una vez. El CSS los repite —no hay forma de que lea este archivo sin
+// una petición de red, y eso está prohibido (RN-06)— pero **un test comprueba
+// que sigan siendo los mismos**, así que la copia no se puede separar en
+// silencio. Es la misma solución que L-015 y L-017: cuando algo tiene que estar
+// sincronizado y no se puede compartir, se comprueba.
+//
+// ── Por qué hay dos versiones de cada color ──────────────────────────────────
+//
+// En la app el color es una **barra**: una forma pintada, sin texto encima, que
+// necesita ser saturada para leerse de lejos. En la planilla el color es el
+// **fondo de una celda con texto negro adentro**. El mismo tono que funciona en
+// una barra deja el texto ilegible en una celda.
+//
+// Los tonos claros son los mismos colores mezclados con blanco: se reconoce que
+// es el mismo rubro, y el texto negro encima se lee. No son otra paleta: son la
+// misma vista de otra manera.
+
+/** Cuántos colores hay. Es un tope, no un valor por omisión. */
+const COLORES = 8;
+
+/** Los ocho tonos, tal como se usan en las barras y los puntos de la app. */
+const COLORES_RUBRO = Object.freeze([
+  '#2a78d6',  // 1 · azul
+  '#eb6834',  // 2 · naranja
+  '#1baf7a',  // 3 · aguamarina
+  '#eda100',  // 4 · amarillo
+  '#e87ba4',  // 5 · magenta
+  '#008300',  // 6 · verde
+  '#4a3aa7',  // 7 · violeta
+  '#e34948',  // 8 · rojo
+]);
+
+/** Los mismos ocho, aclarados para servir de fondo a un texto negro. */
+const FONDOS_RUBRO = Object.freeze([
+  '#D0E1F6',  // 1 · azul
+  '#FBDED2',  // 2 · naranja
+  '#CDEDE2',  // 3 · aguamarina
+  '#FBEAC7',  // 4 · amarillo
+  '#FAE2EB',  // 5 · magenta
+  '#C7E4C7',  // 6 · verde
+  '#D7D4EC',  // 7 · violeta
+  '#F9D7D7',  // 8 · rojo
+]);
+
+/**
+ * En qué franja de color cae un rubro: un número de 1 a 8, estable para
+ * siempre. Los rubros de gasto usan las ocho; los de ingreso, las primeras
+ * cuatro.
+ *
+ * Que `otros` de gasto y `otros` de ingreso caigan en franjas distintas es
+ * correcto y buscado: son cosas distintas (PRODUCTO §4).
+ *
+ * Que `gastos fijos` (gasto, franja 1) y `trabajo` (ingreso, franja 1) compartan
+ * tono también es correcto: no aparecen nunca en la misma tabla, y cada tabla
+ * asigna los tonos desde el principio de la lista.
+ */
+function franjaDeRubro(tipo, rubro) {
+  const lista = tipo === TIPO_GASTO ? RUBROS_GASTO : RUBROS_INGRESO;
+  const clave = normalizarClave(String(rubro ?? ''));
+  const posicion = lista.indexOf(clave);
+
+  // Un rubro que no está en la lista no debería existir (RN-02), pero si llega
+  // de un dato viejo se le da la última franja en vez de romper la pantalla.
+  return posicion === -1 ? COLORES : posicion + 1;
+}
+
+/** La clase CSS que pinta un rubro. Los tonos viven en `src/estilos.css`. */
+/** El fondo de una franja (1 a 8), en el formato que quiere Excel: sin `#`. */
+function fondoDeFranja(franja) {
+  const color = FONDOS_RUBRO[franja - 1] ?? FONDOS_RUBRO[FONDOS_RUBRO.length - 1];
+  return color.slice(1).toUpperCase();
+}
+
 // ── src/datos/almacenamiento.js ─────────────────────────────────
 // La única puerta a los datos guardados. Todo lo que la app persiste pasa por
 // acá, bajo una sola clave de localStorage (ARQUITECTURA §6).
@@ -3309,6 +3391,7 @@ function unir(partes) {
 
 
 
+
 const NS_HOJA = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const NS_RELACIONES = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const NS_PAQUETE = 'http://schemas.openxmlformats.org/package/2006/relationships';
@@ -3333,17 +3416,32 @@ const escaparXml = (texto) => String(texto)
 const LETRAS_DE_COLUMNA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const columnaDeExcel = (n) => (n < 26 ? LETRAS_DE_COLUMNA[n] : LETRAS_DE_COLUMNA[Math.floor(n / 26) - 1] + LETRAS_DE_COLUMNA[n % 26]);
 
-// Estilos, por número, tal como los define `estilos()` más abajo.
+// Estilos, por número, tal como los define `FORMATOS` más abajo.
 const NORMAL = 0;
 const TITULO = 1;
 const ENCABEZADO = 2;
 const EUROS = 3;
-const MES_LARGO = 4;
+const MES_CORTO = 4;
+const BANDA = 5;
+const TIPO = 6;
+const CELDA = 7;
+const CENTRADA = 8;
+const EUROS_TOTAL = 9;
+
+// Los encabezados de rubro con su color empiezan acá; la celda del rubro en la
+// lista de movimientos, ocho más adelante. Se suma la franja del rubro (1 a 8).
+const RUBRO_ENCABEZADO_BASE = 9;
+const RUBRO_CELDA_BASE = 17;
 
 function celda(col, fila, valor, estilo = NORMAL) {
-  if (valor === '' || valor === null || valor === undefined) return '';
   const ref = `${columnaDeExcel(col)}${fila}`;
   const s = estilo ? ` s="${estilo}"` : '';
+
+  // Sin valor: una celda que solo lleva formato. Es lo que da los bordes de una
+  // fila y lo que sostiene las celdas de al lado de una banda combinada.
+  if (valor === '' || valor === null || valor === undefined) {
+    return estilo === NORMAL ? '' : `<c r="${ref}"${s}/>`;
+  }
 
   if (typeof valor === 'number') return `<c r="${ref}"${s}><v>${valor}</v></c>`;
   return `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${escaparXml(valor)}</t></is></c>`;
@@ -3397,12 +3495,37 @@ function aDosDecimales(euros) {
  */
 function nuevaRejilla() {
   const celdas = new Map();
+  const combinadas = [];
 
   return {
+    /**
+     * Pone una celda. Sin valor pero con estilo, escribe una celda **vacía con
+     * formato**: es lo que hace falta para los bordes de una fila y para las
+     * celdas de al lado de una banda combinada.
+     *
+     * La primera versión ponía un espacio en esos casos. Andaba, pero dejaba la
+     * planilla llena de celdas que *parecen* vacías y no lo son: filtrar,
+     * ordenar o contar en Excel las trata como texto.
+     */
     poner(fila, col, valor, estilo = NORMAL) {
-      if (valor === '' || valor === null || valor === undefined) return;
-      celdas.set(`${fila}|${col}`, { fila, col, valor, estilo });
+      const vacia = valor === '' || valor === null || valor === undefined;
+      if (vacia && estilo === NORMAL) return;
+      celdas.set(`${fila}|${col}`, { fila, col, valor: vacia ? null : valor, estilo });
     },
+    /**
+     * Une varias celdas en una, para las bandas de título.
+     *
+     * En Excel una celda combinada **sigue siendo varias celdas**: la de arriba
+     * a la izquierda lleva el valor y las otras tienen que existir igual, aunque
+     * sea vacías, o el archivo queda inconsistente. Por eso quien llama a esto
+     * escribe también las celdas de al lado con un espacio.
+     */
+    combinar(desdeFila, desdeCol, hastaFila, hastaCol) {
+      combinadas.push(
+        `${columnaDeExcel(desdeCol)}${desdeFila}:${columnaDeExcel(hastaCol)}${hastaFila}`
+      );
+    },
+    combinadas: () => combinadas,
     aXml() {
       const porFila = new Map();
       for (const celda of celdas.values()) {
@@ -3421,16 +3544,16 @@ function nuevaRejilla() {
   };
 }
 
-// Las dos columnas del bloque de la derecha.
+// La primera columna del bloque de la derecha. Los rubros se escriben a lo
+// ancho desde acá, como en la planilla original.
 const COL_RESUMEN = 9;
-const COL_RESUMEN_VALOR = 10;
 
 /**
  * Escribe el bloque de un mes en la rejilla y devuelve dónde sigue el siguiente.
  *
- * A la izquierda van los movimientos, uno por fila, con el acumulado del mes.
- * A la derecha van los resúmenes que la planilla original tenía como fórmulas:
- * gastos por rubro, ingresos por rubro, los totales y el gasto por día.
+ * A la izquierda, los movimientos uno por fila con el acumulado del mes. A la
+ * derecha, los resúmenes que en la planilla original son fórmulas: gastos por
+ * rubro, ingresos por rubro, los totales y el gasto por día.
  *
  * Todo eso está **calculado sobre todas las filas**, sin ningún rango escrito a
  * mano. Es la única diferencia con la planilla original, y es la razón de ser de
@@ -3444,22 +3567,25 @@ function escribirMes(rejilla, estado, mes, desde) {
     .sort((a, b) => a.fecha.localeCompare(b.fecha) || String(a.creado).localeCompare(String(b.creado)));
 
   let n = desde + 1;
-  rejilla.poner(n, 0, formatearMes(mes).toUpperCase().replace(' DE ', ' '), TITULO);
+
+  // La banda amarilla con el mes, cruzando el ancho, como en la original.
+  const filaDelTitulo = n;
+  for (let col = 0; col <= COL_RESUMEN + 8; col += 1) {
+    rejilla.poner(n, col, col === 0 ? formatearMes(mes).toUpperCase().replace(' DE ', ' ') : null, TITULO);
+  }
+  rejilla.combinar(n, 0, n, COL_RESUMEN + 8);
   n += 2;
 
-  rejilla.poner(n, 0, 'INGRESOS Y GASTOS', ENCABEZADO);
-  rejilla.poner(n, COL_RESUMEN, 'GASTOS POR TIPO', ENCABEZADO);
-  // Dos filas más abajo: una es la de los encabezados (`RUBRO` / `MONTO`) que se
-  // escriben justo debajo. Con una sola, el primer rubro los pisaba — y como la
-  // rejilla guarda una celda por posición, lo hacía en silencio.
-  const filaDelResumen = n + 2;
+  // La banda rosa de "INGRESOS Y GASTOS" sobre las columnas de la izquierda.
+  const ENCABEZADOS = ['G/Acum./Mes', 'Comentarios', 'DÍA', 'MES', 'DETALLES', 'RUBRO', 'MONTO', 'I/G'];
+  for (let col = 0; col < ENCABEZADOS.length; col += 1) {
+    rejilla.poner(n, col, col === 0 ? 'INGRESOS Y GASTOS' : null, BANDA);
+  }
+  rejilla.combinar(n, 0, n, ENCABEZADOS.length - 1);
+  const filaDelResumen = n;
   n += 1;
 
-  for (const [i, titulo] of ['G/Acum./Mes', 'Comentarios', 'DÍA', 'MES', 'DETALLES', 'RUBRO', 'MONTO', 'I/G'].entries()) {
-    rejilla.poner(n, i, titulo, ENCABEZADO);
-  }
-  rejilla.poner(n, COL_RESUMEN, 'RUBRO', ENCABEZADO);
-  rejilla.poner(n, COL_RESUMEN_VALOR, 'MONTO', ENCABEZADO);
+  for (const [col, titulo] of ENCABEZADOS.entries()) rejilla.poner(n, col, titulo, ENCABEZADO);
   n += 1;
 
   // ── Los movimientos ────────────────────────────────────────────────────────
@@ -3482,23 +3608,27 @@ function escribirMes(rejilla, estado, mes, desde) {
       ? `falta el tipo de cambio de ${movimiento.moneda} para ${mesDe(movimiento.fecha)}`
       : '';
 
-    if (movimiento.tipo === TIPO_GASTO && !falta) {
-      rejilla.poner(n, 0, aDosDecimales(acumulado), EUROS);
-    }
-    rejilla.poner(n, 1, movimiento.comentario);
-    rejilla.poner(n, 2, Number(movimiento.fecha.slice(8, 10)));
-    rejilla.poner(n, 3, fechaDeExcel(`${mes}-01`), MES_LARGO);
-    rejilla.poner(n, 4, [movimiento.detalle, motivo].filter(Boolean).join(' — '));
-    rejilla.poner(n, 5, formatearRubro(movimiento.rubro));
-    rejilla.poner(n, 6, euros === null ? '' : aDosDecimales(euros), EUROS);
-    rejilla.poner(n, 7, movimiento.tipo);
+    rejilla.poner(n, 0, movimiento.tipo === TIPO_GASTO && !falta ? aDosDecimales(acumulado) : null, EUROS);
+    rejilla.poner(n, 1, movimiento.comentario || null, CELDA);
+    rejilla.poner(n, 2, Number(movimiento.fecha.slice(8, 10)), CENTRADA);
+    rejilla.poner(n, 3, fechaDeExcel(`${mes}-01`), MES_CORTO);
+    rejilla.poner(n, 4, [movimiento.detalle, motivo].filter(Boolean).join(' — ') || null, CELDA);
+    // El rubro va con SU color, el mismo que tiene en la app (T-909, T-916).
+    rejilla.poner(n, 5, formatearRubro(movimiento.rubro),
+      RUBRO_CELDA_BASE + franjaDeRubro(movimiento.tipo, movimiento.rubro));
+    rejilla.poner(n, 6, euros === null ? null : aDosDecimales(euros), EUROS);
+    rejilla.poner(n, 7, movimiento.tipo, TIPO);
     n += 1;
   }
 
   const ultimaDeLaIzquierda = n;
   const ultimaDeLaDerecha = escribirResumen(rejilla, estado, mes, filaDelResumen);
 
-  return { siguiente: Math.max(ultimaDeLaIzquierda, ultimaDeLaDerecha) + 1, sinConvertir };
+  return {
+    siguiente: Math.max(ultimaDeLaIzquierda, ultimaDeLaDerecha) + 1,
+    sinConvertir,
+    filaDelTitulo,
+  };
 }
 
 /**
@@ -3506,61 +3636,109 @@ function escribirMes(rejilla, estado, mes, desde) {
  *
  * **Incluye los que no se usaron, en cero.** Es lo contrario de lo que hace la
  * app en pantalla, donde `porRubro()` devuelve solo los rubros con movimientos:
- * en un celular, ocho filas en cero son ruido que tapa las tres que importan.
+ * en un celular, ocho columnas en cero son ruido que tapa las tres que importan.
  *
  * En una planilla es al revés, y por eso el usuario lo pidió (2026-08-27): con
- * todos los rubros siempre presentes, cada uno cae **en la misma fila todos los
+ * todos los rubros siempre presentes, cada uno cae **en el mismo lugar todos los
  * meses**, se pueden comparar meses de un vistazo y se pueden arrastrar
  * fórmulas. El mismo dato quiere formas distintas según dónde se lo mire.
  *
  * El orden es el de la lista de rubros, no el del tamaño: si fuera por tamaño,
- * cada mes tendría las filas en otro lugar y se perdería justamente lo que hace
- * útil tenerlas todas.
+ * cada mes tendría las columnas en otro lugar y se perdería justamente lo que
+ * hace útil tenerlas todas.
  */
 function todosLosRubros(estado, mes, tipo) {
   const conMovimientos = new Map(porRubro(estado, mes, tipo).map((r) => [r.rubro, r.total]));
 
+  // El tercer elemento es el rubro sin formatear: lo necesita el color, que se
+  // calcula con la clave y no con la etiqueta que se muestra.
   return rubrosDe(tipo).map((rubro) => [
     formatearRubro(rubro),
     aEuros(conMovimientos.get(rubro) ?? 0),
+    rubro,
   ]);
 }
 
-/** Los bloques de la derecha. Devuelve la última fila que ocupó. */
+/**
+ * Los bloques de la derecha, con los rubros **a lo ancho** — T-916.
+ *
+ * Es la forma de la planilla original: una fila de encabezados con los ocho
+ * rubros y una fila de valores debajo, con una columna `TOTAL` al final. Puestos
+ * así, los doce meses del año quedan uno debajo del otro y se leen como una
+ * tabla; puestos en filas, cada mes es una lista que hay que recorrer.
+ *
+ * Devuelve la última fila que ocupó.
+ */
 function escribirResumen(rejilla, estado, mes, desde) {
   let n = desde;
 
-  const bloque = (titulo, filas) => {
-    if (titulo !== null) {
-      rejilla.poner(n, COL_RESUMEN, titulo, ENCABEZADO);
-      rejilla.poner(n, COL_RESUMEN_VALOR, 'MONTO', ENCABEZADO);
-      n += 1;
+  const bloque = (titulo, columnas, tipo) => {
+    // La banda rosa del título, cruzando el ancho del bloque.
+    for (let i = 0; i <= columnas.length; i += 1) {
+      rejilla.poner(n, COL_RESUMEN + i, i === 0 ? titulo : null, BANDA);
     }
-    for (const [etiqueta, valor] of filas) {
-      rejilla.poner(n, COL_RESUMEN, etiqueta);
-      rejilla.poner(n, COL_RESUMEN_VALOR, aDosDecimales(valor), EUROS);
-      n += 1;
+    rejilla.combinar(n, COL_RESUMEN, n, COL_RESUMEN + columnas.length);
+    n += 1;
+
+    // Los encabezados, cada uno con el color de su rubro.
+    for (const [i, [etiqueta]] of columnas.entries()) {
+      const estilo = tipo === null
+        ? ENCABEZADO
+        : RUBRO_ENCABEZADO_BASE + franjaDeRubro(tipo, columnas[i][2] ?? etiqueta);
+      rejilla.poner(n, COL_RESUMEN + i, etiqueta.toUpperCase(), estilo);
     }
-    n += 1; // una fila de aire entre bloques
+    rejilla.poner(n, COL_RESUMEN + columnas.length, 'TOTAL', ENCABEZADO);
+    n += 1;
+
+    // Y la fila de valores, con su total al final.
+    let total = 0;
+    for (const [i, [, valor]] of columnas.entries()) {
+      total += valor;
+      rejilla.poner(n, COL_RESUMEN + i, aDosDecimales(valor), EUROS);
+    }
+    rejilla.poner(n, COL_RESUMEN + columnas.length, aDosDecimales(total), EUROS_TOTAL);
+    n += 2;  // una fila de aire entre bloques
   };
 
-  // El encabezado de este primero ya lo escribió `escribirMes`, junto con el
-  // título "GASTOS POR TIPO" que va una fila más arriba.
-  bloque(null, todosLosRubros(estado, mes, TIPO_GASTO));
-  bloque('INGRESOS POR TIPO', todosLosRubros(estado, mes, TIPO_INGRESO));
+  bloque('GASTOS POR TIPO', todosLosRubros(estado, mes, TIPO_GASTO), TIPO_GASTO);
+  bloque('INGRESOS POR TIPO', todosLosRubros(estado, mes, TIPO_INGRESO), TIPO_INGRESO);
 
   const totales = totalesDelMes(estado, mes);
-  bloque('TOTALES', [
-    ['Gastos', aEuros(totales.gastos)],
-    ['Ingresos', aEuros(totales.ingresos)],
-    ['Saldo', aEuros(totales.saldo)],
-  ]);
+  // Los totales no llevan color de rubro: no son rubros. Y el saldo se llama
+  // "SALDO MENSUAL", como en la planilla original.
+  bloqueDeTotales(rejilla, n, totales);
+  n += 4;  // tres filas del bloque más una de aire, como los demás
 
-  // El gasto por día lleva **todos** los días del mes, también los de cero: es
-  // un calendario, y un calendario al que le faltan días no se puede leer.
-  bloque('GASTO POR DÍA', porDia(estado, mes).map((d) => [d.dia, aEuros(d.gasto)]));
+  // El gasto por día lleva TODOS los días del mes, también los de cero: es un
+  // calendario, y a un calendario al que le faltan días no se lo puede leer.
+  const dias = porDia(estado, mes);
+  for (let i = 0; i <= dias.length; i += 1) {
+    rejilla.poner(n, COL_RESUMEN + i, i === 0 ? 'GASTO POR DÍA' : null, BANDA);
+  }
+  rejilla.combinar(n, COL_RESUMEN, n, COL_RESUMEN + dias.length);
+  n += 1;
+  for (const [i, dia] of dias.entries()) {
+    rejilla.poner(n, COL_RESUMEN + i, dia.dia, ENCABEZADO);
+    rejilla.poner(n + 1, COL_RESUMEN + i, aDosDecimales(aEuros(dia.gasto)), EUROS);
+  }
+  n += 2;
 
-  return n - 1;
+  return n;
+}
+
+/** El bloque de totales: gastos, ingresos y saldo mensual. */
+function bloqueDeTotales(rejilla, fila, totales) {
+  for (let i = 0; i < 3; i += 1) {
+    rejilla.poner(fila, COL_RESUMEN + i, i === 0 ? 'TOTALES' : null, BANDA);
+  }
+  rejilla.combinar(fila, COL_RESUMEN, fila, COL_RESUMEN + 2);
+
+  for (const [i, etiqueta] of ['GASTOS', 'INGRESOS', 'SALDO MENSUAL'].entries()) {
+    rejilla.poner(fila + 1, COL_RESUMEN + i, etiqueta, ENCABEZADO);
+  }
+  for (const [i, valor] of [totales.gastos, totales.ingresos, totales.saldo].entries()) {
+    rejilla.poner(fila + 2, COL_RESUMEN + i, aDosDecimales(aEuros(valor)), EUROS_TOTAL);
+  }
 }
 
 /**
@@ -3586,42 +3764,101 @@ function hojaDeMovimientos(estado) {
 <col min="3" max="3" width="6"/><col min="4" max="4" width="16"/>
 <col min="5" max="5" width="28"/><col min="6" max="6" width="16"/>
 <col min="7" max="7" width="12"/><col min="8" max="8" width="5"/>
-<col min="10" max="10" width="16"/><col min="11" max="11" width="12"/>
-</cols><sheetData>${rejilla.aXml()}</sheetData></worksheet>`,
+<col min="10" max="18" width="14"/>
+</cols><sheetData>${rejilla.aXml()}</sheetData>${
+  // Las celdas combinadas van DESPUÉS de sheetData: el esquema de una hoja fija
+  // el orden de sus partes y Excel se niega a abrir el archivo si se altera.
+  rejilla.combinadas().length > 0
+    ? `<mergeCells count="${rejilla.combinadas().length}">${
+        rejilla.combinadas().map((r) => `<mergeCell ref="${r}"/>`).join('')
+      }</mergeCells>`
+    : ''
+}</worksheet>`,
     sinConvertir,
     meses: meses.length,
   };
 }
 
 /**
- * Los estilos. Excel necesita este archivo aunque no se use ninguno: sin él, no
- * abre.
+ * Los estilos de la planilla.
+ *
+ * Excel necesita este archivo aunque no se use ninguno: sin él, no abre. Y su
+ * orden interno es rígido —`numFmts`, `fonts`, `fills`, `borders`,
+ * `cellStyleXfs`, `cellXfs`— y no perdona.
+ *
+ * Se genera en vez de escribirse a mano porque hay un relleno por rubro: doce
+ * colores escritos uno por uno serían doce oportunidades de equivocarse en un
+ * índice, y un índice equivocado no da error, **pinta la celda de otro color**.
  */
 function estilos() {
+  // Los rellenos: los dos que Excel exige primero, después los de las bandas, y
+  // al final los ocho de los rubros. El orden fija los números de más abajo.
+  const rellenos = [
+    '<fill><patternFill patternType="none"/></fill>',
+    '<fill><patternFill patternType="gray125"/></fill>',
+    relleno('FFFF00'),   // 2 · la banda del mes, amarilla como la original
+    relleno('F2D9E6'),   // 3 · las bandas de título de bloque, rosas
+    relleno('E8E8E8'),   // 4 · los encabezados de columna
+    ...FONDOS_RUBRO.map((color) => relleno(color.slice(1).toUpperCase())),  // 5..12
+  ];
+
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="${NS_HOJA}">
 <numFmts count="2">
 <numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/>
-<numFmt numFmtId="165" formatCode="mmmm\\ yyyy"/>
+<numFmt numFmtId="165" formatCode="mm/yy"/>
 </numFmts>
-<fonts count="3">
+<fonts count="5">
 <font><sz val="11"/><name val="Calibri"/></font>
 <font><b/><sz val="14"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><name val="Calibri"/></font>
+<font><sz val="11"/><color rgb="FFC00000"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FF444444"/><name val="Calibri"/></font>
 </fonts>
-<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
-<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<fills count="${rellenos.length}">${rellenos.join('')}</fills>
+<borders count="2">
+<border><left/><right/><top/><bottom/><diagonal/></border>
+<border>
+<left style="thin"><color rgb="FF808080"/></left><right style="thin"><color rgb="FF808080"/></right>
+<top style="thin"><color rgb="FF808080"/></top><bottom style="thin"><color rgb="FF808080"/></bottom>
+<diagonal/></border>
+</borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="5">
-<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-</cellXfs>
+<cellXfs count="${FORMATOS.length}">${FORMATOS.join('')}</cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
 }
+
+const relleno = (rgb) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${rgb}"/><bgColor indexed="64"/></patternFill></fill>`;
+
+/**
+ * Un formato de celda. Los nombres dicen para qué es cada uno, porque en el XML
+ * son números y un número equivocado no da error: cambia cómo se ve el dato.
+ */
+const formato = ({ numero = 0, fuente = 0, relleno: fill = 0, borde = 0, centrado = false } = {}) =>
+  `<xf numFmtId="${numero}" fontId="${fuente}" fillId="${fill}" borderId="${borde}" xfId="0"` +
+  ` applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"` +
+  `${centrado ? ' applyAlignment="1"><alignment horizontal="center"/></xf>' : '/>'}`;
+
+// El orden de esta lista fija los números que usa la hoja. Agregar uno al final
+// es seguro; meterlo en el medio corre todos los de abajo.
+const FORMATOS = [
+  formato(),                                                        // 0 NORMAL
+  formato({ fuente: 1, relleno: 2, centrado: true, borde: 1 }),      // 1 TITULO (banda del mes)
+  formato({ fuente: 2, relleno: 4, borde: 1, centrado: true }),      // 2 ENCABEZADO
+  formato({ numero: 164, borde: 1 }),                                // 3 EUROS
+  formato({ numero: 165, borde: 1, centrado: true }),                // 4 MES_CORTO
+  formato({ fuente: 2, relleno: 3, borde: 1, centrado: true }),      // 5 BANDA (título de bloque)
+  formato({ fuente: 3, borde: 1, centrado: true }),                  // 6 TIPO (la I/G, en rojo)
+  formato({ borde: 1 }),                                             // 7 CELDA (texto con borde)
+  formato({ borde: 1, centrado: true }),                             // 8 CENTRADA
+  formato({ numero: 164, fuente: 2, relleno: 4, borde: 1 }),         // 9 EUROS_TOTAL
+  // 10..17 · un encabezado por rubro, con su color. Tienen que quedar al final:
+  // la hoja los busca sumando la franja del rubro a RUBRO_BASE.
+  ...FONDOS_RUBRO.map((_, i) => formato({ fuente: 2, relleno: 5 + i, borde: 1, centrado: true })),
+  // 18..25 · la celda del rubro en la lista de movimientos, con el mismo color.
+  ...FONDOS_RUBRO.map((_, i) => formato({ relleno: 5 + i, borde: 1, centrado: true })),
+];
 
 /**
  * La planilla entera, lista para guardar. Devuelve `{ nombre, bytes, tipo,
@@ -3713,32 +3950,9 @@ function crearPlanilla(estado, { fecha = hoy() } = {}) {
 // indistinguible de alguno de estos bajo daltonismo. Si algún día hay más de
 // ocho rubros de un tipo, la salida es agrupar, no inventar un color.
 
-/** Cuántos colores hay. Es un tope, no un valor por omisión. */
-const COLORES = 8;
+// Se reexportan para no obligar a media app a cambiar sus imports: lo que se
+// movió es dónde vive el cálculo, no quién lo usa.
 
-/**
- * En qué franja de color cae un rubro: un número de 1 a 8, estable para
- * siempre. Los rubros de gasto usan las ocho; los de ingreso, las primeras
- * cuatro.
- *
- * Que `otros` de gasto y `otros` de ingreso caigan en franjas distintas es
- * correcto y buscado: son cosas distintas (PRODUCTO §4).
- *
- * Que `gastos fijos` (gasto, franja 1) y `trabajo` (ingreso, franja 1) compartan
- * tono también es correcto: no aparecen nunca en la misma tabla, y cada tabla
- * asigna los tonos desde el principio de la lista.
- */
-function franjaDeRubro(tipo, rubro) {
-  const lista = tipo === TIPO_GASTO ? RUBROS_GASTO : RUBROS_INGRESO;
-  const clave = normalizarClave(String(rubro ?? ''));
-  const posicion = lista.indexOf(clave);
-
-  // Un rubro que no está en la lista no debería existir (RN-02), pero si llega
-  // de un dato viejo se le da la última franja en vez de romper la pantalla.
-  return posicion === -1 ? COLORES : posicion + 1;
-}
-
-/** La clase CSS que pinta un rubro. Los tonos viven en `src/estilos.css`. */
 function claseDeRubro(tipo, rubro) {
   return `rubro-${franjaDeRubro(tipo, rubro)}`;
 }

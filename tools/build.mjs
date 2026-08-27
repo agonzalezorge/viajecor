@@ -25,6 +25,7 @@ const MODULOS = [
   'src/core/cambio.js',
   'src/core/calculos.js',
   'src/core/formato.js',
+  'src/core/paleta.js',
   'src/datos/almacenamiento.js',
   'src/datos/exportar.js',
   'src/datos/importar.js',

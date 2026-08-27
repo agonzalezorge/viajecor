@@ -107,7 +107,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-913 | "Cargar" es la primera pestaña | **Hecha** | T-010 |
 | T-914 | Recordar que compartir no funciona en este teléfono | **Hecha** | T-905 |
 | T-915 | Todos los rubros en cada mes del `.xlsx`, aunque estén en cero | **Hecha** | T-906 |
-| T-916 | La planilla se parece de verdad a la original | En curso (claude, 2026-08-27) | T-906, T-915 |
+| T-916 | La planilla se parece de verdad a la original | **Hecha** | T-906, T-915 |
 | T-917 | Los dos gráficos del `.xlsx` (torta y evolución) | Necesita decisión | T-916 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
@@ -1187,6 +1187,29 @@ celda el color es fondo de un texto negro y no una barra.
 
 **Para que no haya dos paletas que se separen**, los ocho tonos pasan a vivir en
 `core/paleta.js`, y un test comprueba que los del CSS sigan siendo los mismos.
+`franjaDeRubro()` se muda con ellos: la usaban la pantalla y ahora también la
+planilla, y `datos/` no puede importar de `ui/` (ARQUITECTURA).
+
+**Cómo quedó (Hecha, 2026-08-27).** Todo lo de la tabla de arriba. Además:
+
+- Los colores de celda son **versiones claras** de la paleta: en la app el color
+  es una barra sin texto encima y necesita saturación; en una celda es el fondo
+  de un texto negro, y el mismo tono lo dejaría ilegible. Un test exige que los
+  ocho tonos claros pasen un umbral de luminancia.
+- La `I/G` va en rojo, como en la original.
+- Las celdas vacías se escriben **vacías con formato**, no con un espacio. La
+  primera versión ponía un espacio para que se vieran los bordes: andaba, y
+  dejaba la planilla llena de celdas que *parecen* vacías y no lo son — filtrar,
+  ordenar o contar en Excel las trata como texto.
+
+**Verificado:** 529 tests. Once mutaciones, once detectadas; dos destaparon
+huecos —el formato del mes se comprobaba por el **número** de estilo y no por lo
+que ese estilo dice, y las bandas combinadas se comprobaban solo en una de las
+seis—. Ahora los tests **abren el `.xlsx` y leen `xl/styles.xml`**, que es lo que
+Excel lee. El archivo descargado desde el navegador, leído con openpyxl y
+exceljs: seis celdas combinadas, `mm/yy` en la columna MES, los fondos de color
+por rubro (`Supermercado` naranja claro, `Comida hecha` aguamarina), el mismo
+tono en el encabezado del resumen, y la `I/G` en rojo.
 
 ---
 

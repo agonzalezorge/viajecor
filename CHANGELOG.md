@@ -40,6 +40,11 @@ La versión publicada vive en el archivo `VERSION`.
   «Permission denied» al tocar el botón. Ahora el error se explica en castellano,
   se recuerda, la descarga vuelve a ser el botón principal, y queda un *Probar de
   nuevo* por si cambiás un permiso.
+- **La planilla se parece de verdad a la tuya** (T-916): los rubros van en
+  columnas con su `TOTAL` al final, el mes se escribe `08/26`, cada rubro lleva
+  **su color** —el mismo que tiene en la app—, el título del mes es una banda
+  amarilla, los de bloque son bandas rosas, la `I/G` va en rojo y el saldo se
+  llama `SALDO MENSUAL`.
 - **En la planilla aparecen todos los rubros todos los meses**, con 0 cuando no
   hubo movimientos (T-915), para poder comparar meses de un vistazo y arrastrar
   fórmulas.
