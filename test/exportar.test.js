@@ -266,3 +266,49 @@ test('nada de lo que dibuja la pantalla contiene una dirección de internet', ()
 test('por omisión el respaldo se prepara con la fecha de hoy', () => {
   assert.equal(prepararRespaldo(estadoLimpio()).nombre, nombreDelRespaldo(hoy()));
 });
+
+// ── Recordar que compartir no funciona (T-914) ───────────────────────────────
+
+test('con compartir disponible, se ofrece el botón', () => {
+  const html = dibujarDatos({ estado: cargar(estadoLimpio()), puedeCompartir: true });
+
+  assert.match(html, /data-accion="compartir"/);
+});
+
+test('si ya falló una vez, el botón no se vuelve a ofrecer', () => {
+  // `canShare({files})` dice que sí y `share()` falla igual — pasó en el Android
+  // del usuario. Como el navegador miente, la única fuente confiable es haberlo
+  // intentado. Repetir el error cada semana enseña a desconfiar de la pantalla.
+  const estado = cargar(estadoLimpio());
+  const conFallo = { ...estado, preferencias: { ...estado.preferencias, compartir_no_funciona: true } };
+  const html = dibujarDatos({ estado: conFallo, puedeCompartir: true });
+
+  assert.equal(/data-accion="compartir"/.test(html), false);
+  assert.equal(/data-accion="compartir-planilla"/.test(html), false);
+});
+
+test('cuando no se ofrece compartir, descargar vuelve a ser el botón principal', () => {
+  const estado = cargar(estadoLimpio());
+  const conFallo = { ...estado, preferencias: { ...estado.preferencias, compartir_no_funciona: true } };
+  const boton = dibujarDatos({ estado: conFallo, puedeCompartir: true })
+    .match(/<button[^>]*data-accion="exportar"[^>]*>/)[0];
+
+  assert.match(boton, /class="principal"/);
+});
+
+test('la pantalla explica por qué no está el botón, y deja reintentar', () => {
+  // Un botón que desaparece sin explicación se lee como un error de la app. Y
+  // puede ser un permiso que el usuario cambie después: tiene que poder volver.
+  const estado = cargar(estadoLimpio());
+  const conFallo = { ...estado, preferencias: { ...estado.preferencias, compartir_no_funciona: true } };
+  const html = dibujarDatos({ estado: conFallo, puedeCompartir: true });
+
+  assert.match(html, /no funciona en este teléfono/);
+  assert.match(html, /data-accion="reintentar-compartir"/);
+});
+
+test('sin haber fallado, no se explica nada ni se ofrece reintentar', () => {
+  const html = dibujarDatos({ estado: cargar(estadoLimpio()), puedeCompartir: true });
+
+  assert.equal(/reintentar-compartir/.test(html), false);
+});

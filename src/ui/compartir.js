@@ -73,7 +73,10 @@ export async function compartirRespaldo(navegador, respaldo, ConstructorArchivo)
   }
 
   if (!sePuedeCompartir(navegador, archivo)) {
-    return { error: 'Este navegador no puede compartir archivos. Usá el botón de descargar.' };
+    return {
+      error: 'Este navegador no puede compartir archivos. Usá el botón de descargar.',
+      noVaAFuncionar: true,
+    };
   }
 
   try {
@@ -86,6 +89,30 @@ export async function compartirRespaldo(navegador, respaldo, ConstructorArchivo)
     return { compartido: true };
   } catch (error) {
     if (error?.name === 'AbortError') return { cancelado: true };
-    return { error: `No se pudo compartir el archivo (${error.message}). Probá con el botón de descargar.` };
+    return { error: explicarFallo(error), noVaAFuncionar: true };
   }
+}
+
+/**
+ * El fallo, en castellano — T-914.
+ *
+ * En el Android del usuario, con la app abierta desde el disco, compartir falla
+ * con `Permission denied`. Eso no le dice nada a nadie, y menos a alguien que
+ * está tratando de poner sus datos a salvo. El mensaje tiene que decir **qué
+ * pasó, por qué, y qué hacer en su lugar**.
+ *
+ * `canShare({files})` había dicho que sí. Es un caso donde el navegador promete
+ * y después no cumple, así que la promesa no se puede tomar como garantía: por
+ * eso el resultado marca `noVaAFuncionar`, para que la pantalla deje de ofrecer
+ * un botón que ya se sabe que falla (L-016).
+ */
+function explicarFallo(error) {
+  const detalle = String(error?.message ?? '');
+  const esPermiso = error?.name === 'NotAllowedError' || /permission denied/i.test(detalle);
+
+  return esPermiso
+    ? 'Tu navegador no deja compartir archivos cuando la app está abierta desde el disco. ' +
+      'No es un problema de tus datos: usá el botón de descargar y subí el archivo desde ' +
+      'la carpeta de descargas, que funciona igual.'
+    : `No se pudo compartir el archivo (${detalle}). Usá el botón de descargar, que hace lo mismo en dos pasos.`;
 }

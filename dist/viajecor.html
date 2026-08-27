@@ -727,6 +727,20 @@ body {
 .peligro-datos h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--gasto); }
 .peligro-datos p { margin: 0 0 0.5rem; font-size: 0.9375rem; }
 .peligro-datos p:last-child { margin-bottom: 0; }
+
+/* Un botón que se lee como un enlace: para acciones secundarias que van dentro
+   de un párrafo, como "probar de nuevo". Es un <button> y no un <a> porque hace
+   algo en la página, no lleva a ningún lado. */
+.enlace {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--acento, currentColor);
+  text-decoration: underline;
+  cursor: pointer;
+}
 </style>
 
 <div id="app" class="app">
@@ -2474,6 +2488,13 @@ function migrarEstado(guardado, incidencias = []) {
     // El día en que el usuario dijo "ahora no" al recordatorio de respaldo
     // (T-903). Sin esto, el aviso volvería a aparecer en cada recarga por más
     // que lo hubiera pospuesto, y un aviso que no se puede sacar deja de leerse.
+    // Que compartir no funciona en este teléfono (T-914). Sin esto, el botón
+    // que ya falló una vez volvería a ofrecerse en cada recarga y volvería a
+    // fallar igual.
+    if (preferencias.compartir_no_funciona === true) {
+      estado.preferencias.compartir_no_funciona = true;
+    }
+
     try {
       estado.preferencias.recordatorio_pospuesto = validarFecha(preferencias.recordatorio_pospuesto);
     } catch {
@@ -3352,7 +3373,17 @@ const aEuros = (centimos) => centimos / 100;
  * lugar de la app donde el dinero deja de ser entero. Se llama distinto a
  * propósito, para que nadie use una creyendo que es la otra.
  */
-const aDosDecimales = (euros) => Math.round(euros * 100) / 100;
+function aDosDecimales(euros) {
+  // Se rechaza lo que no es un número en vez de convertirlo. `Math.round('' *
+  // 100)` da 0 sin decir nada, y una celda de dinero en 0 se lee exactamente
+  // igual que un 0 de verdad: sería un importe inventado con aspecto de dato.
+  // Lo destapó una mutación (2026-08-27) que parecía inofensiva justamente
+  // porque esta conversión la tapaba.
+  if (typeof euros !== 'number' || !Number.isFinite(euros)) {
+    throw new Error(`Un importe de la planilla no es un número: ${JSON.stringify(euros)}.`);
+  }
+  return Math.round(euros * 100) / 100;
+}
 
 /**
  * Una rejilla de celdas, que después se convierte en el XML de la hoja.
@@ -3470,6 +3501,31 @@ function escribirMes(rejilla, estado, mes, desde) {
   return { siguiente: Math.max(ultimaDeLaIzquierda, ultimaDeLaDerecha) + 1, sinConvertir };
 }
 
+/**
+ * Todos los rubros de un tipo, con su total del mes — T-915.
+ *
+ * **Incluye los que no se usaron, en cero.** Es lo contrario de lo que hace la
+ * app en pantalla, donde `porRubro()` devuelve solo los rubros con movimientos:
+ * en un celular, ocho filas en cero son ruido que tapa las tres que importan.
+ *
+ * En una planilla es al revés, y por eso el usuario lo pidió (2026-08-27): con
+ * todos los rubros siempre presentes, cada uno cae **en la misma fila todos los
+ * meses**, se pueden comparar meses de un vistazo y se pueden arrastrar
+ * fórmulas. El mismo dato quiere formas distintas según dónde se lo mire.
+ *
+ * El orden es el de la lista de rubros, no el del tamaño: si fuera por tamaño,
+ * cada mes tendría las filas en otro lugar y se perdería justamente lo que hace
+ * útil tenerlas todas.
+ */
+function todosLosRubros(estado, mes, tipo) {
+  const conMovimientos = new Map(porRubro(estado, mes, tipo).map((r) => [r.rubro, r.total]));
+
+  return rubrosDe(tipo).map((rubro) => [
+    formatearRubro(rubro),
+    aEuros(conMovimientos.get(rubro) ?? 0),
+  ]);
+}
+
 /** Los bloques de la derecha. Devuelve la última fila que ocupó. */
 function escribirResumen(rejilla, estado, mes, desde) {
   let n = desde;
@@ -3490,12 +3546,8 @@ function escribirResumen(rejilla, estado, mes, desde) {
 
   // El encabezado de este primero ya lo escribió `escribirMes`, junto con el
   // título "GASTOS POR TIPO" que va una fila más arriba.
-  bloque(null, porRubro(estado, mes, TIPO_GASTO).map((r) => [formatearRubro(r.rubro), aEuros(r.total)]));
-
-  const ingresos = porRubro(estado, mes, TIPO_INGRESO);
-  if (ingresos.length > 0) {
-    bloque('INGRESOS POR TIPO', ingresos.map((r) => [formatearRubro(r.rubro), aEuros(r.total)]));
-  }
+  bloque(null, todosLosRubros(estado, mes, TIPO_GASTO));
+  bloque('INGRESOS POR TIPO', todosLosRubros(estado, mes, TIPO_INGRESO));
 
   const totales = totalesDelMes(estado, mes);
   bloque('TOTALES', [
@@ -3767,7 +3819,10 @@ async function compartirRespaldo(navegador, respaldo, ConstructorArchivo) {
   }
 
   if (!sePuedeCompartir(navegador, archivo)) {
-    return { error: 'Este navegador no puede compartir archivos. Usá el botón de descargar.' };
+    return {
+      error: 'Este navegador no puede compartir archivos. Usá el botón de descargar.',
+      noVaAFuncionar: true,
+    };
   }
 
   try {
@@ -3780,8 +3835,32 @@ async function compartirRespaldo(navegador, respaldo, ConstructorArchivo) {
     return { compartido: true };
   } catch (error) {
     if (error?.name === 'AbortError') return { cancelado: true };
-    return { error: `No se pudo compartir el archivo (${error.message}). Probá con el botón de descargar.` };
+    return { error: explicarFallo(error), noVaAFuncionar: true };
   }
+}
+
+/**
+ * El fallo, en castellano — T-914.
+ *
+ * En el Android del usuario, con la app abierta desde el disco, compartir falla
+ * con `Permission denied`. Eso no le dice nada a nadie, y menos a alguien que
+ * está tratando de poner sus datos a salvo. El mensaje tiene que decir **qué
+ * pasó, por qué, y qué hacer en su lugar**.
+ *
+ * `canShare({files})` había dicho que sí. Es un caso donde el navegador promete
+ * y después no cumple, así que la promesa no se puede tomar como garantía: por
+ * eso el resultado marca `noVaAFuncionar`, para que la pantalla deje de ofrecer
+ * un botón que ya se sabe que falla (L-016).
+ */
+function explicarFallo(error) {
+  const detalle = String(error?.message ?? '');
+  const esPermiso = error?.name === 'NotAllowedError' || /permission denied/i.test(detalle);
+
+  return esPermiso
+    ? 'Tu navegador no deja compartir archivos cuando la app está abierta desde el disco. ' +
+      'No es un problema de tus datos: usá el botón de descargar y subí el archivo desde ' +
+      'la carpeta de descargas, que funciona igual.'
+    : `No se pudo compartir el archivo (${detalle}). Usá el botón de descargar, que hace lo mismo en dos pasos.`;
 }
 
 // ── src/ui/pantallas/cambio.js ──────────────────────────────────
@@ -4536,6 +4615,25 @@ function dibujarEstadoRespaldo(estado, { fecha = hoy() } = {}) {
     : `<p class="aviso-respaldo suave">${escapar(hace)}</p>`;
 }
 
+/**
+ * ¿Se ofrece el botón de compartir? — T-914.
+ *
+ * Dos condiciones: que el navegador diga que puede, **y** que no haya fallado
+ * antes en este teléfono. Lo segundo hace falta porque lo primero miente: en el
+ * Android del usuario `canShare({files})` dice que sí y `share()` falla con
+ * "Permission denied". Un botón que falla al apretarlo es peor que uno que no
+ * está (L-016), y repetirlo cada semana enseña a desconfiar de la pantalla justo
+ * donde el usuario tiene que confiar.
+ */
+function ofreceCompartir(vista) {
+  return vista.puedeCompartir === true && !compartirFallo(vista);
+}
+
+/** Si ya se comprobó que compartir no funciona acá. */
+function compartirFallo(vista) {
+  return vista.estado?.preferencias?.compartir_no_funciona === true;
+}
+
 function dibujarDatos(vista) {
   const estado = vista.estado;
   const respaldo = prepararRespaldo(estado);
@@ -4559,7 +4657,7 @@ function dibujarDatos(vista) {
            el respaldo en OneDrive de un toque, en vez de dejarlo en una carpeta
            que después hay que ir a buscar. La descarga no desaparece: sigue
            siendo la salida cuando el compartir no está o falla. -->
-      ${vista.puedeCompartir ? `
+      ${ofreceCompartir(vista) ? `
       <button type="button" class="principal" data-accion="compartir"${cuantos === 0 ? ' disabled' : ''}>
         Compartir el respaldo
       </button>
@@ -4567,7 +4665,7 @@ function dibujarDatos(vista) {
       Drive, un correo a vos mismo. <strong>La app no sube nada</strong>: le pasa
       el archivo al teléfono y ahí termina su parte.</p>` : ''}
 
-      <button type="button" class="${vista.puedeCompartir ? 'secundario' : 'principal'}" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
+      <button type="button" class="${ofreceCompartir(vista) ? 'secundario' : 'principal'}" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
         Descargar ${escapar(respaldo.nombre)}
       </button>
 
@@ -4577,6 +4675,12 @@ function dibujarDatos(vista) {
       <button type="button" class="secundario" data-accion="ver-respaldo"${cuantos === 0 ? ' disabled' : ''}>
         ${vista.mostrarRespaldo ? 'Ocultar el texto' : 'Ver el texto para copiarlo'}
       </button>
+
+      ${compartirFallo(vista) ? `
+      <p class="suave">El botón de compartir no funciona en este teléfono, así que
+      se dejó de ofrecer. Descargá el archivo y subilo desde tu carpeta de
+      descargas: es un paso más y funciona igual.
+      <button type="button" class="enlace" data-accion="reintentar-compartir">Probar de nuevo</button></p>` : ''}
 
       ${vista.mostrarRespaldo ? `
       <p class="suave">Copiá todo este texto y pegalo en una nota, un correo o
@@ -4750,7 +4854,7 @@ function dibujarPlanilla(vista) {
       ${vista.errorPlanilla ? `<p class="error-carga" role="alert">${escapar(vista.errorPlanilla)}</p>` : ''}
       ${vista.avisoPlanilla ? `<p class="confirmacion" role="status">${escapar(vista.avisoPlanilla)}</p>` : ''}
 
-      ${vista.puedeCompartir ? `
+      ${ofreceCompartir(vista) ? `
       <button type="button" class="secundario" data-accion="compartir-planilla"${cuantos === 0 ? ' disabled' : ''}>
         Compartir la planilla
       </button>` : ''}
@@ -5666,9 +5770,36 @@ function iniciar(documento, almacen) {
     if (resultado.cancelado) return;
 
     vista = resultado.error
-      ? { ...vista, errorPlanilla: resultado.error, avisoPlanilla: null }
+      ? {
+          ...vista,
+          estado: resultado.noVaAFuncionar ? anotarQueCompartirNoAnda(vista.estado) : vista.estado,
+          errorPlanilla: resultado.error,
+          avisoPlanilla: null,
+        }
       : { ...vista, errorPlanilla: null, avisoPlanilla: avisoDePlanilla(planilla) };
     pintar();
+  }
+
+  /**
+   * Deja anotado que compartir no funciona en este teléfono — T-914.
+   *
+   * `canShare({files})` dijo que sí y `share()` falló igual. Como el navegador
+   * miente, la única fuente confiable es haberlo intentado: se guarda para no
+   * volver a ofrecer un botón que ya se sabe que falla. Se puede deshacer desde
+   * la pantalla, porque puede ser un permiso que el usuario cambie después.
+   */
+  function anotarQueCompartirNoAnda(estado) {
+    const anotado = {
+      ...estado,
+      preferencias: { ...estado.preferencias, compartir_no_funciona: true },
+    };
+    try {
+      guardarEstado(anotado, almacen);
+    } catch {
+      // Si no se puede guardar, se recuerda mientras la app esté abierta. Hay
+      // problemas más grandes en ese caso, y T-950 ya los está avisando.
+    }
+    return anotado;
   }
 
   function avisoDePlanilla(planilla) {
@@ -5744,6 +5875,7 @@ function iniciar(documento, almacen) {
     if (resultado.error) {
       vista = {
         ...vista,
+        estado: resultado.noVaAFuncionar ? anotarQueCompartirNoAnda(vista.estado) : vista.estado,
         mostrarRespaldo: true,
         error: `${resultado.error} Si no, copiá el texto de abajo: sirve igual.`,
       };
@@ -6016,6 +6148,15 @@ function iniciar(documento, almacen) {
     } else if (accion === 'compartir-planilla') {
       compartirLaPlanilla();
       return;
+    } else if (accion === 'reintentar-compartir') {
+      const { compartir_no_funciona, ...resto } = vista.estado.preferencias ?? {};
+      const limpio = { ...vista.estado, preferencias: resto };
+      try {
+        guardarEstado(limpio, almacen);
+      } catch {
+        // Igual que al anotarlo: se recuerda mientras la app esté abierta.
+      }
+      vista = { ...vista, estado: limpio, error: null, avisoRespaldo: null };
     } else if (accion === 'compartir') {
       compartirElRespaldo();
       return;

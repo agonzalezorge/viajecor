@@ -722,3 +722,17 @@ body {
 .peligro-datos h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--gasto); }
 .peligro-datos p { margin: 0 0 0.5rem; font-size: 0.9375rem; }
 .peligro-datos p:last-child { margin-bottom: 0; }
+
+/* Un botón que se lee como un enlace: para acciones secundarias que van dentro
+   de un párrafo, como "probar de nuevo". Es un <button> y no un <a> porque hace
+   algo en la página, no lleva a ningún lado. */
+.enlace {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--acento, currentColor);
+  text-decoration: underline;
+  cursor: pointer;
+}

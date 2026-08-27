@@ -36,7 +36,7 @@
 import { crearZip } from './zip.js';
 import { mesesConMovimientos, movimientosDelMes, porRubro, porDia, totalesDelMes } from '../core/calculos.js';
 import { movimientoEnEuros, faltaCambioPara } from '../core/cambio.js';
-import { TIPO_GASTO, TIPO_INGRESO, mesDe, hoy } from '../core/modelo.js';
+import { TIPO_GASTO, TIPO_INGRESO, mesDe, hoy, rubrosDe } from '../core/modelo.js';
 import { formatearMes, formatearRubro } from '../core/formato.js';
 
 const NS_HOJA = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -103,7 +103,17 @@ const aEuros = (centimos) => centimos / 100;
  * lugar de la app donde el dinero deja de ser entero. Se llama distinto a
  * propósito, para que nadie use una creyendo que es la otra.
  */
-const aDosDecimales = (euros) => Math.round(euros * 100) / 100;
+function aDosDecimales(euros) {
+  // Se rechaza lo que no es un número en vez de convertirlo. `Math.round('' *
+  // 100)` da 0 sin decir nada, y una celda de dinero en 0 se lee exactamente
+  // igual que un 0 de verdad: sería un importe inventado con aspecto de dato.
+  // Lo destapó una mutación (2026-08-27) que parecía inofensiva justamente
+  // porque esta conversión la tapaba.
+  if (typeof euros !== 'number' || !Number.isFinite(euros)) {
+    throw new Error(`Un importe de la planilla no es un número: ${JSON.stringify(euros)}.`);
+  }
+  return Math.round(euros * 100) / 100;
+}
 
 /**
  * Una rejilla de celdas, que después se convierte en el XML de la hoja.
@@ -221,6 +231,31 @@ function escribirMes(rejilla, estado, mes, desde) {
   return { siguiente: Math.max(ultimaDeLaIzquierda, ultimaDeLaDerecha) + 1, sinConvertir };
 }
 
+/**
+ * Todos los rubros de un tipo, con su total del mes — T-915.
+ *
+ * **Incluye los que no se usaron, en cero.** Es lo contrario de lo que hace la
+ * app en pantalla, donde `porRubro()` devuelve solo los rubros con movimientos:
+ * en un celular, ocho filas en cero son ruido que tapa las tres que importan.
+ *
+ * En una planilla es al revés, y por eso el usuario lo pidió (2026-08-27): con
+ * todos los rubros siempre presentes, cada uno cae **en la misma fila todos los
+ * meses**, se pueden comparar meses de un vistazo y se pueden arrastrar
+ * fórmulas. El mismo dato quiere formas distintas según dónde se lo mire.
+ *
+ * El orden es el de la lista de rubros, no el del tamaño: si fuera por tamaño,
+ * cada mes tendría las filas en otro lugar y se perdería justamente lo que hace
+ * útil tenerlas todas.
+ */
+function todosLosRubros(estado, mes, tipo) {
+  const conMovimientos = new Map(porRubro(estado, mes, tipo).map((r) => [r.rubro, r.total]));
+
+  return rubrosDe(tipo).map((rubro) => [
+    formatearRubro(rubro),
+    aEuros(conMovimientos.get(rubro) ?? 0),
+  ]);
+}
+
 /** Los bloques de la derecha. Devuelve la última fila que ocupó. */
 function escribirResumen(rejilla, estado, mes, desde) {
   let n = desde;
@@ -241,12 +276,8 @@ function escribirResumen(rejilla, estado, mes, desde) {
 
   // El encabezado de este primero ya lo escribió `escribirMes`, junto con el
   // título "GASTOS POR TIPO" que va una fila más arriba.
-  bloque(null, porRubro(estado, mes, TIPO_GASTO).map((r) => [formatearRubro(r.rubro), aEuros(r.total)]));
-
-  const ingresos = porRubro(estado, mes, TIPO_INGRESO);
-  if (ingresos.length > 0) {
-    bloque('INGRESOS POR TIPO', ingresos.map((r) => [formatearRubro(r.rubro), aEuros(r.total)]));
-  }
+  bloque(null, todosLosRubros(estado, mes, TIPO_GASTO));
+  bloque('INGRESOS POR TIPO', todosLosRubros(estado, mes, TIPO_INGRESO));
 
   const totales = totalesDelMes(estado, mes);
   bloque('TOTALES', [

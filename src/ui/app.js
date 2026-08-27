@@ -547,9 +547,36 @@ export function iniciar(documento, almacen) {
     if (resultado.cancelado) return;
 
     vista = resultado.error
-      ? { ...vista, errorPlanilla: resultado.error, avisoPlanilla: null }
+      ? {
+          ...vista,
+          estado: resultado.noVaAFuncionar ? anotarQueCompartirNoAnda(vista.estado) : vista.estado,
+          errorPlanilla: resultado.error,
+          avisoPlanilla: null,
+        }
       : { ...vista, errorPlanilla: null, avisoPlanilla: avisoDePlanilla(planilla) };
     pintar();
+  }
+
+  /**
+   * Deja anotado que compartir no funciona en este teléfono — T-914.
+   *
+   * `canShare({files})` dijo que sí y `share()` falló igual. Como el navegador
+   * miente, la única fuente confiable es haberlo intentado: se guarda para no
+   * volver a ofrecer un botón que ya se sabe que falla. Se puede deshacer desde
+   * la pantalla, porque puede ser un permiso que el usuario cambie después.
+   */
+  function anotarQueCompartirNoAnda(estado) {
+    const anotado = {
+      ...estado,
+      preferencias: { ...estado.preferencias, compartir_no_funciona: true },
+    };
+    try {
+      guardarEstado(anotado, almacen);
+    } catch {
+      // Si no se puede guardar, se recuerda mientras la app esté abierta. Hay
+      // problemas más grandes en ese caso, y T-950 ya los está avisando.
+    }
+    return anotado;
   }
 
   function avisoDePlanilla(planilla) {
@@ -625,6 +652,7 @@ export function iniciar(documento, almacen) {
     if (resultado.error) {
       vista = {
         ...vista,
+        estado: resultado.noVaAFuncionar ? anotarQueCompartirNoAnda(vista.estado) : vista.estado,
         mostrarRespaldo: true,
         error: `${resultado.error} Si no, copiá el texto de abajo: sirve igual.`,
       };
@@ -897,6 +925,15 @@ export function iniciar(documento, almacen) {
     } else if (accion === 'compartir-planilla') {
       compartirLaPlanilla();
       return;
+    } else if (accion === 'reintentar-compartir') {
+      const { compartir_no_funciona, ...resto } = vista.estado.preferencias ?? {};
+      const limpio = { ...vista.estado, preferencias: resto };
+      try {
+        guardarEstado(limpio, almacen);
+      } catch {
+        // Igual que al anotarlo: se recuerda mientras la app esté abierta.
+      }
+      vista = { ...vista, estado: limpio, error: null, avisoRespaldo: null };
     } else if (accion === 'compartir') {
       compartirElRespaldo();
       return;

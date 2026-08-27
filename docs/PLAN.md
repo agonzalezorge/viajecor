@@ -105,8 +105,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-911 | La barra del desglose mide el porcentaje real | **Hecha** | T-014 |
 | T-912 | Orden de campos y autocompletado del comentario | **Hecha** | T-011 |
 | T-913 | "Cargar" es la primera pestaña | **Hecha** | T-010 |
-| T-914 | Recordar que compartir no funciona en este teléfono | En curso (claude, 2026-08-27) | T-905 |
-| T-915 | Todos los rubros en cada mes del `.xlsx`, aunque estén en cero | En curso (claude, 2026-08-27) | T-906 |
+| T-914 | Recordar que compartir no funciona en este teléfono | **Hecha** | T-905 |
+| T-915 | Todos los rubros en cada mes del `.xlsx`, aunque estén en cero | **Hecha** | T-906 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -1081,6 +1081,25 @@ porque el usuario puede quedarse creyendo que respaldó.
 - Que la descarga —que **sí funciona**, lo verificó el usuario— quede como el
   camino principal apenas se sabe que compartir no anda.
 
+**Cómo quedó (Hecha, 2026-08-27).** El error se traduce —*"Tu navegador no deja
+compartir archivos cuando la app está abierta desde el disco… usá el botón de
+descargar"*—, se **anota en las preferencias**, el botón deja de ofrecerse, la
+descarga vuelve a ser el botón principal, y la pantalla explica por qué no está
+con un *Probar de nuevo* al lado. Se anota también para la planilla.
+
+**La lección de fondo:** preguntar antes no alcanzó. `canShare({files})` es una
+promesa del navegador, no una garantía, y la única fuente confiable sobre si algo
+funciona en un dispositivo es **haberlo intentado ahí**. Por eso lo que se guarda
+no es lo que el navegador dice, sino lo que pasó.
+
+**Verificado:** 518 tests. Seis mutaciones, seis detectadas —una destapó que
+`aDosDecimales('')` devolvía **0 en silencio**, un importe inventado con aspecto
+de dato; ahora rechaza lo que no es un número—. Recorrido en el navegador
+reproduciendo el fallo exacto del Android del usuario (`canShare` dice que sí,
+`share` tira `NotAllowedError: Permission denied`): el botón se ofrece, falla con
+el mensaje traducido, desaparece, sobrevive a recargar, la descarga funciona, y
+*Probar de nuevo* lo devuelve.
+
 ---
 
 ### T-915 · Todos los rubros en cada mes del `.xlsx`, aunque estén en cero
@@ -1097,6 +1116,14 @@ planilla es al revés — las filas están siempre en el mismo lugar, se pueden
 comparar entre meses de un vistazo y se pueden arrastrar fórmulas. **El mismo
 dato quiere formas distintas según dónde se mire**, y la planilla es para mirar
 meses uno al lado del otro.
+
+**Cómo quedó (Hecha, 2026-08-27).** Los ocho rubros de gasto y los cuatro de
+ingreso aparecen en todos los meses, en el **orden fijo de la lista** y no por
+tamaño: si fuera por tamaño, cada mes tendría las filas en otro lugar y se
+perdería justamente lo que hace útil tenerlas todas. El bloque de ingresos está
+siempre, aunque el mes no haya tenido ninguno — un mes sin ingresos y un mes con
+la fila faltante se ven distinto en una planilla, y solo uno de los dos dice la
+verdad.
 
 ---
 

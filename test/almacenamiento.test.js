@@ -406,3 +406,17 @@ test('guardar algo que no es un estado se rechaza', () => {
     assert.throws(() => guardarEstado(malo, almacen), /estado/);
   }
 });
+
+test('que compartir no funcione sobrevive a recargar', () => {
+  // L-015: una preferencia que no está en la lista de `migrarEstado` desaparece
+  // al recargar, sin ningún error. Sin esto, el botón que ya falló volvería a
+  // ofrecerse en cada arranque y volvería a fallar igual (T-914).
+  const almacen = almacenFalso();
+  const estado = {
+    ...estadoInicial(),
+    preferencias: { moneda_predeterminada: 'EUR', compartir_no_funciona: true },
+  };
+  guardarEstado(estado, almacen);
+
+  assert.equal(leerEstado(almacen).estado.preferencias.compartir_no_funciona, true);
+});

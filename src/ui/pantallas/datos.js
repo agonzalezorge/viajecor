@@ -64,6 +64,25 @@ export function dibujarEstadoRespaldo(estado, { fecha = hoy() } = {}) {
     : `<p class="aviso-respaldo suave">${escapar(hace)}</p>`;
 }
 
+/**
+ * ¿Se ofrece el botón de compartir? — T-914.
+ *
+ * Dos condiciones: que el navegador diga que puede, **y** que no haya fallado
+ * antes en este teléfono. Lo segundo hace falta porque lo primero miente: en el
+ * Android del usuario `canShare({files})` dice que sí y `share()` falla con
+ * "Permission denied". Un botón que falla al apretarlo es peor que uno que no
+ * está (L-016), y repetirlo cada semana enseña a desconfiar de la pantalla justo
+ * donde el usuario tiene que confiar.
+ */
+export function ofreceCompartir(vista) {
+  return vista.puedeCompartir === true && !compartirFallo(vista);
+}
+
+/** Si ya se comprobó que compartir no funciona acá. */
+export function compartirFallo(vista) {
+  return vista.estado?.preferencias?.compartir_no_funciona === true;
+}
+
 export function dibujarDatos(vista) {
   const estado = vista.estado;
   const respaldo = prepararRespaldo(estado);
@@ -87,7 +106,7 @@ export function dibujarDatos(vista) {
            el respaldo en OneDrive de un toque, en vez de dejarlo en una carpeta
            que después hay que ir a buscar. La descarga no desaparece: sigue
            siendo la salida cuando el compartir no está o falla. -->
-      ${vista.puedeCompartir ? `
+      ${ofreceCompartir(vista) ? `
       <button type="button" class="principal" data-accion="compartir"${cuantos === 0 ? ' disabled' : ''}>
         Compartir el respaldo
       </button>
@@ -95,7 +114,7 @@ export function dibujarDatos(vista) {
       Drive, un correo a vos mismo. <strong>La app no sube nada</strong>: le pasa
       el archivo al teléfono y ahí termina su parte.</p>` : ''}
 
-      <button type="button" class="${vista.puedeCompartir ? 'secundario' : 'principal'}" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
+      <button type="button" class="${ofreceCompartir(vista) ? 'secundario' : 'principal'}" data-accion="exportar"${cuantos === 0 ? ' disabled' : ''}>
         Descargar ${escapar(respaldo.nombre)}
       </button>
 
@@ -105,6 +124,12 @@ export function dibujarDatos(vista) {
       <button type="button" class="secundario" data-accion="ver-respaldo"${cuantos === 0 ? ' disabled' : ''}>
         ${vista.mostrarRespaldo ? 'Ocultar el texto' : 'Ver el texto para copiarlo'}
       </button>
+
+      ${compartirFallo(vista) ? `
+      <p class="suave">El botón de compartir no funciona en este teléfono, así que
+      se dejó de ofrecer. Descargá el archivo y subilo desde tu carpeta de
+      descargas: es un paso más y funciona igual.
+      <button type="button" class="enlace" data-accion="reintentar-compartir">Probar de nuevo</button></p>` : ''}
 
       ${vista.mostrarRespaldo ? `
       <p class="suave">Copiá todo este texto y pegalo en una nota, un correo o
@@ -278,7 +303,7 @@ export function dibujarPlanilla(vista) {
       ${vista.errorPlanilla ? `<p class="error-carga" role="alert">${escapar(vista.errorPlanilla)}</p>` : ''}
       ${vista.avisoPlanilla ? `<p class="confirmacion" role="status">${escapar(vista.avisoPlanilla)}</p>` : ''}
 
-      ${vista.puedeCompartir ? `
+      ${ofreceCompartir(vista) ? `
       <button type="button" class="secundario" data-accion="compartir-planilla"${cuantos === 0 ? ' disabled' : ''}>
         Compartir la planilla
       </button>` : ''}

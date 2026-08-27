@@ -232,6 +232,13 @@ export function migrarEstado(guardado, incidencias = []) {
     // El día en que el usuario dijo "ahora no" al recordatorio de respaldo
     // (T-903). Sin esto, el aviso volvería a aparecer en cada recarga por más
     // que lo hubiera pospuesto, y un aviso que no se puede sacar deja de leerse.
+    // Que compartir no funciona en este teléfono (T-914). Sin esto, el botón
+    // que ya falló una vez volvería a ofrecerse en cada recarga y volvería a
+    // fallar igual.
+    if (preferencias.compartir_no_funciona === true) {
+      estado.preferencias.compartir_no_funciona = true;
+    }
+
     try {
       estado.preferencias.recordatorio_pospuesto = validarFecha(preferencias.recordatorio_pospuesto);
     } catch {

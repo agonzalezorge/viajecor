@@ -32,6 +32,13 @@ const mov = (fecha, rubro, monto, tipo = 'G', moneda = 'EUR', extra = {}) =>
     { decimales: 2, creado: fecha }
   );
 
+/** La fila donde está una etiqueta de la columna J. */
+function filaDe_(enJ, nombre) {
+  const encontrado = enJ.find(([, v]) => v === nombre);
+  assert.ok(encontrado, `no está la etiqueta ${nombre}`);
+  return encontrado[0].slice(1);
+}
+
 /** Las celdas de la hoja, como `{ A6: '54.3' }`, para poder afirmar sobre ellas. */
 function celdasDe(estado) {
   const { xml } = hojaDeMovimientos(estado);
@@ -140,17 +147,72 @@ test('los ingresos no entran en el acumulado de gastos', () => {
   assert.equal(celdas.A8, '72.7');
 });
 
-test('el bloque de la derecha totaliza por rubro, de mayor a menor', () => {
+test('el bloque de la derecha totaliza por rubro, en el orden fijo de la lista', () => {
+  // El orden es el de la lista de rubros, no el del tamaño (T-915): así cada
+  // rubro cae en la misma fila todos los meses y se pueden comparar de un
+  // vistazo. Si fuera por tamaño, cada mes tendría las filas en otro lugar.
   const celdas = celdasDe(estadoCon([
     mov('2026-03-02', 'comida hecha', '12,50'),
     mov('2026-03-05', 'supermercado', '54,30'),
     mov('2026-03-08', 'comida hecha', '7,50'),
   ]));
 
-  assert.equal(celdas.J6, 'Supermercado');
-  assert.equal(celdas.K6, '54.3');
-  assert.equal(celdas.J7, 'Comida hecha');
-  assert.equal(celdas.K7, '20');
+  assert.equal(celdas.J6, 'Gastos fijos');
+  assert.equal(celdas.K6, '0');
+  assert.equal(celdas.J7, 'Supermercado');
+  assert.equal(celdas.K7, '54.3');
+  assert.equal(celdas.J8, 'Comida hecha');
+  assert.equal(celdas.K8, '20');
+});
+
+test('aparecen TODOS los rubros, también los que no se usaron', () => {
+  // Pedido del usuario (2026-08-27). Es lo contrario de lo que hace la app en
+  // pantalla, y está bien: en un celular ocho filas en cero tapan las tres que
+  // importan; en una planilla son lo que permite comparar meses.
+  const celdas = celdasDe(estadoCon([mov('2026-03-02', 'supermercado', '10')]));
+  const enJ = Object.entries(celdas).filter(([ref]) => /^J\d+$/.test(ref)).map(([, v]) => v);
+
+  for (const rubro of ['Gastos fijos', 'Supermercado', 'Comida hecha', 'Viajes',
+                       'Entretenimiento', 'Transporte', 'Salud', 'Otros']) {
+    assert.ok(enJ.includes(rubro), `falta el rubro ${rubro}`);
+  }
+  assert.equal(celdas.K6, '0', 'un rubro sin movimientos va en 0, no vacío');
+});
+
+test('los rubros de ingreso también aparecen todos', () => {
+  const celdas = celdasDe(estadoCon([mov('2026-03-10', 'trabajo', '100', 'I')]));
+  const enJ = Object.entries(celdas).filter(([ref]) => /^J\d+$/.test(ref)).map(([, v]) => v);
+
+  for (const rubro of ['Trabajo', 'Inversiones', 'Regalos', 'Otros']) {
+    assert.ok(enJ.includes(rubro), `falta el rubro de ingreso ${rubro}`);
+  }
+});
+
+test('cada rubro cae en la MISMA fila todos los meses', () => {
+  // Es toda la razón de tenerlos todos: poder mirar dos meses uno al lado del
+  // otro sin buscar dónde quedó cada uno.
+  const celdas = celdasDe(estadoCon([
+    mov('2026-03-02', 'supermercado', '10'),
+    mov('2026-04-03', 'salud', '60'),
+  ]));
+
+  const filas = Object.entries(celdas).filter(([ref]) => /^J\d+$/.test(ref));
+  const filaDeMarzo = Number(filas.find(([, v]) => v === 'GASTOS POR TIPO')[0].slice(1));
+  const filaDeAbril = Number(
+    filas.filter(([, v]) => v === 'GASTOS POR TIPO')[1][0].slice(1)
+  );
+
+  const rubrosDeMarzo = filas.filter(([ref]) => {
+    const n = Number(ref.slice(1));
+    return n > filaDeMarzo + 1 && n <= filaDeMarzo + 9;
+  }).map(([, v]) => v);
+  const rubrosDeAbril = filas.filter(([ref]) => {
+    const n = Number(ref.slice(1));
+    return n > filaDeAbril + 1 && n <= filaDeAbril + 9;
+  }).map(([, v]) => v);
+
+  assert.deepEqual(rubrosDeMarzo, rubrosDeAbril);
+  assert.equal(rubrosDeMarzo.length, 8);
 });
 
 test('los totales de la derecha suman lo mismo que el último acumulado', () => {
@@ -164,8 +226,9 @@ test('los totales de la derecha suman lo mismo que el último acumulado', () => 
   ]);
   const celdas = celdasDe(estado);
 
-  const porRubro = ['K6', 'K7', 'K8'].map((c) => Number(celdas[c]));
-  assert.equal(porRubro.reduce((a, b) => a + b, 0), Number(celdas.A9));
+  // Se suman los ocho rubros de gasto, ceros incluidos.
+  const porRubro = Array.from({ length: 8 }, (_, i) => Number(celdas[`K${6 + i}`] ?? 0));
+  assert.equal(Math.round(porRubro.reduce((a, b) => a + b, 0) * 100) / 100, Number(celdas.A9));
 });
 
 // ── Lo que no se puede convertir ─────────────────────────────────────────────
@@ -197,8 +260,13 @@ test('lo que no se pudo convertir no ensucia el acumulado ni los totales', () =>
 
   assert.equal(celdas.A6, undefined);
   assert.equal(celdas.A7, '60');
-  assert.equal(celdas.J6, 'Salud');
-  assert.equal(celdas.K6, '60');
+
+  // "Viajes" aparece igual —ahora están todos los rubros— pero en cero: lo que
+  // no se pudo convertir no puede sumar en ningún total.
+  const enJ = Object.entries(celdas).filter(([ref]) => /^J\d+$/.test(ref));
+  const filaDe = (nombre) => filaDe_(enJ, nombre);
+  assert.equal(celdas[`K${filaDe('Viajes')}`], '0');
+  assert.equal(celdas[`K${filaDe('Salud')}`], '60');
 });
 
 test('la planilla informa cuántos quedaron sin convertir', () => {
@@ -270,7 +338,7 @@ test('el encabezado del resumen no se pisa con el primer rubro', () => {
   assert.equal(celdas.J4, 'GASTOS POR TIPO');
   assert.equal(celdas.J5, 'RUBRO');
   assert.equal(celdas.K5, 'MONTO');
-  assert.equal(celdas.J6, 'Supermercado');
+  assert.equal(celdas.J6, 'Gastos fijos', 'el primer rubro de la lista, no el más grande');
 });
 
 test('los ingresos también se totalizan por rubro', () => {
@@ -286,11 +354,14 @@ test('los ingresos también se totalizan por rubro', () => {
   assert.ok(etiquetas.includes('Regalos'));
 });
 
-test('sin ingresos, no se dibuja un bloque de ingresos vacío', () => {
+test('el bloque de ingresos está siempre, aunque el mes no haya tenido ninguno', () => {
+  // Un mes sin ingresos y un mes con la fila faltante se ven distinto en una
+  // planilla, y solo uno de los dos dice la verdad (T-915).
   const celdas = celdasDe(estadoCon([mov('2026-03-02', 'supermercado', '10')]));
   const etiquetas = Object.values(celdas);
 
-  assert.equal(etiquetas.includes('INGRESOS POR TIPO'), false);
+  assert.ok(etiquetas.includes('INGRESOS POR TIPO'));
+  assert.ok(etiquetas.includes('Trabajo'));
 });
 
 test('el bloque de totales dice gastos, ingresos y saldo', () => {
@@ -356,4 +427,16 @@ test('el bloque de la derecha no se come el bloque del mes siguiente', () => {
   // encima de una celda del otro bloque, habría desaparecido.
   const titulos = Object.values(celdas).filter((v) => v === 'MARZO 2026' || v === 'ABRIL 2026');
   assert.equal(titulos.length, 2);
+});
+
+test('un importe que no es número se rechaza en vez de valer 0', () => {
+  // `Math.round('' * 100)` da 0 sin decir nada, y un 0 inventado se lee igual
+  // que un 0 de verdad. Lo destapó una mutación que parecía inofensiva porque
+  // esta conversión la tapaba.
+  const roto = {
+    ...estadoCon([mov('2026-03-02', 'supermercado', '10')]),
+  };
+  roto.movimientos[0].monto = 'diez';
+
+  assert.throws(() => hojaDeMovimientos(roto));
 });

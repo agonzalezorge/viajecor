@@ -112,14 +112,30 @@ test('cancelar no es fallar', async () => {
   assert.equal(resultado.compartido, undefined);
 });
 
-test('un fallo de verdad se cuenta como fallo, y manda a la descarga', async () => {
-  const navegador = navegadorQueComparte(async () => { throw fallar('NotAllowedError', 'sin permiso'); });
+test('un fallo de permiso se explica en castellano y manda a la descarga', async () => {
+  // Es el caso real del Android del usuario (2026-08-27): `canShare` dijo que sí
+  // y `share` falló con "Permission denied". Ese texto no le dice nada a nadie,
+  // y menos a alguien que está tratando de poner sus datos a salvo.
+  const navegador = navegadorQueComparte(async () => { throw fallar('NotAllowedError', 'Permission denied'); });
   const resultado = await compartirRespaldo(navegador, RESPALDO, File);
 
   assert.equal(resultado.compartido, undefined);
   assert.equal(resultado.cancelado, undefined);
-  assert.match(resultado.error, /sin permiso/);
+  assert.equal(resultado.error.includes('Permission denied'), false, 'no se muestra el error crudo');
   assert.match(resultado.error, /descargar/);
+  assert.equal(resultado.noVaAFuncionar, true, 'hay que recordar que este teléfono no puede');
+});
+
+test('un fallo raro sí muestra el detalle, para poder entenderlo', () => {
+  // Con un error que no se reconoce, esconder el detalle deja a todos sin nada
+  // que mirar. Se explica lo que se sabe explicar y se muestra el resto.
+  return compartirRespaldo(
+    navegadorQueComparte(async () => { throw fallar('DataError', 'el archivo es muy grande'); }),
+    RESPALDO, File
+  ).then((resultado) => {
+    assert.match(resultado.error, /el archivo es muy grande/);
+    assert.match(resultado.error, /descargar/);
+  });
 });
 
 test('un navegador que no puede compartir archivos no lo intenta igual', async () => {

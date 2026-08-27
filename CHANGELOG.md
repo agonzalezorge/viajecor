@@ -35,6 +35,14 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Arreglado
+- **Si compartir no funciona en tu teléfono, la app deja de ofrecerlo** (T-914).
+  Pasó de verdad: el navegador decía que podía compartir archivos y fallaba con
+  «Permission denied» al tocar el botón. Ahora el error se explica en castellano,
+  se recuerda, la descarga vuelve a ser el botón principal, y queda un *Probar de
+  nuevo* por si cambiás un permiso.
+- **En la planilla aparecen todos los rubros todos los meses**, con 0 cuando no
+  hubo movimientos (T-915), para poder comparar meses de un vistazo y arrastrar
+  fórmulas.
 - **La app te avisa cuando el navegador no puede guardar tus datos** (T-950), en
   vez de aceptarlos y perderlos. Pasó de verdad: abrir el archivo desde el
   explorador de Android hace que el navegador no tenga dónde guardar, y todo
