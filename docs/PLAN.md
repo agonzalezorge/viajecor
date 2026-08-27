@@ -107,6 +107,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-913 | "Cargar" es la primera pestaña | **Hecha** | T-010 |
 | T-914 | Recordar que compartir no funciona en este teléfono | **Hecha** | T-905 |
 | T-915 | Todos los rubros en cada mes del `.xlsx`, aunque estén en cero | **Hecha** | T-906 |
+| T-916 | La planilla se parece de verdad a la original | En curso (claude, 2026-08-27) | T-906, T-915 |
+| T-917 | Los dos gráficos del `.xlsx` (torta y evolución) | Necesita decisión | T-916 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -1155,6 +1157,52 @@ perdería justamente lo que hace útil tenerlas todas. El bloque de ingresos est
 siempre, aunque el mes no haya tenido ninguno — un mes sin ingresos y un mes con
 la fila faltante se ven distinto en una planilla, y solo uno de los dos dice la
 verdad.
+
+---
+
+### T-916 · La planilla se parece de verdad a la original
+**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-906, T-915
+
+El usuario mandó **capturas de su planilla real** (2026-08-27), y con eso las
+diferencias dejaron de ser una descripción vaga. Lo que hay que cambiar:
+
+| Qué | Cómo está en la app | Cómo está en la planilla real |
+|---|---|---|
+| Los rubros del resumen | En **filas** (rubro, monto) | En **columnas**: una fila de encabezados con los ocho rubros y una fila de valores debajo |
+| El total del bloque | No está | Una columna `TOTAL` al final de cada bloque |
+| La columna `MES` | `agosto 2026` | `08/26` |
+| El rubro de cada movimiento | Texto sin más | **Fondo de color propio por rubro** |
+| Los encabezados del resumen | Texto sin más | El **mismo color** que ese rubro tiene en la columna |
+| El título del mes | Negrita | Banda **amarilla** que cruza el ancho |
+| Los títulos de bloque | Texto sin más | Banda **rosa** sobre el bloque |
+| El saldo | `Saldo` | `SALDO MENSUAL` |
+| Las celdas | Sin bordes | Con bordes |
+
+**Los colores van a ser los de la app, no los de la planilla.** Es una decisión
+y va con motivo: el usuario pidió (2026-08-27, T-909) que cada rubro tenga un
+color propio **ligado a él en todas las visualizaciones**. Si la planilla usara
+otros tonos, habría dos idiomas de color para el mismo dato y ninguno de los dos
+se podría aprender. Se usan versiones claras de la paleta de T-909, porque en una
+celda el color es fondo de un texto negro y no una barra.
+
+**Para que no haya dos paletas que se separen**, los ocho tonos pasan a vivir en
+`core/paleta.js`, y un test comprueba que los del CSS sigan siendo los mismos.
+
+---
+
+### T-917 · Los dos gráficos del `.xlsx` — **necesita decisión**
+**Depende de:** T-916
+
+La planilla real tiene dos gráficos por mes: una **torta** de gastos por rubro
+con porcentajes, y una **línea de gasto acumulado día a día** con su línea de
+tendencia. Escribirlos exige generar el XML de gráficos de Excel, que es bastante
+más que el de una hoja: cada gráfico es una parte más del ZIP, con su relación,
+su definición de series y sus referencias a rangos.
+
+**Se pregunta antes de hacerlo** porque es caro y puede no valer la pena: la app
+ya muestra el desglose por rubro en la pantalla del mes, y el gasto día por día
+llega con T-020. Un gráfico en el Excel es útil si el Excel se mira; si el Excel
+es solo un respaldo legible, es trabajo que no se usa.
 
 ---
 
