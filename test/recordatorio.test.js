@@ -185,7 +185,7 @@ function vistaConPendientes(pantalla = 'mes') {
 test('en la pantalla del mes, el aviso aparece', () => {
   const html = dibujarRecordatorio(vistaConPendientes('mes'), { fecha: '2026-08-27' });
 
-  assert.ok(html.includes('Nunca respaldaste'));
+  assert.ok(html.includes('Hace 26 días que no respaldás'));
   assert.ok(html.includes('2 movimientos'));
   assert.ok(html.includes('Respaldar ahora'));
   assert.ok(html.includes('Ahora no'));
@@ -238,4 +238,16 @@ test('el aviso está enchufado a la app, no solo escrito', () => {
 
   assert.ok(dibujarApp(vista).includes('posponer-recordatorio'));
   assert.equal(dibujarApp({ ...vista, pantalla: 'datos' }).includes('posponer-recordatorio'), false);
+});
+
+test('el aviso habla en días también cuando nunca hubo un respaldo', () => {
+  // Pedido del usuario (2026-08-27): "Nunca respaldaste" es una etiqueta sobre
+  // la persona; "hace 12 días" es un dato. Los días corren desde el movimiento
+  // más viejo, así que el número significa lo mismo en los dos casos.
+  const estado = cargar(estadoLimpio(), '2026-08-15');
+  const vista = { ...vistaInicial({ estado }), pantalla: 'mes' };
+
+  const html = dibujarRecordatorio(vista, { fecha: '2026-08-27' });
+  assert.ok(html.includes('Hace 12 días que no respaldás'));
+  assert.equal(html.includes('Nunca'), false);
 });

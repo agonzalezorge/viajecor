@@ -707,8 +707,11 @@ cuenta como sin respaldar: la app no guarda horas (ADR-021), así que no se pued
 saber si se cargó antes o después de exportar, y equivocarse hacia "ya está
 respaldado" es equivocarse hacia perder datos.
 
-**Si nunca hubo un respaldo**, el plazo corre desde el movimiento más viejo, no
-desde siempre. Reclamarle un respaldo a quien cargó su primer gasto hace diez
+**El aviso habla siempre en días**, también cuando nunca hubo un respaldo
+(pedido del usuario, 2026-08-27). *"Nunca respaldaste"* es una etiqueta sobre la
+persona; *"hace 12 días"* es un dato que se puede comparar con el de mañana. El
+número significa lo mismo en los dos casos, porque **si nunca hubo un respaldo**
+el plazo corre desde el movimiento más viejo, no desde siempre. Reclamarle un respaldo a quien cargó su primer gasto hace diez
 minutos es la forma más rápida de que el aviso pierda todo su valor.
 
 **Se pospone por el día, y eso se guarda.** Un aviso que no se puede sacar de la

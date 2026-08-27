@@ -4535,10 +4535,16 @@ function dibujarRecordatorio(vista, { fecha } = {}) {
   // Repetirlo sería ruido justo donde el usuario ya está haciendo lo correcto.
   if (vista.pantalla === 'datos') return '';
 
-  const { haceFalta, cuantos, desde, nunca } = estadoDelRecordatorio(vista.estado, fecha ? { fecha } : {});
+  const { haceFalta, cuantos, desde } = estadoDelRecordatorio(vista.estado, fecha ? { fecha } : {});
   if (!haceFalta) return '';
 
-  const cuando = nunca ? 'Nunca respaldaste.' : `Hace ${desde} días que no respaldás.`;
+  // Siempre en días, también cuando nunca hubo un respaldo (pedido del usuario,
+  // 2026-08-27). "Nunca respaldaste" es una etiqueta sobre la persona; "hace 12
+  // días" es un dato que se puede comparar con el de mañana. Los días se cuentan
+  // desde el movimiento más viejo cuando no hay respaldo previo, así que el
+  // número significa lo mismo en los dos casos: hace cuánto que hay datos
+  // expuestos.
+  const cuando = `Hace ${desde} días que no respaldás.`;
   // La frase se arma entera acá y no dentro de la plantilla: partida en varias
   // líneas del HTML, los saltos quedan en el medio de las palabras y ningún test
   // que lea la frase completa la reconoce (fue exactamente lo que pasó).
