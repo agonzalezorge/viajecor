@@ -101,6 +101,10 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
 | T-906 | Exportar a `.xlsx` con la forma de la planilla | **Hecha** (falta abrirlo en Excel de verdad: T-019) | T-016, T-018 |
 | T-910 | Hoja de análisis mes × rubro dentro del `.xlsx` | Lista | T-906, T-021 |
+| **T-950** | **Avisar cuando el navegador no puede guardar** | **En curso (claude, 2026-08-27)** | T-004 |
+| T-911 | La barra del desglose mide el porcentaje real | En curso (claude, 2026-08-27) | T-014 |
+| T-912 | Orden de campos y autocompletado del comentario | En curso (claude, 2026-08-27) | T-011 |
+| T-913 | "Cargar" es la primera pestaña | En curso (claude, 2026-08-27) | T-010 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -958,6 +962,69 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   y la matriz en el Excel tienen que contar lo mismo, y conviene decidir una vez
   cómo se arma —qué va en las filas, qué en las columnas, cómo se muestran los
   meses sin movimientos— y no dos veces distinto. *(Depende de T-906, T-021.)*
+
+---
+
+### T-950 · Avisar cuando el navegador no puede guardar — **urgente**
+**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-004
+
+**Lo que pasó (2026-08-27, verificación del usuario en su Android).** Abrió
+`dist/viajecor.html` desde la app *Archivos*, cargó cuatro movimientos, cerró
+Chrome y **perdió todo**.
+
+**Por qué.** Android no le pasa al navegador la ubicación del archivo sino un
+permiso temporal de lectura, y la dirección queda como `content://…`. Para Chrome
+eso no es un sitio: es contenido anónimo, sin identidad estable. Como el
+almacenamiento se guarda **por sitio**, no hay dónde guardar. Chrome deja
+escribir mientras la pestaña vive y lo tira al cerrar.
+
+**Lo grave no es que no se pueda guardar: es que la app no lo dijo.** Aceptó
+cuatro movimientos, los mostró, dijo "guardado", y los perdió. Toda la app se
+apoya en la promesa de que los datos son del usuario y están en su dispositivo;
+aceptar datos que no se van a guardar la rompe en el peor momento posible, que es
+cuando el usuario ya confió.
+
+**Qué hay que hacer:** detectar que el almacenamiento no persiste y **decirlo
+antes de aceptar el primer dato**, con la instrucción concreta para arreglarlo.
+No se pospone y no se puede cerrar: un aviso que se puede sacar cuando lo que
+avisa es "vas a perder todo" no sirve.
+
+**Lo que NO alcanza:** probar que `localStorage` acepta una escritura. Acepta:
+el problema aparece al cerrar. Hay que mirar el **esquema de la dirección**, que
+es lo que determina si hay identidad, y no el resultado de escribir.
+
+---
+
+### T-911 · La barra del desglose mide el porcentaje real
+**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-014
+
+Pedido del usuario (2026-08-27): *"tengo dos que dicen 50 % pero las barras están
+completas"*. La barra se dibujaba relativa **al rubro más grande**, así que con
+dos rubros iguales los dos quedaban llenos. Es una forma legítima de dibujar
+barras —aprovecha todo el ancho— pero **contradice el número escrito al lado**, y
+entre el dibujo y el número gana siempre el número: el dibujo pasa a ser ruido.
+
+---
+
+### T-912 · Orden de campos y autocompletado del comentario
+**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-011
+
+Pedido del usuario (2026-08-27): que **Detalle** quede penúltimo y **Comentario**
+último, y que el comentario **autocomplete** con los que ya se usaron —escribir
+`Barce` tiene que ofrecer `Barcelona26`.
+
+El autocompletado no es comodidad: el comentario es lo que agrupa los gastos de
+un viaje (RN-03), y dos escrituras distintas del mismo viaje son dos viajes
+distintos en los totales. Ofrecer lo que ya existe es la forma más barata de que
+eso no pase.
+
+---
+
+### T-913 · "Cargar" es la primera pestaña
+**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-010
+
+Pedido del usuario (2026-08-27). Es lo que más se hace y lo que se hace apurado,
+parado en la caja de un supermercado.
 
 ---
 
