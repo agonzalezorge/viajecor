@@ -398,6 +398,17 @@ que no se hace.
   privado.** La app garantiza la privacidad hasta que el archivo sale.
 - Falta comprobarlo en el Android del usuario — es parte de T-019.
 
+**La planilla de Excel (T-906).** Desde *Datos* se descarga —o se comparte— un
+`.xlsx` con la forma de la planilla de siempre: un bloque por mes con su título,
+los mismos encabezados, el acumulado en `G/Acum./Mes`, y a la derecha `GASTOS POR
+TIPO`, `INGRESOS POR TIPO`, `TOTALES` y `GASTO POR DÍA`. Los importes van en
+euros, para que sumar la columna dé un número con sentido; un movimiento al que
+le falta el tipo de cambio entra igual, con el monto vacío y el motivo escrito.
+
+**La planilla no es un respaldo**, y la pantalla lo dice: no lleva los
+identificadores, ni los tipos de cambio, ni las monedas, así que no se puede
+volver a cargar en la app. Descargarla **no apaga** el recordatorio de respaldo.
+
 **Formatos:** JSON (completo, sirve para reimportar), CSV, y `.xlsx` con la
 forma de la planilla actual — bloques mensuales, los mismos encabezados y los
 mismos cuadros de totales, pero **con los números ya calculados en vez de

@@ -99,7 +99,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-909 | Color y rótulo propios por rubro | **Hecha** | T-014 |
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
-| T-906 | Exportar a `.xlsx` con la forma de la planilla | En curso (claude, 2026-08-27) | T-016, T-018 |
+| T-906 | Exportar a `.xlsx` con la forma de la planilla | **Hecha** (falta abrirlo en Excel de verdad: T-019) | T-016, T-018 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -904,18 +904,47 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   Excel, tienen que cubrir la columna entera (`G:G`) y no un rango con final
   escrito a mano — y eso es una decisión aparte, no un detalle de implementación.
 
-  **Qué hay que resolver antes de escribir una línea:** el formato obliga a
-  escribir espacios de nombres XML que son direcciones `http://…`, y la guardia de
-  privacidad (T-007) rechaza cualquier `http://` en el archivo construido. No es
-  una petición de red —nadie visita esa dirección, es un identificador— pero la
-  guardia no puede distinguirlos hoy. La salida NO es debilitar la guardia con una
-  excepción genérica: hay que declarar esos identificadores en un solo lugar,
-  documentado, y que la guardia acepte esa lista y nada más.
+  **El obstáculo de la guardia, resuelto (ADR-027).** El formato obliga a
+  escribir espacios de nombres XML con forma de dirección, y la guardia de
+  privacidad (T-007) rechaza cualquier `http://`. No se debilitó la guardia ni
+  se partieron las cadenas para esconderlas —eso la habría dejado en pie pero
+  ciega—: se declaran en un solo lugar, en una lista **cerrada y acotada por
+  dominio**, con tres condiciones comprobadas en cada construcción. Y se midió:
+  la app abierta en un navegador con la red bloqueada e instrumentada hace
+  **cero** peticiones.
 
-  **Comprobado, no supuesto:** se generó un `.xlsx` con encabezados en negrita,
-  fechas, textos y números armando el ZIP a mano —sin librerías y sin comprimir,
-  porque el formato ZIP admite entradas *stored*— y lo abrió openpyxl, un lector
-  de Excel real, devolviendo las fechas como fechas.
+  **Decisiones del usuario (2026-08-27):** la columna `G/Acum./Mes` y los
+  bloques de la derecha se **rellenan con los números calculados**; la columna
+  `MONTO` lleva **el equivalente en euros**, una sola moneda, para que sumar la
+  columna dé un número con sentido.
+
+  **Un movimiento sin tipo de cambio entra igual**, con el monto vacío y el
+  motivo escrito en `DETALLES`, y la pantalla dice cuántos son. No se descarta
+  ni se pone en cero: una fila que desaparece en silencio es la falla que esta
+  app existe para eliminar.
+
+  **La planilla NO es un respaldo, y la pantalla lo dice.** Un `.xlsx` no lleva
+  los identificadores de los movimientos, ni los tipos de cambio, ni las
+  monedas: se puede leer, pero no se puede volver a cargar. Por eso descargarla
+  **no anota la fecha del respaldo** y no apaga el aviso de T-903. Dejar que lo
+  apagara sería lo peor que puede hacer esa pantalla: el usuario tranquilo con
+  un archivo que no lo puede salvar.
+
+  **Verificado, no supuesto.** 474 tests. Doce mutaciones, doce detectadas —dos
+  destaparon huecos: un test circular que no podía fallar, y un choque de filas
+  que la rejilla hacía en silencio—. El `.xlsx` **descargado desde el navegador**
+  se abrió con **dos lectores independientes**, openpyxl (Python) y exceljs
+  (Node), que devolvieron los mismos valores, las fechas como fechas, los
+  formatos de moneda y la negrita de los títulos.
+
+  **Lo que NO se pudo comprobar acá:** que Excel de verdad lo abra. LibreOffice
+  está instalado en el entorno pero **sin el filtro de Calc**, y no carga ningún
+  `.xlsx`, ni siquiera uno hecho por openpyxl. Abrirlo en Excel es parte de
+  T-019.
+
+  **Lo que queda para otra tarea:** la hoja de análisis con la matriz mes ×
+  rubro. Los bloques por mes —`GASTOS POR TIPO`, `INGRESOS POR TIPO`, `TOTALES`
+  y `GASTO POR DÍA`— están hechos.
 
 ---
 

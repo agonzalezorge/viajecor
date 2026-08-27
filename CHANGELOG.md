@@ -35,6 +35,17 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **Ya podés bajarte tu planilla de Excel** (T-906), con la forma de la de
+  siempre: un bloque por mes, los mismos encabezados, el acumulado y los bloques
+  de totales por rubro, de ingresos, de saldo y de gasto por día. **Con una
+  diferencia**: los totales están calculados sobre todas las filas, no con
+  fórmulas de rango escritas a mano — que es el error por el que existe esta app
+  (L-001). Los importes van en euros; lo que no se puede convertir entra igual,
+  con el monto vacío y el motivo escrito al lado, en vez de desaparecer. **No es
+  un respaldo** y la pantalla lo dice: no se puede volver a cargar, y bajarla no
+  apaga el aviso de respaldo. Escrito sin librerías: el ZIP y el XML se arman a
+  mano. 25 tests, y el archivo comprobado con dos lectores de Excel
+  independientes.
 - **La app te avisa cuando hace más de una semana que no respaldás** (T-903), en
   la pantalla donde estés y no solo si entrás a *Datos*. Dice hace cuántos días
   y, sobre todo, **cuántos movimientos existen en un solo lugar**, que es lo que

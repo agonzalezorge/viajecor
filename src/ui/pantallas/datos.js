@@ -19,6 +19,7 @@
 
 import { escapar } from '../app.js';
 import { prepararRespaldo, diasSinRespaldar } from '../../datos/exportar.js';
+import { crearPlanilla } from '../../datos/xlsx.js';
 import { MODO_REEMPLAZAR, MODO_AGREGAR } from '../../datos/importar.js';
 import { formatearFechaLarga } from '../../core/formato.js';
 import { hoy } from '../../core/modelo.js';
@@ -123,6 +124,8 @@ export function dibujarDatos(vista) {
       en adelante la garantizás vos.</p>
     </section>
 
+    ${dibujarPlanilla(vista)}
+
     ${dibujarImportar(vista)}
 
     <section class="tarjeta">
@@ -135,8 +138,7 @@ export function dibujarDatos(vista) {
 
     <section class="tarjeta">
       <h2>Todavía no</h2>
-      <p class="suave pendiente">Exportar a CSV para abrir en Excel — T-018.
-      Ver y agregar monedas — T-024.</p>
+      <p class="suave pendiente">Exportar a CSV — T-018. Ver y agregar monedas — T-024.</p>
     </section>
   `;
 }
@@ -237,5 +239,57 @@ function dibujarPrevia(previa) {
     <button type="button" class="secundario" data-accion="cancelar-importar">
       Dejar como está
     </button>
+  `;
+}
+
+/**
+ * La planilla de Excel — T-906.
+ *
+ * Es para **mirar**, no para restaurar, y la pantalla lo dice con todas las
+ * letras. Un `.xlsx` no lleva los identificadores de los movimientos, ni los
+ * tipos de cambio, ni tus monedas: se puede abrir y leer, pero no se puede
+ * volver a cargar en la app sin perder cosas. Por eso **descargarla no cuenta
+ * como respaldo** y no apaga el aviso de "hace tantos días que no respaldás".
+ *
+ * Dejar que lo apagara sería lo peor que puede hacer esta pantalla: el usuario
+ * se quedaría tranquilo con un archivo que no lo puede salvar.
+ */
+export function dibujarPlanilla(vista) {
+  const cuantos = (vista.estado.movimientos ?? []).length;
+  const planilla = cuantos === 0 ? null : crearPlanilla(vista.estado);
+
+  return `
+    <section class="tarjeta">
+      <h2>Planilla de Excel</h2>
+
+      <p class="suave">Tus gastos con la forma de tu planilla de siempre: un
+      bloque por mes, los mismos encabezados, el acumulado y el total por rubro.
+      La diferencia es que <strong>los totales están calculados sobre todas las
+      filas</strong>, no con fórmulas de rango escritas a mano.</p>
+
+      ${planilla && planilla.sinConvertir > 0 ? `
+      <p class="aviso-respaldo pendiente-respaldo" role="status">
+        ${planilla.sinConvertir === 1
+          ? 'Hay 1 movimiento que no se puede pasar a euros porque falta su tipo de cambio.'
+          : `Hay ${planilla.sinConvertir} movimientos que no se pueden pasar a euros porque falta su tipo de cambio.`}
+        Entran igual en la planilla, con el monto vacío y el motivo escrito al lado.
+      </p>` : ''}
+
+      ${vista.errorPlanilla ? `<p class="error-carga" role="alert">${escapar(vista.errorPlanilla)}</p>` : ''}
+      ${vista.avisoPlanilla ? `<p class="confirmacion" role="status">${escapar(vista.avisoPlanilla)}</p>` : ''}
+
+      ${vista.puedeCompartir ? `
+      <button type="button" class="secundario" data-accion="compartir-planilla"${cuantos === 0 ? ' disabled' : ''}>
+        Compartir la planilla
+      </button>` : ''}
+
+      <button type="button" class="secundario" data-accion="exportar-planilla"${cuantos === 0 ? ' disabled' : ''}>
+        Descargar ${planilla ? escapar(planilla.nombre) : 'la planilla'}
+      </button>
+
+      <p class="suave"><strong>Esto no es un respaldo.</strong> La planilla se
+      puede leer pero no se puede volver a cargar en la app: no lleva los tipos
+      de cambio ni tus monedas. Para eso está el archivo de arriba.</p>
+    </section>
   `;
 }

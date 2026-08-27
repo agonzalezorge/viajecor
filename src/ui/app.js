@@ -27,6 +27,7 @@ import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
 import { leerRespaldo, previsualizar, aplicarImportacion } from '../datos/importar.js';
 import { compartirRespaldo, sePuedeCompartir, archivoDelRespaldo } from './compartir.js';
 import { estadoDelRecordatorio, posponerRecordatorio } from '../datos/recordatorio.js';
+import { crearPlanilla } from '../datos/xlsx.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -303,6 +304,7 @@ export function irA(vista, nombre) {
     ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null,
     avisoRespaldo: null, mostrarRespaldo: false,
     importacion: null, errorImportar: null, avisoImportar: null,
+    errorPlanilla: null, avisoPlanilla: null,
   };
   return nombre === 'nuevo'
     ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
@@ -446,25 +448,85 @@ export function iniciar(documento, almacen) {
    * texto para copiar**, que es el camino que no depende de nadie. Un respaldo
    * que solo funciona si el navegador coopera no es un respaldo.
    */
-  function descargarRespaldo() {
-    const respaldo = prepararRespaldo(vista.estado);
-
+  /**
+   * Le pide al navegador que guarde un archivo. Devuelve el error, o `null`.
+   *
+   * Está aparte porque ahora salen dos archivos por el mismo camino —el respaldo
+   * y la planilla— y dos copias de esto serían dos formas distintas de fallar.
+   */
+  function pedirDescarga({ contenido, nombre, tipo }) {
     try {
-      const url = URL.createObjectURL(new Blob([respaldo.contenido], { type: respaldo.tipo }));
+      const url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
       const enlace = documento.createElement('a');
       enlace.href = url;
-      enlace.download = respaldo.nombre;
+      enlace.download = nombre;
       documento.body.appendChild(enlace);
       enlace.click();
       enlace.remove();
       // Se libera después, no en el acto: revocarla enseguida le saca al
       // navegador el archivo de las manos mientras todavía lo está escribiendo.
       setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return null;
     } catch (error) {
+      return error.message;
+    }
+  }
+
+  /**
+   * Descarga la planilla de Excel — T-906.
+   *
+   * **No anota la fecha del respaldo, a propósito.** Un `.xlsx` no lleva los
+   * identificadores de los movimientos, ni los tipos de cambio, ni las monedas:
+   * se puede leer, pero no se puede volver a cargar en la app. Si descargarlo
+   * apagara el aviso de "hace tantos días que no respaldás", el usuario se
+   * quedaría tranquilo con un archivo que no lo puede salvar. Es la clase de
+   * comodidad que cuesta los datos de alguien.
+   */
+  function descargarPlanilla() {
+    const planilla = crearPlanilla(vista.estado);
+    const error = pedirDescarga({ contenido: planilla.bytes, nombre: planilla.nombre, tipo: planilla.tipo });
+
+    vista = error
+      ? { ...vista, errorPlanilla: `No se pudo descargar la planilla (${error}). Probá con el respaldo de arriba.`, avisoPlanilla: null }
+      : { ...vista, errorPlanilla: null, avisoPlanilla: avisoDePlanilla(planilla) };
+    pintar();
+  }
+
+  /** Comparte la planilla por el menú del teléfono, igual que el respaldo. */
+  async function compartirLaPlanilla() {
+    const planilla = crearPlanilla(vista.estado);
+    const ventana = documento.defaultView;
+    const resultado = await compartirRespaldo(
+      ventana?.navigator,
+      { contenido: planilla.bytes, nombre: planilla.nombre, tipo: planilla.tipo },
+      ventana?.File
+    );
+
+    if (resultado.cancelado) return;
+
+    vista = resultado.error
+      ? { ...vista, errorPlanilla: resultado.error, avisoPlanilla: null }
+      : { ...vista, errorPlanilla: null, avisoPlanilla: avisoDePlanilla(planilla) };
+    pintar();
+  }
+
+  function avisoDePlanilla(planilla) {
+    const meses = planilla.meses === 1 ? '1 mes' : `${planilla.meses} meses`;
+    const falta = planilla.sinConvertir > 0
+      ? ` ${planilla.sinConvertir === 1 ? '1 movimiento entró' : `${planilla.sinConvertir} movimientos entraron`} sin monto, por falta de tipo de cambio.`
+      : '';
+    return `Listo: ${planilla.nombre}, con ${meses}.${falta} Acordate de que esto no reemplaza al respaldo.`;
+  }
+
+  function descargarRespaldo() {
+    const respaldo = prepararRespaldo(vista.estado);
+    const error = pedirDescarga(respaldo);
+
+    if (error) {
       vista = {
         ...vista,
         mostrarRespaldo: true,
-        error: `No se pudo descargar el archivo (${error.message}). ` +
+        error: `No se pudo descargar el archivo (${error}). ` +
           'Copiá el texto de abajo y guardalo donde quieras: sirve igual.',
       };
       pintar();
@@ -787,6 +849,12 @@ export function iniciar(documento, almacen) {
         // abierta y vuelve al recargar. No hay nada útil que decirle acá.
       }
       vista = { ...vista, estado: pospuesto };
+    } else if (accion === 'exportar-planilla') {
+      descargarPlanilla();
+      return;
+    } else if (accion === 'compartir-planilla') {
+      compartirLaPlanilla();
+      return;
     } else if (accion === 'compartir') {
       compartirElRespaldo();
       return;

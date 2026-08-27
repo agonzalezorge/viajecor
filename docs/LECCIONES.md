@@ -572,3 +572,42 @@ El constructor la rechazó por nombre repetido, lo que obligó a mirarla y a
 descubrir que era **la misma resta de fechas escrita dos veces**. Ahora vive una
 sola vez, en `core/modelo.js` como `diasEntre()`. La comprobación se pagó sola
 dos veces en veinticuatro horas.
+
+---
+
+## L-018 · Un test puede ser circular y no poder fallar nunca
+
+**Qué pasó.** Al pasar la planilla de Excel a una rejilla, escribí un test para
+comprobar que el bloque de resumen de un mes no se escribiera encima del mes
+siguiente. Decía, más o menos: *"la fila donde empieza abril tiene que ser mayor
+que la última fila de marzo"*, y calculaba «la última fila de marzo» como **la
+mayor de las filas que están entre marzo y abril**.
+
+Pasaba. Y seguía pasando cuando rompí el código a propósito para que abril se
+metiera en el medio de marzo: al meterse, las filas pisadas quedaban *después*
+de abril, dejaban de contar como «filas de marzo», y la comparación seguía dando
+bien. El test no podía fallar.
+
+**Lo detectó la mutación, no la lectura.** Leído, el test parecía razonable —yo
+lo escribí creyendo que probaba algo—. Lo que lo delató fue romper el código y
+ver que seguía en verde. Es el argumento entero a favor de romper el código a
+propósito: **un test que pasa no dice nada hasta que se lo ve fallar.**
+
+**El patrón, para reconocerlo la próxima.** El test definía lo que iba a medir
+*usando* el resultado que quería comprobar. «Las filas de marzo son las que están
+antes de abril» ya da por cierto que marzo está antes de abril, que es
+exactamente lo que había que probar. Cuando una definición del test menciona lo
+que el test quiere demostrar, el test es una tautología con forma de
+comprobación.
+
+**Cómo quedó.** Se reemplazó por uno que cuenta cosas que existen
+independientemente del orden: que haya **dos** calendarios de gasto por día, que
+uno tenga sus 31 días de marzo y el otro los 30 de abril **completos y en orden**,
+y que los dos títulos de mes sigan existiendo. Si un bloque pisa al otro,
+desaparecen celdas, y eso se ve sin preguntarle al orden.
+
+**Y una segunda cosa de la misma tarea.** La rejilla guarda una celda por
+posición: la última en escribirse gana, **sin ningún aviso**. El primer rubro del
+resumen caía en la misma fila que su encabezado `RUBRO` y lo borraba en silencio.
+Una estructura que resuelve los choques sola es cómoda, y por eso mismo los
+esconde: donde antes había un error visible, ahora hay un dato menos.

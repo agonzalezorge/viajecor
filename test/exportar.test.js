@@ -226,9 +226,17 @@ test('el texto para copiar muestra el respaldo entero', () => {
   assert.ok(html.includes('&quot;movimientos&quot;'), 'el JSON va escapado dentro del HTML');
 });
 
-test('sin datos, los dos botones están apagados', () => {
-  const html = dibujarDatos({ estado: estadoLimpio() });
-  assert.equal((html.match(/disabled/g) ?? []).length, 2);
+test('sin datos, ningún botón de exportar se puede apretar', () => {
+  // Se cuentan por acción y no por cantidad: contar "cuántos disabled hay" hace
+  // que agregar un botón rompa el test sin que nada esté mal, y peor, que
+  // agregar uno SIN apagar lo deje pasar si otro se apagó de más.
+  const html = dibujarDatos({ estado: estadoLimpio(), puedeCompartir: true });
+
+  for (const accion of ['exportar', 'ver-respaldo', 'exportar-planilla', 'compartir', 'compartir-planilla']) {
+    const boton = html.match(new RegExp(`<button[^>]*data-accion="${accion}"[^>]*>`));
+    assert.ok(boton, `no está el botón ${accion}`);
+    assert.match(boton[0], /disabled/, `el botón ${accion} se puede apretar sin datos`);
+  }
 });
 
 test('la pantalla dice cuánto pesa y qué se lleva', () => {

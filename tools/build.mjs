@@ -29,6 +29,8 @@ const MODULOS = [
   'src/datos/exportar.js',
   'src/datos/importar.js',
   'src/datos/recordatorio.js',
+  'src/datos/zip.js',
+  'src/datos/xlsx.js',
   'src/ui/colores.js',
   'src/ui/compartir.js',
   'src/ui/pantallas/cambio.js',
