@@ -198,6 +198,16 @@ export function migrarEstado(guardado, incidencias = []) {
       // No había fecha de respaldo, o no era una fecha. Se sigue sin ella: la
       // app va a decir "nunca respaldaste", que es lo correcto si no se sabe.
     }
+
+    // El día en que el usuario dijo "ahora no" al recordatorio de respaldo
+    // (T-903). Sin esto, el aviso volvería a aparecer en cada recarga por más
+    // que lo hubiera pospuesto, y un aviso que no se puede sacar deja de leerse.
+    try {
+      estado.preferencias.recordatorio_pospuesto = validarFecha(preferencias.recordatorio_pospuesto);
+    } catch {
+      // No se pospuso nunca, o el dato estaba roto: el aviso se muestra, que es
+      // el lado seguro de equivocarse.
+    }
   }
 
   return estado;

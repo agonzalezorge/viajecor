@@ -14,6 +14,7 @@ import {
   RUBROS_GASTO,
   RUBROS_INGRESO,
   rubrosDe,
+  diasEntre,
   normalizarTextoVisible,
   normalizarClave,
   claveDeComentario,
@@ -406,4 +407,33 @@ test('lo que crea crearMovimiento pasa validarMovimiento', () => {
   // rechaza, la app guardaría datos que no puede volver a leer.
   const mov = crear({ comentario: 'Roma', detalle: 'cena', monto: '1.234,56' });
   assert.deepEqual(validarMovimiento(mov), mov);
+});
+
+// ── diasEntre (T-903) ────────────────────────────────────────────────────────
+
+test('diasEntre cuenta días de calendario', () => {
+  assert.equal(diasEntre('2026-08-20', '2026-08-27'), 7);
+  assert.equal(diasEntre('2026-08-27', '2026-08-27'), 0);
+});
+
+test('diasEntre cruza meses y años sin equivocarse', () => {
+  assert.equal(diasEntre('2026-02-28', '2026-03-01'), 1);
+  assert.equal(diasEntre('2025-12-31', '2026-01-01'), 1);
+});
+
+test('diasEntre acierta en un año bisiesto', () => {
+  // 2024 fue bisiesto y 2026 no. Restar instantes con husos horarios de por
+  // medio es justo donde esto se cae por un día.
+  assert.equal(diasEntre('2024-02-28', '2024-03-01'), 2);
+});
+
+test('diasEntre da negativo si la segunda fecha es anterior', () => {
+  // No se recorta a cero acá: quien llama decide si un número negativo tiene
+  // sentido en su caso. Esconderlo escondería el error de quien lo llamó.
+  assert.equal(diasEntre('2026-08-27', '2026-08-20'), -7);
+});
+
+test('diasEntre rechaza lo que no es una fecha', () => {
+  assert.throws(() => diasEntre('2026-13-01', '2026-08-27'));
+  assert.throws(() => diasEntre('2026-08-27', 'ayer'));
 });

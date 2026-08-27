@@ -26,6 +26,7 @@ import { dibujarDatos } from './pantallas/datos.js';
 import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
 import { leerRespaldo, previsualizar, aplicarImportacion } from '../datos/importar.js';
 import { compartirRespaldo, sePuedeCompartir, archivoDelRespaldo } from './compartir.js';
+import { estadoDelRecordatorio, posponerRecordatorio } from '../datos/recordatorio.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -205,6 +206,48 @@ export function dibujarAvisos(incidencias = []) {
   `;
 }
 
+/**
+ * El recordatorio de respaldo — T-903.
+ *
+ * Aparece en la pantalla donde el usuario está, no solo en Datos, donde entra el
+ * que ya se acordó. Es la contramedida al riesgo más grave de la arquitectura:
+ * los datos viven en un solo navegador.
+ *
+ * **Dice cuántos movimientos, no solo cuántos días.** "Hace 9 días que no
+ * respaldás" es un reproche; "23 movimientos existen en un solo lugar" es lo que
+ * se pierde. El número concreto es el que hace que valga la pena tocar el botón.
+ */
+export function dibujarRecordatorio(vista, { fecha } = {}) {
+  // En Datos no: ahí ya está toda la información y los dos botones de verdad.
+  // Repetirlo sería ruido justo donde el usuario ya está haciendo lo correcto.
+  if (vista.pantalla === 'datos') return '';
+
+  const { haceFalta, cuantos, desde, nunca } = estadoDelRecordatorio(vista.estado, fecha ? { fecha } : {});
+  if (!haceFalta) return '';
+
+  const cuando = nunca ? 'Nunca respaldaste.' : `Hace ${desde} días que no respaldás.`;
+  // La frase se arma entera acá y no dentro de la plantilla: partida en varias
+  // líneas del HTML, los saltos quedan en el medio de las palabras y ningún test
+  // que lea la frase completa la reconoce (fue exactamente lo que pasó).
+  const queSePierde = cuantos === 1
+    ? '1 movimiento tuyo existe en un solo lugar: si se borran los datos de este navegador, se pierde.'
+    : `${cuantos} movimientos tuyos existen en un solo lugar: si se borran los datos de este navegador, se pierden.`;
+
+  return `
+    <section class="aviso recordatorio" role="status">
+      <p><strong>${escapar(cuando)}</strong> ${escapar(queSePierde)}</p>
+      <div class="acciones-recordatorio">
+        <button type="button" class="principal" data-accion="ir" data-pantalla="datos">
+          Respaldar ahora
+        </button>
+        <button type="button" class="secundario" data-accion="posponer-recordatorio">
+          Ahora no
+        </button>
+      </div>
+    </section>
+  `;
+}
+
 /** La app entera, como texto. Es la función que los tests miran. */
 export function dibujarApp(vista) {
   const definicion = pantalla(vista.pantalla) ?? pantalla('mes');
@@ -213,6 +256,7 @@ export function dibujarApp(vista) {
   return `
     ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes })}
     ${dibujarAvisos(vista.incidencias)}
+    ${dibujarRecordatorio(vista)}
     <main class="contenido">${contenido}</main>
     ${dibujarNavegacion(definicion.nombre)}
   `;
@@ -726,6 +770,17 @@ export function iniciar(documento, almacen) {
     } else if (accion === 'importar') {
       aplicarRespaldo(boton.dataset.modo);
       return;
+    } else if (accion === 'posponer-recordatorio') {
+      // Se guarda, porque si no el aviso volvería en cada recarga por más que lo
+      // hubieras pospuesto — y un aviso que no se puede sacar deja de leerse.
+      const pospuesto = posponerRecordatorio(vista.estado);
+      try {
+        guardarEstado(pospuesto, almacen);
+      } catch {
+        // Si no se puede guardar, el aviso se calla igual mientras la app esté
+        // abierta y vuelve al recargar. No hay nada útil que decirle acá.
+      }
+      vista = { ...vista, estado: pospuesto };
     } else if (accion === 'compartir') {
       compartirElRespaldo();
       return;

@@ -20,7 +20,7 @@
 // Este archivo no toca el navegador: arma el contenido y el nombre, y quien lo
 // descarga es la pantalla. Así se puede testear el respaldo sin un navegador.
 
-import { hoy } from '../core/modelo.js';
+import { diasEntre, hoy } from '../core/modelo.js';
 import { ESQUEMA_ACTUAL } from './almacenamiento.js';
 
 export const TIPO_JSON = 'application/json';
@@ -106,11 +106,5 @@ export function diasSinRespaldar(estado, { fecha = hoy() } = {}) {
   const ultimo = estado.preferencias?.ultimo_respaldo;
   if (typeof ultimo !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(ultimo)) return null;
 
-  return Math.max(0, Math.round((enDias(fecha) - enDias(ultimo)) / 86400000));
-}
-
-/** Un día del calendario como milisegundos, para poder restar dos días. */
-function enDias(iso) {
-  const [anio, mes, dia] = iso.split('-').map(Number);
-  return Date.UTC(anio, mes - 1, dia);
+  return Math.max(0, diasEntre(ultimo, fecha));
 }

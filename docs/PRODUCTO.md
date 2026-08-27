@@ -376,6 +376,13 @@ suyos. Sin esto, un borrado de datos del navegador pierde todo.
    configuración, y el navegador lo descarga.
 3. Funciona sin conexión.
 
+**El recordatorio (T-903).** Si hace más de una semana que no respaldás **y hay
+movimientos nuevos**, la app te avisa en la pantalla donde estés. El aviso dice
+cuántos movimientos existen en un solo lugar, con un botón para ir a respaldar y
+otro para posponerlo hasta mañana. No aparece si no hay nada nuevo que perder:
+un aviso que sale cuando no corresponde enseña a ignorar el que sí importa. Ver
+ADR-026.
+
 **Cómo llega a la nube (T-905).** En el teléfono, el botón principal es
 **Compartir el respaldo**: abre el menú del sistema y el usuario elige OneDrive,
 Drive o un correo a sí mismo. **La app no sube nada** — le pasa el archivo al

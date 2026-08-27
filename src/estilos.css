@@ -685,3 +685,25 @@ body {
   padding: 0.625rem;
   font-size: 0.9375rem;
 }
+
+/* ── El recordatorio de respaldo (T-903) ──────────────────────────────────────
+   Va arriba del contenido, en todas las pantallas menos Datos. Se ve como un
+   aviso y no como parte del decorado: si se pareciera al resto, se dejaría de
+   leer, que es exactamente lo que no puede pasar con este. */
+.recordatorio {
+  border-color: var(--gasto);
+  border-left-width: 4px;
+  margin-bottom: 1.25rem;
+}
+
+.recordatorio p { margin: 0 0 0.75rem; font-size: 0.9375rem; }
+
+.acciones-recordatorio {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Los dos botones comparten el ancho: "Ahora no" tiene que ser fácil de tocar.
+   Un aviso donde salir es difícil se siente una trampa, y el usuario aprende a
+   no leer el que viene después. */
+.acciones-recordatorio button { flex: 1; margin: 0; }

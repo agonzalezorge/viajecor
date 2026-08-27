@@ -93,7 +93,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-900 | README de uso | Lista | — |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
-| T-903 | Recordatorio semanal de respaldo | En curso (claude, 2026-08-27) | T-016 |
+| T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
 | T-904 | Modo oscuro | **Hecha** (venía de T-001) | T-010 |
 | T-905 | Respaldo cómodo a la nube, sin red | **Hecha** (falta comprobarlo en el celular: T-019) | T-016 |
 | T-909 | Color y rótulo propios por rubro | **Hecha** | T-014 |
@@ -787,12 +787,35 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   la regla de `docs/PRODUCTO.md` §9 aplicada de verdad en cada publicación.
 - **T-902 · Uso cómodo en celular** — botones grandes, teclado numérico al cargar
   montos, nada de texto de 11 píxeles. *(Depende de T-010.)*
-- **T-903 · Recordatorio semanal de respaldo** — la app avisa si hace **más de
-  una semana** que no se exporta (decidido por el usuario, 2026-08-19). Es la
-  contramedida al riesgo más grave de la arquitectura: los datos viven en un solo
-  navegador. El aviso se muestra dentro de la app, no como notificación del
-  sistema — una notificación exigiría permisos y un servicio, y la app no tiene
-  ni puede tener servidor. *(Depende de T-016.)*
+- **T-903 · Recordatorio semanal de respaldo** — **Hecha (2026-08-27).** La app
+  avisa si hace **más de una semana** que no se exporta (plazo decidido por el
+  usuario, 2026-08-19). Es la contramedida al riesgo más grave de la
+  arquitectura: los datos viven en un solo navegador. El aviso se muestra dentro
+  de la app, no como notificación del sistema — una notificación exigiría
+  permisos y un servicio, y la app no tiene ni puede tener servidor.
+
+  **Aparece en la pantalla donde el usuario está**, no solo en *Datos*, donde
+  entra el que ya se acordó. En *Datos* no se repite: ahí ya está la información
+  completa y los botones de verdad.
+
+  **Cuenta movimientos sin respaldar, no solo días** (ADR-026): sin movimientos
+  nuevos no aparece por más que pase un año, porque no hay nada que perder. Y si
+  nunca hubo un respaldo, el plazo corre desde el movimiento más viejo, no desde
+  siempre: reclamarle un respaldo a quien cargó su primer gasto hace diez
+  minutos es la forma más rápida de que el aviso deje de leerse.
+
+  **Se pospone por el día, no se apaga.** Un aviso que no se puede sacar se
+  vuelve decorado; uno que se apaga para siempre no sirve. "Ahora no" lo calla
+  hasta mañana, y eso se guarda —si no, volvería en cada recarga—.
+
+  **Verificado:** 427 tests, 25 nuevos. Nueve mutaciones: siete detectadas y dos
+  equivalentes. Dos de las mutaciones destaparon huecos reales —no había ningún
+  test de la pantalla, y quitar la llamada de `dibujarApp` no rompía nada
+  (L-014)—; los dos están cubiertos ahora. Recorrido en un navegador real desde
+  el disco: sembrando diez días de uso, comprobando que el aviso sigue por las
+  pantallas menos *Datos*, que "Ahora no" sobrevive a recargar, que **mañana
+  vuelve**, que respaldar lo apaga de verdad, y que cargar un gasto nuevo el
+  mismo día no lo hace gritar otra vez.
 - **T-904 · Modo oscuro** — *(Depende de T-010.)*
 - **T-905 · Respaldo cómodo a la nube, sin red** — **Hecha (2026-08-27).**
   Exportar termina en un botón *Compartir el respaldo* que abre el menú del

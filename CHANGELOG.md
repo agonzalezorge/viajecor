@@ -27,6 +27,12 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Agregado
+- **La app te avisa cuando hace más de una semana que no respaldás** (T-903), en
+  la pantalla donde estés y no solo si entrás a *Datos*. El aviso dice **cuántos
+  movimientos existen en un solo lugar**, que es lo que se pierde, y no solo
+  cuántos días pasaron. **No aparece si no hay nada nuevo que perder**: un año
+  sin respaldar da igual si no cargaste nada en ese año. "Ahora no" lo calla
+  hasta mañana —no para siempre—, y respaldar lo apaga de verdad. 25 tests.
 - **El respaldo ahora sale por el botón de compartir del teléfono** (T-905). En
   vez de descargar el archivo y después ir a buscarlo con un explorador para
   subirlo, tocás *Compartir el respaldo* y elegís OneDrive, Drive o un correo a

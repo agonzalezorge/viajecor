@@ -690,6 +690,28 @@ body {
   padding: 0.625rem;
   font-size: 0.9375rem;
 }
+
+/* ── El recordatorio de respaldo (T-903) ──────────────────────────────────────
+   Va arriba del contenido, en todas las pantallas menos Datos. Se ve como un
+   aviso y no como parte del decorado: si se pareciera al resto, se dejaría de
+   leer, que es exactamente lo que no puede pasar con este. */
+.recordatorio {
+  border-color: var(--gasto);
+  border-left-width: 4px;
+  margin-bottom: 1.25rem;
+}
+
+.recordatorio p { margin: 0 0 0.75rem; font-size: 0.9375rem; }
+
+.acciones-recordatorio {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Los dos botones comparten el ancho: "Ahora no" tiene que ser fácil de tocar.
+   Un aviso donde salir es difícil se siente una trampa, y el usuario aprende a
+   no leer el que viene después. */
+.acciones-recordatorio button { flex: 1; margin: 0; }
 </style>
 
 <div id="app" class="app">
@@ -1141,6 +1163,24 @@ function validarFecha(valor) {
     throw new Error(`El ${textoDia}/${textoMes}/${textoAnio} no existe en el calendario.`);
   }
   return `${textoAnio}-${textoMes}-${textoDia}`;
+}
+
+/**
+ * Cuántos días de calendario hay entre dos fechas `AAAA-MM-DD`.
+ *
+ * Se restan días, no instantes: la app no guarda horas (ADR-021), así que no hay
+ * ninguna hora que pueda hacer que "ayer" dé 0 o 2 según el momento del día. Se
+ * usa mediodía UTC por la misma razón que `comoFecha` (L-011).
+ *
+ * Vive acá, y no en quien lo necesita, porque lo necesitan dos módulos y dos
+ * copias de la misma resta son dos formas de que un día se cuente distinto.
+ */
+function diasEntre(desde, hasta) {
+  const enDias = (iso) => {
+    const [anio, mes, dia] = validarFecha(iso).split('-').map(Number);
+    return Date.UTC(anio, mes - 1, dia);
+  };
+  return Math.round((enDias(hasta) - enDias(desde)) / 86400000);
 }
 
 /**
@@ -2340,6 +2380,16 @@ function migrarEstado(guardado, incidencias = []) {
       // No había fecha de respaldo, o no era una fecha. Se sigue sin ella: la
       // app va a decir "nunca respaldaste", que es lo correcto si no se sabe.
     }
+
+    // El día en que el usuario dijo "ahora no" al recordatorio de respaldo
+    // (T-903). Sin esto, el aviso volvería a aparecer en cada recarga por más
+    // que lo hubiera pospuesto, y un aviso que no se puede sacar deja de leerse.
+    try {
+      estado.preferencias.recordatorio_pospuesto = validarFecha(preferencias.recordatorio_pospuesto);
+    } catch {
+      // No se pospuso nunca, o el dato estaba roto: el aviso se muestra, que es
+      // el lado seguro de equivocarse.
+    }
   }
 
   return estado;
@@ -2568,13 +2618,7 @@ function diasSinRespaldar(estado, { fecha = hoy() } = {}) {
   const ultimo = estado.preferencias?.ultimo_respaldo;
   if (typeof ultimo !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(ultimo)) return null;
 
-  return Math.max(0, Math.round((enDias(fecha) - enDias(ultimo)) / 86400000));
-}
-
-/** Un día del calendario como milisegundos, para poder restar dos días. */
-function enDias(iso) {
-  const [anio, mes, dia] = iso.split('-').map(Number);
-  return Date.UTC(anio, mes - 1, dia);
+  return Math.max(0, diasEntre(ultimo, fecha));
 }
 
 // ── src/datos/importar.js ───────────────────────────────────────
@@ -2766,6 +2810,105 @@ function ultimoRespaldoDespuesDe(estadoActual, leido) {
 function unirPorClave(propios, ajenos, clave) {
   const vistos = new Set(propios.map(clave));
   return [...propios, ...ajenos.filter((a) => !vistos.has(clave(a)))];
+}
+
+// ── src/datos/recordatorio.js ───────────────────────────────────
+// El recordatorio de respaldo — T-903.
+//
+// Es la contramedida al riesgo más grave de toda la arquitectura: los datos
+// viven en un solo navegador, y "limpiar datos de navegación" en el celular se
+// los lleva todos. No hay servidor ni papelera. El respaldo es la única red, y
+// una red que hay que acordarse de tender no se tiende.
+//
+// ── Por qué el aviso vive acá y no solo en la pantalla de Datos ──────────────
+//
+// La pantalla de Datos ya dice cuánto hace que no respaldás (T-016), pero ahí
+// solo entra quien ya se acordó. El aviso tiene que encontrar al usuario en la
+// pantalla donde está, que es la del mes.
+//
+// ── Por qué cuenta movimientos y no solo días ────────────────────────────────
+//
+// "Hace 9 días que no respaldás" es un reproche. "Tenés 23 movimientos que
+// existen en un solo lugar" es lo que efectivamente se pierde, y es el número
+// que hace que valga la pena tocar el botón. Se dicen los dos, pero el que
+// manda es el de los movimientos: si hace tres semanas que no respaldás y no
+// cargaste nada, no hay nada que hacer y el aviso no aparece.
+//
+// ── Por qué se puede posponer, pero solo por hoy ─────────────────────────────
+//
+// Un aviso que no se puede sacar de la pantalla se vuelve parte del decorado y
+// deja de leerse. Uno que se apaga para siempre no sirve para nada. Se pospone
+// por el día: mañana vuelve.
+
+
+/** Decidido por el usuario el 2026-08-19: una semana. */
+const DIAS_PARA_RECORDAR = 7;
+
+/**
+ * Los movimientos que todavía no entraron en ningún respaldo.
+ *
+ * Se comparan por el día en que se cargaron (`creado`), no por la fecha del
+ * gasto: cargar hoy un gasto de la semana pasada lo deja **sin respaldar**, por
+ * más que su fecha sea vieja. Es lo que se pierde, no lo que dice el papel.
+ *
+ * Un movimiento creado **el mismo día** del último respaldo se cuenta como sin
+ * respaldar. La app no guarda horas (ADR-021), así que no hay forma de saber si
+ * se cargó antes o después de haber exportado, y equivocarse hacia "ya está
+ * respaldado" es equivocarse hacia perder datos.
+ */
+function sinRespaldar(estado) {
+  const movimientos = estado.movimientos ?? [];
+  const ultimo = estado.preferencias?.ultimo_respaldo;
+
+  if (typeof ultimo !== 'string') return movimientos;
+  return movimientos.filter((m) => typeof m.creado !== 'string' || m.creado >= ultimo);
+}
+
+/**
+ * Qué hay que decirle al usuario sobre su respaldo. **No decide cómo se ve**:
+ * devuelve los hechos y la pantalla los escribe (ADR-022).
+ *
+ * `desde` son los días que corren: desde el último respaldo, o —si nunca hubo
+ * uno— desde que se cargó el movimiento sin respaldar más viejo. Contar desde
+ * el primer movimiento y no desde siempre evita que la app le reclame un
+ * respaldo a alguien que cargó su primer gasto hace diez minutos.
+ */
+function estadoDelRecordatorio(estado, { fecha = hoy(), dias = DIAS_PARA_RECORDAR } = {}) {
+  const pendientes = sinRespaldar(estado);
+  const desdeElRespaldo = diasSinRespaldar(estado, { fecha });
+  const nunca = desdeElRespaldo === null;
+
+  const desde = nunca ? diasDesdeElMasViejo(pendientes, fecha) : desdeElRespaldo;
+
+  return {
+    cuantos: pendientes.length,
+    desde,
+    nunca,
+    // Hay algo que perder Y pasó el tiempo Y no se pospuso hoy. Las tres cosas:
+    // sin movimientos nuevos no hay nada que respaldar por más que pase un mes.
+    haceFalta:
+      pendientes.length > 0 &&
+      desde !== null &&
+      desde >= dias &&
+      estado.preferencias?.recordatorio_pospuesto !== fecha,
+  };
+}
+
+/** Guarda que hoy el usuario dijo "ahora no". Mañana el aviso vuelve. */
+function posponerRecordatorio(estado, { fecha = hoy() } = {}) {
+  return {
+    ...estado,
+    preferencias: { ...estado.preferencias, recordatorio_pospuesto: validarFecha(fecha) },
+  };
+}
+
+/** Cuántos días hace que se cargó el más viejo de estos movimientos. */
+function diasDesdeElMasViejo(movimientos, fecha) {
+  const fechas = movimientos.map((m) => m.creado).filter((c) => typeof c === 'string');
+  if (fechas.length === 0) return null;
+
+  const masViejo = fechas.reduce((a, b) => (a < b ? a : b));
+  return Math.max(0, diasEntre(masViejo, fecha));
 }
 
 // ── src/ui/colores.js ───────────────────────────────────────────
@@ -4197,6 +4340,7 @@ function dibujarNuevo(vista) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -4375,6 +4519,48 @@ function dibujarAvisos(incidencias = []) {
   `;
 }
 
+/**
+ * El recordatorio de respaldo — T-903.
+ *
+ * Aparece en la pantalla donde el usuario está, no solo en Datos, donde entra el
+ * que ya se acordó. Es la contramedida al riesgo más grave de la arquitectura:
+ * los datos viven en un solo navegador.
+ *
+ * **Dice cuántos movimientos, no solo cuántos días.** "Hace 9 días que no
+ * respaldás" es un reproche; "23 movimientos existen en un solo lugar" es lo que
+ * se pierde. El número concreto es el que hace que valga la pena tocar el botón.
+ */
+function dibujarRecordatorio(vista, { fecha } = {}) {
+  // En Datos no: ahí ya está toda la información y los dos botones de verdad.
+  // Repetirlo sería ruido justo donde el usuario ya está haciendo lo correcto.
+  if (vista.pantalla === 'datos') return '';
+
+  const { haceFalta, cuantos, desde, nunca } = estadoDelRecordatorio(vista.estado, fecha ? { fecha } : {});
+  if (!haceFalta) return '';
+
+  const cuando = nunca ? 'Nunca respaldaste.' : `Hace ${desde} días que no respaldás.`;
+  // La frase se arma entera acá y no dentro de la plantilla: partida en varias
+  // líneas del HTML, los saltos quedan en el medio de las palabras y ningún test
+  // que lea la frase completa la reconoce (fue exactamente lo que pasó).
+  const queSePierde = cuantos === 1
+    ? '1 movimiento tuyo existe en un solo lugar: si se borran los datos de este navegador, se pierde.'
+    : `${cuantos} movimientos tuyos existen en un solo lugar: si se borran los datos de este navegador, se pierden.`;
+
+  return `
+    <section class="aviso recordatorio" role="status">
+      <p><strong>${escapar(cuando)}</strong> ${escapar(queSePierde)}</p>
+      <div class="acciones-recordatorio">
+        <button type="button" class="principal" data-accion="ir" data-pantalla="datos">
+          Respaldar ahora
+        </button>
+        <button type="button" class="secundario" data-accion="posponer-recordatorio">
+          Ahora no
+        </button>
+      </div>
+    </section>
+  `;
+}
+
 /** La app entera, como texto. Es la función que los tests miran. */
 function dibujarApp(vista) {
   const definicion = pantalla(vista.pantalla) ?? pantalla('mes');
@@ -4383,6 +4569,7 @@ function dibujarApp(vista) {
   return `
     ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes })}
     ${dibujarAvisos(vista.incidencias)}
+    ${dibujarRecordatorio(vista)}
     <main class="contenido">${contenido}</main>
     ${dibujarNavegacion(definicion.nombre)}
   `;
@@ -4896,6 +5083,17 @@ function iniciar(documento, almacen) {
     } else if (accion === 'importar') {
       aplicarRespaldo(boton.dataset.modo);
       return;
+    } else if (accion === 'posponer-recordatorio') {
+      // Se guarda, porque si no el aviso volvería en cada recarga por más que lo
+      // hubieras pospuesto — y un aviso que no se puede sacar deja de leerse.
+      const pospuesto = posponerRecordatorio(vista.estado);
+      try {
+        guardarEstado(pospuesto, almacen);
+      } catch {
+        // Si no se puede guardar, el aviso se calla igual mientras la app esté
+        // abierta y vuelve al recargar. No hay nada útil que decirle acá.
+      }
+      vista = { ...vista, estado: pospuesto };
     } else if (accion === 'compartir') {
       compartirElRespaldo();
       return;

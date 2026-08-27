@@ -563,3 +563,12 @@ sincronizada con algo que el código ya sabe, **la comprobación la escribe el
 código, no la memoria de quien edita**. Si no se puede comprobar, el olvido es
 cuestión de tiempo — y estas dos lecciones son la prueba de que en este proyecto
 ya pasó dos veces.
+
+
+**Postdata (T-903, el mismo día).** La comprobación nueva atrapó el mismo olvido
+una tarea después —`app.js` importaba `recordatorio.js` y la lista no lo tenía—,
+y de paso una segunda cosa: dos módulos declaraban una función `enDias` idéntica.
+El constructor la rechazó por nombre repetido, lo que obligó a mirarla y a
+descubrir que era **la misma resta de fechas escrita dos veces**. Ahora vive una
+sola vez, en `core/modelo.js` como `diasEntre()`. La comprobación se pagó sola
+dos veces en veinticuatro horas.

@@ -677,3 +677,45 @@ pudo probar en este entorno, porque Chromium de escritorio en Linux no la trae�
 Por eso el camino de descarga queda intacto y la comprobación en el celular real
 del usuario es parte de T-019. Lo que sí se comprobó es que `file://` es
 contexto seguro, que era el motivo más probable de que no funcionara.
+
+---
+
+## ADR-026 · El recordatorio cuenta movimientos sin respaldar, no días sin respaldar
+**Fecha:** 2026-08-27 · **Estado:** Vigente
+
+**Contexto.** El usuario pidió un recordatorio semanal de respaldo. La versión
+obvia es "hace N días que no respaldás", que es lo que ya decía la pantalla de
+Datos desde T-016.
+
+**Decisión.** El aviso aparece cuando hay **movimientos sin respaldar** *y* pasó
+el plazo. Las dos cosas: sin movimientos nuevos no aparece por más tiempo que
+pase.
+
+**Por qué.** Un año sin respaldar es irrelevante si no cargaste nada en ese año:
+no hay nada que perder, y avisar igual es el aviso que enseña a ignorar avisos.
+La falla cara de un recordatorio no es que no aparezca: es que aparezca cuando no
+corresponde, porque el día que sí importa ya nadie lo lee.
+
+Y por lo que dice: *"3 movimientos tuyos existen en un solo lugar"* es lo que
+efectivamente se pierde. *"Hace 9 días que no respaldás"* es un reproche. Se
+dicen los dos, pero el número que manda es el de los movimientos.
+
+**Cómo se cuentan.** Por el día en que se cargaron (`creado`), no por la fecha
+del gasto: cargar hoy un gasto de la semana pasada lo deja sin respaldar, por más
+vieja que sea su fecha. Un movimiento creado **el mismo día** del último respaldo
+cuenta como sin respaldar: la app no guarda horas (ADR-021), así que no se puede
+saber si se cargó antes o después de exportar, y equivocarse hacia "ya está
+respaldado" es equivocarse hacia perder datos.
+
+**Si nunca hubo un respaldo**, el plazo corre desde el movimiento más viejo, no
+desde siempre. Reclamarle un respaldo a quien cargó su primer gasto hace diez
+minutos es la forma más rápida de que el aviso pierda todo su valor.
+
+**Se pospone por el día, y eso se guarda.** Un aviso que no se puede sacar de la
+pantalla se vuelve parte del decorado; uno que se apaga para siempre no sirve
+para nada. "Ahora no" lo calla hasta mañana. Guardarlo es obligatorio: si no,
+volvería en cada recarga, que es lo mismo que no poder sacarlo.
+
+**Lo que cuesta.** Una preferencia más que persistir —`recordatorio_pospuesto`—,
+con el riesgo de L-015 encima. Se agregó a la lista de `migrarEstado` en el mismo
+commit, y el test que compara el objeto entero de preferencias la cubre.

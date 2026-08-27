@@ -176,6 +176,24 @@ export function validarFecha(valor) {
 }
 
 /**
+ * Cuántos días de calendario hay entre dos fechas `AAAA-MM-DD`.
+ *
+ * Se restan días, no instantes: la app no guarda horas (ADR-021), así que no hay
+ * ninguna hora que pueda hacer que "ayer" dé 0 o 2 según el momento del día. Se
+ * usa mediodía UTC por la misma razón que `comoFecha` (L-011).
+ *
+ * Vive acá, y no en quien lo necesita, porque lo necesitan dos módulos y dos
+ * copias de la misma resta son dos formas de que un día se cuente distinto.
+ */
+export function diasEntre(desde, hasta) {
+  const enDias = (iso) => {
+    const [anio, mes, dia] = validarFecha(iso).split('-').map(Number);
+    return Date.UTC(anio, mes - 1, dia);
+  };
+  return Math.round((enDias(hasta) - enDias(desde)) / 86400000);
+}
+
+/**
  * El día de hoy, `AAAA-MM-DD`, según el calendario del dispositivo.
  *
  * Se leen el año, el mes y el día locales en vez de recortar un instante en UTC:
