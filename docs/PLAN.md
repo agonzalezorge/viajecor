@@ -100,6 +100,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
 | T-906 | Exportar a `.xlsx` con la forma de la planilla | **Hecha** (falta abrirlo en Excel de verdad: T-019) | T-016, T-018 |
+| T-910 | Hoja de análisis mes × rubro dentro del `.xlsx` | Lista | T-906, T-021 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -944,7 +945,19 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
 
   **Lo que queda para otra tarea:** la hoja de análisis con la matriz mes ×
   rubro. Los bloques por mes —`GASTOS POR TIPO`, `INGRESOS POR TIPO`, `TOTALES`
-  y `GASTO POR DÍA`— están hechos.
+  y `GASTO POR DÍA`— están hechos. → T-910.
+- **T-910 · Hoja de análisis mes × rubro dentro del `.xlsx`** — una segunda hoja
+  en el archivo exportado, con la matriz mes × rubro y sus filas de total y de
+  promedio, como la hoja `Analisis1` de la planilla original.
+
+  Estaba mencionada dentro de T-906 y se quedó afuera. Se le hace una tarea
+  propia en vez de dejarla en una frase: **lo que no tiene tarea se pierde**, y
+  este plan es el único lugar donde el proyecto se acuerda de las cosas.
+
+  Depende de T-021 no por el código sino por la decisión: la matriz en pantalla
+  y la matriz en el Excel tienen que contar lo mismo, y conviene decidir una vez
+  cómo se arma —qué va en las filas, qué en las columnas, cómo se muestran los
+  meses sin movimientos— y no dos veces distinto. *(Depende de T-906, T-021.)*
 
 ---
 
