@@ -17,6 +17,7 @@ import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana
 import { claseDeRubro } from '../colores.js';
 import { escapar } from '../app.js';
 import { dibujarPedido, dibujarMovimientoEnEspera } from './cambio.js';
+import { comentariosUsados } from '../../core/calculos.js';
 
 /**
  * Los campos vacíos de un formulario nuevo.
@@ -219,6 +220,24 @@ function dibujarUltimos(estado) {
   `;
 }
 
+/**
+ * Los comentarios ya usados, para que el navegador los ofrezca al escribir.
+ *
+ * Se limita a los 50 más recientes: no por rendimiento —la app recorre listas
+ * enteras sin topes (L-001)— sino porque una lista de sugerencias con
+ * doscientas entradas no se puede usar en un celular, y las viejas nunca se
+ * eligen. **El límite es de lo que se muestra, no de lo que se calcula**, que es
+ * la diferencia que importa: ningún total depende de este número.
+ */
+export function dibujarComentariosUsados(estado) {
+  const usados = comentariosUsados(estado?.movimientos ?? []).slice(0, 50);
+  if (usados.length === 0) return '';
+
+  return `<datalist id="comentarios-usados">${
+    usados.map((texto) => `<option value="${escapar(texto)}"></option>`).join('')
+  }</datalist>`;
+}
+
 export function dibujarNuevo(vista) {
   const estado = vista.estado;
   const borrador = vista.borrador ?? borradorNuevo({ estado });
@@ -295,15 +314,28 @@ export function dibujarNuevo(vista) {
       </label>
 
       <label class="campo">
-        <span>Comentario <em class="suave">— viaje o gasto fijo, para agrupar</em></span>
-        <input name="comentario" type="text" autocomplete="off"
-               placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
-      </label>
-
-      <label class="campo">
         <span>Detalle <em class="suave">— para acordarte</em></span>
         <input name="detalle" type="text" autocomplete="off"
                placeholder="cena" value="${escapar(borrador.detalle)}">
+      </label>
+
+      <!-- El comentario va último y ofrece los que ya usaste (T-912). No es
+           comodidad: el comentario es lo que agrupa los gastos de un viaje
+           (RN-03), y "Barcelona26" y "barcelona 26" son dos viajes distintos en
+           los totales. Ofrecer lo que ya existe es la forma más barata de que
+           elijas la escritura que ya tenés en vez de inventar una nueva.
+
+           Se usa <datalist>, que lo dibuja el navegador: no hay ninguna lista
+           flotante propia que mantener, ni teclado que se pelee con ella en un
+           celular. La contra es que cada navegador lo muestra a su manera —es la
+           misma cesión que el calendario de la fecha, L-013—, pero acá el campo
+           sigue siendo un campo de texto común: si el navegador no dibuja nada,
+           se escribe igual y no se pierde nada. -->
+      <label class="campo">
+        <span>Comentario <em class="suave">— viaje o gasto fijo, para agrupar</em></span>
+        <input name="comentario" type="text" autocomplete="off" list="comentarios-usados"
+               placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
+        ${dibujarComentariosUsados(estado)}
       </label>
 
       <button type="submit" class="principal" data-accion="guardar">

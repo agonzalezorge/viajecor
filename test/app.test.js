@@ -126,18 +126,49 @@ test('la barra tiene una pestaña por sección, más el botón de cargar', () =>
   assert.ok(html.includes('class="pestania nueva'));
 });
 
-test('la barra tiene tres pestañas y nada más, para que entren en un celular', () => {
+test('la barra tiene cuatro pestañas y nada más, para que entren en un celular', () => {
   const enBarra = pantallasRegistradas().filter((p) => p.enBarra !== false);
-  assert.deepEqual(enBarra.map((p) => p.nombre), ['mes', 'movimientos', 'datos']);
+  assert.equal(enBarra.length, 4);
 });
 
-test('la pantalla de carga no aparece como una pestaña más', () => {
-  // Tiene su propio botón, destacado y al final: es la acción que se hace
-  // treinta veces por mes, no una sección que se visita.
+test('"Cargar" es la primera pestaña', () => {
+  // Pedido del usuario (2026-08-27): es lo que más se hace y lo que se hace
+  // apurado, parado en la caja del supermercado. Antes estaba última.
+  const html = dibujarNavegacion('mes');
+  const orden = [...html.matchAll(/data-pantalla="([a-z]+)"/g)].map((m) => m[1]);
+
+  assert.deepEqual(orden, ['nuevo', 'mes', 'movimientos', 'datos']);
+});
+
+test('el orden de la barra no depende del orden en que se registraron', () => {
+  // Registrar depende de los `import`. Que mover una pestaña obligue a
+  // reordenar imports es una trampa esperando a alguien.
+  const enBarra = pantallasRegistradas().filter((p) => p.enBarra !== false);
+
+  for (const p of enBarra) {
+    assert.equal(typeof p.orden, 'number', `la pantalla ${p.nombre} no dice en qué orden va`);
+  }
+  const ordenes = enBarra.map((p) => p.orden);
+  assert.equal(new Set(ordenes).size, ordenes.length, 'hay dos pantallas con el mismo orden');
+});
+
+test('"Cargar" se sigue viendo distinta de las otras', () => {
+  // Es una acción, no una sección: pasarla al primer lugar no la vuelve una
+  // pestaña más.
   const html = dibujarNavegacion('mes');
   const pestanias = html.match(/class="pestania[^"]*"/g) ?? [];
+
   assert.equal(pestanias.filter((c) => c.includes('nueva')).length, 1);
-  assert.equal(pantalla('nuevo').enBarra, false);
+  assert.equal(pantalla('nuevo').destacada, true);
+});
+
+test('el botón de cargar sale del registro, no está escrito a mano', () => {
+  // Estaba en dos lugares: registrado y dibujado a mano al final de la barra.
+  // Cambiarle la etiqueta obligaba a acordarse de los dos.
+  const html = dibujarNavegacion('mes');
+
+  assert.equal((html.match(/data-pantalla="nuevo"/g) ?? []).length, 1);
+  assert.ok(html.includes(pantalla('nuevo').etiqueta));
 });
 
 test('la pestaña actual se marca, y solo una', () => {

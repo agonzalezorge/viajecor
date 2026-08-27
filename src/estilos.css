@@ -707,3 +707,18 @@ body {
    Un aviso donde salir es difícil se siente una trampa, y el usuario aprende a
    no leer el que viene después. */
 .acciones-recordatorio button { flex: 1; margin: 0; }
+
+/* ── "Este navegador no puede guardar" (T-950) ────────────────────────────────
+   Es el único aviso de la app que no se puede sacar. Lo que anuncia es que todo
+   lo que el usuario escriba se va a perder, y un aviso que se puede posponer es
+   un aviso que se va a posponer. Se ve claramente distinto del resto: no es una
+   sugerencia. */
+.peligro-datos {
+  border: 2px solid var(--gasto);
+  border-left-width: 6px;
+  margin-bottom: 1.25rem;
+}
+
+.peligro-datos h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--gasto); }
+.peligro-datos p { margin: 0 0 0.5rem; font-size: 0.9375rem; }
+.peligro-datos p:last-child { margin-bottom: 0; }

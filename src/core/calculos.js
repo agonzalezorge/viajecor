@@ -17,7 +17,7 @@
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
 import { sumar, redondear } from './dinero.js';
-import { mesDe, TIPO_GASTO, TIPO_INGRESO, rubrosDe, normalizarClave } from './modelo.js';
+import { mesDe, TIPO_GASTO, TIPO_INGRESO, rubrosDe, normalizarClave, normalizarTextoVisible, claveDeComentario } from './modelo.js';
 import { movimientoEnEuros, faltaCambioPara } from './cambio.js';
 
 /** Los movimientos de un mes. Recorre la lista entera, sin ningún tope (L-001). */
@@ -216,4 +216,49 @@ export function porComentario(estado, mes) {
   return [...acumulado.values()]
     .map((c) => ({ ...c, promedio: redondear(c.total / c.cuantos) }))
     .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
+}
+
+/**
+ * Los comentarios que el usuario ya usó, del más reciente al más viejo — T-912.
+ *
+ * Sirve para ofrecerlos mientras escribe. **No es una comodidad:** el comentario
+ * es lo que agrupa los gastos de un viaje (RN-03), y `Barcelona26` y
+ * `barcelona 26` son dos viajes distintos en los totales. Ofrecer lo que ya
+ * existe es la forma más barata de que el usuario elija la escritura que ya
+ * tiene en vez de inventar una nueva.
+ *
+ * Se devuelve **la primera escritura que apareció** de cada comentario, igual
+ * que `porComentario()`: dos criterios distintos para elegir cómo se escribe un
+ * grupo terminarían mostrando dos nombres para la misma cosa.
+ *
+ * El orden es por el movimiento más reciente que lo usó: el viaje en curso queda
+ * arriba, que es el que se va a repetir.
+ *
+ * No recibe ningún límite: recorre la lista entera (L-001).
+ */
+export function comentariosUsados(movimientos) {
+  if (!Array.isArray(movimientos)) return [];
+
+  const porClave = new Map();
+
+  for (const movimiento of movimientos) {
+    const texto = normalizarTextoVisible(movimiento?.comentario ?? '');
+    if (texto === '') continue;
+
+    const clave = claveDeComentario(texto);
+    const visto = porClave.get(clave);
+    const cuando = movimiento.fecha ?? '';
+
+    if (!visto) {
+      porClave.set(clave, { texto, ultima: cuando });
+    } else if (cuando > visto.ultima) {
+      // Se actualiza cuándo se usó por última vez, pero NO el texto: la
+      // escritura que se muestra sigue siendo la primera que apareció.
+      visto.ultima = cuando;
+    }
+  }
+
+  return [...porClave.values()]
+    .sort((a, b) => b.ultima.localeCompare(a.ultima) || a.texto.localeCompare(b.texto))
+    .map((c) => c.texto);
 }

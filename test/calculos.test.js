@@ -22,6 +22,7 @@ import {
   porDia,
   promedioPorDia,
   porComentario,
+  comentariosUsados,
 } from '../src/core/calculos.js';
 
 import { crearMovimiento, TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
@@ -32,7 +33,7 @@ import { crearCambio, desdeUnidadesPorEuro } from '../src/core/cambio.js';
 const MES = '2026-03';
 
 let contador = 0;
-function mov({ monto, rubro = 'supermercado', fecha = '2026-03-14', tipo = TIPO_GASTO, moneda = 'EUR', comentario = '', decimales = 2 }) {
+function mov({ monto = '10', rubro = 'supermercado', fecha = '2026-03-14', tipo = TIPO_GASTO, moneda = 'EUR', comentario = '', decimales = 2 }) {
   contador += 1;
   return crearMovimiento(
     { monto, rubro, fecha, tipo, moneda, comentario },
@@ -386,4 +387,75 @@ test('el día por día suma exactamente el total del mes', () => {
 
   const totalDias = porDia(estado, MES).reduce((t, d) => t + d.gasto, 0);
   assert.equal(totalDias, totalesDelMes(estado, MES).gastos);
+});
+
+// ── Comentarios ya usados (T-912) ────────────────────────────────────────────
+
+test('los comentarios usados vienen del más reciente al más viejo', () => {
+  const estado = estadoCon([
+    mov({ fecha: '2026-03-01', comentario: 'Luz' }),
+    mov({ fecha: '2026-03-20', comentario: 'Barcelona26' }),
+    mov({ fecha: '2026-03-10', comentario: 'Gas' }),
+  ]);
+
+  assert.deepEqual(comentariosUsados(estado.movimientos), ['Barcelona26', 'Gas', 'Luz']);
+});
+
+test('un comentario escrito de dos formas aparece una sola vez', () => {
+  // RN-03: lo que agrupa se normaliza antes de comparar. Ofrecer las dos
+  // escrituras sería enseñarle al usuario a separar un viaje en dos.
+  const estado = estadoCon([
+    mov({ fecha: '2026-03-01', comentario: 'Barcelona26' }),
+    mov({ fecha: '2026-03-05', comentario: '  barcelona26 ' }),
+  ]);
+
+  assert.deepEqual(comentariosUsados(estado.movimientos), ['Barcelona26']);
+});
+
+test('se muestra la primera escritura, no la última', () => {
+  // Es el mismo criterio que `porComentario`. Dos criterios distintos para
+  // elegir cómo se escribe un grupo mostrarían dos nombres para la misma cosa.
+  const estado = estadoCon([
+    mov({ fecha: '2026-03-01', comentario: 'Barcelona26' }),
+    mov({ fecha: '2026-03-20', comentario: 'BARCELONA26' }),
+  ]);
+
+  assert.deepEqual(comentariosUsados(estado.movimientos), ['Barcelona26']);
+});
+
+test('pero el orden usa el uso MÁS reciente de cada comentario', () => {
+  // Si ordenara por la primera vez que apareció, un viaje viejo que seguís
+  // usando quedaría al fondo, que es lo contrario de lo útil.
+  const estado = estadoCon([
+    mov({ fecha: '2026-03-01', comentario: 'Luz' }),
+    mov({ fecha: '2026-03-05', comentario: 'Roma' }),
+    mov({ fecha: '2026-03-25', comentario: 'Luz' }),
+  ]);
+
+  assert.deepEqual(comentariosUsados(estado.movimientos), ['Luz', 'Roma']);
+});
+
+test('los movimientos sin comentario no ensucian la lista', () => {
+  const estado = estadoCon([
+    mov({ fecha: '2026-03-01', comentario: '' }),
+    mov({ fecha: '2026-03-02', comentario: '   ' }),
+    mov({ fecha: '2026-03-03', comentario: 'Roma' }),
+  ]);
+
+  assert.deepEqual(comentariosUsados(estado.movimientos), ['Roma']);
+});
+
+test('sin movimientos, o con basura, devuelve una lista vacía', () => {
+  assert.deepEqual(comentariosUsados([]), []);
+  assert.deepEqual(comentariosUsados(null), []);
+  assert.deepEqual(comentariosUsados('no soy una lista'), []);
+});
+
+test('no hay ningún tope de movimientos al juntar comentarios', () => {
+  // L-001: ningún cálculo tiene un límite escrito a mano. El que recorta a 50 es
+  // lo que se MUESTRA, no lo que se calcula.
+  const muchos = Array.from({ length: 1200 }, (_, i) =>
+    mov({ fecha: '2026-03-01', comentario: `viaje ${i}` }));
+
+  assert.equal(comentariosUsados(muchos).length, 1200);
 });

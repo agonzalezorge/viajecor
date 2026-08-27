@@ -102,7 +102,6 @@ export function dibujarDesglose(estado, mes, tipo) {
   if (filas.length === 0) return '';
 
   const titulo = tipo === TIPO_GASTO ? 'En qué se fue' : 'De dónde vino';
-  const mayor = filas[0].total || 1;
 
   // Con un solo rubro no hay nada que comparar: la barra estaría siempre llena y
   // el porcentaje sería siempre 100 %. Dos adornos que ocupan lugar y no dicen
@@ -121,7 +120,13 @@ export function dibujarDesglose(estado, mes, tipo) {
         </div>
         ${hayComparacion ? `
         <div class="barra-pista">
-          <div class="barra ${claseDeRubro(tipo, fila.rubro)}" style="width: ${(fila.total / mayor) * 100}%"></div>
+          <!-- El largo es el PORCENTAJE del total del mes, no la proporción
+               contra el rubro más grande. La versión anterior lo dividía por el
+               total del rubro mayor, que aprovecha todo el ancho pero contradice
+               el número escrito abajo: con dos rubros de 50 % los dos salían
+               llenos. Entre el dibujo y el número gana el número, y el dibujo
+               pasa a ser ruido (lo encontró el usuario, 2026-08-27). -->
+          <div class="barra ${claseDeRubro(tipo, fila.rubro)}" style="width: ${fila.porcentaje}%"></div>
         </div>` : ''}
         <div class="rubro-pie suave">
           <span>${hayComparacion ? escapar(porcentaje(fila.porcentaje)) : ''}</span>

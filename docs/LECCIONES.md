@@ -611,3 +611,72 @@ posición: la última en escribirse gana, **sin ningún aviso**. El primer rubro
 resumen caía en la misma fila que su encabezado `RUBRO` y lo borraba en silencio.
 Una estructura que resuelve los choques sola es cómoda, y por eso mismo los
 esconde: donde antes había un error visible, ahora hay un dato menos.
+
+---
+
+## L-019 · `typeof` no protege de una variable que tira al nombrarse
+
+**Qué pasó.** El almacenamiento de la app empezaba así:
+
+```js
+if (typeof localStorage === 'undefined') throw new Error('No hay dónde guardar…');
+return localStorage;
+```
+
+Parece la comprobación defensiva de manual. No lo es. Hay navegadores donde
+`localStorage` **no falta**: existe, y **tira una excepción con solo nombrarlo**
+—una ventana privada, o el almacenamiento de sitios bloqueado—. `typeof` evalúa
+la variable, así que tira también. El error subía hasta `iniciar()` y la app
+quedaba **en blanco**, sin una sola palabra en la pantalla.
+
+Lo más incómodo: era **exactamente el escenario que ese mismo código decía
+manejar**. El comentario decía "suele pasar en ventanas privadas de algunos
+navegadores", y en ventanas privadas de algunos navegadores la app no abría.
+
+**Cómo apareció.** No lo encontró ningún test: en Node no hay `localStorage`, así
+que la rama que se ejercitaba era la benigna. Lo encontró el recorrido en el
+navegador, bloqueando `localStorage` a propósito para probar **otra cosa** — el
+aviso de T-950 —. El bug que se cruzó en el camino era más grave que el que se
+iba a probar.
+
+**La regla.** `typeof x === 'undefined'` protege de que `x` **no exista**. No
+protege de que existir sea lo que falla. Para cualquier cosa que el navegador
+expone como propiedad global —`localStorage`, `sessionStorage`, `indexedDB`,
+`navigator.…`— la única comprobación que sirve es **usarla dentro de un
+`try`**.
+
+**Y la decisión de diseño que salió de ahí.** Cuando no hay dónde guardar, la app
+ya no tira: usa un almacén de mentira que **se lee como vacío y falla con un
+motivo entendible al escribir**. Así la app abre, se puede recorrer, avisa que
+nada se guarda, y **se niega a aceptar un movimiento que no puede guardar**
+(ADR-016). Una app que no abre no puede explicar por qué no abre.
+
+---
+
+## L-020 · Una simulación que no simula nada da un verde falso
+
+**Qué pasó.** Para probar en el navegador el caso `content://` —el que le hizo
+perder los datos al usuario— escribí esto antes de cargar la página:
+
+```js
+Object.defineProperty(window.location, 'protocol', { get: () => 'content:' });
+```
+
+El aviso apareció. Di por buena la prueba. **Y la simulación no había funcionado
+nunca**: Chromium no deja redefinir `location` así. El aviso que veía era un
+**falso positivo distinto** —el del bug de L-019, que hacía saltar el aviso
+siempre—, y cuando arreglé ese bug, el "sí, aparece" se convirtió en "no
+aparece" y quedó al descubierto que la simulación no simulaba nada.
+
+**Lo que enseña.** Una prueba tiene que fallar cuando la cosa está rota, **y
+también** hay que comprobar que la condición que se cree estar creando existe de
+verdad. La simulación nunca afirmó "el protocolo ahora es content:"; yo lo di
+por hecho porque el resultado esperado apareció. Es el mismo error que L-018 con
+otra cara: **el resultado correcto por el motivo equivocado se ve idéntico al
+resultado correcto.**
+
+**Cómo quedó.** El caso `content://` lo cubren los tests, que llaman a la función
+pura y no necesitan navegador. El recorrido prueba el otro caso —`localStorage`
+bloqueado—, que **sí se puede provocar de verdad**, y de paso destapó L-019.
+Cuando algo no se puede simular con honestidad, se prueba en el nivel donde sí
+se puede, y se dice cuál es cuál.

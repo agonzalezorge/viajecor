@@ -180,14 +180,18 @@ test('los rótulos se muestran con mayúscula inicial', () => {
   assert.equal(html.includes('>gastos fijos'), false);
 });
 
-test('la barra más larga es la del rubro más grande, y llena el ancho', () => {
+test('la barra más larga es la del rubro más grande', () => {
+  // 100 y 25 sobre un total de 125 son 80 % y 20 %. Este test decía [100, 25]
+  // hasta el 2026-08-27: la barra se dibujaba contra el rubro mayor, así que el
+  // más grande siempre llenaba el ancho. Lo encontró el usuario en su celular,
+  // con dos rubros que decían 50 % y tenían las dos barras completas (T-911).
   const estado = estadoCon([
     mov({ monto: '100', rubro: 'viajes' }),
     mov({ monto: '25', rubro: 'salud' }),
   ]);
   const anchos = [...dibujarDesglose(estado, MES, TIPO_GASTO).matchAll(/width: ([\d.]+)%/g)].map((m) => Number(m[1]));
 
-  assert.deepEqual(anchos, [100, 25]);
+  assert.deepEqual(anchos, [80, 20]);
 });
 
 test('gastos e ingresos se muestran por separado, con títulos distintos', () => {
@@ -310,4 +314,46 @@ test('sin gastos no se dibuja ningún promedio', () => {
 test('el resumen no contiene ninguna dirección de internet (RN-06)', () => {
   const estado = estadoCon([mov({ monto: '10' })]);
   assert.equal(/https?:\/\//.test(dibujarResumen({ estado, mes: MES })), false);
+});
+
+// ── El largo de las barras (T-911) ───────────────────────────────────────────
+
+test('dos rubros iguales dan dos barras a la mitad, no dos llenas', () => {
+  // El caso exacto que reportó el usuario (2026-08-27).
+  const estado = estadoCon([
+    mov({ monto: '50', rubro: 'viajes' }),
+    mov({ monto: '50', rubro: 'salud' }),
+  ]);
+  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
+
+  const anchos = [...html.matchAll(/width: ([\d.]+)%/g)].map((m) => Number(m[1]));
+  assert.deepEqual(anchos, [50, 50]);
+});
+
+test('el ancho de la barra y el porcentaje escrito dicen lo mismo', () => {
+  // Es la regla, no un caso: si vuelven a separarse, el dibujo contradice al
+  // número, y entre los dos el usuario le cree al número.
+  const estado = estadoCon([
+    mov({ monto: '60', rubro: 'viajes' }),
+    mov({ monto: '30', rubro: 'salud' }),
+    mov({ monto: '10', rubro: 'transporte' }),
+  ]);
+  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
+
+  const anchos = [...html.matchAll(/width: ([\d.]+)%/g)].map((m) => Math.round(Number(m[1])));
+  const escritos = [...html.matchAll(/>(\d+)\s*%</g)].map((m) => Number(m[1]));
+
+  assert.deepEqual(anchos, [60, 30, 10]);
+  assert.deepEqual(escritos, anchos);
+});
+
+test('las barras nunca suman más del 100 %', () => {
+  const estado = estadoCon([
+    mov({ monto: '33,33', rubro: 'viajes' }),
+    mov({ monto: '66,67', rubro: 'salud' }),
+  ]);
+  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
+
+  const total = [...html.matchAll(/width: ([\d.]+)%/g)].reduce((suma, m) => suma + Number(m[1]), 0);
+  assert.ok(total <= 100.01, `las barras suman ${total} %`);
 });

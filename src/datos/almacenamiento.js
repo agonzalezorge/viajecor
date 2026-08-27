@@ -44,15 +44,45 @@ export function estadoInicial({ monedas = [], versionApp } = {}) {
   };
 }
 
+/**
+ * El almacenamiento del navegador, o uno de mentira que dice la verdad.
+ *
+ * **Nunca tira al buscarlo**, y esa es toda la gracia. La primera versión hacía
+ * `typeof localStorage === 'undefined'` y tiraba si no estaba. Parece defensivo
+ * y no lo es: hay navegadores donde `localStorage` no falta sino que **tira con
+ * solo nombrarlo** —una ventana privada con el almacenamiento bloqueado—, y ahí
+ * `typeof` tira también. El error subía hasta `iniciar()` y la app quedaba **en
+ * blanco**, sin una sola palabra.
+ *
+ * Lo encontró el recorrido en el navegador, bloqueando `localStorage` a
+ * propósito. Era el escenario que el propio código decía manejar.
+ *
+ * Cuando no hay dónde guardar se devuelve un almacén que **se comporta como un
+ * almacén vacío al leer y falla con un motivo entendible al escribir**. Así la
+ * app abre, se puede usar, y `riesgoDeGuardado()` avisa que nada se está
+ * guardando — en vez de una pantalla en blanco que no explica nada.
+ */
 function almacenPorDefecto() {
-  if (typeof localStorage === 'undefined') {
-    throw new Error(
-      'No hay dónde guardar: este navegador no tiene localStorage disponible. ' +
-      'Suele pasar en ventanas privadas de algunos navegadores.'
-    );
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage) return localStorage;
+  } catch {
+    // Nombrarlo tiró: el navegador tiene el almacenamiento bloqueado.
   }
-  return localStorage;
+  return ALMACEN_DE_MENTIRA;
 }
+
+const ALMACEN_DE_MENTIRA = {
+  length: 0,
+  key: () => null,
+  getItem: () => null,
+  removeItem: () => {},
+  setItem: () => {
+    throw new Error(
+      'No hay dónde guardar: este navegador no tiene almacenamiento disponible. ' +
+      'Suele pasar en ventanas privadas o con el almacenamiento de sitios bloqueado.'
+    );
+  },
+};
 
 /**
  * Lee el estado guardado.
@@ -327,4 +357,101 @@ export function listarRescates(almacen = almacenPorDefecto()) {
     if (typeof clave === 'string' && clave.startsWith(PREFIJO_RESCATE)) claves.push(clave);
   }
   return claves.sort().reverse();
+}
+
+// ── ¿Este navegador puede guardar? — T-950 ───────────────────────────────────
+//
+// El 2026-08-27, el usuario abrió la app en su Android desde la app Archivos,
+// cargó cuatro movimientos, cerró Chrome y **perdió todo**.
+//
+// Android no le pasa al navegador la ubicación del archivo: le pasa un permiso
+// temporal de lectura, y la dirección queda como `content://…`. Para el
+// navegador eso no es un sitio, es contenido anónimo sin identidad estable. Como
+// el almacenamiento se guarda **por sitio**, no hay dónde guardar: deja escribir
+// mientras la pestaña vive y lo tira al cerrar.
+//
+// Lo grave no fue que no se pudiera guardar. Fue que **la app no lo dijo**:
+// aceptó los movimientos, los mostró, dijo "guardado", y los perdió. Toda la app
+// se apoya en que los datos son del usuario y están en su dispositivo; aceptar
+// datos que no se van a guardar rompe esa promesa justo cuando ya confió.
+//
+// **Por qué no alcanza con probar a escribir.** `localStorage.setItem()`
+// funciona igual en `content://`: devuelve bien, se puede leer de vuelta, y todo
+// parece correcto. El problema aparece al cerrar, cuando ya es tarde. Lo que
+// determina si hay dónde guardar no es si la escritura anda: es si la dirección
+// tiene identidad. Por eso se mira el esquema.
+
+/** Direcciones desde las que el navegador SÍ le da un lugar propio a la app. */
+const ESQUEMAS_CON_IDENTIDAD = ['file:', 'http:', 'https:'];
+
+export const SIN_ALMACENAMIENTO = 'sin-almacenamiento';
+export const SIN_IDENTIDAD = 'sin-identidad';
+
+/**
+ * ¿Corre peligro lo que el usuario cargue? Devuelve `null` si está todo bien.
+ *
+ * Es una función pura: recibe el esquema de la dirección y el almacén, no los
+ * busca en el navegador (`core/` y `datos/` no lo tocan). Así se puede probar
+ * el caso `content://` sin un teléfono Android.
+ */
+export function riesgoDeGuardado(protocolo, almacen) {
+  // El almacén se resuelve igual que en `leerEstado`. La primera versión lo
+  // recibía tal cual, y como `iniciar(document)` no lo pasa, llegaba
+  // `undefined` y la app le avisaba a TODO el mundo que no estaba guardando
+  // nada. Lo encontró el recorrido en el navegador, no los tests, porque los
+  // tests siempre le pasaban un almacén.
+  //
+  // Es la peor forma de fallar para este aviso en particular: gritar en falso
+  // enseña a ignorarlo, y el día que sea cierto nadie lo va a leer.
+  //
+  // No se usa `almacenPorDefecto()`, que **tira** cuando no hay `localStorage`:
+  // tirar en la función cuya única tarea es detectar que no hay dónde guardar
+  // sería dejar la app en blanco justo cuando tiene algo importante que decir.
+  const elAlmacen = almacen === undefined ? almacenPorDefecto() : almacen;
+  // Primero lo más terminante: que no haya almacén en absoluto (navegación
+  // privada en algunos navegadores, o almacenamiento bloqueado por el usuario).
+  if (!puedeEscribir(elAlmacen)) {
+    return {
+      motivo: SIN_ALMACENAMIENTO,
+      titulo: 'Este navegador no está guardando nada',
+      explicacion:
+        'Todo lo que cargues va a desaparecer al cerrar la pestaña. Puede ser una ventana ' +
+        'de incógnito, o que el navegador tenga bloqueado el almacenamiento de sitios.',
+      queHacer:
+        'Abrí la app en una ventana normal, o permitile a este sitio guardar datos. ' +
+        'Mientras tanto, no cargues nada que no quieras volver a escribir.',
+    };
+  }
+
+  if (!ESQUEMAS_CON_IDENTIDAD.includes(protocolo)) {
+    return {
+      motivo: SIN_IDENTIDAD,
+      titulo: 'Así abierta, la app va a perder tus datos al cerrar',
+      explicacion:
+        'Abriste el archivo desde el explorador de archivos, y tu teléfono se lo pasó al ' +
+        'navegador sin decirle de dónde salió. El navegador guarda los datos por sitio, y ' +
+        'así no hay ningún sitio al que asociarlos: podés cargar gastos y los vas a ver, ' +
+        'pero desaparecen al cerrar el navegador.',
+      queHacer:
+        'Abrí la app escribiendo su dirección a mano en el navegador, empezando con ' +
+        '"file:///" y la ruta del archivo — por ejemplo file:///sdcard/Download/viajecor.html — ' +
+        'y guardala como marcador para entrar siempre por ahí.',
+    };
+  }
+
+  return null;
+}
+
+/** Prueba de verdad si se puede escribir, sin dejar rastro. */
+function puedeEscribir(almacen) {
+  if (!almacen || typeof almacen.setItem !== 'function') return false;
+  const clave = `${PREFIJO_RESCATE}prueba`;
+  try {
+    almacen.setItem(clave, '1');
+    const volvio = almacen.getItem(clave) === '1';
+    almacen.removeItem(clave);
+    return volvio;
+  } catch {
+    return false;
+  }
 }

@@ -34,7 +34,26 @@ La versión publicada vive en el archivo `VERSION`.
   costarricense, y se pueden agregar más en cualquier momento (RN-04b, ADR-011,
   CU-15).
 
+### Arreglado
+- **La app te avisa cuando el navegador no puede guardar tus datos** (T-950), en
+  vez de aceptarlos y perderlos. Pasó de verdad: abrir el archivo desde el
+  explorador de Android hace que el navegador no tenga dónde guardar, y todo
+  desaparecía al cerrar. El aviso dice qué pasa y **cómo arreglarlo** — abrir la
+  app escribiendo su dirección `file:///…` a mano —, no se puede cerrar, y no
+  aparece cuando no corresponde.
+- **La app abre aunque el navegador tenga el almacenamiento bloqueado.** Antes
+  quedaba en blanco, sin explicación, en ventanas privadas. Ver L-019.
+- **Las barras del desglose miden el porcentaje real** (T-911). Antes se dibujaban
+  contra el rubro más grande, así que dos rubros de 50 % salían los dos llenos y
+  el dibujo contradecía al número escrito al lado.
+
 ### Agregado
+- **El comentario ahora te sugiere los que ya usaste** (T-912): escribís `Barce` y
+  te ofrece `Barcelona26`. No es comodidad — el comentario es lo que agrupa los
+  gastos de un viaje, y dos escrituras distintas son dos viajes distintos en los
+  totales.
+- **El campo de detalle va penúltimo y el de comentario último** (T-912), y
+  **«Cargar» pasó a ser la primera pestaña** (T-913).
 - **Ya podés bajarte tu planilla de Excel** (T-906), con la forma de la de
   siempre: un bloque por mes, los mismos encabezados, el acumulado y los bloques
   de totales por rubro, de ingresos, de saldo y de gasto por día. **Con una

@@ -14,7 +14,7 @@
 
 import { hoy, mesDe, mesAnterior, mesSiguiente } from '../core/modelo.js';
 import { formatearMes } from '../core/formato.js';
-import { leerEstado, guardarEstado } from '../datos/almacenamiento.js';
+import { leerEstado, guardarEstado, riesgoDeGuardado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
 import { dibujarNuevo, borradorNuevo, borradorDesde, intentarGuardar, fechaEnPalabras } from './pantallas/movimiento.js';
 import { claseDeRubro, COLORES } from './colores.js';
@@ -89,6 +89,7 @@ function marcador(titulo, explicacion, tarea) {
 
 registrarPantalla('mes', {
   etiqueta: 'Mes',
+  orden: 2,
   icono: '◧',
   conMes: true,
   dibujar: dibujarResumen,
@@ -96,6 +97,7 @@ registrarPantalla('mes', {
 
 registrarPantalla('movimientos', {
   etiqueta: 'Movimientos',
+  orden: 3,
   icono: '≡',
   conMes: true,
   dibujar: dibujarLista,
@@ -103,6 +105,7 @@ registrarPantalla('movimientos', {
 
 registrarPantalla('datos', {
   etiqueta: 'Datos',
+  orden: 4,
   icono: '↧',
   conMes: false,
   dibujar: dibujarDatos,
@@ -116,11 +119,15 @@ registrarPantalla('cambios', {
   dibujar: dibujarCambios,
 });
 
+// Primera de la barra, por pedido del usuario (2026-08-27): cargar un gasto es
+// lo que más se hace y lo que se hace apurado, parado en la caja del
+// supermercado. `destacada` es lo que le da el aspecto distinto que ya tenía.
 registrarPantalla('nuevo', {
   etiqueta: 'Cargar',
+  orden: 1,
   icono: '+',
   conMes: false,
-  enBarra: false,
+  destacada: true,
   dibujar: dibujarNuevo,
 });
 
@@ -158,12 +165,20 @@ export function dibujarEncabezado({ mes, conMes }) {
  * mano, la parte de arriba de la pantalla es donde el pulgar no llega.
  */
 export function dibujarNavegacion(actual) {
+  // El orden lo decide el campo `orden` de cada pantalla, no el orden en que se
+  // registraron: registrar depende de los `import`, y hacer que mover una
+  // pestaña dependa de reordenar imports es una trampa esperando.
+  //
+  // "Cargar" estaba escrito dos veces —registrado acá y dibujado a mano al final
+  // de la barra—, así que cambiar su etiqueta o su ícono había que hacerlo en
+  // dos lugares. Ahora sale del registro como todas.
   const botones = pantallasRegistradas()
     .filter((p) => p.enBarra !== false)
+    .sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99))
     .map((p) => {
       const seleccionada = p.nombre === actual;
       return `
-        <button type="button" class="pestania${seleccionada ? ' activa' : ''}"
+        <button type="button" class="pestania${p.destacada ? ' nueva' : ''}${seleccionada ? ' activa' : ''}"
                 data-accion="ir" data-pantalla="${escapar(p.nombre)}"
                 ${seleccionada ? 'aria-current="page"' : ''}>
           <span class="icono" aria-hidden="true">${escapar(p.icono)}</span>
@@ -175,12 +190,6 @@ export function dibujarNavegacion(actual) {
   return `
     <nav class="navegacion" aria-label="Secciones">
       ${botones}
-      <button type="button" class="pestania nueva${actual === 'nuevo' ? ' activa' : ''}"
-              data-accion="ir" data-pantalla="nuevo"
-              ${actual === 'nuevo' ? 'aria-current="page"' : ''}>
-        <span class="icono" aria-hidden="true">+</span>
-        <span>Cargar</span>
-      </button>
     </nav>
   `;
 }
@@ -203,6 +212,30 @@ export function dibujarAvisos(incidencias = []) {
     <section class="aviso importante" role="alert">
       <h2>${titulo}</h2>
       <ul>${items}</ul>
+    </section>
+  `;
+}
+
+/**
+ * El aviso de que el navegador no puede guardar — T-950.
+ *
+ * Va **arriba de todo, en todas las pantallas, y no se puede sacar**. No es una
+ * excepción a la regla de que un aviso que no se puede cerrar molesta: es el
+ * único caso donde molestar es lo correcto, porque lo que anuncia es que todo lo
+ * que el usuario escriba se va a perder. Un aviso que se puede posponer es un
+ * aviso que se va a posponer.
+ *
+ * Y dice **qué hacer**, no solo qué está mal. "Tus datos corren peligro" sin una
+ * salida es angustia sin utilidad.
+ */
+export function dibujarRiesgoDeGuardado(riesgo) {
+  if (!riesgo) return '';
+
+  return `
+    <section class="aviso peligro-datos" role="alert">
+      <h2>${escapar(riesgo.titulo)}</h2>
+      <p>${escapar(riesgo.explicacion)}</p>
+      <p><strong>Qué hacer:</strong> ${escapar(riesgo.queHacer)}</p>
     </section>
   `;
 }
@@ -262,6 +295,7 @@ export function dibujarApp(vista) {
 
   return `
     ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes })}
+    ${dibujarRiesgoDeGuardado(vista.riesgoDeGuardado)}
     ${dibujarAvisos(vista.incidencias)}
     ${dibujarRecordatorio(vista)}
     <main class="contenido">${contenido}</main>
@@ -276,15 +310,17 @@ export function dibujarApp(vista) {
  * la interfaz, y vive en un solo lugar para que "por qué se ve esto" tenga una
  * sola respuesta posible.
  */
-export function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false } = {}) {
+export function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false, riesgoDeGuardado = null } = {}) {
   return {
     pantalla: 'mes',
     mes: mes ?? mesDe(hoy()),
     estado,
     incidencias,
-    // Dato del entorno, no del usuario: se pregunta una vez al arrancar y viaja
-    // en la vista para que las funciones que dibujan no miren el navegador.
+    // Datos del entorno, no del usuario: se preguntan una vez al arrancar y
+    // viajan en la vista para que las funciones que dibujan no miren el
+    // navegador.
     puedeCompartir,
+    riesgoDeGuardado,
   };
 }
 
@@ -349,7 +385,13 @@ export function iniciar(documento, almacen) {
       : null
   );
 
-  let vista = vistaInicial({ estado, incidencias: lectura.incidencias, puedeCompartir });
+  // Se pregunta ANTES de dibujar nada: el usuario tiene que enterarse de que sus
+  // datos no se van a guardar antes de cargar el primero, no después.
+  const riesgo = riesgoDeGuardado(documento.defaultView?.location?.protocol ?? '', almacen);
+
+  let vista = vistaInicial({
+    estado, incidencias: lectura.incidencias, puedeCompartir, riesgoDeGuardado: riesgo,
+  });
   const raiz = documento.getElementById('app');
 
   function pintar() {

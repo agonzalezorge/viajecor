@@ -712,6 +712,21 @@ body {
    Un aviso donde salir es difícil se siente una trampa, y el usuario aprende a
    no leer el que viene después. */
 .acciones-recordatorio button { flex: 1; margin: 0; }
+
+/* ── "Este navegador no puede guardar" (T-950) ────────────────────────────────
+   Es el único aviso de la app que no se puede sacar. Lo que anuncia es que todo
+   lo que el usuario escriba se va a perder, y un aviso que se puede posponer es
+   un aviso que se va a posponer. Se ve claramente distinto del resto: no es una
+   sugerencia. */
+.peligro-datos {
+  border: 2px solid var(--gasto);
+  border-left-width: 6px;
+  margin-bottom: 1.25rem;
+}
+
+.peligro-datos h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--gasto); }
+.peligro-datos p { margin: 0 0 0.5rem; font-size: 0.9375rem; }
+.peligro-datos p:last-child { margin-bottom: 0; }
 </style>
 
 <div id="app" class="app">
@@ -2001,6 +2016,51 @@ function porComentario(estado, mes) {
     .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
 }
 
+/**
+ * Los comentarios que el usuario ya usó, del más reciente al más viejo — T-912.
+ *
+ * Sirve para ofrecerlos mientras escribe. **No es una comodidad:** el comentario
+ * es lo que agrupa los gastos de un viaje (RN-03), y `Barcelona26` y
+ * `barcelona 26` son dos viajes distintos en los totales. Ofrecer lo que ya
+ * existe es la forma más barata de que el usuario elija la escritura que ya
+ * tiene en vez de inventar una nueva.
+ *
+ * Se devuelve **la primera escritura que apareció** de cada comentario, igual
+ * que `porComentario()`: dos criterios distintos para elegir cómo se escribe un
+ * grupo terminarían mostrando dos nombres para la misma cosa.
+ *
+ * El orden es por el movimiento más reciente que lo usó: el viaje en curso queda
+ * arriba, que es el que se va a repetir.
+ *
+ * No recibe ningún límite: recorre la lista entera (L-001).
+ */
+function comentariosUsados(movimientos) {
+  if (!Array.isArray(movimientos)) return [];
+
+  const porClave = new Map();
+
+  for (const movimiento of movimientos) {
+    const texto = normalizarTextoVisible(movimiento?.comentario ?? '');
+    if (texto === '') continue;
+
+    const clave = claveDeComentario(texto);
+    const visto = porClave.get(clave);
+    const cuando = movimiento.fecha ?? '';
+
+    if (!visto) {
+      porClave.set(clave, { texto, ultima: cuando });
+    } else if (cuando > visto.ultima) {
+      // Se actualiza cuándo se usó por última vez, pero NO el texto: la
+      // escritura que se muestra sigue siendo la primera que apareció.
+      visto.ultima = cuando;
+    }
+  }
+
+  return [...porClave.values()]
+    .sort((a, b) => b.ultima.localeCompare(a.ultima) || a.texto.localeCompare(b.texto))
+    .map((c) => c.texto);
+}
+
 // ── src/core/formato.js ─────────────────────────────────────────
 // Cómo se muestran los montos y las fechas.
 //
@@ -2226,15 +2286,45 @@ function estadoInicial({ monedas = [], versionApp } = {}) {
   };
 }
 
+/**
+ * El almacenamiento del navegador, o uno de mentira que dice la verdad.
+ *
+ * **Nunca tira al buscarlo**, y esa es toda la gracia. La primera versión hacía
+ * `typeof localStorage === 'undefined'` y tiraba si no estaba. Parece defensivo
+ * y no lo es: hay navegadores donde `localStorage` no falta sino que **tira con
+ * solo nombrarlo** —una ventana privada con el almacenamiento bloqueado—, y ahí
+ * `typeof` tira también. El error subía hasta `iniciar()` y la app quedaba **en
+ * blanco**, sin una sola palabra.
+ *
+ * Lo encontró el recorrido en el navegador, bloqueando `localStorage` a
+ * propósito. Era el escenario que el propio código decía manejar.
+ *
+ * Cuando no hay dónde guardar se devuelve un almacén que **se comporta como un
+ * almacén vacío al leer y falla con un motivo entendible al escribir**. Así la
+ * app abre, se puede usar, y `riesgoDeGuardado()` avisa que nada se está
+ * guardando — en vez de una pantalla en blanco que no explica nada.
+ */
 function almacenPorDefecto() {
-  if (typeof localStorage === 'undefined') {
-    throw new Error(
-      'No hay dónde guardar: este navegador no tiene localStorage disponible. ' +
-      'Suele pasar en ventanas privadas de algunos navegadores.'
-    );
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage) return localStorage;
+  } catch {
+    // Nombrarlo tiró: el navegador tiene el almacenamiento bloqueado.
   }
-  return localStorage;
+  return ALMACEN_DE_MENTIRA;
 }
+
+const ALMACEN_DE_MENTIRA = {
+  length: 0,
+  key: () => null,
+  getItem: () => null,
+  removeItem: () => {},
+  setItem: () => {
+    throw new Error(
+      'No hay dónde guardar: este navegador no tiene almacenamiento disponible. ' +
+      'Suele pasar en ventanas privadas o con el almacenamiento de sitios bloqueado.'
+    );
+  },
+};
 
 /**
  * Lee el estado guardado.
@@ -2509,6 +2599,103 @@ function listarRescates(almacen = almacenPorDefecto()) {
     if (typeof clave === 'string' && clave.startsWith(PREFIJO_RESCATE)) claves.push(clave);
   }
   return claves.sort().reverse();
+}
+
+// ── ¿Este navegador puede guardar? — T-950 ───────────────────────────────────
+//
+// El 2026-08-27, el usuario abrió la app en su Android desde la app Archivos,
+// cargó cuatro movimientos, cerró Chrome y **perdió todo**.
+//
+// Android no le pasa al navegador la ubicación del archivo: le pasa un permiso
+// temporal de lectura, y la dirección queda como `content://…`. Para el
+// navegador eso no es un sitio, es contenido anónimo sin identidad estable. Como
+// el almacenamiento se guarda **por sitio**, no hay dónde guardar: deja escribir
+// mientras la pestaña vive y lo tira al cerrar.
+//
+// Lo grave no fue que no se pudiera guardar. Fue que **la app no lo dijo**:
+// aceptó los movimientos, los mostró, dijo "guardado", y los perdió. Toda la app
+// se apoya en que los datos son del usuario y están en su dispositivo; aceptar
+// datos que no se van a guardar rompe esa promesa justo cuando ya confió.
+//
+// **Por qué no alcanza con probar a escribir.** `localStorage.setItem()`
+// funciona igual en `content://`: devuelve bien, se puede leer de vuelta, y todo
+// parece correcto. El problema aparece al cerrar, cuando ya es tarde. Lo que
+// determina si hay dónde guardar no es si la escritura anda: es si la dirección
+// tiene identidad. Por eso se mira el esquema.
+
+/** Direcciones desde las que el navegador SÍ le da un lugar propio a la app. */
+const ESQUEMAS_CON_IDENTIDAD = ['file:', 'http:', 'https:'];
+
+const SIN_ALMACENAMIENTO = 'sin-almacenamiento';
+const SIN_IDENTIDAD = 'sin-identidad';
+
+/**
+ * ¿Corre peligro lo que el usuario cargue? Devuelve `null` si está todo bien.
+ *
+ * Es una función pura: recibe el esquema de la dirección y el almacén, no los
+ * busca en el navegador (`core/` y `datos/` no lo tocan). Así se puede probar
+ * el caso `content://` sin un teléfono Android.
+ */
+function riesgoDeGuardado(protocolo, almacen) {
+  // El almacén se resuelve igual que en `leerEstado`. La primera versión lo
+  // recibía tal cual, y como `iniciar(document)` no lo pasa, llegaba
+  // `undefined` y la app le avisaba a TODO el mundo que no estaba guardando
+  // nada. Lo encontró el recorrido en el navegador, no los tests, porque los
+  // tests siempre le pasaban un almacén.
+  //
+  // Es la peor forma de fallar para este aviso en particular: gritar en falso
+  // enseña a ignorarlo, y el día que sea cierto nadie lo va a leer.
+  //
+  // No se usa `almacenPorDefecto()`, que **tira** cuando no hay `localStorage`:
+  // tirar en la función cuya única tarea es detectar que no hay dónde guardar
+  // sería dejar la app en blanco justo cuando tiene algo importante que decir.
+  const elAlmacen = almacen === undefined ? almacenPorDefecto() : almacen;
+  // Primero lo más terminante: que no haya almacén en absoluto (navegación
+  // privada en algunos navegadores, o almacenamiento bloqueado por el usuario).
+  if (!puedeEscribir(elAlmacen)) {
+    return {
+      motivo: SIN_ALMACENAMIENTO,
+      titulo: 'Este navegador no está guardando nada',
+      explicacion:
+        'Todo lo que cargues va a desaparecer al cerrar la pestaña. Puede ser una ventana ' +
+        'de incógnito, o que el navegador tenga bloqueado el almacenamiento de sitios.',
+      queHacer:
+        'Abrí la app en una ventana normal, o permitile a este sitio guardar datos. ' +
+        'Mientras tanto, no cargues nada que no quieras volver a escribir.',
+    };
+  }
+
+  if (!ESQUEMAS_CON_IDENTIDAD.includes(protocolo)) {
+    return {
+      motivo: SIN_IDENTIDAD,
+      titulo: 'Así abierta, la app va a perder tus datos al cerrar',
+      explicacion:
+        'Abriste el archivo desde el explorador de archivos, y tu teléfono se lo pasó al ' +
+        'navegador sin decirle de dónde salió. El navegador guarda los datos por sitio, y ' +
+        'así no hay ningún sitio al que asociarlos: podés cargar gastos y los vas a ver, ' +
+        'pero desaparecen al cerrar el navegador.',
+      queHacer:
+        'Abrí la app escribiendo su dirección a mano en el navegador, empezando con ' +
+        '"file:///" y la ruta del archivo — por ejemplo file:///sdcard/Download/viajecor.html — ' +
+        'y guardala como marcador para entrar siempre por ahí.',
+    };
+  }
+
+  return null;
+}
+
+/** Prueba de verdad si se puede escribir, sin dejar rastro. */
+function puedeEscribir(almacen) {
+  if (!almacen || typeof almacen.setItem !== 'function') return false;
+  const clave = `${PREFIJO_RESCATE}prueba`;
+  try {
+    almacen.setItem(clave, '1');
+    const volvio = almacen.getItem(clave) === '1';
+    almacen.removeItem(clave);
+    return volvio;
+  } catch {
+    return false;
+  }
 }
 
 // ── src/datos/exportar.js ───────────────────────────────────────
@@ -3996,7 +4183,6 @@ function dibujarDesglose(estado, mes, tipo) {
   if (filas.length === 0) return '';
 
   const titulo = tipo === TIPO_GASTO ? 'En qué se fue' : 'De dónde vino';
-  const mayor = filas[0].total || 1;
 
   // Con un solo rubro no hay nada que comparar: la barra estaría siempre llena y
   // el porcentaje sería siempre 100 %. Dos adornos que ocupan lugar y no dicen
@@ -4015,7 +4201,13 @@ function dibujarDesglose(estado, mes, tipo) {
         </div>
         ${hayComparacion ? `
         <div class="barra-pista">
-          <div class="barra ${claseDeRubro(tipo, fila.rubro)}" style="width: ${(fila.total / mayor) * 100}%"></div>
+          <!-- El largo es el PORCENTAJE del total del mes, no la proporción
+               contra el rubro más grande. La versión anterior lo dividía por el
+               total del rubro mayor, que aprovecha todo el ancho pero contradice
+               el número escrito abajo: con dos rubros de 50 % los dos salían
+               llenos. Entre el dibujo y el número gana el número, y el dibujo
+               pasa a ser ruido (lo encontró el usuario, 2026-08-27). -->
+          <div class="barra ${claseDeRubro(tipo, fila.rubro)}" style="width: ${fila.porcentaje}%"></div>
         </div>` : ''}
         <div class="rubro-pie suave">
           <span>${hayComparacion ? escapar(porcentaje(fila.porcentaje)) : ''}</span>
@@ -4593,6 +4785,7 @@ function dibujarPlanilla(vista) {
 
 
 
+
 /**
  * Los campos vacíos de un formulario nuevo.
  *
@@ -4794,6 +4987,24 @@ function dibujarUltimos(estado) {
   `;
 }
 
+/**
+ * Los comentarios ya usados, para que el navegador los ofrezca al escribir.
+ *
+ * Se limita a los 50 más recientes: no por rendimiento —la app recorre listas
+ * enteras sin topes (L-001)— sino porque una lista de sugerencias con
+ * doscientas entradas no se puede usar en un celular, y las viejas nunca se
+ * eligen. **El límite es de lo que se muestra, no de lo que se calcula**, que es
+ * la diferencia que importa: ningún total depende de este número.
+ */
+function dibujarComentariosUsados(estado) {
+  const usados = comentariosUsados(estado?.movimientos ?? []).slice(0, 50);
+  if (usados.length === 0) return '';
+
+  return `<datalist id="comentarios-usados">${
+    usados.map((texto) => `<option value="${escapar(texto)}"></option>`).join('')
+  }</datalist>`;
+}
+
 function dibujarNuevo(vista) {
   const estado = vista.estado;
   const borrador = vista.borrador ?? borradorNuevo({ estado });
@@ -4870,15 +5081,28 @@ function dibujarNuevo(vista) {
       </label>
 
       <label class="campo">
-        <span>Comentario <em class="suave">— viaje o gasto fijo, para agrupar</em></span>
-        <input name="comentario" type="text" autocomplete="off"
-               placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
-      </label>
-
-      <label class="campo">
         <span>Detalle <em class="suave">— para acordarte</em></span>
         <input name="detalle" type="text" autocomplete="off"
                placeholder="cena" value="${escapar(borrador.detalle)}">
+      </label>
+
+      <!-- El comentario va último y ofrece los que ya usaste (T-912). No es
+           comodidad: el comentario es lo que agrupa los gastos de un viaje
+           (RN-03), y "Barcelona26" y "barcelona 26" son dos viajes distintos en
+           los totales. Ofrecer lo que ya existe es la forma más barata de que
+           elijas la escritura que ya tenés en vez de inventar una nueva.
+
+           Se usa <datalist>, que lo dibuja el navegador: no hay ninguna lista
+           flotante propia que mantener, ni teclado que se pelee con ella en un
+           celular. La contra es que cada navegador lo muestra a su manera —es la
+           misma cesión que el calendario de la fecha, L-013—, pero acá el campo
+           sigue siendo un campo de texto común: si el navegador no dibuja nada,
+           se escribe igual y no se pierde nada. -->
+      <label class="campo">
+        <span>Comentario <em class="suave">— viaje o gasto fijo, para agrupar</em></span>
+        <input name="comentario" type="text" autocomplete="off" list="comentarios-usados"
+               placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
+        ${dibujarComentariosUsados(estado)}
       </label>
 
       <button type="submit" class="principal" data-accion="guardar">
@@ -4984,6 +5208,7 @@ function marcador(titulo, explicacion, tarea) {
 
 registrarPantalla('mes', {
   etiqueta: 'Mes',
+  orden: 2,
   icono: '◧',
   conMes: true,
   dibujar: dibujarResumen,
@@ -4991,6 +5216,7 @@ registrarPantalla('mes', {
 
 registrarPantalla('movimientos', {
   etiqueta: 'Movimientos',
+  orden: 3,
   icono: '≡',
   conMes: true,
   dibujar: dibujarLista,
@@ -4998,6 +5224,7 @@ registrarPantalla('movimientos', {
 
 registrarPantalla('datos', {
   etiqueta: 'Datos',
+  orden: 4,
   icono: '↧',
   conMes: false,
   dibujar: dibujarDatos,
@@ -5011,11 +5238,15 @@ registrarPantalla('cambios', {
   dibujar: dibujarCambios,
 });
 
+// Primera de la barra, por pedido del usuario (2026-08-27): cargar un gasto es
+// lo que más se hace y lo que se hace apurado, parado en la caja del
+// supermercado. `destacada` es lo que le da el aspecto distinto que ya tenía.
 registrarPantalla('nuevo', {
   etiqueta: 'Cargar',
+  orden: 1,
   icono: '+',
   conMes: false,
-  enBarra: false,
+  destacada: true,
   dibujar: dibujarNuevo,
 });
 
@@ -5053,12 +5284,20 @@ function dibujarEncabezado({ mes, conMes }) {
  * mano, la parte de arriba de la pantalla es donde el pulgar no llega.
  */
 function dibujarNavegacion(actual) {
+  // El orden lo decide el campo `orden` de cada pantalla, no el orden en que se
+  // registraron: registrar depende de los `import`, y hacer que mover una
+  // pestaña dependa de reordenar imports es una trampa esperando.
+  //
+  // "Cargar" estaba escrito dos veces —registrado acá y dibujado a mano al final
+  // de la barra—, así que cambiar su etiqueta o su ícono había que hacerlo en
+  // dos lugares. Ahora sale del registro como todas.
   const botones = pantallasRegistradas()
     .filter((p) => p.enBarra !== false)
+    .sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99))
     .map((p) => {
       const seleccionada = p.nombre === actual;
       return `
-        <button type="button" class="pestania${seleccionada ? ' activa' : ''}"
+        <button type="button" class="pestania${p.destacada ? ' nueva' : ''}${seleccionada ? ' activa' : ''}"
                 data-accion="ir" data-pantalla="${escapar(p.nombre)}"
                 ${seleccionada ? 'aria-current="page"' : ''}>
           <span class="icono" aria-hidden="true">${escapar(p.icono)}</span>
@@ -5070,12 +5309,6 @@ function dibujarNavegacion(actual) {
   return `
     <nav class="navegacion" aria-label="Secciones">
       ${botones}
-      <button type="button" class="pestania nueva${actual === 'nuevo' ? ' activa' : ''}"
-              data-accion="ir" data-pantalla="nuevo"
-              ${actual === 'nuevo' ? 'aria-current="page"' : ''}>
-        <span class="icono" aria-hidden="true">+</span>
-        <span>Cargar</span>
-      </button>
     </nav>
   `;
 }
@@ -5098,6 +5331,30 @@ function dibujarAvisos(incidencias = []) {
     <section class="aviso importante" role="alert">
       <h2>${titulo}</h2>
       <ul>${items}</ul>
+    </section>
+  `;
+}
+
+/**
+ * El aviso de que el navegador no puede guardar — T-950.
+ *
+ * Va **arriba de todo, en todas las pantallas, y no se puede sacar**. No es una
+ * excepción a la regla de que un aviso que no se puede cerrar molesta: es el
+ * único caso donde molestar es lo correcto, porque lo que anuncia es que todo lo
+ * que el usuario escriba se va a perder. Un aviso que se puede posponer es un
+ * aviso que se va a posponer.
+ *
+ * Y dice **qué hacer**, no solo qué está mal. "Tus datos corren peligro" sin una
+ * salida es angustia sin utilidad.
+ */
+function dibujarRiesgoDeGuardado(riesgo) {
+  if (!riesgo) return '';
+
+  return `
+    <section class="aviso peligro-datos" role="alert">
+      <h2>${escapar(riesgo.titulo)}</h2>
+      <p>${escapar(riesgo.explicacion)}</p>
+      <p><strong>Qué hacer:</strong> ${escapar(riesgo.queHacer)}</p>
     </section>
   `;
 }
@@ -5157,6 +5414,7 @@ function dibujarApp(vista) {
 
   return `
     ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes })}
+    ${dibujarRiesgoDeGuardado(vista.riesgoDeGuardado)}
     ${dibujarAvisos(vista.incidencias)}
     ${dibujarRecordatorio(vista)}
     <main class="contenido">${contenido}</main>
@@ -5171,15 +5429,17 @@ function dibujarApp(vista) {
  * la interfaz, y vive en un solo lugar para que "por qué se ve esto" tenga una
  * sola respuesta posible.
  */
-function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false } = {}) {
+function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false, riesgoDeGuardado = null } = {}) {
   return {
     pantalla: 'mes',
     mes: mes ?? mesDe(hoy()),
     estado,
     incidencias,
-    // Dato del entorno, no del usuario: se pregunta una vez al arrancar y viaja
-    // en la vista para que las funciones que dibujan no miren el navegador.
+    // Datos del entorno, no del usuario: se preguntan una vez al arrancar y
+    // viajan en la vista para que las funciones que dibujan no miren el
+    // navegador.
     puedeCompartir,
+    riesgoDeGuardado,
   };
 }
 
@@ -5244,7 +5504,13 @@ function iniciar(documento, almacen) {
       : null
   );
 
-  let vista = vistaInicial({ estado, incidencias: lectura.incidencias, puedeCompartir });
+  // Se pregunta ANTES de dibujar nada: el usuario tiene que enterarse de que sus
+  // datos no se van a guardar antes de cargar el primero, no después.
+  const riesgo = riesgoDeGuardado(documento.defaultView?.location?.protocol ?? '', almacen);
+
+  let vista = vistaInicial({
+    estado, incidencias: lectura.incidencias, puedeCompartir, riesgoDeGuardado: riesgo,
+  });
   const raiz = documento.getElementById('app');
 
   function pintar() {

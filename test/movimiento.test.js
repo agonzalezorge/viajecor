@@ -20,12 +20,22 @@ import { movimientosDelMes } from '../src/core/calculos.js';
 import { estadoInicial } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
 import { crearCambio } from '../src/core/cambio.js';
-import { hoy, TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
+import { hoy, TIPO_GASTO, TIPO_INGRESO, crearMovimiento } from '../src/core/modelo.js';
 
 const DURO = ' ';
 
 function estadoLimpio(extra = {}) {
   return { ...estadoInicial({ monedas: monedasIniciales() }), ...extra };
+}
+
+/** Un estado con movimientos ya cargados, para probar el autocompletado. */
+function conComentarios(...comentarios) {
+  return estadoLimpio({
+    movimientos: comentarios.map((comentario, i) => crearMovimiento(
+      { tipo: TIPO_GASTO, rubro: 'supermercado', monto: '10', moneda: 'EUR', fecha: `2026-03-0${i + 1}`, comentario },
+      { decimales: 2, id: `mov_${i}`, creado: `2026-03-0${i + 1}` }
+    )),
+  });
 }
 
 function borradorDe(campos = {}) {
@@ -321,4 +331,55 @@ test('los movimientos de un mes son los de ese mes, sin límite de filas', () =>
   assert.equal(movimientosDelMes(estado.movimientos, '2026-03').length, 2);
   assert.equal(movimientosDelMes(estado.movimientos, '2026-04').length, 1);
   assert.equal(movimientosDelMes(estado.movimientos, '2026-01').length, 0);
+});
+
+// ── Orden de los campos y autocompletado (T-912) ─────────────────────────────
+
+test('el detalle va penúltimo y el comentario último', () => {
+  // Pedido del usuario (2026-08-27). Se comprueba por la posición relativa y no
+  // por el HTML entero: así el test sobrevive a cualquier cambio de estilo.
+  const html = dibujarNuevo({ estado: estadoLimpio() });
+  const donde = (nombre) => html.indexOf(`name="${nombre}"`);
+
+  assert.ok(donde('monto') < donde('rubro'));
+  assert.ok(donde('rubro') < donde('fecha'));
+  assert.ok(donde('fecha') < donde('detalle'), 'el detalle tiene que ir después de la fecha');
+  assert.ok(donde('detalle') < donde('comentario'), 'el comentario tiene que ser el último');
+});
+
+test('el comentario ofrece los que ya usaste', () => {
+  // No es comodidad: el comentario es lo que agrupa los gastos de un viaje
+  // (RN-03), y dos escrituras distintas son dos viajes distintos en los totales.
+  const html = dibujarNuevo({ estado: conComentarios('Barcelona26') });
+
+  assert.match(html, /list="comentarios-usados"/);
+  assert.match(html, /<datalist id="comentarios-usados">/);
+  assert.ok(html.includes('<option value="Barcelona26">'));
+});
+
+test('sin comentarios usados no se dibuja una lista vacía', () => {
+  const html = dibujarNuevo({ estado: estadoLimpio({ movimientos: [] }) });
+
+  // Se busca la etiqueta con su id, no la palabra suelta: el comentario del
+  // código explica por qué se usa <datalist> y contiene la palabra.
+  assert.equal(html.includes('<datalist id='), false);
+});
+
+test('un comentario no se ofrece dos veces aunque esté escrito distinto', () => {
+  // "Barcelona26" y "barcelona 26" son el mismo grupo (RN-03). Ofrecer los dos
+  // sería enseñarle al usuario a separarlos.
+  const html = dibujarNuevo({ estado: conComentarios('Barcelona26', 'barcelona26') });
+  // Solo las opciones de la lista de comentarios: el formulario tiene otros
+  // <select> (rubro, moneda) con sus propias opciones.
+  const lista = html.slice(html.indexOf('<datalist id='), html.indexOf('</datalist>'));
+
+  assert.equal((lista.match(/<option value=/g) ?? []).length, 1);
+  assert.ok(lista.includes('Barcelona26'), 'se muestra la primera escritura, como en el resto de la app');
+});
+
+test('las comillas en un comentario no rompen la lista', () => {
+  const html = dibujarNuevo({ estado: conComentarios('Viaje "raro" & <cosas>') });
+
+  assert.equal(html.includes('value="Viaje "raro"'), false);
+  assert.ok(html.includes('&quot;raro&quot;'));
 });

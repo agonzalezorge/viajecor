@@ -101,10 +101,10 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
 | T-906 | Exportar a `.xlsx` con la forma de la planilla | **Hecha** (falta abrirlo en Excel de verdad: T-019) | T-016, T-018 |
 | T-910 | Hoja de análisis mes × rubro dentro del `.xlsx` | Lista | T-906, T-021 |
-| **T-950** | **Avisar cuando el navegador no puede guardar** | **En curso (claude, 2026-08-27)** | T-004 |
-| T-911 | La barra del desglose mide el porcentaje real | En curso (claude, 2026-08-27) | T-014 |
-| T-912 | Orden de campos y autocompletado del comentario | En curso (claude, 2026-08-27) | T-011 |
-| T-913 | "Cargar" es la primera pestaña | En curso (claude, 2026-08-27) | T-010 |
+| **T-950** | **Avisar cuando el navegador no puede guardar** | **Hecha** | T-004 |
+| T-911 | La barra del desglose mide el porcentaje real | **Hecha** | T-014 |
+| T-912 | Orden de campos y autocompletado del comentario | **Hecha** | T-011 |
+| T-913 | "Cargar" es la primera pestaña | **Hecha** | T-010 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -992,6 +992,37 @@ avisa es "vas a perder todo" no sirve.
 **Lo que NO alcanza:** probar que `localStorage` acepta una escritura. Acepta:
 el problema aparece al cerrar. Hay que mirar el **esquema de la dirección**, que
 es lo que determina si hay identidad, y no el resultado de escribir.
+
+**Cómo quedó (Hecha, 2026-08-27).** Un aviso arriba de todo, en todas las
+pantallas, **que no se puede cerrar ni posponer** — es el único de la app, y lo
+es porque lo que anuncia es que todo lo que se escriba se va a perder. Dice qué
+pasa, por qué, y **qué hacer**: abrir la app escribiendo su dirección `file:///`
+a mano. El usuario lo probó y **resolvió el problema**.
+
+**El recorrido en el navegador encontró dos errores míos, y uno era peor que el
+que iba a probar:**
+
+1. **El aviso salía siempre**, también con `file://`. `iniciar(document)` no pasa
+   almacén, y yo se lo pasaba tal cual: llegaba `undefined` y la detección
+   concluía "no hay dónde guardar". Un aviso que grita en falso enseña a
+   ignorarlo, y el día que sea cierto nadie lo lee. Ningún test lo vio porque
+   todos le pasaban un almacén.
+2. **Con el almacenamiento bloqueado, la app no abría**: pantalla en blanco. El
+   código hacía `typeof localStorage === 'undefined'`, que parece defensivo y no
+   lo es — hay navegadores donde `localStorage` **tira con solo nombrarlo**, y
+   ahí `typeof` tira también. Era exactamente el escenario que ese código decía
+   manejar. Ver L-019.
+
+**Verificado:** 507 tests. Cinco mutaciones, cinco detectadas. Y en el navegador,
+con `localStorage` bloqueado de verdad: la app abre, avisa, se puede navegar,
+**no acepta el dato que no puede guardar** (ADR-016), conserva lo escrito y no
+deja movimientos fantasma en la lista.
+
+**Lo que el usuario verificó en su Android (2026-08-27), y que cierra T-019 en
+parte:** abrir por `file:///sdcard/Download/viajecor.html` **resuelve la pérdida
+de datos**. Cargar, cerrar Chrome, reabrir: los movimientos siguen. Recuperar un
+respaldo tras borrar los datos del sitio: funciona. Actualizar el archivo sin
+perder nada: funciona. Descargar el respaldo y el `.xlsx`: funcionan.
 
 ---
 
