@@ -184,7 +184,7 @@ test('la pestaña actual se marca, y solo una', () => {
 test('están las secciones previstas, la carga y los tipos de cambio', () => {
   assert.deepEqual(
     pantallasRegistradas().map((p) => p.nombre),
-    ['mes', 'movimientos', 'datos', 'evolucion', 'cambios', 'nuevo']
+    ['mes', 'movimientos', 'datos', 'evolucion', 'monedas', 'cambios', 'nuevo']
   );
 });
 
@@ -223,12 +223,17 @@ test('la app dibuja encabezado, contenido y navegación', () => {
   assert.ok(html.includes('class="navegacion"'));
 });
 
-test('lo que falta de una pantalla se dice, con la tarea que lo trae', () => {
-  // Ya no quedan pantallas enteras sin construir. Lo que queda son partes, y se
-  // nombran igual: una pantalla que no dice lo que le falta parece terminada.
-  const html = dibujarApp({ ...VISTA, pantalla: 'datos' });
-  assert.ok(html.includes('Todavía no'));
-  assert.ok(/T-0\d\d/.test(html));
+test('ninguna pantalla dice ya "todavía no está construida"', () => {
+  // Este test pedía lo contrario hasta el 2026-08-28: que las partes sin
+  // construir se nombraran, porque una pantalla que no dice lo que le falta
+  // parece terminada. Con T-024 dejó de faltar ninguna, así que ahora comprueba
+  // lo de al lado: que no haya quedado un marcador viejo prometiendo una tarea
+  // que ya se hizo, que es la otra forma de mentir sobre el estado.
+  for (const p of pantallasRegistradas()) {
+    const html = dibujarApp({ ...VISTA, pantalla: p.nombre });
+    assert.equal(html.includes('Todavía no está construida'), false, `la pantalla ${p.nombre}`);
+    assert.equal(/— T-0\d\d\./.test(html), false, `la pantalla ${p.nombre} promete una tarea`);
+  }
 });
 
 test('una pantalla que no existe cae en la del mes, sin romperse', () => {

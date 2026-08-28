@@ -41,6 +41,7 @@ const MODULOS = [
   'src/ui/pantallas/cambio.js',
   'src/ui/pantallas/graficos.js',
   'src/ui/pantallas/resumen.js',
+  'src/ui/pantallas/monedas.js',
   'src/ui/pantallas/fijos.js',
   'src/ui/pantallas/evolucion.js',
   'src/ui/pantallas/lista.js',

@@ -1024,3 +1024,58 @@ al lado muestra en la columna de gastos fijos.
 **Vive en la misma pantalla que la evolución.** Las dos contestan preguntas sobre
 el historial y ninguna se mira todos los días; separarlas en dos pantallas sería
 dos puertas para el mismo cuarto.
+
+---
+
+## ADR-033 · Cambiar los decimales de una moneda es un paso aparte, con su aviso
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-024
+
+**Por qué no es un `<select>` en la fila.** Un monto se guarda en unidades
+mínimas: `150000` son 1.500,00 con dos decimales y 150.000 con cero. Cambiarle
+los decimales a una moneda **no reescribe ningún monto: los lee distinto**. Todos
+los gastos ya cargados en esa moneda pasan a valer cien veces más o cien veces
+menos, y nada parpadea.
+
+Un desplegable en la fila aplicaría eso con un toque. Así que el cambio es un
+paso aparte que, **antes de aplicarse, dice cuántos movimientos reinterpreta y
+muestra uno de ejemplo con el antes y el después**. Es la misma regla que la
+corrección de un tipo de cambio (ADR-019): cuando un número puede cambiar el
+significado de datos que ya existen, el aviso es parte de la funcionalidad.
+
+**El ejemplo sale de un movimiento real del usuario**, no de uno inventado. "Esto
+afecta a 47 movimientos" es abstracto; ver que *tu* gasto de `15.000,00 CRC` pasa
+a leerse `1.500.000 CRC` no lo es.
+
+**El aviso se mueve con el número elegido**, sin redibujar el formulario
+(ADR-023). Decir "reinterpreta 47 movimientos" con el valor viejo sería peor que
+no decir nada.
+
+**Los decimales del formulario de agregar se explican con un ejemplo**, no con
+una definición: "0 — se escribe 1.500" se entiende sin traducir; "cuántos dígitos
+van después de la coma" hay que traducirlo.
+
+**El botón de borrar solo aparece cuando de verdad se puede** —es decir, cuando
+esa moneda no tiene ningún movimiento—. Un botón que siempre contesta "no"
+enseña a no tocarlo, y de paso esconde que existe "ocultar", que es lo que el
+usuario quería hacer. El euro no ofrece ninguna de las tres acciones: es la
+moneda en la que se expresan todos los totales.
+
+**Lo que encontró el recorrido en el navegador y ningún test veía:**
+
+1. **El error no se mostraba en ninguna parte.** `vista.error` se dibujaba solo
+   dentro del formulario de carga, así que "ya tenés una moneda con ese código" y
+   "no se puede borrar, tiene movimientos" se guardaban en el estado y no
+   aparecían: el usuario tocaba el botón y no pasaba nada. Ahora `dibujarError()`
+   se exporta y se usa en las dos pantallas — dos formas distintas de mostrar un
+   error son dos lugares donde arreglar el mismo problema.
+2. **Las monedas ocultas no se veían ocultas.** La clase `apagada` estaba en el
+   HTML y no tenía ninguna regla en el CSS. Los tests pasaban porque buscaban la
+   clase, no su efecto; ahora hay uno que exige que la regla exista.
+3. **Los datos de cada fila se leían corridos**: "Euro sin movimientos" parecía
+   el nombre de la moneda. Iban en tres trozos pegados, y los tests los buscaban
+   por separado y los encontraban a los tres.
+
+Las tres son la misma lección de siempre en tres formas distintas: **un test que
+busca un pedazo no ve el conjunto**, y por eso el recorrido por el navegador es
+obligatorio y no opcional.

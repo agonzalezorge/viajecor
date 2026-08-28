@@ -267,7 +267,7 @@ qué existe.
 | CU-12 | Ver el promedio de un gasto fijo | **Hecho** (T-022) |
 | CU-13 | Importar el historial del Excel | **Hecho** (T-030, T-031, T-032) |
 | CU-14 | Llevar los ahorros conjuntos | Pendiente |
-| CU-15 | Agregar una moneda | Lógica hecha (T-008); falta la pantalla (T-024) |
+| CU-15 | Agregar una moneda | **Hecho** (T-008, T-024) |
 
 ---
 

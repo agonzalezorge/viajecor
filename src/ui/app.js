@@ -23,6 +23,9 @@ import { decimalesDe } from '../core/monedas.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
 import { dibujarResumen } from './pantallas/resumen.js';
 import { dibujarEvolucion } from './pantallas/evolucion.js';
+import { dibujarMonedas, dibujarAvisoDecimales, efectoDeCambiarDecimales,
+  intentarAgregarMoneda, intentarOcultarMoneda, intentarMostrarMoneda,
+  intentarBorrarMoneda, intentarCambiarDecimales } from './pantallas/monedas.js';
 import { dibujarLista, borrarMovimiento, restaurarMovimiento, buscarMovimiento } from './pantallas/lista.js';
 import { dibujarDatos } from './pantallas/datos.js';
 import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
@@ -62,9 +65,12 @@ export function escapar(texto) {
 // ── Las pantallas ────────────────────────────────────────────────────────────
 //
 // Cada pantalla se registra acá con su nombre, su etiqueta en la barra de abajo
-// y una función que dibuja su contenido. Las de verdad llegan con T-011 y
-// siguientes; por ahora hay marcadores, para que el armazón se pueda ver y usar
-// antes de que exista ninguna.
+// y una función que dibuja su contenido.
+//
+// Hasta el 2026-08-28 había además un `marcador()`: una pantalla de mentira que
+// decía "todavía no está construida — T-0XX". Se fue con T-024, cuando dejó de
+// haber pantallas sin construir. Si vuelve a hacer falta, está en el historial;
+// lo que no se deja es una función que no llama nadie.
 
 const PANTALLAS = new Map();
 
@@ -79,17 +85,6 @@ export function pantallasRegistradas() {
 
 export function pantalla(nombre) {
   return PANTALLAS.get(nombre) ?? null;
-}
-
-/** Un marcador honesto: dice qué va a haber acá y qué tarea lo trae. */
-function marcador(titulo, explicacion, tarea) {
-  return () => `
-    <section class="tarjeta">
-      <h2>${escapar(titulo)}</h2>
-      <p class="suave">${escapar(explicacion)}</p>
-      <p class="suave pendiente">Todavía no está construida — ${escapar(tarea)}.</p>
-    </section>
-  `;
 }
 
 registrarPantalla('mes', {
@@ -126,6 +121,14 @@ registrarPantalla('evolucion', {
   conMes: false,
   enBarra: false,
   dibujar: dibujarEvolucion,
+});
+
+registrarPantalla('monedas', {
+  etiqueta: 'Monedas',
+  icono: '¤',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarMonedas,
 });
 
 registrarPantalla('cambios', {
@@ -901,6 +904,14 @@ export function iniciar(documento, almacen) {
     donde.innerHTML = dibujarSugerencias(campo, escrito, usadosDe(vista.estado)[campo] ?? []);
   }
 
+  raiz.addEventListener('change', (evento) => {
+    // El aviso de "esto reinterpreta N movimientos" tiene que moverse con el
+    // número elegido: mostrarlo con el valor viejo sería peor que no mostrarlo.
+    if (!evento.target.matches('[data-accion-cambio="decimales-elegidos"]')) return;
+    const formulario = evento.target.closest('[data-formulario="decimales"]');
+    refrescarAvisoDecimales(formulario?.elements.moneda?.value ?? '', Number(evento.target.value));
+  });
+
   raiz.addEventListener('input', (evento) => {
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
@@ -948,6 +959,78 @@ export function iniciar(documento, almacen) {
    * volver al formulario y darle a guardar otra vez sería hacerle pagar dos
    * veces por un dato que la app le pidió a él.
    */
+  /**
+   * Aplica un cambio del catálogo de monedas y lo guarda — T-024.
+   *
+   * Es la misma secuencia para agregar, ocultar, mostrar, borrar y cambiar
+   * decimales: probar, guardar, y recién si las dos cosas salieron bien mover la
+   * pantalla. Si se guardara después de pintar, un navegador que no puede
+   * escribir mostraría el cambio aplicado y lo perdería al recargar —que es
+   * exactamente el error que ya se cometió con los tipos de cambio.
+   */
+  function aplicarAlCatalogo(resultado, siguiente = {}) {
+    if (resultado.error) {
+      vista = { ...vista, error: resultado.error, avisoMoneda: null };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, error: error.message };
+      pintar();
+      return;
+    }
+    vista = { ...vista, estado: resultado.estado, error: null, avisoMoneda: null, ...siguiente };
+    pintar();
+  }
+
+  function agregarUnaMoneda() {
+    const formulario = raiz.querySelector('[data-formulario="moneda"]');
+    if (!formulario) return;
+    const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
+    const entrada = {
+      codigo: campo('codigo'),
+      nombre: campo('nombre'),
+      decimales: Number(campo('decimales')),
+    };
+
+    const resultado = intentarAgregarMoneda(vista.estado, entrada);
+    if (resultado.error) {
+      // Lo escrito se conserva: un código repetido no tiene por qué costar
+      // volver a tipear el nombre.
+      vista = { ...vista, borradorMoneda: entrada, error: resultado.error, avisoMoneda: null };
+      pintar();
+      return;
+    }
+    aplicarAlCatalogo(resultado, { borradorMoneda: undefined, avisoMoneda: `${entrada.codigo.toUpperCase()} ya se puede elegir al cargar un gasto.` });
+  }
+
+  function guardarLosDecimales() {
+    const formulario = raiz.querySelector('[data-formulario="decimales"]');
+    if (!formulario) return;
+    const codigo = formulario.elements.moneda?.value ?? '';
+    const decimales = Number(formulario.elements.decimales?.value ?? '');
+
+    aplicarAlCatalogo(
+      intentarCambiarDecimales(vista.estado, codigo, decimales),
+      { monedaEditada: null, borradorDecimales: undefined },
+    );
+  }
+
+  /**
+   * Refresca el aviso mientras se elige el número de decimales.
+   *
+   * Se cambia solo el trozo del aviso y no el formulario entero: ADR-023. Y el
+   * aviso tiene que moverse con la elección, porque decir "esto reinterpreta 47
+   * movimientos" con el número viejo sería peor que no decir nada.
+   */
+  function refrescarAvisoDecimales(codigo, decimales) {
+    const donde = raiz.querySelector('[data-aviso-decimales]');
+    if (!donde) return;
+    donde.innerHTML = dibujarAvisoDecimales(efectoDeCambiarDecimales(vista.estado, codigo, decimales));
+  }
+
   function guardarTipoDeCambio() {
     const formulario = raiz.querySelector('[data-formulario="cambio"]');
     if (!formulario) return;
@@ -1046,6 +1129,27 @@ export function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
+    } else if (accion === 'agregar-moneda') {
+      evento.preventDefault();
+      agregarUnaMoneda();
+      return;
+    } else if (accion === 'decimales-moneda') {
+      vista = { ...vista, monedaEditada: boton.dataset.moneda, borradorDecimales: undefined, error: null, avisoMoneda: null };
+    } else if (accion === 'cancelar-decimales') {
+      vista = { ...vista, monedaEditada: null, borradorDecimales: undefined, error: null };
+    } else if (accion === 'guardar-decimales') {
+      evento.preventDefault();
+      guardarLosDecimales();
+      return;
+    } else if (accion === 'ocultar-moneda') {
+      aplicarAlCatalogo(intentarOcultarMoneda(vista.estado, boton.dataset.moneda));
+      return;
+    } else if (accion === 'mostrar-moneda') {
+      aplicarAlCatalogo(intentarMostrarMoneda(vista.estado, boton.dataset.moneda));
+      return;
+    } else if (accion === 'borrar-moneda') {
+      aplicarAlCatalogo(intentarBorrarMoneda(vista.estado, boton.dataset.moneda));
+      return;
     } else if (accion === 'corregir-cambio') {
       // Corregir uno existente reusa el mismo pedido, con su aviso de cuántos
       // movimientos toca.

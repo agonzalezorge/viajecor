@@ -880,3 +880,29 @@ cambie el mes.
 app no le pasa nada y usa el reloj; el test le pasa el mes que quiere probar. Es
 el mismo patrón que ya usaban `promedioPorDia(estado, mes, hasta)` y la línea del
 acumulado de T-918.
+
+---
+
+## L-026 · Una clase de CSS puesta y nunca definida pasa todos los tests
+
+**Cuándo:** 2026-08-28, haciendo la pantalla de monedas (T-024).
+
+Las monedas ocultas se dibujaban con `class="linea-cambio apagada"` y la fila
+decía "oculta". El test comprobaba que la clase estuviera. Estaba. Y en la
+pantalla la moneda oculta se veía **exactamente igual** que las demás, porque
+`.apagada` no existía en `estilos.css`.
+
+Es el mismo agujero que L-024 —el CSS y el JS separándose sin que nada se queje—
+pero al revés: allá el valor era el equivocado, acá directamente no había regla.
+
+**La regla:** un test que comprueba que el HTML *menciona* una clase no comprueba
+nada sobre lo que se ve. Cuando una clase existe para que algo se vea distinto,
+hay que **exigir también que la hoja de estilos tenga una regla para ella**. Son
+tres líneas y es la única forma de que un `class=` decorativo no pase por
+funcionalidad.
+
+**Y la de fondo:** las tres cosas que se rompieron en esta pantalla —esta, el
+error invisible y los textos corridos— pasaron los tests y las encontró **mirar
+la captura**. Un test busca un pedazo; el ojo ve el conjunto. Por eso el
+recorrido por el navegador está en `AGENTES.md` §4 como obligatorio y no como
+"si da el tiempo".

@@ -395,6 +395,12 @@ body {
 .linea-cambio:last-child { border-bottom: none; }
 .mes-cambio { font-weight: 600; margin-right: 0.5rem; }
 
+/* Una moneda oculta se ve apagada. La clase estaba puesta en el HTML y no tenía
+   ninguna regla acá: la fila decía "oculta" y se veía igual que las demás. Lo
+   encontró la captura del recorrido (T-024). No se usa solo el color: la
+   palabra "oculta" está escrita en la fila. */
+.linea-cambio.apagada { opacity: 0.6; }
+
 .valor-cambio {
   display: flex;
   align-items: center;

@@ -5,6 +5,17 @@ La versión publicada vive en el archivo `VERSION`.
 
 ## Sin publicar
 
+### Agregado
+- **La pantalla de monedas**: ver las que hay, agregar una nueva, ocultar las que
+  ya no usás y borrar las que nunca usaste. Se llega desde Datos y desde el
+  propio formulario de carga, con "¿Falta una moneda?" — que es donde aparece el
+  problema, parado en un país cuya moneda no está en la lista.
+
+  **Cambiar los decimales de una moneda es un paso aparte y avisa antes**: no
+  reescribe ningún monto, los lee distinto, así que todos los gastos ya cargados
+  en esa moneda pasan a valer cien veces más o cien veces menos. La app dice
+  cuántos son y muestra uno tuyo, antes y después. Ver ADR-033.
+
 ### Cambiado
 - **El detalle ya no muestra una lista de sugerencias**, por pedido del usuario.
   Solo sugiere el **comentario**, y la diferencia tiene motivo: el comentario es

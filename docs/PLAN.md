@@ -81,7 +81,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-021 | Evolución mes a mes | **Hecha** | T-013 |
 | T-022 | Promedio de gastos fijos | **Hecha** | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
-| T-024 | Pantalla de monedas | En curso (claude, 2026-08-28) | T-008, T-010 |
+| T-024 | Pantalla de monedas | **Hecha** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | **Hecha** | T-003, T-009 |
 | T-031 | Lector de `.xlsx` sin librerías | **Hecha** | T-009 |
@@ -833,12 +833,38 @@ Agrupado por comentario: cuántas veces, total y promedio por pago.
   dan 471,90 €, **el mismo número que la matriz de arriba** en la columna de
   gastos fijos. 0 peticiones de red, 0 errores de consola.
 
-### T-024 · Pantalla de monedas — CU-15
-**Depende de:** T-008, T-010 · **Toca:** `src/ui/pantallas/monedas.js`
+### T-024 · Pantalla de monedas — CU-15 — **Hecha** (2026-08-28)
+**Depende de:** T-008, T-010 · **Tocó:** `src/ui/pantallas/monedas.js` (nuevo),
+`app.js`, `datos.js`, `movimiento.js`, `estilos.css`
 
 Ver las monedas, agregar una nueva (código, nombre, decimales) y ocultar las que
 ya no se usan. Accesible también desde el formulario de carga, para cuando la
 moneda que hace falta no está en la lista.
+
+**Lo que quedó hecho, comprobado:**
+
+- Agregar, ocultar, mostrar y borrar. **Borrar solo se ofrece cuando de verdad se
+  puede**; el euro no ofrece ninguna de las tres.
+- **Cambiar los decimales es un paso aparte**, con el aviso de cuántos
+  movimientos reinterpreta y un ejemplo real del usuario, antes y después. El
+  aviso se mueve con el número elegido. Ver ADR-033.
+- Se llega desde Datos y desde el propio formulario de carga ("¿Falta una
+  moneda?"), que es donde aparece el problema.
+- 26 tests nuevos. Ocho mutaciones a propósito: las ocho fallan.
+- Recorrido de punta a punta en el navegador: agregar el yen → aparece en el
+  selector de carga → cargar un gasto en colones → cambiar sus decimales con el
+  aviso → **recargar y que el cambio siga** → ocultar y que desaparezca del
+  selector → borrar el yen → código repetido con el error a la vista y lo
+  escrito conservado. 0 peticiones de red, 0 errores de consola.
+- **El recorrido encontró tres defectos que los 740 tests no veían**: el error no
+  se mostraba en ninguna pantalla, la clase `apagada` no existía en el CSS, y los
+  datos de cada fila se leían corridos. Los tres tienen ahora su test. Ver L-026.
+
+**Y se fue el último marcador.** `marcador()` en `app.js` dibujaba las pantallas
+sin construir; con esta tarea dejó de haber ninguna, así que se borró junto con
+el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
+construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
+cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
 
 ### T-023 · Gasto por viaje — CU-11
 **Estado:** Necesita decisión · **Depende de:** T-013

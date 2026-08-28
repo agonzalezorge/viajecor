@@ -177,7 +177,12 @@ function dibujarAviso(aviso) {
   `;
 }
 
-function dibujarError(error) {
+/**
+ * Un error para mostrarle al usuario. Se exporta porque lo usan también las
+ * monedas (T-024): dos formas distintas de mostrar un error son dos lugares
+ * donde arreglar el mismo problema, y uno de los dos se olvida.
+ */
+export function dibujarError(error) {
   if (!error) return '';
   return `<p class="error-carga" role="alert">${escapar(error)}</p>`;
 }
@@ -303,6 +308,11 @@ export function dibujarNuevo(vista) {
                  value="${escapar(borrador.monto)}">
           <select name="moneda" aria-label="Moneda">${opciones(monedas, borrador.moneda)}</select>
         </div>
+        <!-- La salida cuando la moneda del país donde estás no está en la lista
+             (CU-15). Sin esto, el viaje se anota mal o no se anota. -->
+        <button type="button" class="enlace" data-accion="ir" data-pantalla="monedas">
+          ¿Falta una moneda?
+        </button>
       </label>
 
       <label class="campo">
