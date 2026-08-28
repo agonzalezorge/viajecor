@@ -180,6 +180,19 @@ perfectos, y un aviso que salta cuando todo está bien es un aviso que se aprend
 a ignorar — lo último que puede pasarle al único control que existe sobre una
 importación de once meses.
 
+**El signo dice de qué lado mirar**, y por eso el informe los separa:
+
+- **Se leyó de más** → lo más probable es un gasto que **la planilla no estaba
+  sumando**. Pasó de verdad (L-023): un monto escrito como texto en vez de como
+  número, que `SUMA()` de Excel saltea sin avisar. Se reconoce porque queda
+  pegado a la izquierda de la celda. Ahí **la app tiene razón y la planilla está
+  mal**.
+- **Se leyó de menos** → hay que mirar la lista de filas que no entraron: puede
+  que alguna sea un gasto real que no se pudo interpretar.
+
+Dar por sentado que el sistema viejo tiene razón porque es el que estaba primero
+es la forma más elegante de importar sus errores.
+
 ---
 
 ## 7. El tipo (`I/G`)
