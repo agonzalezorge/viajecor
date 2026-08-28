@@ -78,7 +78,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-019 | Verificación real sin conexión | **Hecha** (usuario, 2026-08-27) | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
 | T-020 | ~~Gasto día por día del mes~~ | **Descartada** (usuario, 2026-08-28) | — |
-| T-021 | Evolución mes a mes | **Lista** | T-013 |
+| T-021 | Evolución mes a mes | En curso (claude, 2026-08-28) | T-013 |
 | T-022 | Promedio de gastos fijos | **Lista** | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
