@@ -81,7 +81,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-021 | Evolución mes a mes | **Hecha** | T-013 |
 | T-022 | Promedio de gastos fijos | **Hecha** | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
-| T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
+| T-024 | Pantalla de monedas | En curso (claude, 2026-08-28) | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | **Hecha** | T-003, T-009 |
 | T-031 | Lector de `.xlsx` sin librerías | **Hecha** | T-009 |
