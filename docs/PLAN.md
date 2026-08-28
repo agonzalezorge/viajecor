@@ -84,7 +84,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | **Hecha** | T-003, T-009 |
-| T-031 | Lector de `.xlsx` sin librerías | Pendiente | T-009 |
+| T-031 | Lector de `.xlsx` sin librerías | En curso (claude, 2026-08-28) | T-009 |
 | T-032 | Importador con informe de filas no interpretadas | Pendiente | T-030, T-031, T-017 |
 | **Etapa 4 — Ahorros conjuntos** ||||
 | T-040 | Modelo de ahorros multimoneda | Pendiente | T-004 |
@@ -872,7 +872,7 @@ el tipo no se puede juzgar el rubro—, y un rubro que existe pero en la otra li
 error de escritura que no está.
 
 ### T-031 · Lector de `.xlsx` sin librerías — CU-13
-**Depende de:** T-009 · *Paralelizable con T-030*
+**Estado:** En curso (claude, 2026-08-28) · **Depende de:** T-009
 **Toca:** `src/datos/xlsx.js`, `test/xlsx.test.js`
 
 Leer un `.xlsx` en el navegador sin ninguna librería: abrir el ZIP a mano y
