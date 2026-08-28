@@ -29,6 +29,8 @@ import { leerRespaldo, previsualizar, aplicarImportacion } from '../datos/import
 import { compartirRespaldo, sePuedeCompartir, archivoDelRespaldo } from './compartir.js';
 import { estadoDelRecordatorio, posponerRecordatorio } from '../datos/recordatorio.js';
 import { crearPlanilla } from '../datos/xlsx.js';
+import { leerPlanilla } from '../datos/planilla.js';
+import { interpretarPlanilla } from '../datos/importar-planilla.js';
 import { prepararCsv } from '../datos/csv.js';
 
 /**
@@ -343,6 +345,7 @@ export function irA(vista, nombre) {
     avisoRespaldo: null, mostrarRespaldo: false,
     importacion: null, errorImportar: null, avisoImportar: null,
     errorPlanilla: null, avisoPlanilla: null,
+    planilla: null, errorPlanillaVieja: null, avisoPlanillaVieja: null,
   };
   return nombre === 'nuevo'
     ? { ...limpia, borrador: vista.borrador ?? borradorNuevo({ estado: vista.estado }) }
@@ -757,9 +760,106 @@ export function iniciar(documento, almacen) {
     pintar();
   }
 
+  /**
+   * Lee la planilla de Excel y muestra qué se leyó — T-032, CU-13.
+   *
+   * **No toca nada todavía.** Esto se corre una sola vez sobre todo el
+   * historial: el usuario tiene que poder ver qué entra, qué no entra y por qué,
+   * antes de decidir.
+   */
+  async function prepararPlanillaVieja(bytes) {
+    const leida = await leerPlanilla(bytes);
+    if (leida.error) {
+      vista = { ...vista, planilla: null, errorPlanillaVieja: leida.error, avisoPlanillaVieja: null };
+      pintar();
+      return;
+    }
+
+    const { movimientos, problemas, comprobaciones } = interpretarPlanilla(leida.filas);
+    if (movimientos.length === 0 && problemas.length === 0) {
+      vista = {
+        ...vista,
+        planilla: null,
+        errorPlanillaVieja:
+          'La planilla se abrió, pero no se encontró ninguna fila con día y rubro. ' +
+          '¿Puede ser que sea otra planilla, o que los datos estén en otra hoja?',
+        avisoPlanillaVieja: null,
+      };
+      pintar();
+      return;
+    }
+
+    const yaEstan = new Set((vista.estado.movimientos ?? []).map((m) => m.id));
+    vista = {
+      ...vista,
+      planilla: {
+        movimientos, problemas, comprobaciones,
+        yaEstan: movimientos.filter((m) => yaEstan.has(m.id)).length,
+      },
+      errorPlanillaVieja: null,
+      avisoPlanillaVieja: null,
+    };
+    pintar();
+  }
+
+  /**
+   * Trae los movimientos de la planilla.
+   *
+   * **Agrega, nunca reemplaza**, y no ofrece la otra opción: quien importa su
+   * historial quiere sumarlo a lo que tiene, y un botón de "reemplazar todo" al
+   * lado de uno que trae once meses es un accidente esperando. Los que ya están
+   * no entran dos veces, porque el identificador sale de la propia fila.
+   */
+  function traerPlanillaVieja() {
+    if (!vista.planilla) return;
+
+    const yaEstan = new Set((vista.estado.movimientos ?? []).map((m) => m.id));
+    const nuevos = vista.planilla.movimientos.filter((m) => !yaEstan.has(m.id));
+    const nuevoEstado = {
+      ...vista.estado,
+      movimientos: [...(vista.estado.movimientos ?? []), ...nuevos],
+    };
+
+    try {
+      guardarEstado(nuevoEstado, almacen);
+    } catch (error) {
+      vista = { ...vista, errorPlanillaVieja: error.message };
+      pintar();
+      return;
+    }
+
+    const problemas = vista.planilla.problemas.length;
+    vista = {
+      ...vista,
+      estado: nuevoEstado,
+      planilla: null,
+      errorPlanillaVieja: null,
+      avisoPlanillaVieja:
+        `Listo: entraron ${nuevos.length === 1 ? '1 movimiento' : `${nuevos.length} movimientos`}.` +
+        `${problemas > 0 ? ` Quedaron ${problemas === 1 ? '1 fila afuera' : `${problemas} filas afuera`}, con su motivo.` : ''}` +
+        ' Acordate de hacer un respaldo ahora que están todos.',
+    };
+    pintar();
+  }
+
   // Elegir un archivo lo lee y muestra la previa. El archivo se lee con
   // FileReader, que trabaja sobre el archivo que el usuario eligió a mano: no
   // hay ninguna petición de red de por medio (RN-06).
+  // La planilla se lee como bytes, no como texto: es un ZIP.
+  raiz.addEventListener('change', (evento) => {
+    if (!evento.target.matches('input[type="file"][name="planilla"]')) return;
+    const archivo = evento.target.files?.[0];
+    if (!archivo) return;
+
+    const lector = new FileReader();
+    lector.onload = () => prepararPlanillaVieja(new Uint8Array(lector.result));
+    lector.onerror = () => {
+      vista = { ...vista, errorPlanillaVieja: 'No se pudo leer el archivo.' };
+      pintar();
+    };
+    lector.readAsArrayBuffer(archivo);
+  });
+
   raiz.addEventListener('change', (evento) => {
     if (!evento.target.matches('input[type="file"][name="archivo"]')) return;
     const archivo = evento.target.files?.[0];
@@ -976,6 +1076,11 @@ export function iniciar(documento, almacen) {
       }
       refrescarSugerencias(campo, boton.dataset.texto);
       return;
+    } else if (accion === 'importar-planilla') {
+      traerPlanillaVieja();
+      return;
+    } else if (accion === 'cancelar-planilla') {
+      vista = { ...vista, planilla: null, errorPlanillaVieja: null, avisoPlanillaVieja: null };
     } else if (accion === 'exportar-csv') {
       descargarCsv();
       return;

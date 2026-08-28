@@ -35,6 +35,7 @@ const MODULOS = [
   'src/datos/csv.js',
   'src/datos/xml.js',
   'src/datos/planilla.js',
+  'src/datos/importar-planilla.js',
   'src/ui/colores.js',
   'src/ui/compartir.js',
   'src/ui/pantallas/cambio.js',

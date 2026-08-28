@@ -85,7 +85,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | **Hecha** | T-003, T-009 |
 | T-031 | Lector de `.xlsx` sin librerías | **Hecha** | T-009 |
-| T-032 | Importador con informe de filas no interpretadas | En curso (claude, 2026-08-28) | T-030, T-031, T-017 |
+| T-032 | Importador con informe de filas no interpretadas | **Hecha** | T-030, T-031, T-017 |
 | **Etapa 4 — Ahorros conjuntos** ||||
 | T-040 | Modelo de ahorros multimoneda | Pendiente | T-004 |
 | T-041 | Pantalla de ahorros conjuntos | Pendiente | T-040, T-010 |
@@ -922,8 +922,35 @@ bien exactamente lo que él mismo escribe.
 Fila por fila, qué no se pudo leer y por qué. Importar mal en silencio es peor
 que no importar.
 
-**También acepta CSV**, que es el formato de exportación de la app y sirve para
-traer datos de otras fuentes.
+**Cómo quedó (Hecha, 2026-08-28).** En *Datos* → «Traer tu planilla de Excel» se
+elige el `.xlsx` y la app **muestra qué leyó antes de tocar nada**: cuántos
+movimientos, cuántos ya están, qué filas quedaron afuera con su número y su
+motivo, y si los totales de cada mes coinciden con el acumulado que traía la
+planilla.
+
+**Solo agrega; no ofrece reemplazar.** Quien trae su historial quiere sumarlo a
+lo que tiene, y un botón de «reemplazar todo» al lado de uno que trae once meses
+es un accidente esperando. Los que ya están no entran dos veces porque el
+identificador sale de la propia fila.
+
+**Verificado:** 642 tests. Nueve mutaciones, nueve detectadas —tres necesitaron
+tests nuevos: el mensaje del monto negativo, la fila con día pero sin rubro, y
+que el identificador use sus 64 bits y no 32 repetidos—.
+
+Y el recorrido en un navegador real, que es como lo va a hacer el usuario: cargar
+un gasto a mano, elegir la planilla, ver la previa **sin que cambie nada de lo
+guardado**, traer los 288 movimientos, recargar y encontrarlos, **ver octubre de
+2025 con sus totales y su desglose en la pantalla del mes**, importar la misma
+planilla otra vez y que el botón quede deshabilitado con «entrarían 0», y elegir
+un archivo que no es una planilla y recibir una explicación.
+
+**Un hallazgo que valió la tarea:** el mapeo decía que un monto de 0 se importa
+—«un 0 escrito es un dato, una celda vacía es su ausencia»— y **el modelo lo
+rechaza desde T-003**: *«si no hubo dinero de por medio, no hay nada que
+registrar»*. El documento se había escrito sin cotejarlo con esa regla. Lo
+destapó el primer test que lo probó. Gana la regla anterior; lo que quedó del
+mapeo es **distinguir los dos casos en el informe**, porque un 0 escrito a mano
+casi siempre es una fila a medio cargar.
 
 ---
 

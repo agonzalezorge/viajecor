@@ -47,6 +47,13 @@ La versión publicada vive en el archivo `VERSION`.
   «Permission denied» al tocar el botón. Ahora el error se explica en castellano,
   se recuerda, la descarga vuelve a ser el botón principal, y queda un *Probar de
   nuevo* por si cambiás un permiso.
+- **Ya podés traer tu planilla de Excel entera** (T-032, CU-13). Elegís el
+  `.xlsx` —la app lo lee sin que tengas que convertirlo y **no lo modifica**— y
+  antes de tocar nada te muestra qué leyó: cuántos movimientos, cuántos ya
+  estaban, **qué filas quedaron afuera con su número de fila y su motivo**, y si
+  los totales de cada mes coinciden con el acumulado que traía tu planilla.
+  Importar dos veces no duplica. Es la tarea que hace que la app deje de estar
+  vacía.
 - **La app ya sabe leer un archivo `.xlsx`** (T-031), sin librerías y sin que
   tengas que convertirlo a nada: abre el ZIP y lee el XML de adentro. Es el paso
   previo a importar tu planilla. Comprobado contra otro lector de Excel sobre

@@ -134,9 +134,15 @@ programar nada: la combinación «tipo vacío» daba dos motivos.)*
 
 - Se leen como número y se pasan a **céntimos enteros** (ADR-005).
 - **Vacío → se descarta y se lista.** Decidido con el usuario (2026-08-28).
-- **Cero explícito → se importa.** Un gasto de 0 € es raro pero es un dato que
-  alguien escribió; una celda vacía es la ausencia de un dato. No son lo mismo y
-  no se tratan igual.
+- **Cero explícito → se descarta y se lista**, con un motivo distinto del de la
+  celda vacía. La primera versión de este documento decía que se importaba —«un
+  0 escrito es un dato, una celda vacía es la ausencia de un dato»—, y estaba
+  **en contradicción con el modelo**, que rechaza los movimientos de cero desde
+  T-003: *«si no hubo dinero de por medio, no hay nada que registrar»*.
+  Lo descubrió el primer test que lo probó. Gana la regla anterior, que es una
+  decisión de producto ya tomada; lo que aporta el mapeo es **distinguir los dos
+  casos en el informe**, porque un 0 escrito a mano casi siempre es una fila a
+  medio cargar y el usuario querrá mirarla.
 - **No numérico → se descarta y se lista**, con lo que decía la celda.
 - **Negativo → se descarta y se lista.** Podría ser una devolución o un error de
   tipeo, y **no hay forma de saber cuál**. El modelo exige montos no negativos, y

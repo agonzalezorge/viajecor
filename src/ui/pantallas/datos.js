@@ -22,6 +22,7 @@ import { prepararRespaldo, diasSinRespaldar } from '../../datos/exportar.js';
 import { crearPlanilla } from '../../datos/xlsx.js';
 import { prepararCsv } from '../../datos/csv.js';
 import { MODO_REEMPLAZAR, MODO_AGREGAR } from '../../datos/importar.js';
+import { formatearEuros } from '../../core/formato.js';
 import { formatearFechaLarga } from '../../core/formato.js';
 import { hoy } from '../../core/modelo.js';
 
@@ -157,6 +158,8 @@ export function dibujarDatos(vista) {
     ${dibujarPlanilla(vista)}
 
     ${dibujarImportar(vista)}
+
+    ${dibujarPlanillaVieja(vista)}
 
     <section class="tarjeta">
       <h2>Tipos de cambio</h2>
@@ -333,4 +336,108 @@ export function dibujarPlanilla(vista) {
       </button>
     </section>
   `;
+}
+
+/**
+ * Traer la planilla de Excel — T-032, CU-13.
+ *
+ * Es la operación que se corre **una sola vez**, sobre todo el historial. Por
+ * eso la pantalla insiste en dos cosas antes de dejar tocar nada: **qué se
+ * importó** y —sobre todo— **qué no**.
+ */
+export function dibujarPlanillaVieja(vista) {
+  const previa = vista.planilla;
+
+  return `
+    <section class="tarjeta">
+      <h2>Traer tu planilla de Excel</h2>
+
+      ${previa ? '' : `
+      <p class="suave">Para cargar de una vez todo lo que venías anotando. Elegí
+      tu archivo <code>.xlsx</code>: la app lo lee sin que tengas que convertirlo
+      a nada, y <strong>no lo modifica</strong>.</p>
+
+      <label class="campo">
+        <span>Elegir la planilla</span>
+        <input type="file" name="planilla" accept=".xlsx" data-accion="elegir-planilla">
+      </label>`}
+
+      ${vista.errorPlanillaVieja ? `<p class="error-carga" role="alert">${escapar(vista.errorPlanillaVieja)}</p>` : ''}
+      ${vista.avisoPlanillaVieja ? `<p class="confirmacion" role="status">${escapar(vista.avisoPlanillaVieja)}</p>` : ''}
+      ${previa ? dibujarPreviaDePlanilla(previa) : ''}
+    </section>
+  `;
+}
+
+/** Lo que se leyó, antes de tocar nada. */
+function dibujarPreviaDePlanilla({ movimientos, problemas, comprobaciones, yaEstan }) {
+  const nuevos = movimientos.length - yaEstan;
+
+  return `
+    <p class="suave">Se leyeron
+    <strong>${movimientos.length === 1 ? '1 movimiento' : `${movimientos.length} movimientos`}</strong>.
+    ${yaEstan > 0
+      ? `${yaEstan === 1 ? '1 ya está' : `${yaEstan} ya están`} cargado${yaEstan === 1 ? '' : 's'} en la app, así que
+         ${nuevos === 1 ? 'entraría 1' : `entrarían ${nuevos}`}.`
+      : 'Ninguno está todavía en la app.'}</p>
+
+    ${dibujarComprobaciones(comprobaciones)}
+    ${dibujarProblemas(problemas)}
+
+    <button type="button" class="principal" data-accion="importar-planilla"${nuevos === 0 ? ' disabled' : ''}>
+      ${nuevos === 0 ? 'No hay nada nuevo que traer' : `Traer ${nuevos === 1 ? 'el movimiento' : `los ${nuevos} movimientos`}`}
+    </button>
+    <button type="button" class="secundario" data-accion="cancelar-planilla">Dejar como está</button>
+  `;
+}
+
+/**
+ * La comparación contra el acumulado que traía la planilla.
+ *
+ * Es la única vez que se puede contrastar el resultado con un número calculado
+ * por **otra herramienta**: después de importar, la planilla se archiva. Si acá
+ * no se mira, no se mira nunca.
+ */
+function dibujarComprobaciones(comprobaciones) {
+  if (comprobaciones.length === 0) return '';
+  const difieren = comprobaciones.filter((c) => !c.coincide);
+
+  if (difieren.length === 0) {
+    return `<p class="suave">Los totales de los ${comprobaciones.length} meses coinciden con
+    los que traía tu planilla.</p>`;
+  }
+
+  return `
+    <div class="aviso importante" role="alert">
+      <h2>${difieren.length === 1 ? 'Un mes no cuadra' : `${difieren.length} meses no cuadran`}</h2>
+      <p class="suave">La suma de lo que se leyó no coincide con el acumulado que traía tu
+      planilla. No quiere decir que la app se haya equivocado —puede ser una fórmula
+      de la planilla que se quedó corta—, pero conviene mirarlo.</p>
+      <ul>${difieren.map((c) => `<li>${escapar(c.mes)}: la planilla dice
+        ${escapar(formatearEuros(c.enLaPlanilla))} y se leyeron
+        ${escapar(formatearEuros(c.importado))}</li>`).join('')}</ul>
+    </div>`;
+}
+
+/**
+ * Las filas que no entraron, **con su número de fila**.
+ *
+ * Sin el número, el informe dice «hubo 14 problemas» y no sirve para nada. Con
+ * él, el usuario abre su planilla, va a esa fila y decide.
+ */
+function dibujarProblemas(problemas) {
+  if (problemas.length === 0) {
+    return `<p class="suave">No quedó ninguna fila afuera.</p>`;
+  }
+
+  return `
+    <div class="aviso importante" role="alert">
+      <h2>${problemas.length === 1 ? 'Una fila no se pudo traer' : `${problemas.length} filas no se pudieron traer`}</h2>
+      <p class="suave">Están con su número de fila para que puedas abrir tu planilla y
+      mirarlas. El resto se importa igual.</p>
+      <ul class="filas-con-problema">${problemas.map((p) => `<li>
+        <strong>Fila ${p.fila}:</strong> ${escapar(p.motivo)}.
+        <span class="suave">Decía: ${escapar(p.decia)}.</span>
+      </li>`).join('')}</ul>
+    </div>`;
 }

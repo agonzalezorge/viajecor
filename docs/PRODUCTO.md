@@ -265,7 +265,7 @@ qué existe.
 | CU-10 | Ver la evolución mes a mes | Pendiente |
 | CU-11 | Ver cuánto costó un viaje | Pendiente |
 | CU-12 | Ver el promedio de un gasto fijo | Pendiente |
-| CU-13 | Importar el historial del Excel | Pendiente |
+| CU-13 | Importar el historial del Excel | **Hecho** (T-030, T-031, T-032) |
 | CU-14 | Llevar los ahorros conjuntos | Pendiente |
 | CU-15 | Agregar una moneda | Lógica hecha (T-008); falta la pantalla (T-024) |
 

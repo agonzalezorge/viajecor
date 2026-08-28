@@ -770,3 +770,16 @@ body {
 }
 
 .sugerencia:active { background: var(--borde); }
+
+/* La lista de filas que no se pudieron importar (T-032). Puede ser larga: se le
+   pone tope de alto y se desplaza, para que no empuje los botones fuera de la
+   pantalla — pero se muestran TODAS, porque una lista recortada volvería a ser
+   un dato que se pierde. */
+.filas-con-problema {
+  max-height: 18rem;
+  overflow-y: auto;
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.filas-con-problema li { margin-bottom: 0.5rem; font-size: 0.9375rem; }
