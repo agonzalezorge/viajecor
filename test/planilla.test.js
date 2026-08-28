@@ -203,10 +203,20 @@ test('leer una planilla nunca tira, pase lo que pase', async () => {
 // ── La planilla de verdad ────────────────────────────────────────────────────
 
 test('la copia de estructura se lee entera', async () => {
+  // No se fija un número exacto de filas: el generador de la copia usa una
+  // semilla fija pero su contenido cambia cuando se le agregan rarezas nuevas
+  // —y se le van a seguir agregando a medida que aparezcan en la planilla
+  // real—. Lo que este test cuida es que se lea COMPLETA y con sentido, no que
+  // tenga un tamaño en particular.
   const { filas, error } = await leerPlanilla(new Uint8Array(await EJEMPLO()));
 
   assert.equal(error, undefined);
-  assert.equal(filas.size, 300);
+  assert.ok(filas.size > 250, `se leyeron solo ${filas.size} filas`);
+
+  // Los cuatro títulos de mes y sus cuatro filas de encabezados tienen que estar.
+  const textos = [...filas.values()].map((celdas) => celdas.get('A')?.valor);
+  assert.equal(textos.filter((t) => t === 'G/Acum./Mes').length, 4);
+  assert.equal(textos.filter((t) => typeof t === 'string' && /^\w+ 20\d\d$/.test(t)).length, 4);
 });
 
 test('y sus columnas caen donde tienen que caer', async () => {

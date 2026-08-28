@@ -724,3 +724,57 @@ quedó claro que el problema era real. La lección de método: **cuando alguien
 reporta lo mismo tres veces, dejar de pedirle que lo pruebe distinto y cambiar el
 código**. Cada vuelta le cuesta a él una prueba, y a esa altura ya salía más
 barato construir la versión que no puede fallar.
+
+---
+
+## L-022 · Un dato que ya está no se vuelve a interpretar
+
+**Qué pasó.** El usuario importó su planilla real por primera vez. El informe
+rechazó **127 de 742 filas**, todas con este mensaje o parecido:
+
+> `"80.13149784261351"` no es un monto: los separadores de miles tienen que
+> agrupar de a tres dígitos.
+
+Ninguna de esas filas tenía nada malo. `80.13149784261351` son **ochenta euros
+con trece**, el resultado de una fórmula de conversión de moneda en su Excel.
+
+**El error, que es de una línea.** El importador tomaba el número de la celda,
+lo convertía a texto con `String(monto)`, y se lo daba a `aMinimas()` — que es
+el lector de importes de la app, hecho para **lo que escribe una persona**. Y
+para una persona que escribe en castellano, el punto separa los miles. Leído con
+esas reglas, `80.13149784261351` está mal escrito, y `aMinimas()` lo rechazaba
+con toda la razón.
+
+`aMinimas()` **ya aceptaba números** y los redondeaba bien. La conversión a texto
+no agregaba nada: metía un traductor entre dos que ya se entendían, y el
+traductor hablaba otro idioma.
+
+**Por qué ningún test lo encontró.** La copia de estructura de la planilla
+(T-009) generaba todos los montos con `Math.round(monto * 100) / 100`: siempre
+dos decimales, siempre limpios. Se había construido copiando **la forma** de la
+planilla real —los bloques, las mayúsculas inconsistentes, las columnas
+separadas— pero no sus **valores**, y el problema estaba en los valores.
+
+Una copia de estructura que solo copia lo prolijo no sirve para probar un
+importador. Ahora el generador produce las tres formas que tiene la planilla
+real: redondeados, con los decimales largos de una conversión de moneda, y
+escritos a mano como texto con coma.
+
+**Lo que enseña, más allá de este caso.** Cada vez que un dato cruza una frontera
+—de una celda a un modelo, de un formulario a un cálculo, de un archivo a una
+pantalla— hay que preguntarse **qué reglas de interpretación se le están
+aplicando del otro lado**, y si son las que corresponden a de dónde viene ese
+dato. Un número que ya es un número no necesita que lo lean: necesita que lo
+dejen pasar. Convertirlo a texto en el medio no es neutral, es **elegir un
+idioma** — y acá se eligió el de un humano escribiendo para un dato que ninguna
+persona escribió.
+
+**Y una cosa sobre el método, que es la que más vale.** Esto no lo encontró un
+test, ni un recorrido, ni una revisión del código: lo encontró **el informe de la
+importación**, leído por el usuario antes de aceptar. El importador se negó a
+importar 127 filas y explicó cada una con su número y su motivo. Si hubiera
+importado en silencio lo que entendía y descartado el resto sin decir nada
+—como hace el Excel original, L-001—, el usuario habría cargado 615 movimientos,
+habría visto totales creíbles, y **el error se habría descubierto meses después
+o nunca**. El informe no fue una cortesía: fue lo que hizo que el error durara
+veinte minutos en vez de para siempre.

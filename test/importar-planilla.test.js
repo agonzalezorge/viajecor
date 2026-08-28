@@ -151,11 +151,13 @@ test('sin monto no entra, y se dice qué decía la fila', () => {
   assert.match(problema.decia, /día 2/);
 });
 
-test('un monto que es texto no entra', () => {
+test('un texto que no se puede leer como monto no entra', () => {
+  // Ojo: NO se rechaza todo texto. Hay celdas escritas a mano con coma decimal
+  // y esas sí entran; lo que se rechaza es lo que no se puede leer como número.
   const { problema } = interpretarFila(6, fila({ monto: 'ochenta' }));
 
-  assert.match(problema.motivo, /no es un número/);
   assert.match(problema.motivo, /ochenta/);
+  assert.equal(problema.fila, 6);
 });
 
 test('un monto negativo no entra', () => {
@@ -263,10 +265,24 @@ test('si lo importado coincide con el acumulado de la planilla, se dice', () => 
   assert.equal(comprobaciones[0].coincide, true);
 });
 
-test('un céntimo de diferencia es redondeo, no un dato perdido', () => {
-  // La planilla acumula sumando importes ya redondeados a dos decimales, y ese
-  // último céntimo puede caer para cualquier lado.
+test('unos céntimos de diferencia son redondeo, no un dato perdido', () => {
+  // Muchos montos de la planilla son el resultado de una fórmula de conversión
+  // de moneda y traen decimales largos. La app guarda céntimos enteros, así que
+  // cada fila se redondea y cada redondeo mueve hasta medio céntimo.
   assert.equal(comprobar(new Map([['2026-03', 10107]]), new Map([['2026-03', 10106]]))[0].coincide, true);
+});
+
+test('la tolerancia crece con la cantidad de filas del mes', () => {
+  // Con cien filas redondeadas, medio euro de diferencia es aritmética. Una
+  // tolerancia fija de un céntimo marcaría como sospechosos meses perfectos, y
+  // un aviso que salta cuando todo está bien se aprende a ignorar — que es lo
+  // último que puede pasar con el único control que hay sobre once meses.
+  const sumas = new Map([['2026-03', 100040]]);
+  const planilla = new Map([['2026-03', 100000]]);
+
+  assert.equal(comprobar(sumas, planilla, new Map([['2026-03', 100]]))[0].coincide, true);
+  assert.equal(comprobar(sumas, planilla, new Map([['2026-03', 3]]))[0].coincide, false,
+    'con tres filas, 40 céntimos NO son redondeo');
 });
 
 test('una diferencia de verdad se informa con su tamaño', () => {
@@ -286,10 +302,13 @@ test('un mes sin acumulado en la planilla no se comprueba', () => {
 // ── La planilla entera ───────────────────────────────────────────────────────
 
 test('la copia de estructura se importa entera y sin problemas', async () => {
+  // Incluye montos con decimales largos —los que deja una fórmula de conversión
+  // de moneda— y montos escritos como texto con coma. Las dos formas están en
+  // la planilla real y las dos rompían la importación antes del 2026-08-28.
   const { filas } = await leerPlanilla(new Uint8Array(await readFile(join(RAIZ, 'test/ejemplo/planilla-ejemplo.xlsx'))));
   const { movimientos, problemas } = interpretarPlanilla(filas);
 
-  assert.equal(movimientos.length, 288);
+  assert.equal(movimientos.length, 267);
   assert.deepEqual(problemas, []);
 });
 
@@ -378,4 +397,53 @@ test('el identificador usa sus 64 bits, no 32 repetidos', () => {
     const id = idDeFila(6, contenido);
     assert.notEqual(id.slice(0, 8), id.slice(8), `las dos mitades son iguales con "${contenido}"`);
   }
+});
+
+// ── Cómo vienen los montos en la planilla real (2026-08-28) ──────────────────
+
+test('un monto con decimales largos entra, redondeado al céntimo', () => {
+  // Son las conversiones de moneda que el usuario hizo con fórmulas en el Excel.
+  // La primera versión los pasaba a texto y se los daba al lector de importes
+  // —que está hecho para lo que escribe una PERSONA, donde el punto separa los
+  // miles—, así que "80.13149784261351" se rechazaba por mal escrito.
+  //
+  // 127 filas de la planilla real quedaron afuera por eso. El número ya estaba:
+  // convertirlo a texto para volver a interpretarlo fue meter un traductor
+  // entre dos que ya se entendían.
+  for (const [crudo, esperado] of [
+    [80.13149784261351, 8013],
+    [2.245250431778929, 225],
+    [404.11241992147137, 40411],
+    [1.1111111111111112, 111],
+  ]) {
+    const { movimiento, problema } = interpretarFila(6, fila({ monto: crudo }));
+    assert.equal(problema, undefined, `rechazó ${crudo}: ${problema?.motivo}`);
+    assert.equal(movimiento.monto, esperado);
+  }
+});
+
+test('un monto de tres decimales entra: es un número, no algo escrito a mano', () => {
+  // "31.416" escrito por una persona es ambiguo —¿31416 o 31,416?— y el lector
+  // de importes se niega a adivinar, con razón. Pero si viene de una celda
+  // numérica no hay ambigüedad ninguna: es el número 31,416.
+  const { movimiento, problema } = interpretarFila(6, fila({ monto: 31.416 }));
+
+  assert.equal(problema, undefined);
+  assert.equal(movimiento.monto, 3142);
+});
+
+test('un monto escrito como texto con coma también entra', () => {
+  // Hay celdas escritas a mano en la planilla. Ahí sí valen las reglas de
+  // escritura de siempre, y la coma es el separador decimal.
+  const { movimiento, problema } = interpretarFila(6, fila({ monto: '14,25' }));
+
+  assert.equal(problema, undefined);
+  assert.equal(movimiento.monto, 1425);
+});
+
+test('un texto que no es un monto se sigue rechazando', () => {
+  const { problema } = interpretarFila(6, fila({ monto: 'ochenta' }));
+
+  assert.notEqual(problema, undefined);
+  assert.equal(problema.fila, 6);
 });

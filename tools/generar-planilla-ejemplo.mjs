@@ -60,6 +60,19 @@ function fechaExcel(anio, mes, dia) {
   return Math.round(Date.UTC(anio, mes - 1, dia) / 86400000) + 25569;
 }
 
+/**
+ * Cómo aparece un monto en una celda de la planilla real.
+ *
+ * Tres formas, las tres reales: redondeado, con los decimales largos que deja
+ * una fórmula de conversión de moneda, y escrito a mano como texto con coma.
+ */
+function elegirMonto(monto, r) {
+  const azar = r();
+  if (azar < 0.12) return monto * 1.0000001 / 1.0000001 * (1 / 3) * 3;  // decimales largos
+  if (azar < 0.16) return `${Math.round(monto * 100) / 100}`.replace('.', ',');  // texto con coma
+  return Math.round(monto * 100) / 100;
+}
+
 function generarMovimientos() {
   const filas = [];
   for (const m of MESES) {
@@ -92,7 +105,17 @@ function generarMovimientos() {
         // Mayúsculas inconsistentes a propósito: el original las tiene, y el
         // importador tiene que resolverlas (RN-03, L-002).
         rubro: r() < 0.05 ? rubro.toUpperCase() : rubro,
-        monto: Math.round(monto * 100) / 100,
+        // El monto NO siempre viene redondeado a dos decimales, y eso no es un
+        // capricho: en la planilla real, los gastos hechos en otra moneda son el
+        // resultado de una fórmula de conversión, así que la celda guarda algo
+        // como 2.245250431778929. Y algunas celdas son TEXTO escrito a mano,
+        // con coma decimal.
+        //
+        // Se agregó el 2026-08-28, después de que la importación real del
+        // usuario rechazara 127 filas por esto. El ejemplo no las tenía, así que
+        // ningún test podía encontrarlo: una copia de estructura que solo copia
+        // lo prolijo no sirve para probar un importador.
+        monto: elegirMonto(monto, r),
         tipo: esIngreso ? (r() < 0.1 ? 'i' : 'I') : (r() < 0.1 ? 'g' : 'G'),
       });
     }
@@ -270,7 +293,10 @@ await writeFile(join(RAIZ, 'test/ejemplo/planilla-ejemplo.xlsx'), zip);
 
 const gastos = movimientos.filter((m) => m.tipo.toUpperCase() === 'G');
 const ingresos = movimientos.filter((m) => m.tipo.toUpperCase() === 'I');
-const total = (l) => l.reduce((a, m) => a + m.monto, 0).toFixed(2);
+// Los montos pueden venir como texto con coma —igual que en la planilla real—,
+// así que para sumarlos hay que leerlos primero.
+const comoNumero = (m) => (typeof m === 'number' ? m : Number(String(m).replace(',', '.')));
+const total = (l) => l.reduce((a, m) => a + comoNumero(m.monto), 0).toFixed(2);
 
 console.log(`test/ejemplo/planilla-ejemplo.xlsx — ${(zip.length / 1024).toFixed(1)} kB`);
 console.log(`  ${movimientos.length} movimientos en ${MESES.length} meses`);

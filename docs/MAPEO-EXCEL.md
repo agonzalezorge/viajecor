@@ -132,7 +132,20 @@ programar nada: la combinación «tipo vacío» daba dos motivos.)*
 
 ## 6. Los montos
 
-- Se leen como número y se pasan a **céntimos enteros** (ADR-005).
+- **Si la celda trae un número, se usa el número tal cual**, sin convertirlo a
+  texto. Muchos montos de la planilla real son el resultado de una fórmula de
+  conversión de moneda y traen decimales largos —`2.245250431778929` son
+  2,25 €—; se redondean al céntimo, que es la unidad en que la app guarda el
+  dinero (ADR-005).
+
+  **No es un detalle.** La primera versión los pasaba a texto y se los daba al
+  lector de importes, que está hecho para lo que escribe una persona: ahí el
+  punto separa los miles, así que `80.13149784261351` se rechazaba por mal
+  escrito. **127 de las 742 filas de la planilla real quedaron afuera por eso.**
+  Ver L-022.
+- **Si la celda trae texto, se lee con las reglas de escritura de siempre** —la
+  coma es el separador decimal—. Hay celdas escritas a mano en la planilla, y
+  `14,25` es un monto perfectamente válido escrito por una persona.
 - **Vacío → se descarta y se lista.** Decidido con el usuario (2026-08-28).
 - **Cero explícito → se descarta y se lista**, con un motivo distinto del de la
   celda vacía. La primera versión de este documento decía que se importaba —«un
@@ -158,6 +171,14 @@ No es una validación cualquiera: es el único momento en que se puede contrasta
 el resultado contra un número que **calculó otra herramienta**. Después de
 importar, la planilla se archiva y no queda con qué comparar. → se implementa en
 T-032.
+
+**La tolerancia crece con la cantidad de filas del mes**, y tiene que ser así:
+cada monto se redondea al céntimo, y cada redondeo mueve hasta medio céntimo. Con
+cien filas, medio euro de diferencia es aritmética y no un dato perdido. Una
+tolerancia fija de un céntimo marcaría como sospechosos meses que están
+perfectos, y un aviso que salta cuando todo está bien es un aviso que se aprende
+a ignorar — lo último que puede pasarle al único control que existe sobre una
+importación de once meses.
 
 ---
 

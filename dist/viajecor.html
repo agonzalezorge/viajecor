@@ -4807,14 +4807,29 @@ function interpretarFila(numero, celdas) {
   }
 
   // ── El monto (§6) ──────────────────────────────────────────────────────────
+  //
+  // **El número de una celda se pasa como número, nunca como texto.** La primera
+  // versión hacía `String(monto)`, y eso le daba a `aMinimas()` —que está hecho
+  // para lo que escribe una PERSONA, donde el punto es separador de miles— un
+  // texto como "80.13149784261351". Leído con reglas humanas, eso está mal
+  // escrito, y lo rechazaba con razón.
+  //
+  // El resultado: **127 filas de la planilla real del usuario rechazadas por un
+  // error de traducción**, todas con montos perfectamente válidos. El número ya
+  // estaba; convertirlo a texto para volver a interpretarlo fue meter un
+  // traductor entre dos que ya se entendían.
+  //
+  // Los decimales largos son conversiones de moneda hechas con fórmulas en la
+  // planilla: `2.245250431778929` son 2,25 €. `aMinimas()` los redondea al
+  // céntimo, que es la unidad en la que la app guarda el dinero (ADR-005).
   const monto = crudo.monto;
   if (monto === undefined || monto === null || monto === '') {
     return problema('el monto está vacío');
   }
-  if (typeof monto !== 'number' || !Number.isFinite(monto)) {
-    return problema(`el monto dice "${monto}" y no es un número`);
+  if (typeof monto === 'number' && !Number.isFinite(monto)) {
+    return problema('el monto de la celda no es un número que se pueda usar');
   }
-  if (monto < 0) {
+  if (typeof monto === 'number' && monto < 0) {
     // Podría ser una devolución o un dedazo, y no hay forma de saber cuál.
     return problema(`el monto es negativo (${monto})`);
   }
@@ -4839,7 +4854,10 @@ function interpretarFila(numero, celdas) {
           // Todos los importes de la planilla están en euros, convertidos a mano
           // por el usuario (decidido con él, 2026-08-28).
           moneda: 'EUR',
-          monto: String(monto),
+          // Tal cual: si la celda trae un número, va el número; si trae texto
+          // —hay celdas escritas a mano en la planilla—, va el texto y lo
+          // interpreta `aMinimas()` con las reglas de escritura de siempre.
+          monto,
           fecha,
           comentario: crudo.comentario,
           detalle: crudo.detalle,
@@ -4865,6 +4883,7 @@ function interpretarPlanilla(filas) {
   const problemas = [];
   const acumulados = new Map();
   const sumas = new Map();
+  const cuantos = new Map();
 
   const numeros = [...filas.keys()].sort((a, b) => a - b);
 
@@ -4886,12 +4905,13 @@ function interpretarPlanilla(filas) {
     const mes = movimiento.fecha.slice(0, 7);
     if (movimiento.tipo === TIPO_GASTO) {
       sumas.set(mes, (sumas.get(mes) ?? 0) + movimiento.monto);
+      cuantos.set(mes, (cuantos.get(mes) ?? 0) + 1);
       const acumulado = celdas.get(COL_ACUMULADO)?.valor;
       if (typeof acumulado === 'number') acumulados.set(mes, Math.round(acumulado * 100));
     }
   }
 
-  return { movimientos, problemas, comprobaciones: comprobar(sumas, acumulados) };
+  return { movimientos, problemas, comprobaciones: comprobar(sumas, acumulados, cuantos) };
 }
 
 /**
@@ -4905,7 +4925,7 @@ function interpretarPlanilla(filas) {
  * que la planilla tuviera una fórmula con un rango corto, que es justamente
  * L-001—, pero significa que **alguno de los dos está mal** y hay que mirarlo.
  */
-function comprobar(sumas, acumulados) {
+function comprobar(sumas, acumulados, cuantos = new Map()) {
   const comprobaciones = [];
 
   for (const mes of [...sumas.keys()].sort()) {
@@ -4913,11 +4933,25 @@ function comprobar(sumas, acumulados) {
     const enLaPlanilla = acumulados.get(mes);
     if (enLaPlanilla === undefined) continue;
 
-    // Un céntimo de diferencia es redondeo, no un dato perdido: la planilla
-    // acumula sumando importes ya redondeados a dos decimales, y ese último
-    // céntimo puede caer para cualquier lado.
+    // **La tolerancia crece con la cantidad de filas, y tiene que ser así.**
+    // Muchos montos de la planilla son el resultado de una fórmula de
+    // conversión de moneda y traen decimales largos: `2.245250431778929`. La
+    // app guarda céntimos enteros (ADR-005), así que cada uno se redondea, y
+    // cada redondeo mueve hasta medio céntimo. Con cien filas, medio euro de
+    // diferencia es aritmética, no un dato perdido.
+    //
+    // Una tolerancia fija de un céntimo marcaría como sospechosos meses que
+    // están perfectos, y un aviso que salta cuando todo está bien es un aviso
+    // que se aprende a ignorar — que es lo último que puede pasar con el único
+    // control que existe sobre una importación de once meses.
+    const filas = cuantos.get(mes) ?? 1;
+    const tolerancia = Math.max(1, Math.ceil(filas / 2));
     const diferencia = importado - enLaPlanilla;
-    comprobaciones.push({ mes, importado, enLaPlanilla, diferencia, coincide: Math.abs(diferencia) <= 1 });
+
+    comprobaciones.push({
+      mes, importado, enLaPlanilla, diferencia,
+      coincide: Math.abs(diferencia) <= tolerancia,
+    });
   }
 
   return comprobaciones;
