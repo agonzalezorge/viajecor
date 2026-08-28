@@ -257,7 +257,7 @@ qué existe.
 | CU-02 | Registrar un ingreso | **Hecho** (T-011) |
 | CU-03 | Definir el tipo de cambio de una moneda para un mes | **Hecho** (T-005, T-012) |
 | CU-04 | Ver el resumen del mes | **Hecho** (T-013, T-014); con gráficos desde T-918 |
-| CU-05 | Ver el gasto día por día del mes | Pendiente |
+| CU-05 | Ver el gasto día por día del mes | **Hecho** como gráfico (T-918); la tabla la descartó el usuario |
 | CU-06 | Corregir o borrar un movimiento | **Hecho** (T-015) |
 | CU-07 | Exportar todos los datos | **Hecho** en JSON (T-016); el CSV es T-018 |
 | CU-08 | Importar un respaldo | **Hecho** (T-017) |
@@ -351,8 +351,13 @@ bloques `GASTOS POR TIPO`, `INGRESOS POR TIPO` y `TOTALES` del Excel.
 
 **Para qué:** reemplaza el bloque `GASTO POR DÍA` del Excel.
 
-**Muestra**, para cada día del mes: gasto del día, gasto acumulado, ingreso del
-día, ingreso acumulado.
+**Muestra:** la **línea del acumulado** del mes —gasto e ingreso—, dentro del
+resumen (T-918).
+
+**Lo que NO muestra, y por qué.** No hay tabla día por día. El usuario la
+descartó el 2026-08-28: *"eso era solo una herramienta para crear el gráfico"*.
+En el Excel había que escribir los treinta y un números para poder dibujarlos;
+acá el cálculo alimenta la línea directamente, así que la tabla no tiene lector.
 
 ---
 

@@ -77,7 +77,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-018 | Exportar a CSV | **Hecha** | T-005, T-016 |
 | T-019 | Verificación real sin conexión | **Hecha** (usuario, 2026-08-27) | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
-| T-020 | Gasto día por día del mes | **Lista** | T-013 |
+| T-020 | ~~Gasto día por día del mes~~ | **Descartada** (usuario, 2026-08-28) | — |
 | T-021 | Evolución mes a mes | **Lista** | T-013 |
 | T-022 | Promedio de gastos fijos | **Lista** | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
@@ -772,8 +772,19 @@ y yo no vi nunca es la manera más rápida de hacer trabajo que no sirve.
 
 Las cuatro son independientes entre sí: cuatro agentes pueden tomar una cada uno.
 
-### T-020 · Gasto día por día del mes — CU-05
-**Depende de:** T-013 · **Toca:** `src/ui/pantallas/dias.js`
+### T-020 · ~~Gasto día por día del mes~~ — CU-05 · **descartada**
+
+**Decidido por el usuario (2026-08-28), después de ver la línea de T-918:** *"no
+hace falta que sea visible la tabla del gasto acumulado día por día, eso era solo
+una herramienta para crear el gráfico"*.
+
+En el Excel el bloque `GASTO POR DÍA` era una tabla porque el Excel no tenía otra
+forma de llegar al gráfico: había que escribir los números para poder dibujarlos.
+En la app el cálculo (`porDia` en `core/calculos.js`) alimenta la línea
+directamente, así que la tabla intermedia no tiene lector. Copiarla igual habría
+sido copiar el andamio junto con el edificio.
+
+`porDia` se queda: la usa la línea y la va a usar T-021.
 
 ### T-021 · Evolución mes a mes — CU-10
 **Depende de:** T-013 · **Toca:** `src/ui/pantallas/evolucion.js`, `src/core/calculos.js`
@@ -1419,9 +1430,9 @@ Los colores salen de `core/paleta.js`, los mismos que ya tiene cada rubro.
 - Vuelta por el navegador con los ocho rubros cargados, en claro y en oscuro,
   terminando con una recarga: 0 peticiones de red, 0 errores de consola.
 
-**Lo que NO cierra esto: T-020 (CU-05).** La línea muestra el acumulado, pero
-CU-05 pide además la tabla día por día con gasto, ingreso y los dos acumulados.
-El cálculo ya está hecho (`porDia` en `core/calculos.js`), falta la pantalla.
+**Y cerró T-020 (CU-05).** Se había dejado abierta pensando que faltaba la tabla
+día por día. El usuario la descartó al ver la línea: en el Excel esa tabla existía
+solo para poder dibujar el gráfico, y acá el cálculo alimenta la línea directo.
 
 ---
 
