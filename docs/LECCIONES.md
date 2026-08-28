@@ -778,3 +778,52 @@ importado en silencio lo que entendía y descartado el resto sin decir nada
 habría visto totales creíbles, y **el error se habría descubierto meses después
 o nunca**. El informe no fue una cortesía: fue lo que hizo que el error durara
 veinte minutos en vez de para siempre.
+
+---
+
+## L-023 · La app encontró un error en el Excel que vino a reemplazar
+
+**Qué pasó.** Después de arreglar L-022, el usuario volvió a importar su planilla.
+Un solo mes no coincidía:
+
+> 2025-10: la planilla dice 1.484,78 € y se leyeron 1.499,03 €
+
+La diferencia es **14,25 €**, y ese número ya había aparecido: era la fila 11 del
+informe anterior, la única del mes con el monto escrito como **texto** en vez de
+como número (`"14,25"`, un supermercado del 2 de octubre).
+
+**La app tenía razón y la planilla estaba mal.** En Excel, `SUMA()` **ignora el
+texto en silencio**: no da error, no marca la celda, simplemente no la cuenta.
+Durante diez meses ese octubre dijo 1.484,78 € y eran 1.499,03 €.
+
+**Es L-001 con otra cara.** La lección estaba escrita desde el primer día del
+proyecto —*«ningún cálculo tiene un límite de filas escrito a mano: así es como
+el Excel original miente en silencio»*— y era sobre un rango de fórmula que se
+queda corto. Resultó que la misma planilla tenía **otra** forma de mentir, que
+nadie había anticipado: una celda que parece un número, se lee como un número, y
+no suma. Las dos comparten la forma que importa: **el total se ve perfectamente
+creíble y está mal.**
+
+**Lo que lo encontró.** No un test: la comprobación contra el acumulado de la
+propia planilla (§6 del mapeo), que corre **una sola vez** porque después la
+planilla se archiva. Se había puesto con un argumento defensivo —«es la única
+oportunidad de contrastar contra un número calculado por otra herramienta»— y
+terminó sirviendo para lo contrario de lo que se esperaba: no para desconfiar de
+la app, sino para **descubrir un error de diez meses en el original**.
+
+**Lo que se cambió a partir de esto.** El aviso decía «un mes no cuadra» y
+listaba los dos números. Ahora **separa leer de más de leer de menos**, porque
+son problemas distintos y el usuario no tiene por qué deducirlo:
+
+- **De más** → lo más probable es un gasto que la planilla no sumaba. Se explica
+  el caso del monto escrito como texto y cómo reconocerlo (queda pegado a la
+  izquierda de la celda).
+- **De menos** → hay que mirar la lista de filas que no entraron.
+
+Un «no cuadra» a secas hace pensar que la app se equivocó. En el caso más
+frecuente es al revés, y decirlo mal desperdicia el hallazgo.
+
+**La moraleja de método.** Cuando dos sistemas dan números distintos, la pregunta
+no es «¿dónde me equivoqué?» sino «¿cuál de los dos está mal?». Dar por sentado
+que el sistema viejo tiene razón porque es el que estaba primero es la forma más
+elegante de importar sus errores.

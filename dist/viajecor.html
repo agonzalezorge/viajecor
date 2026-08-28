@@ -6232,15 +6232,36 @@ function dibujarComprobaciones(comprobaciones) {
     los que traía tu planilla.</p>`;
   }
 
+  // El signo de la diferencia dice de qué lado mirar, y por eso se separan. Un
+  // "no cuadra" a secas hace pensar que la app se equivocó, y en el caso más
+  // común es al revés: apareció un gasto que la planilla no estaba sumando.
+  const deMas = difieren.filter((c) => c.diferencia > 0);
+  const deMenos = difieren.filter((c) => c.diferencia < 0);
+
+  const linea = (c) => `<li>${escapar(c.mes)}: tu planilla dice
+    ${escapar(formatearEuros(c.enLaPlanilla))} y acá suman
+    ${escapar(formatearEuros(c.importado))}
+    <strong>(${c.diferencia > 0 ? '+' : ''}${escapar(formatearEuros(c.diferencia))})</strong></li>`;
+
   return `
     <div class="aviso importante" role="alert">
-      <h2>${difieren.length === 1 ? 'Un mes no cuadra' : `${difieren.length} meses no cuadran`}</h2>
-      <p class="suave">La suma de lo que se leyó no coincide con el acumulado que traía tu
-      planilla. No quiere decir que la app se haya equivocado —puede ser una fórmula
-      de la planilla que se quedó corta—, pero conviene mirarlo.</p>
-      <ul>${difieren.map((c) => `<li>${escapar(c.mes)}: la planilla dice
-        ${escapar(formatearEuros(c.enLaPlanilla))} y se leyeron
-        ${escapar(formatearEuros(c.importado))}</li>`).join('')}</ul>
+      <h2>${difieren.length === 1 ? 'Un mes no coincide' : `${difieren.length} meses no coinciden`}</h2>
+
+      ${deMas.length > 0 ? `
+      <p class="suave"><strong>Se leyó de más</strong> en
+      ${deMas.length === 1 ? 'un mes' : `${deMas.length} meses`}. La causa más
+      frecuente es un gasto que <strong>tu planilla no estaba sumando</strong>:
+      cuando un monto quedó escrito como texto —se ve igual, pero está pegado a la
+      izquierda de la celda— Excel lo saltea sin avisar. Si la diferencia coincide
+      con el importe de alguna fila, es eso.</p>
+      <ul>${deMas.map(linea).join('')}</ul>` : ''}
+
+      ${deMenos.length > 0 ? `
+      <p class="suave"><strong>Se leyó de menos</strong> en
+      ${deMenos.length === 1 ? 'un mes' : `${deMenos.length} meses`}. Acá sí conviene
+      mirar la lista de filas que quedaron afuera: puede que alguna sea un gasto de
+      verdad que no se pudo interpretar.</p>
+      <ul>${deMenos.map(linea).join('')}</ul>` : ''}
     </div>`;
 }
 

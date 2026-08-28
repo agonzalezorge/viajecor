@@ -447,3 +447,23 @@ test('un texto que no es un monto se sigue rechazando', () => {
   assert.notEqual(problema, undefined);
   assert.equal(problema.fila, 6);
 });
+
+test('la diferencia conserva su signo, que es lo que dice de qué lado mirar', () => {
+  // Leer DE MÁS y leer DE MENOS son problemas distintos y la pantalla los separa:
+  // de más suele ser un gasto que la planilla no sumaba —un monto escrito como
+  // texto, que Excel saltea en silencio—; de menos, una fila que no se pudo
+  // interpretar. Un "no cuadra" a secas hace pensar que la app se equivocó, y en
+  // el caso más común es al revés.
+  //
+  // Le pasó al usuario el 2026-08-28: octubre de 2025 daba exactamente 14,25 €
+  // de más, que era el importe de la única celda con el monto escrito como texto
+  // en ese mes. Su Excel no lo contaba desde hacía diez meses.
+  const deMas = comprobar(new Map([['2025-10', 149903]]), new Map([['2025-10', 148478]]),
+    new Map([['2025-10', 8]]));
+  const deMenos = comprobar(new Map([['2025-11', 100000]]), new Map([['2025-11', 108013]]),
+    new Map([['2025-11', 8]]));
+
+  assert.equal(deMas[0].coincide, false);
+  assert.equal(deMas[0].diferencia, 1425, 'positiva: se leyó de más');
+  assert.equal(deMenos[0].diferencia, -8013, 'negativa: se leyó de menos');
+});
