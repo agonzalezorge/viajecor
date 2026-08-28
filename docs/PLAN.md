@@ -74,7 +74,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-015 | Lista de movimientos, editar y borrar | **Hecha** | T-011 |
 | T-016 | Exportar a JSON | **Hecha** | T-004 |
 | T-017 | Importar un respaldo JSON | **Hecha** | T-016 |
-| T-018 | Exportar a CSV | En curso (claude, 2026-08-27) | T-005, T-016 |
+| T-018 | Exportar a CSV | **Hecha** | T-005, T-016 |
 | T-019 | Verificación real sin conexión | **Hecha** (usuario, 2026-08-27) | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
 | T-020 | Gasto día por día del mes | **Lista** | T-013 |
@@ -663,11 +663,45 @@ movimiento" — arreglados, con tests que los cubren (L-016).
 ---
 
 ### T-018 · Exportar a CSV — CU-07
-**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-005, T-016
-**Toca:** `src/datos/exportar.js`
+**Estado:** **Hecha** · **Depende de:** T-005, T-016
+**Toca:** `src/datos/csv.js`, `test/csv.test.js`, `src/ui/pantallas/datos.js`, `src/ui/app.js`
 
 Con monto original, moneda, tipo de cambio aplicado e importe en euros. UTF-8 con
 BOM (sin BOM, Excel rompe los acentos).
+
+**Cómo quedó.** El `.xlsx` es para **mirar** y el CSV es para **procesar**: una
+fila por movimiento, todas las columnas, sin adornos. Por eso el CSV lleva el
+monto original con su moneda, **el tipo de cambio que se aplicó** y el importe en
+euros, mientras la planilla lleva solo euros. Un CSV que redondea es un CSV que
+miente; una planilla con monedas mezcladas en una columna es una planilla que no
+se puede sumar. Cada formato pierde lo que al otro le sobra.
+
+**Un CSV mal exportado no falla: se abre y muestra cosas equivocadas.** Es la
+forma de fallar más cara que hay, y depende de tres detalles que nadie mira:
+
+1. **El separador es `;`.** En español la coma es el separador decimal: `12,50`
+   con separador coma se parte en dos columnas, `12` y `50`.
+2. **El archivo lleva BOM.** Sin esos tres bytes, Excel en Windows lo abre con la
+   codificación del sistema y `Coruña` se convierte en `CoruÃ±a` — que es un
+   comentario **distinto**, así que sin la marca los grupos se parten en dos
+   apenas se vuelve a leer el archivo.
+3. **Los saltos son `\r\n`.** Con solo `\n`, hay versiones de Excel que meten
+   todo en una fila.
+
+Y el entrecomillado, que es lo mismo por otro lado: un comentario con un `;`
+adentro corre todas las columnas de esa fila una posición, y el archivo se abre
+igual — mal, y sin avisar.
+
+**El tipo de cambio va en su columna** porque es el de **ese mes**, no el de hoy.
+Sin ese dato el importe en euros es un número que no se puede volver a
+comprobar. En euros la columna va vacía: un `1` repetido en el 90 % de las filas
+es ruido que invita a creer que significa algo.
+
+**Verificado:** 557 tests. Nueve mutaciones, nueve detectadas. Y el archivo
+**descargado desde el navegador** leído con el módulo `csv` de Python, que no es
+código de este proyecto: cuatro filas, el `;` de un comentario sin correr las
+columnas, las comillas intactas, los acentos enteros, y los primeros tres bytes
+`EF BB BF`.
 
 ---
 

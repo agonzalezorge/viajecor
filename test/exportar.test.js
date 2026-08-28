@@ -232,7 +232,8 @@ test('sin datos, ningún botón de exportar se puede apretar', () => {
   // agregar uno SIN apagar lo deje pasar si otro se apagó de más.
   const html = dibujarDatos({ estado: estadoLimpio(), puedeCompartir: true });
 
-  for (const accion of ['exportar', 'ver-respaldo', 'exportar-planilla', 'compartir', 'compartir-planilla']) {
+  for (const accion of ['exportar', 'ver-respaldo', 'exportar-planilla', 'exportar-csv',
+                        'compartir', 'compartir-planilla']) {
     const boton = html.match(new RegExp(`<button[^>]*data-accion="${accion}"[^>]*>`));
     assert.ok(boton, `no está el botón ${accion}`);
     assert.match(boton[0], /disabled/, `el botón ${accion} se puede apretar sin datos`);
@@ -311,4 +312,22 @@ test('sin haber fallado, no se explica nada ni se ofrece reintentar', () => {
   const html = dibujarDatos({ estado: cargar(estadoLimpio()), puedeCompartir: true });
 
   assert.equal(/reintentar-compartir/.test(html), false);
+});
+
+// ── El CSV en la pantalla (T-018) ────────────────────────────────────────────
+
+test('la pantalla ofrece descargar el CSV, con su nombre', () => {
+  const html = dibujarDatos({ estado: cargar(estadoLimpio()) });
+
+  assert.match(html, /data-accion="exportar-csv"/);
+  assert.match(html, /viajecor-\d{4}-\d{2}-\d{2}\.csv/);
+});
+
+test('la pantalla explica para qué es el CSV y en qué se diferencia', () => {
+  // Dos botones que bajan "los datos" sin decir en qué se diferencian obligan a
+  // probar los dos para entenderlo.
+  const html = dibujarDatos({ estado: cargar(estadoLimpio()) });
+
+  assert.match(html, /el tipo de cambio que se aplicó/);
+  assert.match(html, /para procesar/);
 });

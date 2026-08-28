@@ -32,6 +32,7 @@ const MODULOS = [
   'src/datos/recordatorio.js',
   'src/datos/zip.js',
   'src/datos/xlsx.js',
+  'src/datos/csv.js',
   'src/ui/colores.js',
   'src/ui/compartir.js',
   'src/ui/pantallas/cambio.js',

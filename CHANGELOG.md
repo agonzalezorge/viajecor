@@ -40,6 +40,10 @@ La versión publicada vive en el archivo `VERSION`.
   «Permission denied» al tocar el botón. Ahora el error se explica en castellano,
   se recuerda, la descarga vuelve a ser el botón principal, y queda un *Probar de
   nuevo* por si cambiás un permiso.
+- **Ya podés bajarte los datos en CSV** (T-018), para hacer cuentas en otro lado:
+  una fila por movimiento con todas las columnas, el monto original con su
+  moneda, **el tipo de cambio que se aplicó** y el importe en euros. Se abre bien
+  en Excel en español: separador `;`, acentos que no se rompen y coma decimal.
 - **La planilla se parece de verdad a la tuya** (T-916): los rubros van en
   columnas con su `TOTAL` al final, el mes se escribe `08/26`, cada rubro lleva
   **su color** —el mismo que tiene en la app—, el título del mes es una banda

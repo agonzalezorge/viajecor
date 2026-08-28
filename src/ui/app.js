@@ -28,6 +28,7 @@ import { leerRespaldo, previsualizar, aplicarImportacion } from '../datos/import
 import { compartirRespaldo, sePuedeCompartir, archivoDelRespaldo } from './compartir.js';
 import { estadoDelRecordatorio, posponerRecordatorio } from '../datos/recordatorio.js';
 import { crearPlanilla } from '../datos/xlsx.js';
+import { prepararCsv } from '../datos/csv.js';
 
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
@@ -534,6 +535,30 @@ export function iniciar(documento, almacen) {
     pintar();
   }
 
+  /**
+   * Descarga el CSV — T-018.
+   *
+   * Como la planilla, **no cuenta como respaldo**: un CSV no lleva los
+   * identificadores de los movimientos, ni las monedas, ni el esquema, así que
+   * no se puede volver a cargar sin perder cosas.
+   */
+  function descargarCsv() {
+    const csv = prepararCsv(vista.estado);
+    const error = pedirDescarga(csv);
+
+    vista = error
+      ? { ...vista, errorPlanilla: `No se pudo descargar el CSV (${error}).`, avisoPlanilla: null }
+      : {
+          ...vista,
+          errorPlanilla: null,
+          avisoPlanilla:
+            `Listo: ${csv.nombre}, con ${csv.cuantos === 1 ? '1 fila' : `${csv.cuantos} filas`}.` +
+            `${csv.sinConvertir > 0 ? ` ${csv.sinConvertir === 1 ? '1 quedó' : `${csv.sinConvertir} quedaron`} sin importe en euros, por falta de tipo de cambio.` : ''}` +
+            ' Acordate de que esto no reemplaza al respaldo.',
+        };
+    pintar();
+  }
+
   /** Comparte la planilla por el menú del teléfono, igual que el respaldo. */
   async function compartirLaPlanilla() {
     const planilla = crearPlanilla(vista.estado);
@@ -919,6 +944,9 @@ export function iniciar(documento, almacen) {
         // abierta y vuelve al recargar. No hay nada útil que decirle acá.
       }
       vista = { ...vista, estado: pospuesto };
+    } else if (accion === 'exportar-csv') {
+      descargarCsv();
+      return;
     } else if (accion === 'exportar-planilla') {
       descargarPlanilla();
       return;

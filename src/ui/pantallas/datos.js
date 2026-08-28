@@ -20,6 +20,7 @@
 import { escapar } from '../app.js';
 import { prepararRespaldo, diasSinRespaldar } from '../../datos/exportar.js';
 import { crearPlanilla } from '../../datos/xlsx.js';
+import { prepararCsv } from '../../datos/csv.js';
 import { MODO_REEMPLAZAR, MODO_AGREGAR } from '../../datos/importar.js';
 import { formatearFechaLarga } from '../../core/formato.js';
 import { hoy } from '../../core/modelo.js';
@@ -163,7 +164,7 @@ export function dibujarDatos(vista) {
 
     <section class="tarjeta">
       <h2>Todavía no</h2>
-      <p class="suave pendiente">Exportar a CSV — T-018. Ver y agregar monedas — T-024.</p>
+      <p class="suave pendiente">Ver y agregar monedas — T-024.</p>
     </section>
   `;
 }
@@ -282,6 +283,7 @@ function dibujarPrevia(previa) {
 export function dibujarPlanilla(vista) {
   const cuantos = (vista.estado.movimientos ?? []).length;
   const planilla = cuantos === 0 ? null : crearPlanilla(vista.estado);
+  const csv = cuantos === 0 ? null : prepararCsv(vista.estado);
 
   return `
     <section class="tarjeta">
@@ -315,6 +317,16 @@ export function dibujarPlanilla(vista) {
       <p class="suave"><strong>Esto no es un respaldo.</strong> La planilla se
       puede leer pero no se puede volver a cargar en la app: no lleva los tipos
       de cambio ni tus monedas. Para eso está el archivo de arriba.</p>
+
+      <h3>Y en CSV, para hacer cuentas en otro lado</h3>
+      <p class="suave">Una fila por movimiento, con todas las columnas: el monto
+      original con su moneda, <strong>el tipo de cambio que se aplicó</strong> y el
+      importe en euros. La planilla lleva solo euros porque se mira; el CSV lleva
+      las dos cosas porque es para procesar, y ahí perder el dato original duele.</p>
+
+      <button type="button" class="secundario" data-accion="exportar-csv"${cuantos === 0 ? ' disabled' : ''}>
+        Descargar ${csv ? escapar(csv.nombre) : 'el CSV'}
+      </button>
     </section>
   `;
 }

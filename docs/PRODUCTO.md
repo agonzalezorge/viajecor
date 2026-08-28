@@ -409,6 +409,15 @@ le falta el tipo de cambio entra igual, con el monto vacío y el motivo escrito.
 identificadores, ni los tipos de cambio, ni las monedas, así que no se puede
 volver a cargar en la app. Descargarla **no apaga** el recordatorio de respaldo.
 
+**El CSV (T-018).** Una fila por movimiento y todas las columnas: la fecha, el
+día, el mes, el tipo, el rubro, el comentario, el detalle, la moneda, el monto
+original, **el tipo de cambio que se aplicó** y el importe en euros. Es para
+hacer cuentas en otro lado, así que no redondea nada.
+
+La diferencia con la planilla: el `.xlsx` es para **mirar** —tiene la forma de
+siempre y lleva solo euros, para que sumar una columna dé un número con
+sentido— y el CSV es para **procesar**. Cada uno pierde lo que al otro le sobra.
+
 **Formatos:** JSON (completo, sirve para reimportar), CSV, y `.xlsx` con la
 forma de la planilla actual — bloques mensuales, los mismos encabezados y los
 mismos cuadros de totales, pero **con los números ya calculados en vez de
