@@ -79,7 +79,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Etapa 2 — Análisis** ||||
 | T-020 | ~~Gasto día por día del mes~~ | **Descartada** (usuario, 2026-08-28) | — |
 | T-021 | Evolución mes a mes | **Hecha** | T-013 |
-| T-022 | Promedio de gastos fijos | **Lista** | T-013 |
+| T-022 | Promedio de gastos fijos | En curso (claude, 2026-08-28) | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
