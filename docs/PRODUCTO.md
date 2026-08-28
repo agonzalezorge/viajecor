@@ -256,7 +256,7 @@ qué existe.
 | CU-01 | Registrar un gasto | **Hecho** (T-011) |
 | CU-02 | Registrar un ingreso | **Hecho** (T-011) |
 | CU-03 | Definir el tipo de cambio de una moneda para un mes | **Hecho** (T-005, T-012) |
-| CU-04 | Ver el resumen del mes | **Hecho** (T-013, T-014) |
+| CU-04 | Ver el resumen del mes | **Hecho** (T-013, T-014); con gráficos desde T-918 |
 | CU-05 | Ver el gasto día por día del mes | Pendiente |
 | CU-06 | Corregir o borrar un movimiento | **Hecho** (T-015) |
 | CU-07 | Exportar todos los datos | **Hecho** en JSON (T-016); el CSV es T-018 |
@@ -338,8 +338,11 @@ bloques `GASTOS POR TIPO`, `INGRESOS POR TIPO` y `TOTALES` del Excel.
 
 **Muestra:**
 - Total de gastos, total de ingresos y **saldo** (ingresos − gastos) del mes.
-- Gastos desagregados por rubro, de mayor a menor.
-- Ingresos desagregados por rubro.
+- Gastos desagregados por rubro: una **torta** con el reparto y, debajo, la
+  lista de mayor a menor con el importe y el porcentaje de cada uno (T-918).
+- Ingresos desagregados por rubro, igual.
+- Una **línea del acumulado** del mes, gasto e ingreso, para ver cuándo una
+  cruza a la otra. En el mes en curso llega hasta hoy, no hasta fin de mes.
 - Todo en euros, convertido según RN-04.
 
 ---

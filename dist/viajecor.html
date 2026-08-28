@@ -456,37 +456,94 @@ body {
 .rubro-cabeza .importe { font-variant-numeric: tabular-nums; font-weight: 600; }
 .rubro-pie { font-size: 0.8125rem; margin-top: 0.25rem; }
 
-/* La barra: fina, todas del mismo color, todas arrancando del mismo borde. Lo
-   que se compara es el largo, así que el color no tiene que decir nada más. */
-.barra-pista {
-  height: 0.5rem;
-  margin-top: 0.375rem;
-  background: var(--borde);
-  border-radius: 0 0.25rem 0.25rem 0;
+/* ── La torta del mes (T-918) ────────────────────────────────────────────────
+   Reemplazó a las barras de proporción por pedido del usuario: es la forma que
+   tiene en su planilla. Debajo queda la lista con los números, que es donde se
+   compara con precisión. */
+.torta {
+  display: block;
+  width: 100%;
+  max-width: 15rem;
+  margin: 0 auto 1rem;
 }
 
-.barra {
-  height: 100%;
-  min-width: 0.25rem;
-  /* Cuadrada donde arranca, redondeada en la punta: el borde izquierdo es la
-     línea de base contra la que se comparan todas. */
-  border-radius: 0 0.25rem 0.25rem 0;
+.porcion {
+  /* El hueco entre porciones no se dibuja: se pinta el borde del color de la
+     tarjeta. Sin él, dos rubros vecinos se leen como una sola mancha. */
+  stroke: var(--superficie);
+  stroke-width: 2;
+  stroke-linejoin: round;
 }
 
-.barra.gasto { background: var(--gasto); }
-.barra.ingreso { background: var(--ingreso); }
+/* El único texto de la app que NO usa un color de texto: va encima de un color
+   de rubro, así que el color se elige contra ESE fondo y no contra la tarjeta.
+   El negro es el único que se lee sobre los ocho tonos, en claro y en oscuro
+   (lo peor es 4,2:1 sobre el verde). Un test lo comprueba: si algún día cambia
+   la paleta y un tono deja de aguantar el negro, falla ahí y no acá. */
+.rotulo-porcion {
+  fill: #000000;
+  font-size: 15px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
 
-/* ── Un color por rubro (T-909) ──────────────────────────────────────────────
-   Los ocho tonos NO se eligieron a ojo: salen de la paleta categórica de la
-   guía de visualización y se comprobaron con su validador contra las dos
-   superficies de esta app. Pasan las seis comprobaciones en claro y en oscuro
-   —banda de luminosidad, croma mínimo, separación para daltonismo (peor par
-   ΔE 9,1 y 8,4), separación en visión normal (ΔE 19,6 y 19,3) y contraste—.
+/* ── La línea del acumulado (T-918) ──────────────────────────────────────── */
+.linea-acumulado {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
 
-   La única advertencia es que tres tonos quedan por debajo de 3:1 sobre el
-   fondo claro. Está cubierta porque cada barra lleva su nombre y su importe
-   escritos al lado: el color nunca es la única forma de saber qué es. Una
-   pantalla que muestre estos colores SIN texto tiene que resolverlo de nuevo.
+.linea-acumulado .eje {
+  stroke: var(--borde);
+  stroke-width: 1;
+}
+
+.linea-acumulado .traza {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* El SVG se estira a lo ancho del teléfono: sin esto el trazo se estiraría
+     con él y las dos líneas tendrían grosores distintos. */
+  vector-effect: non-scaling-stroke;
+}
+
+.linea-acumulado .traza.gasto { stroke: var(--gasto); }
+.linea-acumulado .traza.ingreso { stroke: var(--ingreso); }
+
+/* Rótulo al final de cada línea: qué línea es no se pregunta a una referencia
+   que está en otro lado, se lee donde termina. */
+.linea-acumulado .rotulo-traza {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.linea-acumulado .rotulo-traza.gasto { fill: var(--gasto); }
+.linea-acumulado .rotulo-traza.ingreso { fill: var(--ingreso); }
+
+.linea-acumulado .marca-eje {
+  fill: var(--texto-suave);
+  font-size: 11px;
+}
+
+.linea-acumulado .marca-eje.fin { text-anchor: end; }
+
+/* ── Un color por rubro (T-909, T-922) ───────────────────────────────────────
+   Los ocho tonos salen de la PLANILLA DEL USUARIO: se conservó el matiz de
+   cada color suyo y se corrigieron la luz y el croma hasta que el conjunto
+   pasara el validador de la guía de visualización contra las dos superficies
+   de esta app. Seis de los ocho se movieron 23° o menos. Ver ADR-029.
+
+   Con fondo oscuro pasan las seis comprobaciones. Con fondo claro pasan las
+   cuatro duras, con dos advertencias —un par a ΔE 7,2 bajo daltonismo y un
+   tono corto de contraste— que la guía permite cuando hay rótulo directo, y lo
+   hay: cada rubro lleva su nombre y su importe escritos al lado, y las
+   porciones grandes de la torta llevan su porcentaje adentro. El color nunca
+   es la única forma de saber qué es. Una pantalla que los muestre SIN texto
+   tiene que resolverlo de nuevo.
 
    Ocho es el techo. Un noveno tono generado sería indistinguible de alguno de
    estos bajo daltonismo: si hiciera falta, se agrupa, no se inventa un color.
@@ -521,14 +578,22 @@ body {
   }
 }
 
-.barra.rubro-1, .punto-rubro.rubro-1 { background: var(--rubro-1); }
-.barra.rubro-2, .punto-rubro.rubro-2 { background: var(--rubro-2); }
-.barra.rubro-3, .punto-rubro.rubro-3 { background: var(--rubro-3); }
-.barra.rubro-4, .punto-rubro.rubro-4 { background: var(--rubro-4); }
-.barra.rubro-5, .punto-rubro.rubro-5 { background: var(--rubro-5); }
-.barra.rubro-6, .punto-rubro.rubro-6 { background: var(--rubro-6); }
-.barra.rubro-7, .punto-rubro.rubro-7 { background: var(--rubro-7); }
-.barra.rubro-8, .punto-rubro.rubro-8 { background: var(--rubro-8); }
+.punto-rubro.rubro-1 { background: var(--rubro-1); }
+.porcion.rubro-1 { fill: var(--rubro-1); }
+.punto-rubro.rubro-2 { background: var(--rubro-2); }
+.porcion.rubro-2 { fill: var(--rubro-2); }
+.punto-rubro.rubro-3 { background: var(--rubro-3); }
+.porcion.rubro-3 { fill: var(--rubro-3); }
+.punto-rubro.rubro-4 { background: var(--rubro-4); }
+.porcion.rubro-4 { fill: var(--rubro-4); }
+.punto-rubro.rubro-5 { background: var(--rubro-5); }
+.porcion.rubro-5 { fill: var(--rubro-5); }
+.punto-rubro.rubro-6 { background: var(--rubro-6); }
+.porcion.rubro-6 { fill: var(--rubro-6); }
+.punto-rubro.rubro-7 { background: var(--rubro-7); }
+.porcion.rubro-7 { fill: var(--rubro-7); }
+.punto-rubro.rubro-8 { background: var(--rubro-8); }
+.porcion.rubro-8 { fill: var(--rubro-8); }
 
 /* El punto que acompaña al nombre en las listas. Es chico a propósito: el
    nombre escrito es lo que manda, el color solo ayuda a encontrarlo. */
@@ -5071,27 +5136,32 @@ function describir({ dia, rubro, monto, comentario, detalle }) {
 // **El color se asigna por la POSICIÓN del rubro en su lista, nunca por su
 // tamaño.** Si dependiera del tamaño, cargar un gasto nuevo repintaría media
 // pantalla, y el color dejaría de significar "supermercado" para pasar a
-// significar "el más grande de este mes" — que ya lo dice el largo de la barra.
+// significar "el más grande de este mes" — que ya lo dice el tamaño de su porción.
 // Un color que cambia de significado no se puede aprender.
 //
 // ── La paleta ────────────────────────────────────────────────────────────────
 //
-// Los ocho tonos NO se eligieron a ojo. Salen de la paleta categórica de la guía
-// de visualización del proyecto y se comprobaron con su validador contra las dos
-// superficies reales de la app. Pasan las seis comprobaciones en claro y en
-// oscuro: banda de luminosidad, croma mínimo, separación para daltonismo
-// (peor par ΔE 9,1 en claro y 8,4 en oscuro), separación en visión normal
-// (ΔE 19,6 y 19,3) y contraste.
+// Los ocho tonos salen de la **planilla del usuario**, que es la que viene
+// mirando desde octubre de 2025: se conservó el matiz de cada uno de sus colores
+// y se corrigieron la luz y el croma hasta que el conjunto pasara el validador
+// de la guía de visualización contra las dos superficies reales de la app. Seis
+// de los ocho se movieron 23° o menos: son el mismo color con otro nombre
+// técnico. Los otros dos son los que estaban rotos. El detalle está en ADR-029.
 //
-// La única advertencia es que tres tonos quedan por debajo de 3:1 sobre el fondo
-// claro. Está cubierta: **cada barra lleva su nombre y su importe escritos al
-// lado**, así que el color nunca es la única manera de saber qué es. Si alguna
-// pantalla futura mostrara estos colores sin texto, esa advertencia volvería a
-// contar y habría que resolverla ahí.
+// Con fondo oscuro pasan las seis comprobaciones. Con fondo claro pasan las
+// cuatro duras, con dos advertencias —un par a ΔE 7,2 bajo daltonismo y un tono
+// corto de contraste— que la guía permite **cuando hay rótulo directo**. Lo hay:
+// cada rubro lleva su nombre y su importe escritos al lado. Si alguna pantalla
+// futura mostrara estos colores sin texto, esa advertencia volvería a contar y
+// habría que resolverla ahí.
 //
-// **Ocho es el techo.** No se agregan más tonos: un noveno color generado es
-// indistinguible de alguno de estos bajo daltonismo. Si algún día hay más de
-// ocho rubros de un tipo, la salida es agrupar, no inventar un color.
+// **Ocho es el techo**, por dos motivos distintos. No se agregan más tonos: un
+// noveno color generado sería indistinguible de alguno de estos bajo daltonismo,
+// y si algún día hay más de ocho rubros de un tipo la salida es agrupar. Y
+// además ninguna paleta de ocho pasa el validador comparando todos contra
+// todos; sí pasan los pares que quedan **pegados**, si son siempre los mismos.
+// Por eso la torta del resumen dibuja los rubros en el orden de esta lista y no
+// por tamaño.
 
 // Se reexportan para no obligar a media app a cambiar sus imports: lo que se
 // movió es dónde vive el cálculo, no quién lo usa.
@@ -5516,6 +5586,188 @@ function dibujarMovimientoEnEspera(estado, borrador) {
   `;
 }
 
+// ── src/ui/pantallas/graficos.js ────────────────────────────────
+// Los dos gráficos del mes — T-918, pedidos por el usuario a partir de los que
+// tiene en su planilla: una torta del reparto por rubro y una línea del gasto
+// acumulado día a día.
+//
+// Se dibujan en SVG escrito a mano. No es purismo: una biblioteca de gráficos
+// se trae de un CDN, y eso está prohibido (RN-06). Todo lo que hace falta acá
+// —un sector de círculo y una polilínea— son dos fórmulas de trigonometría.
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras que devuelven
+// texto HTML. No tocan el documento.
+//
+// ── Por qué torta, sabiendo que se compara peor ──────────────────────────────
+//
+// El usuario la eligió por sobre las barras (2026-08-27). El costo es real: el
+// ojo compara ángulos peor que longitudes, y dos porciones de 23 % y 20 % se
+// distinguen mucho menos que dos barras de esos largos. Lo que se gana es el
+// reparto del todo de un vistazo, que es lo que él mira, y la forma que ya
+// reconoce de su planilla.
+//
+// **Por eso la lista de rubros de al lado no se saca**: ahí están el nombre, el
+// importe y el porcentaje, que es donde se compara con precisión. La torta da la
+// forma; la lista da los números. Sin la lista, el cambio sería una pérdida.
+//
+// ── El orden de las porciones es FIJO, no por tamaño ─────────────────────────
+//
+// Con ocho colores ninguna paleta pasa el validador comparando todos contra
+// todos (se midió, ADR-029). Sí pasan los pares que quedan pegados, si son
+// siempre los mismos. Dibujar de mayor a menor haría que cargar un gasto
+// cambiara qué color toca a qué color, y un par que hoy se distingue mañana no.
+// Con el orden fijo de la paleta, los vecinos son siempre los mismos y se
+// pueden comprobar.
+
+
+
+/** El radio de la torta y el medio del lienzo, en unidades del `viewBox`. */
+const RADIO = 100;
+
+/** Debajo de este porcentaje la porción no lleva su número escrito adentro. */
+const MINIMO_PARA_ROTULO = 8;
+
+/** Redondeo a dos decimales: alcanza para dibujar y hace el SVG comparable. */
+function corto(numero) {
+  return Math.round(numero * 100) / 100;
+}
+
+/**
+ * Un punto del borde del círculo.
+ *
+ * Se resta 90° para que el 0 quede arriba: una torta que arranca a las 3 en
+ * punto se lee mal porque nadie la lee así.
+ */
+function punto(grados, radio) {
+  const radianes = ((grados - 90) * Math.PI) / 180;
+  return [corto(radio * Math.cos(radianes)), corto(radio * Math.sin(radianes))];
+}
+
+/**
+ * La torta de un tipo.
+ *
+ * Devuelve `''` si no hay nada que repartir: una torta de un solo color es un
+ * círculo, y un círculo no dice nada que el importe no diga mejor.
+ */
+function dibujarTorta(filas, tipo) {
+  if (filas.length < 2) return '';
+
+  const total = filas.reduce((suma, fila) => suma + fila.total, 0);
+  if (total <= 0) return '';
+
+  // El orden de dibujo es el de la paleta, no el de la lista. Ver arriba.
+  const enOrden = [...filas].sort(
+    (a, b) => franjaDeRubro(tipo, a.rubro) - franjaDeRubro(tipo, b.rubro),
+  );
+
+  let desde = 0;
+  const porciones = enOrden.map((fila) => {
+    // El ángulo sale del importe, NO del porcentaje redondeado: ocho números
+    // redondeados no suman 360 y la última porción queda con un hueco o pisada.
+    const angulo = (fila.total / total) * 360;
+    const hasta = desde + angulo;
+    const [x1, y1] = punto(desde, RADIO);
+    const [x2, y2] = punto(hasta, RADIO);
+    const grande = angulo > 180 ? 1 : 0;
+    const franja = franjaDeRubro(tipo, fila.rubro);
+    const porcentaje = (fila.total / total) * 100;
+    const [rx, ry] = punto(desde + angulo / 2, RADIO * 0.62);
+    desde = hasta;
+
+    const rotulo = porcentaje >= MINIMO_PARA_ROTULO
+      ? `<text class="rotulo-porcion" x="${rx}" y="${ry}">${Math.round(porcentaje)} %</text>`
+      : '';
+
+    return `
+      <g>
+        <path class="porcion rubro-${franja}"
+              d="M 0 0 L ${x1} ${y1} A ${RADIO} ${RADIO} 0 ${grande} 1 ${x2} ${y2} Z">
+          <title>${escapar(formatearRubro(fila.rubro))}: ${escapar(formatearEuros(fila.total))} (${Math.round(porcentaje)} %)</title>
+        </path>
+        ${rotulo}
+      </g>`;
+  }).join('');
+
+  // `role="img"` con su texto: quien no ve el dibujo escucha el reparto, y el
+  // que sí lo ve tiene la lista de abajo. El color nunca es la única vía.
+  const resumen = enOrden
+    .map((f) => `${formatearRubro(f.rubro)} ${Math.round((f.total / total) * 100)} %`)
+    .join(', ');
+
+  return `
+    <svg class="torta" viewBox="-110 -110 220 220" role="img"
+         aria-label="Reparto por rubro: ${escapar(resumen)}">
+      ${porciones}
+    </svg>
+  `;
+}
+
+/**
+ * Hasta qué día tiene sentido dibujar el mes.
+ *
+ * En el mes en curso, seguir la línea hasta el día 31 la deja plana desde hoy
+ * hasta fin de mes, y una línea plana en un acumulado se lee como "dejó de
+ * gastar". Es mentira: esos días no pasaron todavía.
+ */
+function diasHasta(dias, hasta) {
+  if (hasta === undefined) return dias;
+  return dias.filter((d) => d.dia <= hasta);
+}
+
+/**
+ * La línea del acumulado del mes.
+ *
+ * Van las dos —gasto e ingreso— porque el dato que se busca acá no es cuánto se
+ * gastó, que ya está arriba en número grande, sino **cuándo una cruza a la
+ * otra**. Son la misma unidad, así que comparten un solo eje: dos escalas en un
+ * mismo dibujo es la forma más común de mentir con un gráfico.
+ */
+function dibujarLinea(dias, opciones = {}) {
+  const visibles = diasHasta(dias, opciones.hasta);
+  if (visibles.length < 2) return '';
+
+  const techo = Math.max(
+    ...visibles.map((d) => Math.max(d.gastoAcumulado, d.ingresoAcumulado)),
+  );
+  if (techo <= 0) return '';
+
+  const ANCHO = 300;
+  const ALTO = 140;
+  const ultimo = visibles[visibles.length - 1];
+
+  const x = (dia) => corto(((dia - 1) / Math.max(1, ultimo.dia - 1)) * ANCHO);
+  const y = (valor) => corto(ALTO - (valor / techo) * ALTO);
+
+  const linea = (campo) => visibles.map((d) => `${x(d.dia)},${y(d[campo])}`).join(' ');
+
+  return `
+    <svg class="linea-acumulado" viewBox="-4 -18 ${ANCHO + 60} ${ALTO + 40}" role="img"
+         aria-label="Acumulado del mes hasta el día ${ultimo.dia}: gastos ${escapar(formatearEuros(ultimo.gastoAcumulado))}, ingresos ${escapar(formatearEuros(ultimo.ingresoAcumulado))}">
+      <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
+      <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo))}</text>
+      <polyline class="traza ingreso" points="${linea('ingresoAcumulado')}" />
+      <polyline class="traza gasto" points="${linea('gastoAcumulado')}" />
+      <text class="rotulo-traza ingreso" x="${x(ultimo.dia) + 6}" y="${y(ultimo.ingresoAcumulado) + 4}">Ingresos</text>
+      <text class="rotulo-traza gasto" x="${x(ultimo.dia) + 6}" y="${y(ultimo.gastoAcumulado) + 4}">Gastos</text>
+      <text class="marca-eje" x="0" y="${ALTO + 16}">Día 1</text>
+      <text class="marca-eje fin" x="${ANCHO}" y="${ALTO + 16}">Día ${ultimo.dia}</text>
+    </svg>
+  `;
+}
+
+/** La tarjeta entera de la línea, con su título. */
+function dibujarAcumulado(dias, opciones = {}) {
+  const dibujo = dibujarLinea(dias, opciones);
+  if (dibujo === '') return '';
+
+  return `
+    <section class="tarjeta">
+      <h2>Cómo se fue acumulando</h2>
+      ${dibujo}
+    </section>
+  `;
+}
+
 // ── src/ui/pantallas/resumen.js ─────────────────────────────────
 // El resumen del mes — CU-04. Responde "¿cómo vengo este mes?" de un vistazo.
 //
@@ -5526,12 +5778,18 @@ function dibujarMovimientoEnEspera(estado, borrador) {
 //      gráfico de tres barras para tres cifras que ya se leen en un vistazo
 //      agrega trabajo visual y no agrega información.
 //
-//   2. El desglose por rubro es una **tabla con barras de proporción**, y cada
-//      barra lleva **el color de su rubro** (T-909), el mismo que ese rubro tiene
-//      en todas las demás pantallas. El color identifica al rubro y **nunca a su
-//      tamaño**: pintar más oscuro al más grande codificaría dos veces lo mismo
-//      —el largo ya lo dice— y haría que el color cambiara de significado cada
-//      vez que se carga un gasto.
+//   2. El desglose por rubro es una **torta más una tabla** (T-918). La torta da
+//      el reparto del todo de un vistazo; la tabla, ordenada de mayor a menor,
+//      da el nombre, el importe y el porcentaje, que es donde se compara con
+//      precisión. Hasta el 2026-08-28 la tabla llevaba barras de proporción: las
+//      reemplazó la torta por pedido del usuario, que es la forma que reconoce
+//      de su planilla. La tabla se quedó justamente porque la torta compara
+//      peor, y sin ella el cambio sería una pérdida.
+//
+//      Cada rubro lleva **el color que tiene en todas las demás pantallas**
+//      (T-909, T-922). El color identifica al rubro y **nunca a su tamaño**:
+//      pintar más oscuro al más grande codificaría dos veces lo mismo y haría
+//      que el color cambiara de significado cada vez que se carga un gasto.
 //
 //   3. Los importes de la tabla llevan cifras de ancho fijo, para poder
 //      compararlos en columna. Los tres números grandes de arriba **no**: en un
@@ -5539,6 +5797,7 @@ function dibujarMovimientoEnEspera(estado, borrador) {
 //
 // Igual que el resto de la interfaz (ADR-022), son funciones puras que devuelven
 // texto HTML.
+
 
 
 
@@ -5608,11 +5867,11 @@ function dibujarIncompleto(estado, totales) {
 }
 
 /**
- * El desglose de un tipo, de mayor a menor.
+ * El desglose de un tipo: la torta arriba, la lista de mayor a menor abajo.
  *
- * Barras del mismo color, con el extremo redondeado y arrancando todas del mismo
- * borde: lo que se compara es el largo. Y con hueco entre filas, no con línea
- * divisoria adentro de la barra.
+ * Las dos leen los mismos datos y las dos están siempre: el dibujo muestra el
+ * reparto, la lista muestra los números. La torta se dibuja en el orden fijo de
+ * la paleta, no en el de la lista — el motivo está en `graficos.js`.
  */
 function dibujarDesglose(estado, mes, tipo) {
   const filas = porRubro(estado, mes, tipo);
@@ -5635,16 +5894,6 @@ function dibujarDesglose(estado, mes, tipo) {
           </span>
           <span class="importe">${escapar(formatearEuros(fila.total))}</span>
         </div>
-        ${hayComparacion ? `
-        <div class="barra-pista">
-          <!-- El largo es el PORCENTAJE del total del mes, no la proporción
-               contra el rubro más grande. La versión anterior lo dividía por el
-               total del rubro mayor, que aprovecha todo el ancho pero contradice
-               el número escrito abajo: con dos rubros de 50 % los dos salían
-               llenos. Entre el dibujo y el número gana el número, y el dibujo
-               pasa a ser ruido (lo encontró el usuario, 2026-08-27). -->
-          <div class="barra ${claseDeRubro(tipo, fila.rubro)}" style="width: ${fila.porcentaje}%"></div>
-        </div>` : ''}
         <div class="rubro-pie suave">
           <span>${hayComparacion ? escapar(porcentaje(fila.porcentaje)) : ''}</span>
           <span>${fila.cuantos === 1 ? '1 movimiento' : `${fila.cuantos} movimientos`}</span>
@@ -5655,6 +5904,7 @@ function dibujarDesglose(estado, mes, tipo) {
   return `
     <section class="tarjeta">
       <h2>${titulo}</h2>
+      ${dibujarTorta(filas, tipo)}
       <ul class="rubros">${cuerpo}</ul>
     </section>
   `;
@@ -5715,6 +5965,7 @@ function dibujarResumen(vista) {
     ${dibujarTotales(totales)}
     ${dibujarPromedio(estado, mes)}
     ${dibujarDesglose(estado, mes, TIPO_GASTO)}
+    ${dibujarAcumulado(porDia(estado, mes), { hasta: mes === mesDe(hoy()) ? Number(hoy().slice(8)) : undefined })}
     ${dibujarDesglose(estado, mes, TIPO_INGRESO)}
   `;
 }

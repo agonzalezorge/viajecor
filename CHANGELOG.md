@@ -5,6 +5,15 @@ La versión publicada vive en el archivo `VERSION`.
 
 ## Sin publicar
 
+### Agregado
+- **Los dos gráficos del mes**, los que el usuario tiene en su planilla: una
+  **torta** del reparto por rubro y una **línea del acumulado** día a día. La
+  torta reemplaza a las barras de proporción, por decisión suya. La lista de
+  rubros ordenada de mayor a menor se queda al lado: la torta muestra la forma,
+  la lista muestra los números, y una torta compara peor que una barra. En el
+  mes en curso la línea se corta en el día de hoy, porque una línea plana en un
+  acumulado se lee como "dejó de gastar". Ver ADR-030.
+
 ### Cambiado
 - **Los colores de los rubros ahora son los de la planilla del usuario.** El rosa
   de gastos fijos, el naranja de supermercado, el verde de viajes y el celeste de

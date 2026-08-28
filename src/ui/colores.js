@@ -10,27 +10,32 @@
 // **El color se asigna por la POSICIÓN del rubro en su lista, nunca por su
 // tamaño.** Si dependiera del tamaño, cargar un gasto nuevo repintaría media
 // pantalla, y el color dejaría de significar "supermercado" para pasar a
-// significar "el más grande de este mes" — que ya lo dice el largo de la barra.
+// significar "el más grande de este mes" — que ya lo dice el tamaño de su porción.
 // Un color que cambia de significado no se puede aprender.
 //
 // ── La paleta ────────────────────────────────────────────────────────────────
 //
-// Los ocho tonos NO se eligieron a ojo. Salen de la paleta categórica de la guía
-// de visualización del proyecto y se comprobaron con su validador contra las dos
-// superficies reales de la app. Pasan las seis comprobaciones en claro y en
-// oscuro: banda de luminosidad, croma mínimo, separación para daltonismo
-// (peor par ΔE 9,1 en claro y 8,4 en oscuro), separación en visión normal
-// (ΔE 19,6 y 19,3) y contraste.
+// Los ocho tonos salen de la **planilla del usuario**, que es la que viene
+// mirando desde octubre de 2025: se conservó el matiz de cada uno de sus colores
+// y se corrigieron la luz y el croma hasta que el conjunto pasara el validador
+// de la guía de visualización contra las dos superficies reales de la app. Seis
+// de los ocho se movieron 23° o menos: son el mismo color con otro nombre
+// técnico. Los otros dos son los que estaban rotos. El detalle está en ADR-029.
 //
-// La única advertencia es que tres tonos quedan por debajo de 3:1 sobre el fondo
-// claro. Está cubierta: **cada barra lleva su nombre y su importe escritos al
-// lado**, así que el color nunca es la única manera de saber qué es. Si alguna
-// pantalla futura mostrara estos colores sin texto, esa advertencia volvería a
-// contar y habría que resolverla ahí.
+// Con fondo oscuro pasan las seis comprobaciones. Con fondo claro pasan las
+// cuatro duras, con dos advertencias —un par a ΔE 7,2 bajo daltonismo y un tono
+// corto de contraste— que la guía permite **cuando hay rótulo directo**. Lo hay:
+// cada rubro lleva su nombre y su importe escritos al lado. Si alguna pantalla
+// futura mostrara estos colores sin texto, esa advertencia volvería a contar y
+// habría que resolverla ahí.
 //
-// **Ocho es el techo.** No se agregan más tonos: un noveno color generado es
-// indistinguible de alguno de estos bajo daltonismo. Si algún día hay más de
-// ocho rubros de un tipo, la salida es agrupar, no inventar un color.
+// **Ocho es el techo**, por dos motivos distintos. No se agregan más tonos: un
+// noveno color generado sería indistinguible de alguno de estos bajo daltonismo,
+// y si algún día hay más de ocho rubros de un tipo la salida es agrupar. Y
+// además ninguna paleta de ocho pasa el validador comparando todos contra
+// todos; sí pasan los pares que quedan **pegados**, si son siempre los mismos.
+// Por eso la torta del resumen dibuja los rubros en el orden de esta lista y no
+// por tamaño.
 
 import { COLORES, franjaDeRubro } from '../core/paleta.js';
 

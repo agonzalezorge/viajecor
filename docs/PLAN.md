@@ -110,7 +110,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-916 | La planilla se parece de verdad a la original | **Hecha** | T-906, T-915 |
 | T-917 | ~~Los dos gráficos del `.xlsx`~~ | **Descartada** (usuario, 2026-08-27) | — |
 | T-922 | Los colores de rubro, lo más parecidos a la planilla | **Hecha** | T-909 |
-| T-918 | Los dos gráficos del mes, en la app | En curso (claude, 2026-08-28) | T-013, T-909, T-922 |
+| T-918 | Los dos gráficos del mes, en la app | **Hecha** | T-013, T-909, T-922 |
 | T-919 | Verificar en el celular lo hecho después de T-019 | **Hecha** (usuario, 2026-08-28) | T-950, T-911…T-916 |
 | T-920 | Sugerencias propias, sin depender del navegador | **Hecha** | T-912 |
 | T-921 | Sacar el texto de "compartir no funciona" | **Hecha** | T-914 |
@@ -1378,8 +1378,8 @@ Preguntar costó un párrafo.
 
 ---
 
-### T-918 · Los dos gráficos del mes, en la app
-**Estado:** En curso (claude, 2026-08-28) · **Depende de:** T-013, T-909, T-922
+### T-918 · Los dos gráficos del mes, en la app — **Hecha** (2026-08-28)
+**Depende de:** T-013, T-909, T-922 · **Tocó:** `src/ui/pantallas/graficos.js` (nuevo), `resumen.js`, `estilos.css`
 
 Pedido del usuario (2026-08-27), a partir de los que tiene en su planilla:
 
@@ -1402,10 +1402,26 @@ el porcentaje de cada rubro, que es donde se compara con precisión. La torta da
 la forma; la lista da los números. Sin la lista, la decisión sí sería una
 pérdida.
 
-La línea de gasto acumulado se pisa con **T-020 (gasto día por día)**: conviene
-hacerlas juntas o decidir cuál sobrevive.
-
 Los colores salen de `core/paleta.js`, los mismos que ya tiene cada rubro.
+
+**Lo que quedó hecho, comprobado:**
+
+- La torta reemplazó a las barras en los dos desgloses, y la lista de mayor a
+  menor se quedó al lado. Las decisiones y sus motivos, en ADR-030.
+- La línea del acumulado lleva gasto e ingreso en un solo eje, y en el mes en
+  curso se corta en el día de hoy en vez de quedar plana hasta fin de mes.
+- 24 tests nuevos que miden la **geometría** del dibujo, no el texto: el ángulo
+  de cada porción, que cierren el círculo, la bandera de arco largo, que la
+  torta arranque a las 12, que el acumulado nunca baje, que las dos líneas
+  compartan escala.
+- Once mutaciones a propósito: las once fallan. La que sobrevivió a la primera
+  vuelta —girar la torta un cuarto de vuelta— tiene ahora su test.
+- Vuelta por el navegador con los ocho rubros cargados, en claro y en oscuro,
+  terminando con una recarga: 0 peticiones de red, 0 errores de consola.
+
+**Lo que NO cierra esto: T-020 (CU-05).** La línea muestra el acumulado, pero
+CU-05 pide además la tabla día por día con gasto, ingreso y los dos acumulados.
+El cálculo ya está hecho (`porDia` en `core/calculos.js`), falta la pantalla.
 
 ---
 

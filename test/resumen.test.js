@@ -132,22 +132,32 @@ test('cada rubro tiene su propio color, y son distintos entre sí', () => {
     mov({ monto: '30', rubro: 'salud' }),
     mov({ monto: '10', rubro: 'transporte' }),
   ]);
-  const clases = dibujarDesglose(estado, MES, TIPO_GASTO).match(/class="barra ([^"]*)"/g) ?? [];
+  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
+  const puntos = html.match(/class="punto-rubro ([^"]*)"/g) ?? [];
+  const porciones = html.match(/class="porcion ([^"]*)"/g) ?? [];
 
-  assert.equal(clases.length, 3);
-  assert.equal(new Set(clases).size, 3, 'tres rubros, tres colores');
+  assert.equal(puntos.length, 3);
+  assert.equal(new Set(puntos).size, 3, 'tres rubros, tres colores');
+  // Y la torta usa exactamente esos tres, no otros: el dibujo y la lista de
+  // abajo tienen que hablar del mismo rubro con el mismo color.
+  assert.deepEqual(
+    new Set(porciones.map((c) => c.replace('porcion', 'punto-rubro'))),
+    new Set(puntos),
+  );
 });
 
 test('el color de un rubro NO depende de su tamaño (T-909)', () => {
   // Es LA regla. Si el color dependiera del tamaño, cargar un gasto nuevo
   // repintaría media pantalla y el color dejaría de significar "salud" para
-  // significar "el más grande de este mes" — que ya lo dice el largo de la barra.
+  // significar "el más grande de este mes" — que ya lo dice el tamaño de su
+  // porción.
   const pocos = estadoCon([mov({ monto: '10', rubro: 'salud' }), mov({ monto: '90', rubro: 'viajes' })]);
-  const claseAntes = dibujarDesglose(pocos, MES, TIPO_GASTO).match(/Salud[\s\S]*?class="barra ([^"]*)"/)[1];
+  const colorDeSalud = (html) => html.match(/class="punto-rubro ([^"]*)"[\s\S]{0,80}?Salud/)[1];
+  const claseAntes = colorDeSalud(dibujarDesglose(pocos, MES, TIPO_GASTO));
 
   // Ahora salud pasa a ser el rubro más grande del mes.
   const muchos = estadoCon([...pocos.movimientos, mov({ monto: '500', rubro: 'salud' })]);
-  const claseDespues = dibujarDesglose(muchos, MES, TIPO_GASTO).match(/Salud[\s\S]*?class="barra ([^"]*)"/)[1];
+  const claseDespues = colorDeSalud(dibujarDesglose(muchos, MES, TIPO_GASTO));
 
   assert.equal(claseAntes, claseDespues, 'el color de salud no cambió al cambiar su tamaño');
   assert.equal(claseAntes, claseDeRubro(TIPO_GASTO, 'salud'));
@@ -194,18 +204,19 @@ test('los rótulos se muestran con mayúscula inicial', () => {
   assert.equal(html.includes('>gastos fijos'), false);
 });
 
-test('la barra más larga es la del rubro más grande', () => {
-  // 100 y 25 sobre un total de 125 son 80 % y 20 %. Este test decía [100, 25]
-  // hasta el 2026-08-27: la barra se dibujaba contra el rubro mayor, así que el
-  // más grande siempre llenaba el ancho. Lo encontró el usuario en su celular,
-  // con dos rubros que decían 50 % y tenían las dos barras completas (T-911).
+test('la lista va de mayor a menor, con su porcentaje', () => {
+  // 100 y 25 sobre un total de 125 son 80 % y 20 %. La torta muestra el
+  // reparto; el orden y los números precisos los da esta lista, que es para lo
+  // que se quedó cuando la torta reemplazó a las barras (T-918).
   const estado = estadoCon([
-    mov({ monto: '100', rubro: 'viajes' }),
     mov({ monto: '25', rubro: 'salud' }),
+    mov({ monto: '100', rubro: 'viajes' }),
   ]);
-  const anchos = [...dibujarDesglose(estado, MES, TIPO_GASTO).matchAll(/width: ([\d.]+)%/g)].map((m) => Number(m[1]));
+  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
+  const escritos = [...html.matchAll(/<span>(\d+) %<\/span>/g)].map((m) => Number(m[1]));
 
-  assert.deepEqual(anchos, [80, 20]);
+  assert.deepEqual(escritos, [80, 20]);
+  assert.ok(html.indexOf('Viajes') < html.indexOf('Salud'), 'el más grande va primero');
 });
 
 test('gastos e ingresos se muestran por separado, con títulos distintos', () => {
@@ -241,22 +252,22 @@ test('el conteo de movimientos por rubro concuerda en número', () => {
   assert.ok(html.includes('2 movimientos<'));
 });
 
-test('con un solo rubro no se dibuja una barra llena ni un 100 %', () => {
-  // Una barra siempre llena y un "100 %" siempre igual son dos adornos que
-  // ocupan lugar y no dicen nada: no hay nada con qué comparar.
+test('con un solo rubro no se dibuja una torta entera ni un 100 %', () => {
+  // Una torta de un solo color es un círculo, y un "100 %" siempre igual es un
+  // adorno: no hay nada con qué comparar.
   const estado = estadoCon([mov({ monto: '2100', tipo: TIPO_INGRESO, rubro: 'trabajo' })]);
   const html = dibujarDesglose(estado, MES, TIPO_INGRESO);
 
   assert.ok(html.includes('Trabajo'));
   assert.ok(html.includes(`2100,00${DURO}€`));
-  assert.equal(html.includes('class="barra'), false);
+  assert.equal(html.includes('<svg'), false);
   assert.equal(html.includes('100 %'), false);
 });
 
-test('con dos rubros o más sí se dibujan las barras', () => {
+test('con dos rubros o más sí se dibuja la torta', () => {
   const estado = estadoCon([mov({ monto: '10', rubro: 'salud' }), mov({ monto: '20', rubro: 'viajes' })]);
   const html = dibujarDesglose(estado, MES, TIPO_GASTO);
-  assert.ok(html.includes('class="barra'));
+  assert.ok(html.includes('class="porcion'));
 });
 
 // ── Que los números de la pantalla cierren entre sí ──────────────────────────
@@ -275,7 +286,9 @@ test('los importes del desglose suman el total que muestra arriba', () => {
   // El total aparece tal cual arriba…
   assert.ok(html.includes(`${(totales.gastos / 100).toFixed(2).replace('.', ',')}${DURO}€`));
   // …y los porcentajes del desglose suman 100.
-  const porcentajes = [...html.matchAll(/>(\d+) %</g)].map((m) => Number(m[1]));
+  // Se leen los de la lista, no los de la torta: la torta rotula solo las
+  // porciones grandes, así que sus números no suman 100 a propósito.
+  const porcentajes = [...html.matchAll(/<span>(\d+) %<\/span>/g)].map((m) => Number(m[1]));
   assert.equal(porcentajes.reduce((t, p) => t + p, 0), 100);
 });
 
@@ -330,44 +343,3 @@ test('el resumen no contiene ninguna dirección de internet (RN-06)', () => {
   assert.equal(/https?:\/\//.test(dibujarResumen({ estado, mes: MES })), false);
 });
 
-// ── El largo de las barras (T-911) ───────────────────────────────────────────
-
-test('dos rubros iguales dan dos barras a la mitad, no dos llenas', () => {
-  // El caso exacto que reportó el usuario (2026-08-27).
-  const estado = estadoCon([
-    mov({ monto: '50', rubro: 'viajes' }),
-    mov({ monto: '50', rubro: 'salud' }),
-  ]);
-  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
-
-  const anchos = [...html.matchAll(/width: ([\d.]+)%/g)].map((m) => Number(m[1]));
-  assert.deepEqual(anchos, [50, 50]);
-});
-
-test('el ancho de la barra y el porcentaje escrito dicen lo mismo', () => {
-  // Es la regla, no un caso: si vuelven a separarse, el dibujo contradice al
-  // número, y entre los dos el usuario le cree al número.
-  const estado = estadoCon([
-    mov({ monto: '60', rubro: 'viajes' }),
-    mov({ monto: '30', rubro: 'salud' }),
-    mov({ monto: '10', rubro: 'transporte' }),
-  ]);
-  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
-
-  const anchos = [...html.matchAll(/width: ([\d.]+)%/g)].map((m) => Math.round(Number(m[1])));
-  const escritos = [...html.matchAll(/>(\d+)\s*%</g)].map((m) => Number(m[1]));
-
-  assert.deepEqual(anchos, [60, 30, 10]);
-  assert.deepEqual(escritos, anchos);
-});
-
-test('las barras nunca suman más del 100 %', () => {
-  const estado = estadoCon([
-    mov({ monto: '33,33', rubro: 'viajes' }),
-    mov({ monto: '66,67', rubro: 'salud' }),
-  ]);
-  const html = dibujarDesglose(estado, MES, TIPO_GASTO);
-
-  const total = [...html.matchAll(/width: ([\d.]+)%/g)].reduce((suma, m) => suma + Number(m[1]), 0);
-  assert.ok(total <= 100.01, `las barras suman ${total} %`);
-});

@@ -870,3 +870,59 @@ en visión con daltonismo y uno queda corto de contraste. La guía lo permite
 cuando hay **rótulo directo**, y lo hay: cada fila dice su nombre y su importe, y
 la torta va a llevar los nombres al lado. Con fondo oscuro la paleta pasa las
 seis comprobaciones.
+
+---
+
+## ADR-030 · La torta reemplaza a las barras, y por eso la lista se queda
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-918
+
+**Quién decidió qué.** El usuario pidió los dos gráficos que tiene en su
+planilla —una torta por rubro y una línea de gasto acumulado— y decidió que la
+torta **reemplace** a las barras de proporción, no que convivan.
+
+**El costo, dicho antes de pagarlo.** Una torta se compara peor que una barra:
+el ojo compara ángulos bastante peor que longitudes, y dos porciones de 23 % y
+20 % se distinguen mucho menos que dos barras de esos largos. Lo que se gana es
+el reparto **del todo** de un vistazo, y una forma que él ya reconoce.
+
+**Cómo se paga el costo:** la lista de rubros ordenada de mayor a menor **no se
+saca**. Ahí están el nombre, el importe y el porcentaje de cada uno, que es donde
+se compara con precisión. La torta da la forma; la lista da los números. Sin la
+lista, el cambio sí sería una pérdida neta, y esto deja de ser una decisión de
+gusto.
+
+**Las porciones se dibujan en el orden fijo de la paleta, no de mayor a menor.**
+Con ocho colores ninguna paleta pasa el validador comparando todos contra todos
+(ADR-029); sí pasan los pares que quedan **pegados**, siempre que sean siempre
+los mismos. Dibujar por tamaño haría que cargar un gasto cambiara qué color toca
+a qué color, y un par que hoy se distingue mañana no. Es la misma regla de
+siempre: el color sigue a la cosa, nunca a su puesto en el ranking.
+
+**El ángulo sale del importe, no del porcentaje redondeado.** Ocho números
+redondeados no suman 360: la última porción quedaría con un hueco o pisando a la
+primera.
+
+**Solo las porciones grandes llevan su número adentro** (desde 8 %). Ocho
+números en una torta de teléfono se pisan entre sí, y todos los porcentajes están
+en la lista de abajo. Ese número es **el único texto de la app que no usa un
+color de texto**: va encima de un color de rubro, así que se elige contra ese
+fondo. El negro es el único que se lee sobre los ocho tonos en los dos modos —lo
+peor es 4,2:1 sobre el verde—, y un test lo comprueba contra la paleta, para que
+un cambio futuro de colores falle ahí y no lo descubra el usuario mirando un
+"32 %" ilegible.
+
+**La línea lleva las dos series, gasto e ingreso, en un solo eje.** El dato que
+se busca ahí no es cuánto se gastó —eso ya está arriba en número grande— sino
+**cuándo una cruza a la otra**. Son la misma unidad, así que comparten escala:
+dos escalas en un mismo dibujo es la forma más común de mentir con un gráfico,
+porque hace que la línea de abajo parezca alcanzar a la de arriba. Cada línea
+dice cuál es **donde termina**, no en una referencia aparte.
+
+**En el mes en curso la línea se corta en el día de hoy.** Si siguiera hasta el
+31, quedaría plana desde hoy hasta fin de mes, y una meseta en un acumulado se
+lee como "dejó de gastar". Esos días no pasaron todavía.
+
+**Se dibuja en SVG escrito a mano.** No es purismo: una biblioteca de gráficos se
+trae de un CDN y eso está prohibido (RN-06). Un sector de círculo y una polilínea
+son dos fórmulas de trigonometría.

@@ -7,12 +7,18 @@
 //      gráfico de tres barras para tres cifras que ya se leen en un vistazo
 //      agrega trabajo visual y no agrega información.
 //
-//   2. El desglose por rubro es una **tabla con barras de proporción**, y cada
-//      barra lleva **el color de su rubro** (T-909), el mismo que ese rubro tiene
-//      en todas las demás pantallas. El color identifica al rubro y **nunca a su
-//      tamaño**: pintar más oscuro al más grande codificaría dos veces lo mismo
-//      —el largo ya lo dice— y haría que el color cambiara de significado cada
-//      vez que se carga un gasto.
+//   2. El desglose por rubro es una **torta más una tabla** (T-918). La torta da
+//      el reparto del todo de un vistazo; la tabla, ordenada de mayor a menor,
+//      da el nombre, el importe y el porcentaje, que es donde se compara con
+//      precisión. Hasta el 2026-08-28 la tabla llevaba barras de proporción: las
+//      reemplazó la torta por pedido del usuario, que es la forma que reconoce
+//      de su planilla. La tabla se quedó justamente porque la torta compara
+//      peor, y sin ella el cambio sería una pérdida.
+//
+//      Cada rubro lleva **el color que tiene en todas las demás pantallas**
+//      (T-909, T-922). El color identifica al rubro y **nunca a su tamaño**:
+//      pintar más oscuro al más grande codificaría dos veces lo mismo y haría
+//      que el color cambiara de significado cada vez que se carga un gasto.
 //
 //   3. Los importes de la tabla llevan cifras de ancho fijo, para poder
 //      compararlos en columna. Los tres números grandes de arriba **no**: en un
@@ -22,9 +28,10 @@
 // texto HTML.
 
 import { escapar } from '../app.js';
-import { totalesDelMes, porRubro, promedioPorDia } from '../../core/calculos.js';
+import { totalesDelMes, porRubro, porDia, promedioPorDia } from '../../core/calculos.js';
 import { formatearEuros, formatearMes, formatearRubro } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
+import { dibujarTorta, dibujarAcumulado } from './graficos.js';
 import { TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../../core/modelo.js';
 
 /** Un porcentaje para mostrar: sin decimales, que en un desglose no aportan. */
@@ -91,11 +98,11 @@ export function dibujarIncompleto(estado, totales) {
 }
 
 /**
- * El desglose de un tipo, de mayor a menor.
+ * El desglose de un tipo: la torta arriba, la lista de mayor a menor abajo.
  *
- * Barras del mismo color, con el extremo redondeado y arrancando todas del mismo
- * borde: lo que se compara es el largo. Y con hueco entre filas, no con línea
- * divisoria adentro de la barra.
+ * Las dos leen los mismos datos y las dos están siempre: el dibujo muestra el
+ * reparto, la lista muestra los números. La torta se dibuja en el orden fijo de
+ * la paleta, no en el de la lista — el motivo está en `graficos.js`.
  */
 export function dibujarDesglose(estado, mes, tipo) {
   const filas = porRubro(estado, mes, tipo);
@@ -118,16 +125,6 @@ export function dibujarDesglose(estado, mes, tipo) {
           </span>
           <span class="importe">${escapar(formatearEuros(fila.total))}</span>
         </div>
-        ${hayComparacion ? `
-        <div class="barra-pista">
-          <!-- El largo es el PORCENTAJE del total del mes, no la proporción
-               contra el rubro más grande. La versión anterior lo dividía por el
-               total del rubro mayor, que aprovecha todo el ancho pero contradice
-               el número escrito abajo: con dos rubros de 50 % los dos salían
-               llenos. Entre el dibujo y el número gana el número, y el dibujo
-               pasa a ser ruido (lo encontró el usuario, 2026-08-27). -->
-          <div class="barra ${claseDeRubro(tipo, fila.rubro)}" style="width: ${fila.porcentaje}%"></div>
-        </div>` : ''}
         <div class="rubro-pie suave">
           <span>${hayComparacion ? escapar(porcentaje(fila.porcentaje)) : ''}</span>
           <span>${fila.cuantos === 1 ? '1 movimiento' : `${fila.cuantos} movimientos`}</span>
@@ -138,6 +135,7 @@ export function dibujarDesglose(estado, mes, tipo) {
   return `
     <section class="tarjeta">
       <h2>${titulo}</h2>
+      ${dibujarTorta(filas, tipo)}
       <ul class="rubros">${cuerpo}</ul>
     </section>
   `;
@@ -198,6 +196,7 @@ export function dibujarResumen(vista) {
     ${dibujarTotales(totales)}
     ${dibujarPromedio(estado, mes)}
     ${dibujarDesglose(estado, mes, TIPO_GASTO)}
+    ${dibujarAcumulado(porDia(estado, mes), { hasta: mes === mesDe(hoy()) ? Number(hoy().slice(8)) : undefined })}
     ${dibujarDesglose(estado, mes, TIPO_INGRESO)}
   `;
 }

@@ -451,37 +451,94 @@ body {
 .rubro-cabeza .importe { font-variant-numeric: tabular-nums; font-weight: 600; }
 .rubro-pie { font-size: 0.8125rem; margin-top: 0.25rem; }
 
-/* La barra: fina, todas del mismo color, todas arrancando del mismo borde. Lo
-   que se compara es el largo, así que el color no tiene que decir nada más. */
-.barra-pista {
-  height: 0.5rem;
-  margin-top: 0.375rem;
-  background: var(--borde);
-  border-radius: 0 0.25rem 0.25rem 0;
+/* ── La torta del mes (T-918) ────────────────────────────────────────────────
+   Reemplazó a las barras de proporción por pedido del usuario: es la forma que
+   tiene en su planilla. Debajo queda la lista con los números, que es donde se
+   compara con precisión. */
+.torta {
+  display: block;
+  width: 100%;
+  max-width: 15rem;
+  margin: 0 auto 1rem;
 }
 
-.barra {
-  height: 100%;
-  min-width: 0.25rem;
-  /* Cuadrada donde arranca, redondeada en la punta: el borde izquierdo es la
-     línea de base contra la que se comparan todas. */
-  border-radius: 0 0.25rem 0.25rem 0;
+.porcion {
+  /* El hueco entre porciones no se dibuja: se pinta el borde del color de la
+     tarjeta. Sin él, dos rubros vecinos se leen como una sola mancha. */
+  stroke: var(--superficie);
+  stroke-width: 2;
+  stroke-linejoin: round;
 }
 
-.barra.gasto { background: var(--gasto); }
-.barra.ingreso { background: var(--ingreso); }
+/* El único texto de la app que NO usa un color de texto: va encima de un color
+   de rubro, así que el color se elige contra ESE fondo y no contra la tarjeta.
+   El negro es el único que se lee sobre los ocho tonos, en claro y en oscuro
+   (lo peor es 4,2:1 sobre el verde). Un test lo comprueba: si algún día cambia
+   la paleta y un tono deja de aguantar el negro, falla ahí y no acá. */
+.rotulo-porcion {
+  fill: #000000;
+  font-size: 15px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
 
-/* ── Un color por rubro (T-909) ──────────────────────────────────────────────
-   Los ocho tonos NO se eligieron a ojo: salen de la paleta categórica de la
-   guía de visualización y se comprobaron con su validador contra las dos
-   superficies de esta app. Pasan las seis comprobaciones en claro y en oscuro
-   —banda de luminosidad, croma mínimo, separación para daltonismo (peor par
-   ΔE 9,1 y 8,4), separación en visión normal (ΔE 19,6 y 19,3) y contraste—.
+/* ── La línea del acumulado (T-918) ──────────────────────────────────────── */
+.linea-acumulado {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
 
-   La única advertencia es que tres tonos quedan por debajo de 3:1 sobre el
-   fondo claro. Está cubierta porque cada barra lleva su nombre y su importe
-   escritos al lado: el color nunca es la única forma de saber qué es. Una
-   pantalla que muestre estos colores SIN texto tiene que resolverlo de nuevo.
+.linea-acumulado .eje {
+  stroke: var(--borde);
+  stroke-width: 1;
+}
+
+.linea-acumulado .traza {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* El SVG se estira a lo ancho del teléfono: sin esto el trazo se estiraría
+     con él y las dos líneas tendrían grosores distintos. */
+  vector-effect: non-scaling-stroke;
+}
+
+.linea-acumulado .traza.gasto { stroke: var(--gasto); }
+.linea-acumulado .traza.ingreso { stroke: var(--ingreso); }
+
+/* Rótulo al final de cada línea: qué línea es no se pregunta a una referencia
+   que está en otro lado, se lee donde termina. */
+.linea-acumulado .rotulo-traza {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.linea-acumulado .rotulo-traza.gasto { fill: var(--gasto); }
+.linea-acumulado .rotulo-traza.ingreso { fill: var(--ingreso); }
+
+.linea-acumulado .marca-eje {
+  fill: var(--texto-suave);
+  font-size: 11px;
+}
+
+.linea-acumulado .marca-eje.fin { text-anchor: end; }
+
+/* ── Un color por rubro (T-909, T-922) ───────────────────────────────────────
+   Los ocho tonos salen de la PLANILLA DEL USUARIO: se conservó el matiz de
+   cada color suyo y se corrigieron la luz y el croma hasta que el conjunto
+   pasara el validador de la guía de visualización contra las dos superficies
+   de esta app. Seis de los ocho se movieron 23° o menos. Ver ADR-029.
+
+   Con fondo oscuro pasan las seis comprobaciones. Con fondo claro pasan las
+   cuatro duras, con dos advertencias —un par a ΔE 7,2 bajo daltonismo y un
+   tono corto de contraste— que la guía permite cuando hay rótulo directo, y lo
+   hay: cada rubro lleva su nombre y su importe escritos al lado, y las
+   porciones grandes de la torta llevan su porcentaje adentro. El color nunca
+   es la única forma de saber qué es. Una pantalla que los muestre SIN texto
+   tiene que resolverlo de nuevo.
 
    Ocho es el techo. Un noveno tono generado sería indistinguible de alguno de
    estos bajo daltonismo: si hiciera falta, se agrupa, no se inventa un color.
@@ -516,14 +573,22 @@ body {
   }
 }
 
-.barra.rubro-1, .punto-rubro.rubro-1 { background: var(--rubro-1); }
-.barra.rubro-2, .punto-rubro.rubro-2 { background: var(--rubro-2); }
-.barra.rubro-3, .punto-rubro.rubro-3 { background: var(--rubro-3); }
-.barra.rubro-4, .punto-rubro.rubro-4 { background: var(--rubro-4); }
-.barra.rubro-5, .punto-rubro.rubro-5 { background: var(--rubro-5); }
-.barra.rubro-6, .punto-rubro.rubro-6 { background: var(--rubro-6); }
-.barra.rubro-7, .punto-rubro.rubro-7 { background: var(--rubro-7); }
-.barra.rubro-8, .punto-rubro.rubro-8 { background: var(--rubro-8); }
+.punto-rubro.rubro-1 { background: var(--rubro-1); }
+.porcion.rubro-1 { fill: var(--rubro-1); }
+.punto-rubro.rubro-2 { background: var(--rubro-2); }
+.porcion.rubro-2 { fill: var(--rubro-2); }
+.punto-rubro.rubro-3 { background: var(--rubro-3); }
+.porcion.rubro-3 { fill: var(--rubro-3); }
+.punto-rubro.rubro-4 { background: var(--rubro-4); }
+.porcion.rubro-4 { fill: var(--rubro-4); }
+.punto-rubro.rubro-5 { background: var(--rubro-5); }
+.porcion.rubro-5 { fill: var(--rubro-5); }
+.punto-rubro.rubro-6 { background: var(--rubro-6); }
+.porcion.rubro-6 { fill: var(--rubro-6); }
+.punto-rubro.rubro-7 { background: var(--rubro-7); }
+.porcion.rubro-7 { fill: var(--rubro-7); }
+.punto-rubro.rubro-8 { background: var(--rubro-8); }
+.porcion.rubro-8 { fill: var(--rubro-8); }
 
 /* El punto que acompaña al nombre en las listas. Es chico a propósito: el
    nombre escrito es lo que manda, el color solo ayuda a encontrarlo. */
