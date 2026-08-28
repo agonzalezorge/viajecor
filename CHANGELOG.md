@@ -35,7 +35,14 @@ La versión publicada vive en el archivo `VERSION`.
   CU-15).
 
 ### Arreglado
+- **El autocompletado de Comentario ahora funciona de verdad** (T-920). Antes se
+  lo pedía al navegador, y en Android no dibujaba nada — sin error, sin aviso:
+  la función simplemente no existía. Ahora las sugerencias son botones propios,
+  que se ven y se tocan. **También en el campo Detalle.** Escribís `barce` y te
+  ofrece `Barcelona26`, sin tener que acertar las mayúsculas.
 - **Si compartir no funciona en tu teléfono, la app deja de ofrecerlo** (T-914).
+  Ya no explica cada vez por qué no está: queda solo la forma de volver a
+  intentarlo (T-921).
   Pasó de verdad: el navegador decía que podía compartir archivos y fallaba con
   «Permission denied» al tocar el botón. Ahora el error se explica en castellano,
   se recuerda, la descarga vuelve a ser el botón principal, y queda un *Probar de

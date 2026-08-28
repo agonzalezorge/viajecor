@@ -680,3 +680,47 @@ pura y no necesitan navegador. El recorrido prueba el otro caso —`localStorage
 bloqueado—, que **sí se puede provocar de verdad**, y de paso destapó L-019.
 Cuando algo no se puede simular con honestidad, se prueba en el nivel donde sí
 se puede, y se dice cuál es cuál.
+
+---
+
+## L-021 · Un control que dibuja el sistema puede no dibujar nada
+
+Es L-013 otra vez —«un control que dibuja el sistema no habla necesariamente tu
+idioma»— pero un escalón más abajo, y peor.
+
+**Qué pasó.** El autocompletado del comentario (T-912) se hizo con `<datalist>`,
+que es la forma estándar y la más barata: se escribe una lista de opciones y el
+navegador se encarga de mostrarlas. En el Android del usuario **no muestra
+nada**. No falla, no avisa, no hay error en ninguna consola: el campo se comporta
+como un campo de texto común y la funcionalidad simplemente no existe.
+
+**Por qué no lo vio nadie.** Los tests comprobaban que el `<datalist>` estuviera
+en el HTML con sus `<option>` adentro — y estaba, perfectamente formado—. El
+recorrido en Chromium de escritorio lo mostraba. Todo verde en los dos lados. Lo
+único que no se podía comprobar era lo único que importaba: que el navegador del
+usuario **decidiera dibujarlo**.
+
+**La diferencia con L-013.** Allá el control del sistema hacía algo distinto de
+lo esperado —mostraba la fecha en otro formato—, y se resolvió escribiendo la
+fecha en palabras al lado. Se podía compensar porque el problema **se veía**.
+Acá el control no hace nada, y no hay nada que compensar: la única salida es no
+usarlo.
+
+**La regla que queda.** Cuando algo se le delega al navegador, hay que
+preguntarse: *si no lo hace, ¿me entero?*
+
+- Si la respuesta es **sí** —el calendario de la fecha, que se ve— se puede
+  delegar y compensar.
+- Si es **no** —una lista que aparece o no aparece, y nadie del lado del código
+  puede saber cuál de las dos— hay que escribirlo, aunque cueste más. Un control
+  propio son treinta líneas de más y se puede ver, tocar y comprobar. Uno cedido
+  son tres líneas y una promesa.
+
+**Y una tercera cosa, sobre cómo se encontró.** No lo encontró un test ni un
+recorrido: lo encontró **el usuario en su teléfono**. Las dos primeras veces que
+lo reportó, la causa fue otra —una vez tenía el archivo viejo, otra la
+instrucción de prueba que le di era imposible de cumplir—. Recién a la tercera
+quedó claro que el problema era real. La lección de método: **cuando alguien
+reporta lo mismo tres veces, dejar de pedirle que lo pruebe distinto y cambiar el
+código**. Cada vuelta le cuesta a él una prueba, y a esa altura ya salía más
+barato construir la versión que no puede fallar.

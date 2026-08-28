@@ -17,7 +17,7 @@ import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana
 import { claseDeRubro } from '../colores.js';
 import { escapar } from '../app.js';
 import { dibujarPedido, dibujarMovimientoEnEspera } from './cambio.js';
-import { comentariosUsados } from '../../core/calculos.js';
+import { comentariosUsados, detallesUsados, sugerenciasPara } from '../../core/calculos.js';
 
 /**
  * Los campos vacíos de un formulario nuevo.
@@ -221,26 +221,38 @@ function dibujarUltimos(estado) {
 }
 
 /**
- * Los comentarios ya usados, para que el navegador los ofrezca al escribir.
+ * Las sugerencias de un campo, como botones — T-920.
  *
- * Se limita a los 50 más recientes: no por rendimiento —la app recorre listas
- * enteras sin topes (L-001)— sino porque una lista de sugerencias con
- * doscientas entradas no se puede usar en un celular, y las viejas nunca se
- * eligen. **El límite es de lo que se muestra, no de lo que se calcula**, que es
- * la diferencia que importa: ningún total depende de este número.
+ * **No se usa `<datalist>`.** Se usaba (T-912) y en el Android del usuario **no
+ * aparece nada**: el navegador lo dibuja como quiere, y ahí directamente no lo
+ * dibuja. Es L-013 en su forma más cara — un control cedido al sistema que no
+ * hace nada y no avisa—. Unos botones propios son más código y hay que
+ * mantenerlos, pero se pueden ver, tocar y comprobar.
+ *
+ * Son `<button type="button">` y no enlaces ni divs: se llega con el teclado,
+ * los lee un lector de pantalla, y `type="button"` evita que enviar el
+ * formulario sea lo que pasa al tocarlos.
  */
-export function dibujarComentariosUsados(estado) {
-  const usados = comentariosUsados(estado?.movimientos ?? []).slice(0, 50);
-  if (usados.length === 0) return '';
+export function dibujarSugerencias(campo, escrito, usados) {
+  const sugerencias = sugerenciasPara(escrito, usados);
+  if (sugerencias.length === 0) return '';
 
-  return `<datalist id="comentarios-usados">${
-    usados.map((texto) => `<option value="${escapar(texto)}"></option>`).join('')
-  }</datalist>`;
+  return sugerencias
+    .map((texto) => `<button type="button" class="sugerencia" data-accion="sugerencia"
+        data-campo="${escapar(campo)}" data-texto="${escapar(texto)}">${escapar(texto)}</button>`)
+    .join('');
+}
+
+/** Lo ya escrito en cada campo que sugiere, para no calcularlo dos veces. */
+export function usadosDe(estado) {
+  const movimientos = estado?.movimientos ?? [];
+  return { comentario: comentariosUsados(movimientos), detalle: detallesUsados(movimientos) };
 }
 
 export function dibujarNuevo(vista) {
   const estado = vista.estado;
   const borrador = vista.borrador ?? borradorNuevo({ estado });
+  const usados = usadosDe(estado);
 
   // Si el gasto que se está cargando necesita un tipo de cambio, la app
   // interrumpe y lo pide (CU-03). Se reemplaza el formulario en vez de agregar
@@ -317,25 +329,23 @@ export function dibujarNuevo(vista) {
         <span>Detalle <em class="suave">— para acordarte</em></span>
         <input name="detalle" type="text" autocomplete="off"
                placeholder="cena" value="${escapar(borrador.detalle)}">
+        <div class="sugerencias" data-sugerencias="detalle">${
+          dibujarSugerencias('detalle', borrador.detalle, usados.detalle)
+        }</div>
       </label>
 
-      <!-- El comentario va último y ofrece los que ya usaste (T-912). No es
-           comodidad: el comentario es lo que agrupa los gastos de un viaje
+      <!-- El comentario va último y ofrece los que ya usaste (T-912, T-920). No
+           es comodidad: el comentario es lo que agrupa los gastos de un viaje
            (RN-03), y "Barcelona26" y "barcelona 26" son dos viajes distintos en
            los totales. Ofrecer lo que ya existe es la forma más barata de que
-           elijas la escritura que ya tenés en vez de inventar una nueva.
-
-           Se usa <datalist>, que lo dibuja el navegador: no hay ninguna lista
-           flotante propia que mantener, ni teclado que se pelee con ella en un
-           celular. La contra es que cada navegador lo muestra a su manera —es la
-           misma cesión que el calendario de la fecha, L-013—, pero acá el campo
-           sigue siendo un campo de texto común: si el navegador no dibuja nada,
-           se escribe igual y no se pierde nada. -->
+           elijas la escritura que ya tenés en vez de inventar una nueva. -->
       <label class="campo">
         <span>Comentario <em class="suave">— viaje o gasto fijo, para agrupar</em></span>
-        <input name="comentario" type="text" autocomplete="off" list="comentarios-usados"
+        <input name="comentario" type="text" autocomplete="off"
                placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
-        ${dibujarComentariosUsados(estado)}
+        <div class="sugerencias" data-sugerencias="comentario">${
+          dibujarSugerencias('comentario', borrador.comentario, usados.comentario)
+        }</div>
       </label>
 
       <button type="submit" class="principal" data-accion="guardar">

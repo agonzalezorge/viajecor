@@ -38,6 +38,16 @@ function conComentarios(...comentarios) {
   });
 }
 
+/** Un estado con detalles ya cargados. */
+function conDetalles(...detalles) {
+  return estadoLimpio({
+    movimientos: detalles.map((detalle, i) => crearMovimiento(
+      { tipo: TIPO_GASTO, rubro: 'supermercado', monto: '10', moneda: 'EUR', fecha: `2026-03-0${i + 1}`, comentario: '', detalle },
+      { decimales: 2, id: `mov_${i}`, creado: `2026-03-0${i + 1}` }
+    )),
+  });
+}
+
 function borradorDe(campos = {}) {
   return { ...borradorNuevo({ estado: estadoLimpio() }), rubro: 'supermercado', monto: '12,50', ...campos };
 }
@@ -347,39 +357,85 @@ test('el detalle va penúltimo y el comentario último', () => {
   assert.ok(donde('detalle') < donde('comentario'), 'el comentario tiene que ser el último');
 });
 
-test('el comentario ofrece los que ya usaste', () => {
-  // No es comodidad: el comentario es lo que agrupa los gastos de un viaje
-  // (RN-03), y dos escrituras distintas son dos viajes distintos en los totales.
+test('con el campo vacío no se ofrece nada', () => {
+  // Una lista de veinte sugerencias apenas se toca el campo tapa el formulario
+  // en un celular.
   const html = dibujarNuevo({ estado: conComentarios('Barcelona26') });
 
-  assert.match(html, /list="comentarios-usados"/);
-  assert.match(html, /<datalist id="comentarios-usados">/);
-  assert.ok(html.includes('<option value="Barcelona26">'));
+  assert.equal(/data-accion="sugerencia"/.test(html), false);
 });
 
-test('sin comentarios usados no se dibuja una lista vacía', () => {
-  const html = dibujarNuevo({ estado: estadoLimpio({ movimientos: [] }) });
+test('al escribir el principio de un comentario ya usado, se ofrece', () => {
+  // El caso exacto que el usuario probó en su celular (2026-08-28).
+  const estado = conComentarios('Barcelona26');
+  const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), comentario: 'Barce' } });
 
-  // Se busca la etiqueta con su id, no la palabra suelta: el comentario del
-  // código explica por qué se usa <datalist> y contiene la palabra.
-  assert.equal(html.includes('<datalist id='), false);
+  assert.match(html, /data-accion="sugerencia"/);
+  assert.match(html, /data-campo="comentario"/);
+  assert.ok(html.includes('>Barcelona26</button>'));
+});
+
+test('las sugerencias NO dependen de <datalist>', () => {
+  // El navegador lo dibuja como quiere, y en el Android del usuario no dibuja
+  // nada. Un control que no hace nada y no avisa es L-013 en su forma más cara.
+  const estado = conComentarios('Barcelona26');
+  const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), comentario: 'Barce' } });
+
+  assert.equal(html.includes('<datalist'), false);
+  assert.equal(/list="/.test(html), false);
+});
+
+test('el detalle también sugiere lo ya escrito', () => {
+  // El usuario probó el autocompletado ahí (2026-08-28) y tenía razón en
+  // esperarlo: "alquiler", "luz", "psicóloga" se repiten todos los meses.
+  const estado = conDetalles('alquiler', 'almuerzo');
+  const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), detalle: 'alq' } });
+
+  assert.match(html, /data-campo="detalle"/);
+  assert.ok(html.includes('>alquiler</button>'));
+  assert.equal(html.includes('>almuerzo</button>'), false, 'no empieza ni contiene "alq"');
+});
+
+test('se sugiere sin importar mayúsculas ni acentos', () => {
+  // Si hubiera que acertar las mayúsculas, el autocompletado no serviría para lo
+  // único que sirve: no volver a escribir lo mismo de otra manera (RN-03).
+  const estado = conComentarios('Barcelona26');
+  const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), comentario: 'barce' } });
+
+  assert.ok(html.includes('>Barcelona26</button>'));
+});
+
+test('lo que ya está escrito igual no se sugiere a sí mismo', () => {
+  const estado = conComentarios('Roma');
+  const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), comentario: 'Roma' } });
+
+  assert.equal(/data-accion="sugerencia"/.test(html), false);
+});
+
+test('pero escrito con otras mayúsculas SÍ se sugiere', () => {
+  // Es todo el punto: que elija la escritura que ya tiene en vez de crear un
+  // segundo grupo con la misma palabra (RN-03). Un test anterior daba esto por
+  // "ya escrito" y lo salteaba — se saltaba justo el caso que más importa.
+  const estado = conComentarios('Roma');
+  const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), comentario: 'roma' } });
+
+  assert.ok(html.includes('>Roma</button>'));
 });
 
 test('un comentario no se ofrece dos veces aunque esté escrito distinto', () => {
-  // "Barcelona26" y "barcelona 26" son el mismo grupo (RN-03). Ofrecer los dos
+  // "Barcelona26" y "barcelona26" son el mismo grupo (RN-03). Ofrecer los dos
   // sería enseñarle al usuario a separarlos.
-  const html = dibujarNuevo({ estado: conComentarios('Barcelona26', 'barcelona26') });
-  // Solo las opciones de la lista de comentarios: el formulario tiene otros
-  // <select> (rubro, moneda) con sus propias opciones.
-  const lista = html.slice(html.indexOf('<datalist id='), html.indexOf('</datalist>'));
+  const estado = conComentarios('Barcelona26', 'barcelona26');
+  const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), comentario: 'Barce' } });
 
-  assert.equal((lista.match(/<option value=/g) ?? []).length, 1);
-  assert.ok(lista.includes('Barcelona26'), 'se muestra la primera escritura, como en el resto de la app');
+  assert.equal((html.match(/data-accion="sugerencia"/g) ?? []).length, 1);
+  assert.ok(html.includes('>Barcelona26</button>'), 'se muestra la primera escritura');
 });
 
-test('las comillas en un comentario no rompen la lista', () => {
-  const html = dibujarNuevo({ estado: conComentarios('Viaje "raro" & <cosas>') });
+test('las comillas en un comentario no rompen la sugerencia', () => {
+  const estado = conComentarios('Viaje "raro" & <cosas>');
+  const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), comentario: 'Viaje' } });
 
-  assert.equal(html.includes('value="Viaje "raro"'), false);
   assert.ok(html.includes('&quot;raro&quot;'));
+  assert.equal(html.includes('data-texto="Viaje "raro"'), false);
 });

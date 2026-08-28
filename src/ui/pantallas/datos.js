@@ -126,11 +126,15 @@ export function dibujarDatos(vista) {
         ${vista.mostrarRespaldo ? 'Ocultar el texto' : 'Ver el texto para copiarlo'}
       </button>
 
+      <!-- Cuando compartir no funciona en este teléfono no se explica nada: el
+           usuario ya lo vio fallar una vez, con su motivo. Repetírselo cada vez
+           que entra a la pantalla es dejarle un cartel en la cara sobre algo que
+           no puede hacer (pedido del usuario, 2026-08-28). Queda solo la forma
+           de volver a intentarlo, por si algún día cambia un permiso. -->
       ${compartirFallo(vista) ? `
-      <p class="suave">El botón de compartir no funciona en este teléfono, así que
-      se dejó de ofrecer. Descargá el archivo y subilo desde tu carpeta de
-      descargas: es un paso más y funciona igual.
-      <button type="button" class="enlace" data-accion="reintentar-compartir">Probar de nuevo</button></p>` : ''}
+      <p class="suave discreto">
+        <button type="button" class="enlace" data-accion="reintentar-compartir">Probar el botón de compartir</button>
+      </p>` : ''}
 
       ${vista.mostrarRespaldo ? `
       <p class="suave">Copiá todo este texto y pegalo en una nota, un correo o

@@ -111,8 +111,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-917 | ~~Los dos gráficos del `.xlsx`~~ | **Descartada** (usuario, 2026-08-27) | — |
 | T-918 | Los dos gráficos del mes, en la app | Lista | T-013, T-909 |
 | T-919 | Verificar en el celular lo hecho después de T-019 | **Hecha** (usuario, 2026-08-28) | T-950, T-911…T-916 |
-| T-920 | Sugerencias propias, sin depender del navegador | En curso (claude, 2026-08-28) | T-912 |
-| T-921 | Sacar el texto de "compartir no funciona" | En curso (claude, 2026-08-28) | T-914 |
+| T-920 | Sugerencias propias, sin depender del navegador | **Hecha** | T-912 |
+| T-921 | Sacar el texto de "compartir no funciona" | **Hecha** | T-914 |
 
 **Lo próximo: la etapa 3.** Con la etapa 1 cerrada (2026-08-27), la app hace todo
 lo que hacía el Excel — pero **está vacía**, y el historial del usuario sigue
@@ -1374,6 +1374,28 @@ tiene el mismo sentido: `alquiler`, `luz`, `psicóloga` se repiten todos los mes
 que lo escrito vive en el documento y **no se redibuja por tecla**. Se actualiza
 solo el trozo de las sugerencias, con la misma técnica que ya usa la fecha en
 palabras. Y tocar una sugerencia no puede perder lo demás escrito.
+
+**Cómo quedó (Hecha, 2026-08-28).** Botones debajo del campo, que aparecen al
+escribir y desaparecen al elegir uno. Con el campo vacío no se ofrece nada: una
+lista de veinte sugerencias apenas se toca el campo tapa el formulario en un
+celular.
+
+**Se sugiere sin importar mayúsculas ni espacios de más, pero se muestra la
+escritura que ya existe.** Escribir `barcelona` ofrece `Barcelona26`. Y algo que
+destapó un test propio: la primera versión salteaba lo que coincidía en clave,
+así que escribir `roma` con `Roma` ya cargado **no ofrecía nada** — se saltaba
+justo el caso que más importa, que es el que evita crear un segundo grupo con la
+misma palabra (RN-03). Ahora solo se saltea lo escrito **igual**.
+
+**Lo que empieza con lo escrito va antes que lo que lo contiene:** escribir
+`Roma` y ver `Aeropuerto de Roma` arriba sería contraintuitivo.
+
+**Verificado:** 569 tests. Siete mutaciones, seis detectadas y una equivalente.
+Recorrido en un navegador real: con el campo vacío no ofrece nada, `Barce` ofrece
+`Barcelona26`, `barcelona` también, tocarla completa el campo **sin perder el
+monto ya escrito**, el detalle sugiere lo suyo sin tocar el comentario, lo
+guardado coincide con lo que se ve, y **no queda ningún `<datalist>` en la
+página**.
 
 ---
 

@@ -741,6 +741,40 @@ body {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Un párrafo que está pero no reclama atención: para lo que tiene que poder
+   encontrarse y no tiene que verse. */
+.discreto { opacity: 0.65; font-size: 0.875rem; margin-top: 0.75rem; }
+
+/* ── Las sugerencias de comentario y detalle (T-920) ──────────────────────────
+   Antes esto era un <datalist>, que dibuja el navegador. En el Android del
+   usuario no dibujaba nada: L-013 en su forma más cara, un control cedido al
+   sistema que no hace nada y no avisa. Estos botones son más código y se pueden
+   ver, tocar y comprobar. */
+.sugerencias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+.sugerencias:empty { margin-top: 0; }
+
+/* Tamaño de objetivo táctil: se tocan con el pulgar y con el teclado abierto,
+   que deja poco lugar en la pantalla. */
+.sugerencia {
+  min-height: 2.25rem;
+  padding: 0.375rem 0.75rem;
+  margin: 0;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: inherit;
+  font-size: 0.9375rem;
+  width: auto;
+}
+
+.sugerencia:active { background: var(--borde); }
 </style>
 
 <div id="app" class="app">
@@ -2049,12 +2083,28 @@ function porComentario(estado, mes) {
  * No recibe ningún límite: recorre la lista entera (L-001).
  */
 function comentariosUsados(movimientos) {
+  return textosUsados(movimientos, 'comentario');
+}
+
+/** Lo mismo para los detalles: `alquiler`, `luz`, `psicóloga` se repiten. */
+function detallesUsados(movimientos) {
+  return textosUsados(movimientos, 'detalle');
+}
+
+/**
+ * Los textos ya escritos en un campo, del más reciente al más viejo.
+ *
+ * Es la misma función para el comentario y para el detalle. Se generalizó cuando
+ * el usuario probó el autocompletado en el detalle (2026-08-28): tenía razón en
+ * esperarlo ahí, y dos copias de esto habrían sido dos formas de agrupar.
+ */
+function textosUsados(movimientos, campo) {
   if (!Array.isArray(movimientos)) return [];
 
   const porClave = new Map();
 
   for (const movimiento of movimientos) {
-    const texto = normalizarTextoVisible(movimiento?.comentario ?? '');
+    const texto = normalizarTextoVisible(movimiento?.[campo] ?? '');
     if (texto === '') continue;
 
     const clave = claveDeComentario(texto);
@@ -2073,6 +2123,44 @@ function comentariosUsados(movimientos) {
   return [...porClave.values()]
     .sort((a, b) => b.ultima.localeCompare(a.ultima) || a.texto.localeCompare(b.texto))
     .map((c) => c.texto);
+}
+
+/**
+ * Las sugerencias para lo que se está escribiendo — T-920.
+ *
+ * Coincide por **clave normalizada** y no por el texto tal cual: escribir `barce`
+ * tiene que ofrecer `Barcelona26`, porque si hubiera que acertar las mayúsculas
+ * el autocompletado no serviría para lo único que sirve, que es no volver a
+ * escribir lo mismo de otra manera (RN-03).
+ *
+ * Se ofrece lo que **empieza** con lo escrito primero, y después lo que lo
+ * contiene en el medio. Escribir `Roma` y que aparezca `Aeropuerto de Roma`
+ * antes que `Roma` sería contraintuitivo.
+ *
+ * Con el campo vacío no se ofrece nada: una lista de veinte sugerencias apenas
+ * se toca el campo tapa el formulario en un celular.
+ */
+function sugerenciasPara(escrito, usados, limite = 5) {
+  const visible = normalizarTextoVisible(String(escrito ?? ''));
+  const clave = normalizarClave(visible);
+  if (clave === '') return [];
+
+  const empiezan = [];
+  const contienen = [];
+
+  for (const texto of usados) {
+    // Se saltea solo lo que ya está escrito **igual**, no lo que coincide en
+    // clave: si escribió `roma` y existe `Roma`, hay que ofrecerlo. Ahí está
+    // todo el sentido de esto — que elija la escritura que ya tiene en vez de
+    // crear un segundo grupo con la misma palabra (RN-03).
+    if (texto === visible) continue;
+
+    const suya = normalizarClave(texto);
+    if (suya.startsWith(clave)) empiezan.push(texto);
+    else if (suya.includes(clave)) contienen.push(texto);
+  }
+
+  return [...empiezan, ...contienen].slice(0, limite);
 }
 
 // ── src/core/formato.js ─────────────────────────────────────────
@@ -5056,11 +5144,15 @@ function dibujarDatos(vista) {
         ${vista.mostrarRespaldo ? 'Ocultar el texto' : 'Ver el texto para copiarlo'}
       </button>
 
+      <!-- Cuando compartir no funciona en este teléfono no se explica nada: el
+           usuario ya lo vio fallar una vez, con su motivo. Repetírselo cada vez
+           que entra a la pantalla es dejarle un cartel en la cara sobre algo que
+           no puede hacer (pedido del usuario, 2026-08-28). Queda solo la forma
+           de volver a intentarlo, por si algún día cambia un permiso. -->
       ${compartirFallo(vista) ? `
-      <p class="suave">El botón de compartir no funciona en este teléfono, así que
-      se dejó de ofrecer. Descargá el archivo y subilo desde tu carpeta de
-      descargas: es un paso más y funciona igual.
-      <button type="button" class="enlace" data-accion="reintentar-compartir">Probar de nuevo</button></p>` : ''}
+      <p class="suave discreto">
+        <button type="button" class="enlace" data-accion="reintentar-compartir">Probar el botón de compartir</button>
+      </p>` : ''}
 
       ${vista.mostrarRespaldo ? `
       <p class="suave">Copiá todo este texto y pegalo en una nota, un correo o
@@ -5483,26 +5575,38 @@ function dibujarUltimos(estado) {
 }
 
 /**
- * Los comentarios ya usados, para que el navegador los ofrezca al escribir.
+ * Las sugerencias de un campo, como botones — T-920.
  *
- * Se limita a los 50 más recientes: no por rendimiento —la app recorre listas
- * enteras sin topes (L-001)— sino porque una lista de sugerencias con
- * doscientas entradas no se puede usar en un celular, y las viejas nunca se
- * eligen. **El límite es de lo que se muestra, no de lo que se calcula**, que es
- * la diferencia que importa: ningún total depende de este número.
+ * **No se usa `<datalist>`.** Se usaba (T-912) y en el Android del usuario **no
+ * aparece nada**: el navegador lo dibuja como quiere, y ahí directamente no lo
+ * dibuja. Es L-013 en su forma más cara — un control cedido al sistema que no
+ * hace nada y no avisa—. Unos botones propios son más código y hay que
+ * mantenerlos, pero se pueden ver, tocar y comprobar.
+ *
+ * Son `<button type="button">` y no enlaces ni divs: se llega con el teclado,
+ * los lee un lector de pantalla, y `type="button"` evita que enviar el
+ * formulario sea lo que pasa al tocarlos.
  */
-function dibujarComentariosUsados(estado) {
-  const usados = comentariosUsados(estado?.movimientos ?? []).slice(0, 50);
-  if (usados.length === 0) return '';
+function dibujarSugerencias(campo, escrito, usados) {
+  const sugerencias = sugerenciasPara(escrito, usados);
+  if (sugerencias.length === 0) return '';
 
-  return `<datalist id="comentarios-usados">${
-    usados.map((texto) => `<option value="${escapar(texto)}"></option>`).join('')
-  }</datalist>`;
+  return sugerencias
+    .map((texto) => `<button type="button" class="sugerencia" data-accion="sugerencia"
+        data-campo="${escapar(campo)}" data-texto="${escapar(texto)}">${escapar(texto)}</button>`)
+    .join('');
+}
+
+/** Lo ya escrito en cada campo que sugiere, para no calcularlo dos veces. */
+function usadosDe(estado) {
+  const movimientos = estado?.movimientos ?? [];
+  return { comentario: comentariosUsados(movimientos), detalle: detallesUsados(movimientos) };
 }
 
 function dibujarNuevo(vista) {
   const estado = vista.estado;
   const borrador = vista.borrador ?? borradorNuevo({ estado });
+  const usados = usadosDe(estado);
 
   // Si el gasto que se está cargando necesita un tipo de cambio, la app
   // interrumpe y lo pide (CU-03). Se reemplaza el formulario en vez de agregar
@@ -5579,25 +5683,23 @@ function dibujarNuevo(vista) {
         <span>Detalle <em class="suave">— para acordarte</em></span>
         <input name="detalle" type="text" autocomplete="off"
                placeholder="cena" value="${escapar(borrador.detalle)}">
+        <div class="sugerencias" data-sugerencias="detalle">${
+          dibujarSugerencias('detalle', borrador.detalle, usados.detalle)
+        }</div>
       </label>
 
-      <!-- El comentario va último y ofrece los que ya usaste (T-912). No es
-           comodidad: el comentario es lo que agrupa los gastos de un viaje
+      <!-- El comentario va último y ofrece los que ya usaste (T-912, T-920). No
+           es comodidad: el comentario es lo que agrupa los gastos de un viaje
            (RN-03), y "Barcelona26" y "barcelona 26" son dos viajes distintos en
            los totales. Ofrecer lo que ya existe es la forma más barata de que
-           elijas la escritura que ya tenés en vez de inventar una nueva.
-
-           Se usa <datalist>, que lo dibuja el navegador: no hay ninguna lista
-           flotante propia que mantener, ni teclado que se pelee con ella en un
-           celular. La contra es que cada navegador lo muestra a su manera —es la
-           misma cesión que el calendario de la fecha, L-013—, pero acá el campo
-           sigue siendo un campo de texto común: si el navegador no dibuja nada,
-           se escribe igual y no se pierde nada. -->
+           elijas la escritura que ya tenés en vez de inventar una nueva. -->
       <label class="campo">
         <span>Comentario <em class="suave">— viaje o gasto fijo, para agrupar</em></span>
-        <input name="comentario" type="text" autocomplete="off" list="comentarios-usados"
+        <input name="comentario" type="text" autocomplete="off"
                placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
-        ${dibujarComentariosUsados(estado)}
+        <div class="sugerencias" data-sugerencias="comentario">${
+          dibujarSugerencias('comentario', borrador.comentario, usados.comentario)
+        }</div>
       </label>
 
       <button type="submit" class="principal" data-accion="guardar">
@@ -6387,10 +6489,29 @@ function iniciar(documento, almacen) {
     lector.readAsText(archivo);
   });
 
+  /**
+   * Refresca las sugerencias de un campo mientras se escribe — T-920.
+   *
+   * Se cambia **solo el trozo de las sugerencias**, no el formulario entero:
+   * ADR-023 dice que lo escrito vive en el documento y no se redibuja por tecla.
+   * Redibujar todo acá borraría lo que el usuario tiene a medio escribir en los
+   * otros campos, que es exactamente la trampa que ese ADR evita.
+   */
+  function refrescarSugerencias(campo, escrito) {
+    const donde = raiz.querySelector(`[data-sugerencias="${campo}"]`);
+    if (!donde) return;
+    donde.innerHTML = dibujarSugerencias(campo, escrito, usadosDe(vista.estado)[campo] ?? []);
+  }
+
   raiz.addEventListener('input', (evento) => {
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
       if (etiqueta) etiqueta.textContent = fechaEnPalabras(evento.target.value);
+      return;
+    }
+
+    if (evento.target.matches('input[name="comentario"], input[name="detalle"]')) {
+      refrescarSugerencias(evento.target.name, evento.target.value);
       return;
     }
 
@@ -6558,6 +6679,18 @@ function iniciar(documento, almacen) {
         // abierta y vuelve al recargar. No hay nada útil que decirle acá.
       }
       vista = { ...vista, estado: pospuesto };
+    } else if (accion === 'sugerencia') {
+      // Se escribe en el campo y se limpian las sugerencias, sin tocar nada más
+      // del formulario: lo que el usuario tenga escrito en los otros campos
+      // tiene que quedar como está.
+      const campo = boton.dataset.campo;
+      const donde = raiz.querySelector(`input[name="${campo}"]`);
+      if (donde) {
+        donde.value = boton.dataset.texto;
+        donde.focus();
+      }
+      refrescarSugerencias(campo, boton.dataset.texto);
+      return;
     } else if (accion === 'exportar-csv') {
       descargarCsv();
       return;

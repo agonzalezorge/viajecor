@@ -16,7 +16,8 @@ import { hoy, mesDe, mesAnterior, mesSiguiente } from '../core/modelo.js';
 import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado, riesgoDeGuardado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
-import { dibujarNuevo, borradorNuevo, borradorDesde, intentarGuardar, fechaEnPalabras } from './pantallas/movimiento.js';
+import { dibujarNuevo, borradorNuevo, borradorDesde, intentarGuardar, fechaEnPalabras,
+  dibujarSugerencias, usadosDe } from './pantallas/movimiento.js';
 import { claseDeRubro, COLORES } from './colores.js';
 import { decimalesDe } from '../core/monedas.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
@@ -773,10 +774,29 @@ export function iniciar(documento, almacen) {
     lector.readAsText(archivo);
   });
 
+  /**
+   * Refresca las sugerencias de un campo mientras se escribe — T-920.
+   *
+   * Se cambia **solo el trozo de las sugerencias**, no el formulario entero:
+   * ADR-023 dice que lo escrito vive en el documento y no se redibuja por tecla.
+   * Redibujar todo acá borraría lo que el usuario tiene a medio escribir en los
+   * otros campos, que es exactamente la trampa que ese ADR evita.
+   */
+  function refrescarSugerencias(campo, escrito) {
+    const donde = raiz.querySelector(`[data-sugerencias="${campo}"]`);
+    if (!donde) return;
+    donde.innerHTML = dibujarSugerencias(campo, escrito, usadosDe(vista.estado)[campo] ?? []);
+  }
+
   raiz.addEventListener('input', (evento) => {
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
       if (etiqueta) etiqueta.textContent = fechaEnPalabras(evento.target.value);
+      return;
+    }
+
+    if (evento.target.matches('input[name="comentario"], input[name="detalle"]')) {
+      refrescarSugerencias(evento.target.name, evento.target.value);
       return;
     }
 
@@ -944,6 +964,18 @@ export function iniciar(documento, almacen) {
         // abierta y vuelve al recargar. No hay nada útil que decirle acá.
       }
       vista = { ...vista, estado: pospuesto };
+    } else if (accion === 'sugerencia') {
+      // Se escribe en el campo y se limpian las sugerencias, sin tocar nada más
+      // del formulario: lo que el usuario tenga escrito en los otros campos
+      // tiene que quedar como está.
+      const campo = boton.dataset.campo;
+      const donde = raiz.querySelector(`input[name="${campo}"]`);
+      if (donde) {
+        donde.value = boton.dataset.texto;
+        donde.focus();
+      }
+      refrescarSugerencias(campo, boton.dataset.texto);
+      return;
     } else if (accion === 'exportar-csv') {
       descargarCsv();
       return;

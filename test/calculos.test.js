@@ -23,6 +23,8 @@ import {
   promedioPorDia,
   porComentario,
   comentariosUsados,
+  detallesUsados,
+  sugerenciasPara,
 } from '../src/core/calculos.js';
 
 import { crearMovimiento, TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
@@ -458,4 +460,53 @@ test('no hay ningún tope de movimientos al juntar comentarios', () => {
     mov({ fecha: '2026-03-01', comentario: `viaje ${i}` }));
 
   assert.equal(comentariosUsados(muchos).length, 1200);
+});
+
+// ── Sugerencias (T-920) ──────────────────────────────────────────────────────
+
+test('con el campo vacío no se sugiere nada', () => {
+  assert.deepEqual(sugerenciasPara('', ['Roma', 'Barcelona26']), []);
+  assert.deepEqual(sugerenciasPara('   ', ['Roma']), []);
+});
+
+test('se sugiere lo que empieza con lo escrito', () => {
+  assert.deepEqual(sugerenciasPara('Barce', ['Roma', 'Barcelona26']), ['Barcelona26']);
+});
+
+test('sin importar mayúsculas ni espacios de más', () => {
+  // Si hubiera que acertar las mayúsculas, el autocompletado no serviría para lo
+  // único que sirve (RN-03).
+  assert.deepEqual(sugerenciasPara('barce', ['Barcelona26']), ['Barcelona26']);
+  assert.deepEqual(sugerenciasPara('  BARCE ', ['Barcelona26']), ['Barcelona26']);
+});
+
+test('lo que empieza va antes que lo que contiene', () => {
+  // Escribir "Roma" y ver "Aeropuerto de Roma" antes que "Roma" sería
+  // contraintuitivo.
+  assert.deepEqual(
+    sugerenciasPara('roma', ['Aeropuerto de Roma', 'Roma sur', 'Roma']),
+    ['Roma sur', 'Roma', 'Aeropuerto de Roma']
+  );
+});
+
+test('lo ya escrito entero no se sugiere a sí mismo', () => {
+  assert.deepEqual(sugerenciasPara('Roma', ['Roma']), []);
+});
+
+test('se sugieren pocas: una lista larga tapa el formulario en un celular', () => {
+  const muchos = Array.from({ length: 40 }, (_, i) => `viaje ${i}`);
+
+  assert.equal(sugerenciasPara('viaje', muchos).length, 5);
+  assert.equal(sugerenciasPara('viaje', muchos, 3).length, 3);
+});
+
+test('los detalles usados salen igual que los comentarios', () => {
+  const estado = estadoCon([
+    mov({ fecha: '2026-03-01', comentario: 'Roma' }),
+    mov({ fecha: '2026-03-05', comentario: 'Roma' }),
+  ]);
+  estado.movimientos[0].detalle = 'alquiler';
+  estado.movimientos[1].detalle = 'luz';
+
+  assert.deepEqual(detallesUsados(estado.movimientos), ['luz', 'alquiler']);
 });

@@ -270,6 +270,9 @@ test('por omisión el respaldo se prepara con la fecha de hoy', () => {
 
 // ── Recordar que compartir no funciona (T-914) ───────────────────────────────
 
+/** El HTML sin los comentarios: lo que el usuario efectivamente ve. */
+const sinComentarios = (html) => html.replace(/<!--[\s\S]*?-->/g, '');
+
 test('con compartir disponible, se ofrece el botón', () => {
   const html = dibujarDatos({ estado: cargar(estadoLimpio()), puedeCompartir: true });
 
@@ -297,14 +300,21 @@ test('cuando no se ofrece compartir, descargar vuelve a ser el botón principal'
   assert.match(boton, /class="principal"/);
 });
 
-test('la pantalla explica por qué no está el botón, y deja reintentar', () => {
-  // Un botón que desaparece sin explicación se lee como un error de la app. Y
-  // puede ser un permiso que el usuario cambie después: tiene que poder volver.
+test('cuando compartir no funciona, no se explica: solo se deja reintentar', () => {
+  // Pedido del usuario (2026-08-28). Ya lo vio fallar una vez, con su motivo;
+  // repetírselo cada vez que entra a la pantalla es dejarle un cartel en la cara
+  // sobre algo que no puede hacer. Pero tiene que poder volver a intentarlo, por
+  // si cambia un permiso.
   const estado = cargar(estadoLimpio());
   const conFallo = { ...estado, preferencias: { ...estado.preferencias, compartir_no_funciona: true } };
   const html = dibujarDatos({ estado: conFallo, puedeCompartir: true });
 
-  assert.match(html, /no funciona en este teléfono/);
+  // Se mira el texto VISIBLE, no el HTML entero: los comentarios del código
+  // explican por qué la pantalla es así, y un test que los lee comprueba lo que
+  // dice el código sobre sí mismo en vez de lo que ve el usuario. Ya pasó antes
+  // con <datalist>.
+  assert.equal(/no funciona en este teléfono/.test(sinComentarios(html)), false,
+    'no hay que explicarlo cada vez');
   assert.match(html, /data-accion="reintentar-compartir"/);
 });
 
