@@ -112,6 +112,15 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-918 | Los dos gráficos del mes, en la app | Lista | T-013, T-909 |
 | T-919 | Verificar en el celular lo hecho después de T-019 | Pendiente | T-950, T-911…T-916 |
 
+**Lo próximo: la etapa 3.** Con la etapa 1 cerrada (2026-08-27), la app hace todo
+lo que hacía el Excel — pero **está vacía**, y el historial del usuario sigue
+desde octubre de 2025 en la planilla. Traerlo es una tarea de una sola vez, y
+hasta que se haga la app no reemplaza a nada: obliga a mirar dos lugares.
+
+Además, **la etapa 2 vale mucho más después**: un promedio de gastos fijos o una
+evolución mes a mes sobre tres gastos de prueba no dicen nada; sobre once meses
+reales, son la razón por la que existe la app. Se hace la etapa 3 primero.
+
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
 cargar gastos y ver cómo viene el mes, y los datos se pueden sacar.
@@ -1273,12 +1282,21 @@ Pedido del usuario (2026-08-27), a partir de los que tiene en su planilla:
 1. Una **torta de gastos por rubro** con su porcentaje.
 2. Una **línea de gasto acumulado día a día** del mes.
 
-**Lo que hay que decidir al hacerla, y no antes:** la pantalla del mes ya muestra
-el desglose por rubro como barras con su porcentaje (T-014, T-911). Una torta y
-unas barras que dicen exactamente lo mismo, una debajo de la otra, es repetir. Al
-tomar la tarea hay que resolver si la torta **reemplaza** a las barras o si son
-dos vistas de cosas distintas —y si reemplaza, que sea con un motivo, porque una
-torta se compara peor que una barra cuando los pedazos son parecidos.
+**Decidido por el usuario (2026-08-27): la torta REEMPLAZA a las barras.** No se
+ponen las dos.
+
+**Lo que hay que cuidar al hacerla, porque la decisión tiene un costo real.** Una
+torta se compara peor que una barra: dos porciones de 23 % y 20 % se distinguen
+mucho menos que dos barras de esos largos, y el ojo humano compara ángulos peor
+que longitudes. La contrapartida es que la torta muestra **el reparto del todo**
+de un vistazo, que es exactamente lo que el usuario mira, y es la forma que ya
+tiene en su planilla y reconoce.
+
+Como el costo es la comparación entre rubros parecidos, **la tabla de al lado
+tiene que seguir estando y ordenada de mayor a menor**: el nombre, el importe y
+el porcentaje de cada rubro, que es donde se compara con precisión. La torta da
+la forma; la lista da los números. Sin la lista, la decisión sí sería una
+pérdida.
 
 La línea de gasto acumulado se pisa con **T-020 (gasto día por día)**: conviene
 hacerlas juntas o decidir cuál sobrevive.
