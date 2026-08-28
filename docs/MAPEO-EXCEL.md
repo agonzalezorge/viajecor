@@ -116,6 +116,18 @@ distintas que no se mezclan nunca en un total. Lo que las separa es la columna
 texto. No se manda a `otros`: meterlo ahí lo haría desaparecer dentro de un total
 que ya existe, que es la peor forma de perder un dato — se ve bien y está mal.
 
+**Un rubro que existe pero en la otra lista** —`supermercado` con `I/G = I`— se
+descarta con un motivo propio: *«supermercado no es un rubro de ingreso»*. Decir
+solo «rubro desconocido» mandaría a buscar un error de escritura que no está: lo
+que está mal es la combinación, no el rubro.
+
+**Si el tipo no se pudo leer, no se juzga el rubro.** No se sabe contra cuál de
+las dos listas compararlo, así que decir «rubro desconocido» sería inventar un
+segundo problema a partir del primero. El informe nombra **la causa**, no sus
+consecuencias: dos motivos donde hay uno mandan a arreglar algo que no está roto.
+*(Esto salió de aplicar las reglas de este documento a 22 filas raras antes de
+programar nada: la combinación «tipo vacío» daba dos motivos.)*
+
 ---
 
 ## 6. Los montos
@@ -195,7 +207,30 @@ repitiendo el error que vino a arreglar.
 
 ---
 
-## 10. Lo que este documento NO decide
+## 10. Cómo se comprobó este documento
+
+Las reglas de acá se aplicaron, **antes de escribir una línea del importador**, a
+dos cosas:
+
+1. **La copia de estructura de la planilla** (`test/ejemplo/planilla-ejemplo.xlsx`,
+   T-009): separa las **288 filas de datos** de los 4 títulos de mes, las 8 filas
+   de encabezado y las 11 vacías, sin nombrar ninguna y sin que se cuele nada.
+2. **22 filas raras construidas a propósito**, que es lo que de verdad importa:
+   una regla que solo se prueba contra datos limpios no se distingue de una regla
+   que acepta todo. Las 22 dieron el resultado esperado — el título del mes, la
+   banda de bloque y la celda suelta de referencia quedan afuera; el monto vacío,
+   el texto donde va un número, el negativo, el 31 de abril y el 29 de febrero de
+   2026 se descartan con su motivo; el 30 de abril y el 29 de febrero de 2024
+   entran.
+
+**Y encontró dos defectos del mapeo**, que ya están corregidos arriba: los dos
+motivos que se generaban a partir de uno solo (§5), y el mensaje engañoso de un
+rubro que existe pero en la otra lista (§5). Escribir el documento y no probarlo
+habría dejado los dos adentro del código.
+
+---
+
+## 11. Lo que este documento NO decide
 
 - **Cómo se lee el `.xlsx`** (abrir el ZIP, parsear el XML). Es T-031.
 - **Cómo se ve el informe** en la pantalla. Es T-032.

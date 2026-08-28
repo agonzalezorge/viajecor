@@ -83,7 +83,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
-| T-030 | Definir el mapeo Excel → modelo | En curso (claude, 2026-08-28) | T-003, T-009 |
+| T-030 | Definir el mapeo Excel → modelo | **Hecha** | T-003, T-009 |
 | T-031 | Lector de `.xlsx` sin librerías | Pendiente | T-009 |
 | T-032 | Importador con informe de filas no interpretadas | Pendiente | T-030, T-031, T-017 |
 | **Etapa 4 — Ahorros conjuntos** ||||
@@ -809,7 +809,7 @@ moneda que hace falta no está en la lista.
 ## Etapa 3 — Traer el historial del Excel
 
 ### T-030 · Definir el mapeo Excel → modelo — CU-13
-**Estado:** En curso (claude, 2026-08-28) · **Depende de:** T-003, T-009
+**Estado:** **Hecha** · **Depende de:** T-003, T-009
 **Toca:** `docs/MAPEO-EXCEL.md`
 
 Escribir cómo se traduce cada columna de la planilla al modelo de la app, y qué se
@@ -838,6 +838,38 @@ que tiene la estructura real con montos inventados (T-009).
 - Fechas como número de serie de Excel (`45931` = 2025-10-01), incluido el error
   histórico de que Excel considera 1900 bisiesto.
 - El comentario (`B`) mezcla nombres de viaje y de gastos fijos recurrentes.
+
+**Resuelto en `docs/MAPEO-EXCEL.md`.** Las decisiones que más cambian el
+resultado:
+
+- **Una fila es de datos si tiene día y rubro.** Se pregunta qué *sí* es un dato
+  en vez de qué hay que saltear: reconocer los títulos por su texto obliga a
+  acertar la lista completa de lo que se ignora, y basta con que un mes esté
+  escrito distinto para que un encabezado entre como gasto. Es una lista blanca
+  que hay que mantener, y este proyecto ya se quemó dos veces con eso.
+- **Un rubro desconocido no se manda a `otros`**: ahí desaparecería dentro de un
+  total que ya existe — se ve bien y está mal.
+- **El tipo vacío no se supone «gasto»** por ser lo más frecuente: un ingreso
+  importado como gasto mueve el saldo del mes por el doble del importe.
+- **Importar dos veces no puede duplicar.** El identificador se deriva de la
+  propia fila, así que alcanza el mecanismo que ya tiene T-017.
+- **Todo lo descartado se informa con su número de fila**, para poder ir a
+  mirarlo en la planilla.
+- Y una comprobación que sale de la planilla misma: su columna de acumulado la
+  calculó otra herramienta, así que al terminar cada mes se puede contrastar
+  contra la suma importada. Es el único momento en que hay con qué comparar.
+
+**Verificado antes de programar nada:** las reglas se aplicaron a la copia de
+estructura —separan las 288 filas de datos de los títulos, encabezados y filas
+vacías, sin que se cuele ninguna— y a **22 filas raras construidas a propósito**,
+que es lo que importa: una regla probada solo contra datos limpios no se
+distingue de una que acepta todo.
+
+**Encontró dos defectos del mapeo, ya corregidos:** una fila con el tipo ilegible
+daba *dos* motivos —el segundo inventado a partir del primero, porque sin saber
+el tipo no se puede juzgar el rubro—, y un rubro que existe pero en la otra lista
+(`supermercado` como ingreso) decía «rubro desconocido», que manda a buscar un
+error de escritura que no está.
 
 ### T-031 · Lector de `.xlsx` sin librerías — CU-13
 **Depende de:** T-009 · *Paralelizable con T-030*

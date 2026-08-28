@@ -520,6 +520,12 @@ cosas. Comprobado sobre la planilla real. Ver ADR-010.
 datos (ver `docs/LECCIONES.md`). El importador tiene que **informar qué no pudo
 interpretar**, fila por fila, en vez de importar mal en silencio.
 
+**Cómo se traduce cada columna** está decidido y escrito en
+`docs/MAPEO-EXCEL.md` (T-030), incluido qué se hace con cada caso raro. Lo más
+importante para el usuario: **nada se descarta en silencio**. Cada fila que no
+entra se informa con su número de fila, lo que decía y por qué, para que pueda
+abrir su planilla y decidir. Y **importar dos veces no duplica**.
+
 ---
 
 ### CU-14 — Llevar los ahorros conjuntos
