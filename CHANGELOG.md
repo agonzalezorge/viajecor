@@ -5,6 +5,14 @@ La versión publicada vive en el archivo `VERSION`.
 
 ## Sin publicar
 
+### Cambiado
+- **El detalle ya no muestra una lista de sugerencias**, por pedido del usuario.
+  Solo sugiere el **comentario**, y la diferencia tiene motivo: el comentario es
+  lo que agrupa —"Barcelona26" y "barcelona 26" son dos viajes distintos en los
+  totales—, así que ofrecer la escritura que ya existe evita partir un total en
+  dos. El detalle es una nota para acordarse: no agrupa nada, y la lista debajo
+  estorbaba mientras se escribe.
+
 ### Agregado
 - **Cuánto sale cada gasto fijo**, abajo de la evolución: el promedio por pago de
   la luz, el gas, internet. La diferencia con la planilla es que al lado del

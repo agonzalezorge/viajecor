@@ -1555,6 +1555,17 @@ monto ya escrito**, el detalle sugiere lo suyo sin tocar el comentario, lo
 guardado coincide con lo que se ve, y **no queda ningún `<datalist>` en la
 página**.
 
+**Cambio posterior (usuario, 2026-08-28): el detalle ya no sugiere.** Sugerían
+los dos campos. El usuario pidió que solo sugiera el **comentario**, y la razón
+es buena: el comentario es lo que **agrupa** —dos escrituras distintas del mismo
+viaje son dos totales distintos (RN-03)—, así que ofrecer la escritura que ya
+existe evita partir un total en dos. El detalle es una nota para acordarse: no
+agrupa nada, y una lista debajo mientras se escribe es ruido.
+
+Se sacó también `detallesUsados()` de `core/calculos.js`, que quedaba sin ningún
+llamador. `textosUsados()` sigue parametrizada por campo: si vuelve a hacer
+falta, es una línea.
+
 ---
 
 ### T-921 · Sacar el texto de "compartir no funciona"

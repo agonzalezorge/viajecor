@@ -23,7 +23,6 @@ import {
   promedioPorDia,
   porComentario,
   comentariosUsados,
-  detallesUsados,
   sugerenciasPara,
   mesesSeguidos,
   matrizMesRubro,
@@ -502,16 +501,6 @@ test('se sugieren pocas: una lista larga tapa el formulario en un celular', () =
   assert.equal(sugerenciasPara('viaje', muchos, 3).length, 3);
 });
 
-test('los detalles usados salen igual que los comentarios', () => {
-  const estado = estadoCon([
-    mov({ fecha: '2026-03-01', comentario: 'Roma' }),
-    mov({ fecha: '2026-03-05', comentario: 'Roma' }),
-  ]);
-  estado.movimientos[0].detalle = 'alquiler';
-  estado.movimientos[1].detalle = 'luz';
-
-  assert.deepEqual(detallesUsados(estado.movimientos), ['luz', 'alquiler']);
-});
 
 
 // ── La matriz mes × rubro — CU-10, T-021 ────────────────────────────────────

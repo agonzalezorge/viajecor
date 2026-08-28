@@ -385,15 +385,22 @@ test('las sugerencias NO dependen de <datalist>', () => {
   assert.equal(/list="/.test(html), false);
 });
 
-test('el detalle también sugiere lo ya escrito', () => {
-  // El usuario probó el autocompletado ahí (2026-08-28) y tenía razón en
-  // esperarlo: "alquiler", "luz", "psicóloga" se repiten todos los meses.
+test('el detalle NO sugiere: solo sugiere el comentario', () => {
+  // Este test decía lo contrario hasta el 2026-08-28. Lo dio vuelta el usuario:
+  // el comentario sugiere porque es lo que AGRUPA —dos escrituras distintas son
+  // dos viajes distintos en los totales (RN-03)—, y ahí la lista evita partir un
+  // total en dos. El detalle es una nota para acordarse, no agrupa nada, y una
+  // lista debajo mientras escribís es ruido.
   const estado = conDetalles('alquiler', 'almuerzo');
   const html = dibujarNuevo({ estado, borrador: { ...borradorDe(), detalle: 'alq' } });
 
-  assert.match(html, /data-campo="detalle"/);
-  assert.ok(html.includes('>alquiler</button>'));
-  assert.equal(html.includes('>almuerzo</button>'), false, 'no empieza ni contiene "alq"');
+  assert.equal(html.includes('data-campo="detalle"'), false);
+  assert.equal(html.includes('data-sugerencias="detalle"'), false);
+  assert.equal(html.includes('>alquiler</button>'), false);
+  // Y el campo sigue estando, con lo escrito adentro: lo que se sacó es la
+  // lista, no el detalle.
+  assert.ok(html.includes('name="detalle"'));
+  assert.ok(html.includes('value="alq"'));
 });
 
 test('se sugiere sin importar mayúsculas ni acentos', () => {

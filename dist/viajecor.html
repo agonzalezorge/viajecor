@@ -2416,17 +2416,15 @@ function comentariosUsados(movimientos) {
   return textosUsados(movimientos, 'comentario');
 }
 
-/** Lo mismo para los detalles: `alquiler`, `luz`, `psicóloga` se repiten. */
-function detallesUsados(movimientos) {
-  return textosUsados(movimientos, 'detalle');
-}
-
 /**
  * Los textos ya escritos en un campo, del más reciente al más viejo.
  *
- * Es la misma función para el comentario y para el detalle. Se generalizó cuando
- * el usuario probó el autocompletado en el detalle (2026-08-28): tenía razón en
- * esperarlo ahí, y dos copias de esto habrían sido dos formas de agrupar.
+ * Queda parametrizada por campo aunque hoy solo la use el comentario: el
+ * detalle también sugería, y **el usuario pidió que no** (2026-08-28). El
+ * comentario sugiere porque es lo que AGRUPA —dos escrituras distintas son dos
+ * grupos distintos—; el detalle es una nota para uno mismo y no agrupa nada, así
+ * que ahí la lista no ayuda, estorba. Si algún día vuelve a hacer falta, el
+ * cambio es una línea; lo que no vuelve es una decisión sin escribir.
  */
 function textosUsados(movimientos, campo) {
   if (!Array.isArray(movimientos)) return [];
@@ -7427,10 +7425,18 @@ function dibujarSugerencias(campo, escrito, usados) {
     .join('');
 }
 
-/** Lo ya escrito en cada campo que sugiere, para no calcularlo dos veces. */
+/**
+ * Lo ya escrito en cada campo que sugiere, para no calcularlo dos veces.
+ *
+ * Solo el comentario. El detalle también sugería hasta el 2026-08-28 y **el
+ * usuario pidió que no**: el comentario es lo que agrupa los gastos de un viaje
+ * (RN-03) y ahí elegir la escritura que ya existe evita partir un total en dos;
+ * el detalle es una nota para acordarse, no agrupa nada, y una lista debajo es
+ * ruido mientras escribís.
+ */
 function usadosDe(estado) {
   const movimientos = estado?.movimientos ?? [];
-  return { comentario: comentariosUsados(movimientos), detalle: detallesUsados(movimientos) };
+  return { comentario: comentariosUsados(movimientos) };
 }
 
 function dibujarNuevo(vista) {
@@ -7511,11 +7517,10 @@ function dibujarNuevo(vista) {
 
       <label class="campo">
         <span>Detalle <em class="suave">— para acordarte</em></span>
+        <!-- Sin lista de sugerencias, por pedido del usuario (2026-08-28). El
+             detalle no agrupa nada: es una nota para acordarse. -->
         <input name="detalle" type="text" autocomplete="off"
                placeholder="cena" value="${escapar(borrador.detalle)}">
-        <div class="sugerencias" data-sugerencias="detalle">${
-          dibujarSugerencias('detalle', borrador.detalle, usados.detalle)
-        }</div>
       </label>
 
       <!-- El comentario va último y ofrece los que ya usaste (T-912, T-920). No

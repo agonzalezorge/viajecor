@@ -17,7 +17,7 @@ import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana
 import { claseDeRubro } from '../colores.js';
 import { escapar } from '../app.js';
 import { dibujarPedido, dibujarMovimientoEnEspera } from './cambio.js';
-import { comentariosUsados, detallesUsados, sugerenciasPara } from '../../core/calculos.js';
+import { comentariosUsados, sugerenciasPara } from '../../core/calculos.js';
 
 /**
  * Los campos vacíos de un formulario nuevo.
@@ -243,10 +243,18 @@ export function dibujarSugerencias(campo, escrito, usados) {
     .join('');
 }
 
-/** Lo ya escrito en cada campo que sugiere, para no calcularlo dos veces. */
+/**
+ * Lo ya escrito en cada campo que sugiere, para no calcularlo dos veces.
+ *
+ * Solo el comentario. El detalle también sugería hasta el 2026-08-28 y **el
+ * usuario pidió que no**: el comentario es lo que agrupa los gastos de un viaje
+ * (RN-03) y ahí elegir la escritura que ya existe evita partir un total en dos;
+ * el detalle es una nota para acordarse, no agrupa nada, y una lista debajo es
+ * ruido mientras escribís.
+ */
 export function usadosDe(estado) {
   const movimientos = estado?.movimientos ?? [];
-  return { comentario: comentariosUsados(movimientos), detalle: detallesUsados(movimientos) };
+  return { comentario: comentariosUsados(movimientos) };
 }
 
 export function dibujarNuevo(vista) {
@@ -327,11 +335,10 @@ export function dibujarNuevo(vista) {
 
       <label class="campo">
         <span>Detalle <em class="suave">— para acordarte</em></span>
+        <!-- Sin lista de sugerencias, por pedido del usuario (2026-08-28). El
+             detalle no agrupa nada: es una nota para acordarse. -->
         <input name="detalle" type="text" autocomplete="off"
                placeholder="cena" value="${escapar(borrador.detalle)}">
-        <div class="sugerencias" data-sugerencias="detalle">${
-          dibujarSugerencias('detalle', borrador.detalle, usados.detalle)
-        }</div>
       </label>
 
       <!-- El comentario va último y ofrece los que ya usaste (T-912, T-920). No

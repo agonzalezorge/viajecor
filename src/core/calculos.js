@@ -409,17 +409,15 @@ export function comentariosUsados(movimientos) {
   return textosUsados(movimientos, 'comentario');
 }
 
-/** Lo mismo para los detalles: `alquiler`, `luz`, `psicóloga` se repiten. */
-export function detallesUsados(movimientos) {
-  return textosUsados(movimientos, 'detalle');
-}
-
 /**
  * Los textos ya escritos en un campo, del más reciente al más viejo.
  *
- * Es la misma función para el comentario y para el detalle. Se generalizó cuando
- * el usuario probó el autocompletado en el detalle (2026-08-28): tenía razón en
- * esperarlo ahí, y dos copias de esto habrían sido dos formas de agrupar.
+ * Queda parametrizada por campo aunque hoy solo la use el comentario: el
+ * detalle también sugería, y **el usuario pidió que no** (2026-08-28). El
+ * comentario sugiere porque es lo que AGRUPA —dos escrituras distintas son dos
+ * grupos distintos—; el detalle es una nota para uno mismo y no agrupa nada, así
+ * que ahí la lista no ayuda, estorba. Si algún día vuelve a hacer falta, el
+ * cambio es una línea; lo que no vuelve es una decisión sin escribir.
  */
 function textosUsados(movimientos, campo) {
   if (!Array.isArray(movimientos)) return [];
