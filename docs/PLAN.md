@@ -83,7 +83,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
-| T-030 | Definir el mapeo Excel → modelo | Pendiente | T-003, T-009 |
+| T-030 | Definir el mapeo Excel → modelo | En curso (claude, 2026-08-28) | T-003, T-009 |
 | T-031 | Lector de `.xlsx` sin librerías | Pendiente | T-009 |
 | T-032 | Importador con informe de filas no interpretadas | Pendiente | T-030, T-031, T-017 |
 | **Etapa 4 — Ahorros conjuntos** ||||
@@ -809,7 +809,7 @@ moneda que hace falta no está en la lista.
 ## Etapa 3 — Traer el historial del Excel
 
 ### T-030 · Definir el mapeo Excel → modelo — CU-13
-**Estado:** Pendiente · **Depende de:** T-003, T-009
+**Estado:** En curso (claude, 2026-08-28) · **Depende de:** T-003, T-009
 **Toca:** `docs/MAPEO-EXCEL.md`
 
 Escribir cómo se traduce cada columna de la planilla al modelo de la app, y qué se
