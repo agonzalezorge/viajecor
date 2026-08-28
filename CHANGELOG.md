@@ -47,6 +47,10 @@ La versión publicada vive en el archivo `VERSION`.
   «Permission denied» al tocar el botón. Ahora el error se explica en castellano,
   se recuerda, la descarga vuelve a ser el botón principal, y queda un *Probar de
   nuevo* por si cambiás un permiso.
+- **La app ya sabe leer un archivo `.xlsx`** (T-031), sin librerías y sin que
+  tengas que convertirlo a nada: abre el ZIP y lee el XML de adentro. Es el paso
+  previo a importar tu planilla. Comprobado contra otro lector de Excel sobre
+  1.614 celdas, con cero diferencias.
 - **Ya podés bajarte los datos en CSV** (T-018), para hacer cuentas en otro lado:
   una fila por movimiento con todas las columnas, el monto original con su
   moneda, **el tipo de cambio que se aplicó** y el importe en euros. Se abre bien
