@@ -110,7 +110,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-916 | La planilla se parece de verdad a la original | **Hecha** | T-906, T-915 |
 | T-917 | ~~Los dos gráficos del `.xlsx`~~ | **Descartada** (usuario, 2026-08-27) | — |
 | T-922 | Los colores de rubro, lo más parecidos a la planilla | **Hecha** | T-909 |
-| T-918 | Los dos gráficos del mes, en la app | Lista | T-013, T-909, T-922 |
+| T-918 | Los dos gráficos del mes, en la app | En curso (claude, 2026-08-28) | T-013, T-909, T-922 |
 | T-919 | Verificar en el celular lo hecho después de T-019 | **Hecha** (usuario, 2026-08-28) | T-950, T-911…T-916 |
 | T-920 | Sugerencias propias, sin depender del navegador | **Hecha** | T-912 |
 | T-921 | Sacar el texto de "compartir no funciona" | **Hecha** | T-914 |
@@ -1379,7 +1379,7 @@ Preguntar costó un párrafo.
 ---
 
 ### T-918 · Los dos gráficos del mes, en la app
-**Estado:** Lista · **Depende de:** T-013, T-909
+**Estado:** En curso (claude, 2026-08-28) · **Depende de:** T-013, T-909, T-922
 
 Pedido del usuario (2026-08-27), a partir de los que tiene en su planilla:
 
