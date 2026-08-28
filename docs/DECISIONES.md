@@ -769,3 +769,48 @@ y "no hizo ninguna".
 `tools/privacidad.mjs` y las dos la usan. Dos copias de una regla son dos reglas
 que se separan, y la que se queda atrás es siempre la del test — que es la que se
 mira para creer que todo está bien.
+
+---
+
+## ADR-028 · El XML del `.xlsx` se lee a mano, no con `DOMParser`
+**Fecha:** 2026-08-28 · **Estado:** Vigente · **Corrige a:** ADR-010
+
+**Contexto.** ADR-010 estableció que el `.xlsx` se lee directo en el navegador
+—sin librerías, sin pedirle al usuario que convierta nada— usando
+`DecompressionStream` para el ZIP y **`DOMParser` para el XML**. Al ir a
+escribirlo, la segunda mitad de esa decisión no se sostuvo.
+
+**El problema.** `DOMParser` es del navegador, y `datos/` no puede tocar el
+navegador (ARQUITECTURA, regla 2 de `CLAUDE.md`). No es formalismo: significa que
+**el importador no se podría probar con `node --test`**. Y el importador es lo
+que va a tocar once meses de datos que no están en ningún otro lado — es
+justamente el módulo que más falta que se pruebe hasta el último rincón.
+
+Un módulo que solo se puede probar abriendo un navegador se prueba menos. Se
+prueba a mano, se prueba una vez, y se deja de probar cuando cambia.
+
+**Decisión.** Se escribe un lector de XML propio (`src/datos/xml.js`): unas 130
+líneas que entienden **exactamente lo que un `.xlsx` usa** —etiquetas, atributos,
+texto y las cinco entidades— y nada más. Sin espacios de nombres, sin DTD, sin
+entidades definidas por el documento: un `.xlsx` no los tiene.
+
+**Lo que se gana, además de poder probarlo.** No se construye un árbol: se
+recorre el XML avisando de cada etiqueta. Una hoja de Excel con 30 000 celdas no
+tiene por qué entrar entera en memoria dos veces —una como texto y otra como
+árbol— para leer sus filas, y menos en un teléfono.
+
+**Lo que cuesta.** Es código propio de un formato que no se inventó acá, y hay
+que mantenerlo. Se acota escribiéndolo para lo que existe y no para lo que podría
+existir, y probándolo contra los casos donde un lector ingenuo se rompe **en
+silencio**: un `>` adentro de un valor de atributo, un texto partido en varios
+trozos, un comentario con un `>` adentro, un archivo cortado a la mitad.
+
+**Comprobado contra otro programa, no contra sí mismo.** Se leyó la copia de
+estructura de la planilla del usuario con este lector y con **openpyxl**, y se
+compararon las **1.614 celdas** una por una: cero diferencias, ni de valor ni de
+posición ni de qué celdas existen. Un lector de formatos probado solo contra sus
+propios archivos lee bien exactamente lo que él mismo escribe.
+
+**Lo que sigue en pie de ADR-010:** el ZIP se abre con `DecompressionStream`, que
+sí está en Node y en el navegador, y el usuario sigue sin tener que convertir su
+planilla a nada.

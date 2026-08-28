@@ -84,7 +84,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | **Hecha** | T-003, T-009 |
-| T-031 | Lector de `.xlsx` sin librerías | En curso (claude, 2026-08-28) | T-009 |
+| T-031 | Lector de `.xlsx` sin librerías | **Hecha** | T-009 |
 | T-032 | Importador con informe de filas no interpretadas | Pendiente | T-030, T-031, T-017 |
 | **Etapa 4 — Ahorros conjuntos** ||||
 | T-040 | Modelo de ahorros multimoneda | Pendiente | T-004 |
@@ -881,6 +881,40 @@ la planilla real del usuario.
 
 **Terminada cuando:** lee `test/ejemplo/planilla-ejemplo.xlsx` y devuelve las
 celdas con su valor, distinguiendo texto, número y fecha.
+
+**Cómo quedó (Hecha, 2026-08-28).** Tres piezas: `leerZip()` en `datos/zip.js`,
+un lector de XML propio en `datos/xml.js` (ADR-028) y `datos/planilla.js`, que
+devuelve las celdas de la primera hoja con su valor ya interpretado. El lector no
+sabe nada de gastos: ahí termina el formato y empieza el significado.
+
+**Las tres cosas que un `.xlsx` esconde**, y que un lector ingenuo lee mal sin
+dar ningún error:
+
+1. **El texto no está en la hoja.** Excel lo guarda una sola vez en
+   `sharedStrings.xml` y en la celda pone un número que es su posición. Sin
+   resolver eso, todos los rubros de la planilla se leen como números.
+2. **Las fechas son números.** `46082` es el 1 de marzo de 2026, y lo único que
+   lo distingue de un importe de 46 082 € es el formato de la celda, que vive en
+   otra parte del archivo. Hay que cruzar `cellXfs` con `numFmts`.
+3. **Las celdas vacías no existen.** Si una fila no tiene nada en B, no hay
+   ninguna celda B: hay un hueco. Recorrer las celdas que hay y asumir que están
+   todas **corre todas las columnas siguientes** — el rubro se leería del monto y
+   el monto del tipo, sin un solo error.
+
+**Verificado contra otro programa.** Las **1.614 celdas** de la copia de
+estructura, leídas con este lector y con openpyxl y comparadas una por una: cero
+diferencias. Un lector de formatos probado solo contra sus propios archivos lee
+bien exactamente lo que él mismo escribe.
+
+**604 tests. Diez mutaciones, diez detectadas**, y dos destaparon cosas reales:
+
+- Una línea que no hacía nada —descartar la celda vacía al abrirla, cuando ya se
+  descartaba al cerrarla—. Código muerto que hacía creer que algo lo protegía.
+- **Los desplazamientos de un ZIP son desde el principio del ZIP, no del
+  archivo.** Si hay algo pegado adelante quedan todos corridos. Lo encontró un
+  test que le pegó una firma de cierre falsa al principio para comprobar otra
+  cosa: que el índice se busca desde el final. Se arregló calculando el
+  corrimiento y sumándolo.
 
 ### T-032 · Importador con informe de filas no interpretadas — CU-13
 **Depende de:** T-030, T-031, T-017 · **Toca:** `src/datos/importar.js`

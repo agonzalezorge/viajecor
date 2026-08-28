@@ -23,6 +23,117 @@
 // Lo que cuesta: el archivo pesa más. Para un año de gastos son unos cientos de
 // kilobytes, que en 2026 no es un problema para nadie.
 
+// ── Leer un ZIP — T-031 ──────────────────────────────────────────────────────
+//
+// Para importar la planilla del usuario hay que abrir su `.xlsx`, que es un ZIP.
+// Leerlo es más trabajo que escribirlo: el archivo puede venir de cualquier
+// programa y **cada entrada puede estar comprimida o no**.
+//
+// La descompresión la hace el navegador con `DecompressionStream('deflate-raw')`,
+// que también está en Node — así que esto se puede probar sin abrir un
+// navegador, que es la razón por la que se eligió por sobre cualquier otra vía.
+//
+// **Se lee de atrás para adelante**, que es como se lee un ZIP: al final del
+// archivo hay un índice que dice dónde empieza cada entrada. Recorrerlo desde el
+// principio también "funciona" y es lo que hace que un ZIP con un comentario
+// adelante, o un archivo concatenado, se lea mal.
+
+/** La firma del cierre: "PK\5\6". Marca el final del índice. */
+const FIRMA_CIERRE = 0x06054b50;
+const FIRMA_ENTRADA = 0x02014b50;
+
+/**
+ * Abre un ZIP y devuelve sus entradas como texto: `Map` de nombre a contenido.
+ *
+ * Es asíncrona porque descomprimir lo es. **Nunca tira por un archivo mal
+ * formado**: devuelve `{ error }` con el motivo, porque quien la llama es alguien
+ * eligiendo un archivo de su teléfono y puede haber elegido cualquier cosa.
+ */
+export async function leerZip(bytes) {
+  if (!(bytes instanceof Uint8Array) || bytes.length < 22) {
+    return { error: 'El archivo está vacío o es demasiado chico para ser un .xlsx.' };
+  }
+
+  const vista = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const cierre = buscarCierre(vista, bytes.length);
+  if (cierre === -1) {
+    return {
+      error: 'Este archivo no es un .xlsx: no tiene la estructura de un archivo comprimido. ' +
+        '¿Puede ser que sea un .xls viejo, o un archivo de otro programa?',
+    };
+  }
+
+  const cuantas = vista.getUint16(cierre + 10, true);
+  const tamanoCentral = vista.getUint32(cierre + 12, true);
+  const inicioCentral = vista.getUint32(cierre + 16, true);
+
+  // Los desplazamientos que guarda un ZIP son desde el principio **del ZIP**, no
+  // del archivo. Si hay algo pegado adelante —un ejecutable autoextraíble, o
+  // basura—, todos quedan corridos por ese tanto. La diferencia entre dónde
+  // debería empezar el índice y dónde empieza de verdad es exactamente ese
+  // corrimiento, y se lo suma a todo.
+  const corrimiento = (cierre - tamanoCentral) - inicioCentral;
+  let donde = inicioCentral + corrimiento;
+  const entradas = new Map();
+
+  for (let i = 0; i < cuantas; i += 1) {
+    if (donde + 46 > bytes.length || vista.getUint32(donde, true) !== FIRMA_ENTRADA) {
+      return { error: 'El archivo está incompleto o dañado: su índice interno no cierra.' };
+    }
+
+    const metodo = vista.getUint16(donde + 10, true);
+    const comprimido = vista.getUint32(donde + 20, true);
+    const largoNombre = vista.getUint16(donde + 28, true);
+    const largoExtra = vista.getUint16(donde + 30, true);
+    const largoComentario = vista.getUint16(donde + 32, true);
+    const local = vista.getUint32(donde + 42, true) + corrimiento;
+    const nombre = new TextDecoder().decode(bytes.subarray(donde + 46, donde + 46 + largoNombre));
+
+    // Los tamaños del encabezado local pueden mentir (hay programas que los
+    // dejan en cero y los ponen después de los datos), así que los que valen son
+    // los del índice. Del encabezado local solo se usa dónde empiezan los datos.
+    const largoNombreLocal = vista.getUint16(local + 26, true);
+    const largoExtraLocal = vista.getUint16(local + 28, true);
+    const empiezan = local + 30 + largoNombreLocal + largoExtraLocal;
+    const datos = bytes.subarray(empiezan, empiezan + comprimido);
+
+    try {
+      entradas.set(nombre, await descomprimir(datos, metodo));
+    } catch (error) {
+      return { error: `No se pudo leer "${nombre}" de adentro del archivo: ${error.message}` };
+    }
+
+    donde += 46 + largoNombre + largoExtra + largoComentario;
+  }
+
+  return { entradas };
+}
+
+/**
+ * Busca el cierre desde el final.
+ *
+ * No se busca la firma desde el principio: un ZIP puede tener datos adelante
+ * —hay instaladores que son un ejecutable con un ZIP pegado atrás— y la primera
+ * coincidencia sería basura. Se retrocede hasta 64 kB, que es lo máximo que
+ * puede ocupar el comentario final del formato.
+ */
+function buscarCierre(vista, largo) {
+  const hasta = Math.max(0, largo - 22 - 0xffff);
+  for (let i = largo - 22; i >= hasta; i -= 1) {
+    if (vista.getUint32(i, true) === FIRMA_CIERRE) return i;
+  }
+  return -1;
+}
+
+/** Descomprime una entrada según su método. Solo los dos que existen de verdad. */
+async function descomprimir(datos, metodo) {
+  if (metodo === 0) return new TextDecoder().decode(datos);  // guardada tal cual
+  if (metodo !== 8) throw new Error(`está comprimida de una forma que no se conoce (método ${metodo})`);
+
+  const flujo = new Blob([datos]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Response(flujo).text();
+}
+
 /**
  * La tabla de CRC-32 que el formato ZIP exige por cada entrada.
  *
