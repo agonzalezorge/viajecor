@@ -85,7 +85,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | **Hecha** | T-003, T-009 |
 | T-031 | Lector de `.xlsx` sin librerías | **Hecha** | T-009 |
-| T-032 | Importador con informe de filas no interpretadas | Pendiente | T-030, T-031, T-017 |
+| T-032 | Importador con informe de filas no interpretadas | En curso (claude, 2026-08-28) | T-030, T-031, T-017 |
 | **Etapa 4 — Ahorros conjuntos** ||||
 | T-040 | Modelo de ahorros multimoneda | Pendiente | T-004 |
 | T-041 | Pantalla de ahorros conjuntos | Pendiente | T-040, T-010 |
