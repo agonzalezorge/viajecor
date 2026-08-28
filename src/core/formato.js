@@ -152,6 +152,19 @@ export function formatearMes(mes) {
 }
 
 /**
+ * `2026-03` → `mar 26`. Para la columna de meses de la evolución (T-021).
+ *
+ * `marzo de 2026` completo haría que la única columna que no se puede achicar
+ * —la que queda fija al deslizar— se comiera media pantalla del teléfono. Se
+ * abrevia el mes y se deja el año, que es lo que se necesita para no confundir
+ * marzo de 2025 con marzo de 2026 en una tabla de varios años.
+ */
+export function formatearMesCorto(mes) {
+  const largo = formatearMes(mes);
+  return `${largo.slice(0, 3)} ${mes.slice(2, 4)}`;
+}
+
+/**
  * El tipo de cambio como el usuario lo conoce: "1 EUR = 630,25 CRC".
  *
  * Se muestra en el sentido de "cuántas unidades por euro" y no al revés, aunque

@@ -78,7 +78,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-019 | Verificación real sin conexión | **Hecha** (usuario, 2026-08-27) | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
 | T-020 | ~~Gasto día por día del mes~~ | **Descartada** (usuario, 2026-08-28) | — |
-| T-021 | Evolución mes a mes | En curso (claude, 2026-08-28) | T-013 |
+| T-021 | Evolución mes a mes | **Hecha** | T-013 |
 | T-022 | Promedio de gastos fijos | **Lista** | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
@@ -786,10 +786,29 @@ sido copiar el andamio junto con el edificio.
 
 `porDia` se queda: la usa la línea y la va a usar T-021.
 
-### T-021 · Evolución mes a mes — CU-10
-**Depende de:** T-013 · **Toca:** `src/ui/pantallas/evolucion.js`, `src/core/calculos.js`
+### T-021 · Evolución mes a mes — CU-10 — **Hecha** (2026-08-28)
+**Depende de:** T-013 · **Tocó:** `src/ui/pantallas/evolucion.js` (nuevo),
+`src/core/calculos.js`, `src/core/formato.js`, `src/ui/app.js`, `estilos.css`
 
 Matriz mes × rubro con fila de total y de promedio, como `Analisis1`.
+
+**Lo que quedó hecho, comprobado:**
+
+- `matrizMesRubro()` en `core/`: una fila por mes —**sin saltear los vacíos**—,
+  los **ocho rubros siempre**, y las columnas de gastos, ingresos y saldo.
+- **El promedio deja afuera el mes en curso; el total lo incluye**, y la pantalla
+  lo escribe abajo de la tabla con el mes que dejó afuera nombrado. Es L-006
+  resuelta: en el Excel esa diferencia existía y no estaba explicada en ningún
+  lado. Ver ADR-031.
+- Un mes al que le falta un tipo de cambio sale marcado y explicado.
+- Se llega desde el resumen del mes, no desde una quinta pestaña.
+- 25 tests nuevos. Ocho mutaciones a propósito: las ocho fallan.
+- Vuelta por el navegador con **once meses** cargados, en claro y en oscuro: 11
+  filas, 12 columnas, la página **no** desborda a lo ancho, la tabla sí se
+  desliza dentro de su caja, y la columna del mes **se queda en el mismo píxel**
+  después de correr 400. 0 peticiones de red, 0 errores de consola.
+- Apareció L-025: la pantalla le preguntaba la hora al reloj y por eso su test
+  más importante pasaba por el motivo equivocado.
 
 ### T-022 · Promedio de gastos fijos — CU-12
 **Depende de:** T-013 · **Toca:** `src/ui/pantallas/fijos.js`

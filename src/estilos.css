@@ -526,6 +526,78 @@ body {
 
 .linea-acumulado .marca-eje.fin { text-anchor: end; }
 
+/* ── La matriz mes × rubro (T-021) ───────────────────────────────────────────
+   Once meses por ocho rubros no entran a lo ancho de un teléfono. La tabla se
+   desliza DENTRO de su caja —la página no se mueve— y la columna del mes queda
+   fija: una fila de once números sin su etiqueta a la vista no se puede leer. */
+.tabla-ancha {
+  overflow-x: auto;
+  /* Que se pueda enfocar con el teclado, para poder deslizarla sin mouse. */
+  scrollbar-width: thin;
+  margin: 0 -1rem;
+  padding: 0 1rem;
+}
+
+.matriz {
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.matriz th,
+.matriz td {
+  padding: 0.375rem 0.4375rem;
+  text-align: right;
+}
+
+.matriz thead th {
+  font-weight: 600;
+  color: var(--texto-suave);
+  border-bottom: 1px solid var(--borde);
+  vertical-align: bottom;
+}
+
+.matriz .columna-mes {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 600;
+  /* Fondo opaco: sin esto las cifras pasan POR DEBAJO del mes al deslizar y se
+     lee un número encima del otro. */
+  background: var(--superficie);
+  padding-left: 0;
+}
+
+.matriz .importe {
+  /* Cifras de ancho fijo: es lo que permite comparar una columna de un vistazo
+     sin leer número por número. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* El cero está —es una matriz, no puede faltar una celda— pero no compite con
+   los números que sí dicen algo. */
+.matriz .vacio { color: var(--texto-suave); opacity: 0.55; }
+
+.matriz .separada { border-left: 1px solid var(--borde); }
+.matriz .gasto { color: var(--gasto); }
+.matriz .ingreso { color: var(--ingreso); }
+
+.matriz tfoot th,
+.matriz tfoot td {
+  border-top: 1px solid var(--borde);
+  font-weight: 600;
+}
+
+.matriz .columna-mes abbr {
+  color: var(--gasto);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.nota { margin-top: 0.75rem; font-size: 0.8125rem; }
+.nota.deslizar { margin-top: 0.5rem; }
+
 /* ── Un color por rubro (T-909, T-922) ───────────────────────────────────────
    Los ocho tonos salen de la PLANILLA DEL USUARIO: se conservó el matiz de
    cada color suyo y se corrigieron la luz y el croma hasta que el conjunto

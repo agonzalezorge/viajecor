@@ -25,6 +25,8 @@ import {
   comentariosUsados,
   detallesUsados,
   sugerenciasPara,
+  mesesSeguidos,
+  matrizMesRubro,
 } from '../src/core/calculos.js';
 
 import { crearMovimiento, TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
@@ -509,4 +511,142 @@ test('los detalles usados salen igual que los comentarios', () => {
   estado.movimientos[1].detalle = 'luz';
 
   assert.deepEqual(detallesUsados(estado.movimientos), ['luz', 'alquiler']);
+});
+
+
+// ── La matriz mes × rubro — CU-10, T-021 ────────────────────────────────────
+//
+// Reemplaza la hoja `Analisis1`, que es donde el Excel guarda sus dos mentiras
+// documentadas: el rango escrito a mano (L-001) y el total y el promedio
+// calculados sobre rangos distintos sin decirlo (L-006).
+
+test('los meses van seguidos, sin saltear los vacíos', () => {
+  assert.deepEqual(mesesSeguidos('2025-11', '2026-02'),
+    ['2025-11', '2025-12', '2026-01', '2026-02']);
+  assert.deepEqual(mesesSeguidos('2026-03', '2026-03'), ['2026-03']);
+});
+
+test('un mes sin nada en el medio sale igual, en cero', () => {
+  // Si se saltara, dos filas pegadas serían enero y marzo, y comparar la
+  // columna de al lado pasaría a exigir leer la etiqueta de cada fila.
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-01-10', rubro: 'viajes' }),
+    mov({ monto: '300', fecha: '2026-03-10', rubro: 'viajes' }),
+  ], []);
+  const matriz = matrizMesRubro(estado, '2026-05');
+
+  assert.deepEqual(matriz.meses, ['2026-01', '2026-02', '2026-03']);
+  assert.equal(matriz.filas[1].gastos, 0);
+});
+
+test('están los ocho rubros aunque el mes no tenga ninguno', () => {
+  const estado = estadoCon([mov({ monto: '100', fecha: '2026-01-10', rubro: 'viajes' })], []);
+  const matriz = matrizMesRubro(estado, '2026-05');
+
+  assert.equal(matriz.rubros.length, 8);
+  assert.equal(matriz.filas[0].rubros.length, 8);
+  assert.equal(matriz.filas[0].rubros.filter((v) => v > 0).length, 1);
+});
+
+test('cada gasto cae en su celda de mes y rubro', () => {
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-01-10', rubro: 'viajes' }),
+    mov({ monto: '50', fecha: '2026-01-20', rubro: 'viajes' }),
+    mov({ monto: '30', fecha: '2026-02-05', rubro: 'salud' }),
+  ], []);
+  const matriz = matrizMesRubro(estado, '2026-05');
+  const viajes = matriz.rubros.indexOf('viajes');
+  const salud = matriz.rubros.indexOf('salud');
+
+  assert.equal(matriz.filas[0].rubros[viajes], 15000);
+  assert.equal(matriz.filas[0].rubros[salud], 0);
+  assert.equal(matriz.filas[1].rubros[salud], 3000);
+  assert.equal(matriz.filas[1].rubros[viajes], 0);
+});
+
+test('la fila de total suma las columnas, y cierra con la suma de las filas', () => {
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-01-10', rubro: 'viajes' }),
+    mov({ monto: '30', fecha: '2026-02-05', rubro: 'salud' }),
+    mov({ monto: '20', fecha: '2026-02-06', rubro: 'viajes' }),
+  ], []);
+  const matriz = matrizMesRubro(estado, '2026-05');
+
+  assert.equal(matriz.total.gastos, 15000);
+  assert.equal(matriz.total.rubros.reduce((t, v) => t + v, 0), 15000,
+    'la suma de las columnas no da el total');
+});
+
+test('el promedio deja afuera el mes en curso, y dice sobre cuántos meses es', () => {
+  // Es L-006 resuelta: en el Excel el total y el promedio se calculaban sobre
+  // rangos distintos y no estaba escrito en ningún lado si era a propósito.
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-01-10', rubro: 'viajes' }),
+    mov({ monto: '200', fecha: '2026-02-10', rubro: 'viajes' }),
+    mov({ monto: '3', fecha: '2026-03-01', rubro: 'viajes' }),
+  ], []);
+  const matriz = matrizMesRubro(estado, '2026-03');
+
+  // El total incluye marzo: son 303 € gastados de verdad.
+  assert.equal(matriz.total.gastos, 30300);
+  // El promedio, no: 100 y 200 sobre dos meses terminados.
+  assert.equal(matriz.promedio.gastos, 15000);
+  assert.equal(matriz.mesesDelPromedio, 2);
+  assert.equal(matriz.dejaAfuera, '2026-03');
+});
+
+test('si el único mes es el que está en curso, el promedio lo usa igual', () => {
+  // Dividir por cero daría NaN, y un "—" en el promedio del primer mes de uso
+  // se lee como si la app estuviera rota.
+  const estado = estadoCon([mov({ monto: '100', fecha: '2026-03-10', rubro: 'viajes' })], []);
+  const matriz = matrizMesRubro(estado, '2026-03');
+
+  assert.equal(matriz.promedio.gastos, 10000);
+  assert.equal(matriz.mesesDelPromedio, 1);
+  assert.equal(matriz.dejaAfuera, null, 'no dice que dejó afuera un mes que sí usó');
+});
+
+test('un mes al que le falta un tipo de cambio queda marcado', () => {
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-03-10', rubro: 'viajes' }),
+    mov({ monto: '10000', fecha: '2026-04-10', rubro: 'viajes', moneda: 'CRC' }),
+  ], []);
+  const matriz = matrizMesRubro(estado, '2026-05');
+
+  assert.equal(matriz.filas[0].incompleto, false);
+  assert.equal(matriz.filas[1].incompleto, true, 'no avisa que a abril le falta un cambio');
+});
+
+test('los ingresos y el saldo también están, mes por mes', () => {
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-03-10', rubro: 'viajes' }),
+    mov({ monto: '250', fecha: '2026-03-01', rubro: 'trabajo', tipo: TIPO_INGRESO }),
+  ], []);
+  const matriz = matrizMesRubro(estado, '2026-05');
+
+  assert.equal(matriz.filas[0].ingresos, 25000);
+  assert.equal(matriz.filas[0].saldo, 15000);
+});
+
+test('sin movimientos la matriz está vacía y no se rompe', () => {
+  const matriz = matrizMesRubro(estadoCon([], []), '2026-03');
+
+  assert.deepEqual(matriz.filas, []);
+  assert.equal(matriz.total, null);
+  assert.equal(matriz.rubros.length, 8, 'los rubros existen aunque no haya datos');
+});
+
+test('la matriz no tiene ningún tope de meses ni de filas (L-001)', () => {
+  // El Excel suma hasta $G$1027 y el día que el registro pase esa fila da de
+  // menos sin avisar. Cinco años de movimientos, uno por mes.
+  const movimientos = [];
+  for (let anio = 2021; anio <= 2025; anio += 1) {
+    for (let mes = 1; mes <= 12; mes += 1) {
+      movimientos.push(mov({ monto: '10', fecha: `${anio}-${String(mes).padStart(2, '0')}-05`, rubro: 'viajes' }));
+    }
+  }
+  const matriz = matrizMesRubro(estadoCon(movimientos, []), '2026-03');
+
+  assert.equal(matriz.filas.length, 60);
+  assert.equal(matriz.total.gastos, 60000);
 });

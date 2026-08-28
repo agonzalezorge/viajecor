@@ -262,7 +262,7 @@ qué existe.
 | CU-07 | Exportar todos los datos | **Hecho** en JSON (T-016); el CSV es T-018 |
 | CU-08 | Importar un respaldo | **Hecho** (T-017) |
 | CU-09 | Usar la app sin conexión | **Hecho** — verificado en un Android real (T-019) |
-| CU-10 | Ver la evolución mes a mes | Pendiente |
+| CU-10 | Ver la evolución mes a mes | **Hecho** (T-021) |
 | CU-11 | Ver cuánto costó un viaje | Pendiente |
 | CU-12 | Ver el promedio de un gasto fijo | Pendiente |
 | CU-13 | Importar el historial del Excel | **Hecho** (T-030, T-031, T-032) |
@@ -479,6 +479,16 @@ desde el almacenamiento del dispositivo, todos los casos de uso funcionan igual.
 
 **Muestra:** una fila por mes con el gasto de cada rubro, el total de gastos, el
 total de ingresos y el saldo; más una fila de **total** y una de **promedio**.
+
+**Reglas, escritas porque en el Excel no lo estaban (L-006, ADR-031):**
+- Están **los ocho rubros siempre**, aunque un mes no tenga ninguno.
+- Los meses van **seguidos**: un mes sin movimientos aparece en cero, no se
+  saltea.
+- El **total incluye** el mes en curso; el **promedio, no** —un mes empezado
+  arrastra el promedio para abajo—. La pantalla dice sobre cuántos meses promedió
+  y cuál dejó afuera.
+- Un mes al que le falta un tipo de cambio queda **marcado**: su total está
+  incompleto y decirlo importa más que el número.
 
 ---
 

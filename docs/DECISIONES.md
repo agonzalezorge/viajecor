@@ -926,3 +926,58 @@ lee como "dejó de gastar". Esos días no pasaron todavía.
 **Se dibuja en SVG escrito a mano.** No es purismo: una biblioteca de gráficos se
 trae de un CDN y eso está prohibido (RN-06). Un sector de círculo y una polilínea
 son dos fórmulas de trigonometría.
+
+---
+
+## ADR-031 · El promedio deja afuera el mes en curso, y la pantalla lo dice
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-021
+
+**De dónde sale.** La hoja `Analisis1` del Excel suma el total sobre `D4:D14` y
+promedia sobre `D4:D13`: once meses en una fila y diez en la otra. Puede ser
+deliberado —tiene sentido no promediar un mes empezado— pero **no está escrito en
+ningún lado** (L-006), así que es imposible saber si fue a propósito o un
+descuido, y el próximo que lo lea lo va a "arreglar".
+
+**La decisión.** El **total incluye** el mes en curso; el **promedio, no**. Un mes
+empezado tiene menos días que los demás y arrastra el promedio para abajo, pero
+sacarlo del total escondería plata gastada de verdad.
+
+**Lo que la hace distinta del Excel** no es el número: es que la pantalla escribe
+la regla abajo de la tabla, con el mes que dejó afuera nombrado. Una decisión sin
+explicación es indistinguible de un error.
+
+**Casos que había que resolver, y no eran obvios:**
+
+- Si el único mes cargado es el que está en curso, el promedio lo usa igual. Lo
+  otro es dividir por cero, y un "—" en el promedio del primer mes de uso se lee
+  como una app rota.
+- El mes en curso sale del promedio **solo si de verdad está en la tabla**. Mirar
+  una matriz de meses viejos no tiene por qué dar un promedio sobre uno menos.
+
+**Los ocho rubros están siempre, aunque un mes no tenga ninguno.** Es una matriz:
+una columna que aparece y desaparece según el mes deja de ser una columna. Es lo
+mismo que el usuario pidió para la planilla exportada.
+
+**Los meses van seguidos, sin saltear los vacíos.** Un mes sin nada se muestra en
+cero. Saltearlo haría que dos filas pegadas fueran enero y marzo, y comparar la
+columna de al lado pasaría a depender de leer la etiqueta de cada fila en vez de
+mirar hacia abajo.
+
+**Es una tabla y no un gráfico**, a diferencia del resumen del mes. Acá la
+pregunta no es "cómo se reparte" —eso lo contesta la torta— sino "cuánto gasté en
+supermercado en enero, y en febrero": leer un valor exacto en el cruce de dos
+cosas. Para eso la tabla es la forma. Once meses por ocho rubros en la pantalla
+de un teléfono son 88 marcas de dos milímetros.
+
+**Tres cosas para que una tabla ancha funcione en un celular**, comprobadas en el
+navegador y no supuestas: la tabla se desliza **dentro de su caja** y la página
+no se mueve; la columna del mes queda **fija** al deslizar —se midió: se queda en
+el mismo píxel después de correr 400—; y los importes van **sin el símbolo del
+euro**, que repetido en noventa y nueve celdas se come una columna entera de
+rubro. Que todo está en euros lo dice el pie, una vez.
+
+**No es una quinta pestaña.** Se llega desde el resumen del mes, que es donde
+nace la pregunta ("gasté 620 en gastos fijos… ¿es mucho?"). Una quinta pestaña
+dejaría a "Movimientos" sin lugar para su etiqueta en un teléfono de 390 px, y la
+evolución no es algo que se mire todos los días.

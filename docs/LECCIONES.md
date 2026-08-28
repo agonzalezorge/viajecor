@@ -855,3 +855,28 @@ que estén en orden 1…8 dos veces, y compara cada mitad contra su lista.
 un color a mano y ver si algún test se quejaba—, que es exactamente para lo que
 sirven. Un test que no falla cuando rompés el código a propósito no está
 probando nada.
+
+---
+
+## L-025 · Una pantalla que le pregunta la hora al reloj no se puede probar
+
+**Cuándo:** 2026-08-28, haciendo la evolución mes a mes (T-021).
+
+La regla más importante de esa pantalla es *"el promedio deja afuera el mes en
+curso"*. La primera versión la resolvía adentro, llamando a `hoy()`. El test que
+la comprobaba pasaba… por el motivo equivocado: como hoy es agosto de 2026 y los
+datos del test eran de enero a marzo, **no había ningún mes en curso que dejar
+afuera**. El test verde no probaba la regla; probaba que la regla no se activaba.
+
+Y lo peor: ese test iba a **empezar a fallar solo** el día que alguien lo corriera
+con datos que tocaran el mes real, sin que nadie hubiera cambiado una línea.
+
+**La regla:** una función que decide algo según la fecha de hoy tiene que
+**recibir** la fecha de hoy, con el reloj como valor por omisión. No es purismo
+—es la única forma de escribir el caso "sí hay un mes en curso" sin esperar a que
+cambie el mes.
+
+**Cómo se aplica acá:** `dibujarEvolucion(vista, mesActual = mesDe(hoy()))`. La
+app no le pasa nada y usa el reloj; el test le pasa el mes que quiere probar. Es
+el mismo patrón que ya usaban `promedioPorDia(estado, mes, hasta)` y la línea del
+acumulado de T-918.

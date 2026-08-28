@@ -185,6 +185,24 @@ export function dibujarPromedio(estado, mes) {
   `;
 }
 
+/**
+ * La puerta a la evolución mes a mes.
+ *
+ * Va al final del resumen porque es ahí donde nace la pregunta: se termina de
+ * leer "620,00 € en gastos fijos" y lo siguiente que uno quiere saber es si eso
+ * es mucho o poco comparado con los meses anteriores.
+ */
+export function dibujarIrAEvolucion() {
+  return `
+    <section class="tarjeta">
+      <h2>¿Y comparado con los otros meses?</h2>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="evolucion">
+        Ver la evolución mes a mes
+      </button>
+    </section>
+  `;
+}
+
 export function dibujarResumen(vista) {
   const { estado, mes } = vista;
   const totales = totalesDelMes(estado, mes);
@@ -198,5 +216,6 @@ export function dibujarResumen(vista) {
     ${dibujarDesglose(estado, mes, TIPO_GASTO)}
     ${dibujarAcumulado(porDia(estado, mes), { hasta: mes === mesDe(hoy()) ? Number(hoy().slice(8)) : undefined })}
     ${dibujarDesglose(estado, mes, TIPO_INGRESO)}
+    ${dibujarIrAEvolucion()}
   `;
 }

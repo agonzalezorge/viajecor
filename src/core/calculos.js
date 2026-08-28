@@ -1,4 +1,4 @@
-// Los cálculos del mes — CU-04 y CU-05.
+// Los cálculos del mes — CU-04, CU-05 y CU-10.
 //
 // Este archivo reemplaza los bloques `GASTOS POR TIPO`, `INGRESOS POR TIPO`,
 // `TOTALES` y `GASTO POR DÍA` del Excel original, y existe sobre todo para no
@@ -169,6 +169,110 @@ export function porDia(estado, mes) {
     });
   }
   return dias;
+}
+
+/**
+ * Los meses que van del más viejo al más nuevo, **sin huecos**.
+ *
+ * Un mes sin movimientos en el medio se muestra igual, en cero. Saltearlo haría
+ * que dos filas pegadas fueran enero y marzo, y la comparación —que es para lo
+ * único que sirve esta matriz— pasaría a depender de leer la etiqueta de cada
+ * fila en vez de mirar la columna.
+ */
+export function mesesSeguidos(desde, hasta) {
+  const meses = [];
+  let anio = Number(desde.slice(0, 4));
+  let mes = Number(desde.slice(5));
+  const finAnio = Number(hasta.slice(0, 4));
+  const finMes = Number(hasta.slice(5));
+
+  while (anio < finAnio || (anio === finAnio && mes <= finMes)) {
+    meses.push(`${anio}-${String(mes).padStart(2, '0')}`);
+    mes += 1;
+    if (mes > 12) { mes = 1; anio += 1; }
+  }
+  return meses;
+}
+
+/**
+ * La matriz mes × rubro — CU-10. Reemplaza la hoja `Analisis1` del Excel.
+ *
+ * Una fila por mes con el gasto de cada rubro, el total de gastos, el de
+ * ingresos y el saldo; más una fila de **total** y una de **promedio**.
+ *
+ * ── Tres decisiones, escritas porque en el Excel no lo estaban ──────────────
+ *
+ * 1. **Están los ocho rubros siempre**, aunque un mes no tenga ninguno. Es una
+ *    matriz: una columna que aparece y desaparece según el mes deja de ser una
+ *    columna. (Es lo mismo que el usuario pidió para la planilla exportada.)
+ *
+ * 2. **El promedio deja afuera el mes en curso; el total lo incluye.** Un mes
+ *    empezado tiene menos días que los demás y arrastra el promedio para abajo,
+ *    pero sacarlo del total escondería plata gastada de verdad.
+ *
+ *    En el Excel esto pasaba —la fila de total suma `D4:D14` y la de promedio
+ *    promedia `D4:D13`— pero **no estaba escrito en ningún lado** (L-006), así
+ *    que era imposible saber si era a propósito o un descuido. Acá es a
+ *    propósito, y `mesesDelPromedio` dice sobre cuántos meses se calculó para
+ *    que la pantalla lo pueda escribir.
+ *
+ * 3. **Un mes con movimientos sin tipo de cambio se marca**, no se corrige ni se
+ *    esconde: su fila sale con `incompleto: true` y la pantalla lo dice. Un
+ *    número al que le falta un gasto y que no avisa es peor que ningún número.
+ */
+export function matrizMesRubro(estado, mesActual) {
+  const conMovimientos = mesesConMovimientos(estado.movimientos);
+  const rubros = rubrosDe(TIPO_GASTO);
+  if (conMovimientos.length === 0) return { meses: [], rubros, filas: [], total: null, promedio: null, mesesDelPromedio: 0 };
+
+  const meses = mesesSeguidos(conMovimientos[conMovimientos.length - 1], conMovimientos[0]);
+
+  const filas = meses.map((mes) => {
+    const totales = totalesDelMes(estado, mes);
+    const desglose = new Map(porRubro(estado, mes, TIPO_GASTO).map((f) => [normalizarClave(f.rubro), f.total]));
+
+    return {
+      mes,
+      rubros: rubros.map((rubro) => desglose.get(rubro) ?? 0),
+      gastos: totales.gastos,
+      ingresos: totales.ingresos,
+      saldo: totales.saldo,
+      incompleto: totales.sinConvertir.length > 0,
+    };
+  });
+
+  const sumarFilas = (deLasQue) => ({
+    rubros: rubros.map((_, i) => sumar(deLasQue.map((f) => f.rubros[i]))),
+    gastos: sumar(deLasQue.map((f) => f.gastos)),
+    ingresos: sumar(deLasQue.map((f) => f.ingresos)),
+    saldo: sumar(deLasQue.map((f) => f.saldo)),
+  });
+
+  const total = sumarFilas(filas);
+
+  // El mes en curso sale del promedio solo si de verdad está en la matriz.
+  const enCurso = filas.filter((f) => f.mes === mesActual);
+  const terminados = filas.filter((f) => f.mes !== mesActual);
+  const paraPromediar = terminados.length > 0 ? terminados : filas;
+
+  const sumas = sumarFilas(paraPromediar);
+  const dividir = (valor) => redondear(valor / paraPromediar.length);
+  const promedio = {
+    rubros: sumas.rubros.map(dividir),
+    gastos: dividir(sumas.gastos),
+    ingresos: dividir(sumas.ingresos),
+    saldo: dividir(sumas.saldo),
+  };
+
+  return {
+    meses,
+    rubros,
+    filas,
+    total,
+    promedio,
+    mesesDelPromedio: paraPromediar.length,
+    dejaAfuera: enCurso.length > 0 && terminados.length > 0 ? mesActual : null,
+  };
 }
 
 /**

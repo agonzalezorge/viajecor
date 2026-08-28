@@ -22,6 +22,7 @@ import { claseDeRubro, COLORES } from './colores.js';
 import { decimalesDe } from '../core/monedas.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
 import { dibujarResumen } from './pantallas/resumen.js';
+import { dibujarEvolucion } from './pantallas/evolucion.js';
 import { dibujarLista, borrarMovimiento, restaurarMovimiento, buscarMovimiento } from './pantallas/lista.js';
 import { dibujarDatos } from './pantallas/datos.js';
 import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
@@ -113,6 +114,18 @@ registrarPantalla('datos', {
   icono: '↧',
   conMes: false,
   dibujar: dibujarDatos,
+});
+
+// Fuera de la barra de abajo, y a propósito. Se llega desde el resumen del mes,
+// que es donde nace la pregunta ("gasté 620 en gastos fijos… ¿es mucho?"). Una
+// quinta pestaña dejaría a "Movimientos" sin lugar para su etiqueta en un
+// teléfono de 390 px, y la evolución no es algo que se mire todos los días.
+registrarPantalla('evolucion', {
+  etiqueta: 'Evolución mes a mes',
+  icono: '↗',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarEvolucion,
 });
 
 registrarPantalla('cambios', {

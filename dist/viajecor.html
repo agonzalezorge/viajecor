@@ -531,6 +531,78 @@ body {
 
 .linea-acumulado .marca-eje.fin { text-anchor: end; }
 
+/* ── La matriz mes × rubro (T-021) ───────────────────────────────────────────
+   Once meses por ocho rubros no entran a lo ancho de un teléfono. La tabla se
+   desliza DENTRO de su caja —la página no se mueve— y la columna del mes queda
+   fija: una fila de once números sin su etiqueta a la vista no se puede leer. */
+.tabla-ancha {
+  overflow-x: auto;
+  /* Que se pueda enfocar con el teclado, para poder deslizarla sin mouse. */
+  scrollbar-width: thin;
+  margin: 0 -1rem;
+  padding: 0 1rem;
+}
+
+.matriz {
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.matriz th,
+.matriz td {
+  padding: 0.375rem 0.4375rem;
+  text-align: right;
+}
+
+.matriz thead th {
+  font-weight: 600;
+  color: var(--texto-suave);
+  border-bottom: 1px solid var(--borde);
+  vertical-align: bottom;
+}
+
+.matriz .columna-mes {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 600;
+  /* Fondo opaco: sin esto las cifras pasan POR DEBAJO del mes al deslizar y se
+     lee un número encima del otro. */
+  background: var(--superficie);
+  padding-left: 0;
+}
+
+.matriz .importe {
+  /* Cifras de ancho fijo: es lo que permite comparar una columna de un vistazo
+     sin leer número por número. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* El cero está —es una matriz, no puede faltar una celda— pero no compite con
+   los números que sí dicen algo. */
+.matriz .vacio { color: var(--texto-suave); opacity: 0.55; }
+
+.matriz .separada { border-left: 1px solid var(--borde); }
+.matriz .gasto { color: var(--gasto); }
+.matriz .ingreso { color: var(--ingreso); }
+
+.matriz tfoot th,
+.matriz tfoot td {
+  border-top: 1px solid var(--borde);
+  font-weight: 600;
+}
+
+.matriz .columna-mes abbr {
+  color: var(--gasto);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.nota { margin-top: 0.75rem; font-size: 0.8125rem; }
+.nota.deslizar { margin-top: 0.5rem; }
+
 /* ── Un color por rubro (T-909, T-922) ───────────────────────────────────────
    Los ocho tonos salen de la PLANILLA DEL USUARIO: se conservó el matiz de
    cada color suyo y se corrigieron la luz y el croma hasta que el conjunto
@@ -1927,7 +1999,7 @@ function movimientosAfectadosPor(movimientos, moneda, mes) {
 }
 
 // ── src/core/calculos.js ────────────────────────────────────────
-// Los cálculos del mes — CU-04 y CU-05.
+// Los cálculos del mes — CU-04, CU-05 y CU-10.
 //
 // Este archivo reemplaza los bloques `GASTOS POR TIPO`, `INGRESOS POR TIPO`,
 // `TOTALES` y `GASTO POR DÍA` del Excel original, y existe sobre todo para no
@@ -2096,6 +2168,110 @@ function porDia(estado, mes) {
     });
   }
   return dias;
+}
+
+/**
+ * Los meses que van del más viejo al más nuevo, **sin huecos**.
+ *
+ * Un mes sin movimientos en el medio se muestra igual, en cero. Saltearlo haría
+ * que dos filas pegadas fueran enero y marzo, y la comparación —que es para lo
+ * único que sirve esta matriz— pasaría a depender de leer la etiqueta de cada
+ * fila en vez de mirar la columna.
+ */
+function mesesSeguidos(desde, hasta) {
+  const meses = [];
+  let anio = Number(desde.slice(0, 4));
+  let mes = Number(desde.slice(5));
+  const finAnio = Number(hasta.slice(0, 4));
+  const finMes = Number(hasta.slice(5));
+
+  while (anio < finAnio || (anio === finAnio && mes <= finMes)) {
+    meses.push(`${anio}-${String(mes).padStart(2, '0')}`);
+    mes += 1;
+    if (mes > 12) { mes = 1; anio += 1; }
+  }
+  return meses;
+}
+
+/**
+ * La matriz mes × rubro — CU-10. Reemplaza la hoja `Analisis1` del Excel.
+ *
+ * Una fila por mes con el gasto de cada rubro, el total de gastos, el de
+ * ingresos y el saldo; más una fila de **total** y una de **promedio**.
+ *
+ * ── Tres decisiones, escritas porque en el Excel no lo estaban ──────────────
+ *
+ * 1. **Están los ocho rubros siempre**, aunque un mes no tenga ninguno. Es una
+ *    matriz: una columna que aparece y desaparece según el mes deja de ser una
+ *    columna. (Es lo mismo que el usuario pidió para la planilla exportada.)
+ *
+ * 2. **El promedio deja afuera el mes en curso; el total lo incluye.** Un mes
+ *    empezado tiene menos días que los demás y arrastra el promedio para abajo,
+ *    pero sacarlo del total escondería plata gastada de verdad.
+ *
+ *    En el Excel esto pasaba —la fila de total suma `D4:D14` y la de promedio
+ *    promedia `D4:D13`— pero **no estaba escrito en ningún lado** (L-006), así
+ *    que era imposible saber si era a propósito o un descuido. Acá es a
+ *    propósito, y `mesesDelPromedio` dice sobre cuántos meses se calculó para
+ *    que la pantalla lo pueda escribir.
+ *
+ * 3. **Un mes con movimientos sin tipo de cambio se marca**, no se corrige ni se
+ *    esconde: su fila sale con `incompleto: true` y la pantalla lo dice. Un
+ *    número al que le falta un gasto y que no avisa es peor que ningún número.
+ */
+function matrizMesRubro(estado, mesActual) {
+  const conMovimientos = mesesConMovimientos(estado.movimientos);
+  const rubros = rubrosDe(TIPO_GASTO);
+  if (conMovimientos.length === 0) return { meses: [], rubros, filas: [], total: null, promedio: null, mesesDelPromedio: 0 };
+
+  const meses = mesesSeguidos(conMovimientos[conMovimientos.length - 1], conMovimientos[0]);
+
+  const filas = meses.map((mes) => {
+    const totales = totalesDelMes(estado, mes);
+    const desglose = new Map(porRubro(estado, mes, TIPO_GASTO).map((f) => [normalizarClave(f.rubro), f.total]));
+
+    return {
+      mes,
+      rubros: rubros.map((rubro) => desglose.get(rubro) ?? 0),
+      gastos: totales.gastos,
+      ingresos: totales.ingresos,
+      saldo: totales.saldo,
+      incompleto: totales.sinConvertir.length > 0,
+    };
+  });
+
+  const sumarFilas = (deLasQue) => ({
+    rubros: rubros.map((_, i) => sumar(deLasQue.map((f) => f.rubros[i]))),
+    gastos: sumar(deLasQue.map((f) => f.gastos)),
+    ingresos: sumar(deLasQue.map((f) => f.ingresos)),
+    saldo: sumar(deLasQue.map((f) => f.saldo)),
+  });
+
+  const total = sumarFilas(filas);
+
+  // El mes en curso sale del promedio solo si de verdad está en la matriz.
+  const enCurso = filas.filter((f) => f.mes === mesActual);
+  const terminados = filas.filter((f) => f.mes !== mesActual);
+  const paraPromediar = terminados.length > 0 ? terminados : filas;
+
+  const sumas = sumarFilas(paraPromediar);
+  const dividir = (valor) => redondear(valor / paraPromediar.length);
+  const promedio = {
+    rubros: sumas.rubros.map(dividir),
+    gastos: dividir(sumas.gastos),
+    ingresos: dividir(sumas.ingresos),
+    saldo: dividir(sumas.saldo),
+  };
+
+  return {
+    meses,
+    rubros,
+    filas,
+    total,
+    promedio,
+    mesesDelPromedio: paraPromediar.length,
+    dejaAfuera: enCurso.length > 0 && terminados.length > 0 ? mesActual : null,
+  };
 }
 
 /**
@@ -2394,6 +2570,19 @@ function formatearMes(mes) {
     throw new Error(`No existe el mes ${mes}.`);
   }
   return `${MESES[numeroMes - 1]} de ${mes.slice(0, 4)}`;
+}
+
+/**
+ * `2026-03` → `mar 26`. Para la columna de meses de la evolución (T-021).
+ *
+ * `marzo de 2026` completo haría que la única columna que no se puede achicar
+ * —la que queda fija al deslizar— se comiera media pantalla del teléfono. Se
+ * abrevia el mes y se deja el año, que es lo que se necesita para no confundir
+ * marzo de 2025 con marzo de 2026 en una tabla de varios años.
+ */
+function formatearMesCorto(mes) {
+  const largo = formatearMes(mes);
+  return `${largo.slice(0, 3)} ${mes.slice(2, 4)}`;
 }
 
 /**
@@ -5954,6 +6143,24 @@ function dibujarPromedio(estado, mes) {
   `;
 }
 
+/**
+ * La puerta a la evolución mes a mes.
+ *
+ * Va al final del resumen porque es ahí donde nace la pregunta: se termina de
+ * leer "620,00 € en gastos fijos" y lo siguiente que uno quiere saber es si eso
+ * es mucho o poco comparado con los meses anteriores.
+ */
+function dibujarIrAEvolucion() {
+  return `
+    <section class="tarjeta">
+      <h2>¿Y comparado con los otros meses?</h2>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="evolucion">
+        Ver la evolución mes a mes
+      </button>
+    </section>
+  `;
+}
+
 function dibujarResumen(vista) {
   const { estado, mes } = vista;
   const totales = totalesDelMes(estado, mes);
@@ -5967,6 +6174,186 @@ function dibujarResumen(vista) {
     ${dibujarDesglose(estado, mes, TIPO_GASTO)}
     ${dibujarAcumulado(porDia(estado, mes), { hasta: mes === mesDe(hoy()) ? Number(hoy().slice(8)) : undefined })}
     ${dibujarDesglose(estado, mes, TIPO_INGRESO)}
+    ${dibujarIrAEvolucion()}
+  `;
+}
+
+// ── src/ui/pantallas/evolucion.js ───────────────────────────────
+// La evolución mes a mes — CU-10, T-021. Reemplaza la hoja `Analisis1` del
+// Excel: una fila por mes, una columna por rubro, y abajo el total y el
+// promedio.
+//
+// Es la pantalla que solo tiene sentido con historial adentro. Con tres gastos
+// de prueba no dice nada; con los once meses que se importaron en la etapa 3 es
+// la razón por la que la app existe.
+//
+// ── Por qué una tabla y no un gráfico ────────────────────────────────────────
+//
+// Acá la pregunta no es "cómo se reparte" —eso lo contesta la torta del mes—
+// sino "cuánto gasté en supermercado en enero, y en febrero". Eso es leer un
+// valor exacto en el cruce de dos cosas, y para eso la tabla es la forma. Un
+// gráfico de once meses por ocho rubros en la pantalla de un teléfono son 88
+// marcas de dos milímetros.
+//
+// ── Lo que se cuidó, porque una tabla ancha en un celular se rompe fácil ─────
+//
+//   1. La tabla se desliza a lo ancho **dentro de su propia caja**; la página no.
+//   2. La columna del mes **queda fija** al deslizar: una fila de once números
+//      sin su etiqueta a la vista no se puede leer.
+//   3. Los importes van con cifras de ancho fijo y alineados a la derecha, que
+//      es lo que permite comparar una columna sin leer cada número.
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras que
+// devuelven texto HTML.
+
+
+
+
+
+
+/**
+ * Un importe de celda.
+ *
+ * **Sin el símbolo del euro**, y no por prolijidad: son noventa y nueve celdas
+ * en la pantalla de un teléfono, y el símbolo repetido noventa y nueve veces se
+ * come una columna entera de rubro. Toda la tabla está en euros y lo dice el pie
+ * una vez. El cero se dibuja apagado: está —es una matriz, no puede faltar— pero
+ * no compite con los números que sí dicen algo.
+ */
+function celdaDeImporte(importe, extra = '') {
+  const clase = importe === 0 ? 'importe vacio' : 'importe';
+  return `<td class="${clase}${extra}">${escapar(formatearNumero(importe, DECIMALES_EURO))}</td>`;
+}
+
+/**
+ * El encabezado de la tabla: el mes y los ocho rubros, con su punto de color.
+ *
+ * El punto es lo que ata esta pantalla al resumen del mes: la columna que acá
+ * dice "Supermercado" es la porción ámbar de allá.
+ */
+function dibujarEncabezadoMatriz(rubros) {
+  const columnas = rubros.map((rubro) => `
+    <th scope="col">
+      <span class="punto-rubro ${claseDeRubro(TIPO_GASTO, rubro)}" aria-hidden="true"></span>
+      ${escapar(formatearRubro(rubro))}
+    </th>`).join('');
+
+  return `
+    <tr>
+      <th scope="col" class="columna-mes">Mes</th>
+      ${columnas}
+      <th scope="col" class="separada">Gastos</th>
+      <th scope="col">Ingresos</th>
+      <th scope="col">Saldo</th>
+    </tr>
+  `;
+}
+
+/** Una fila de mes. */
+function dibujarFilaMes(fila) {
+  const marca = fila.incompleto
+    ? ' <abbr title="A este mes le falta un tipo de cambio: el total está incompleto">·</abbr>'
+    : '';
+
+  return `
+    <tr>
+      <th scope="row" class="columna-mes">${escapar(formatearMesCorto(fila.mes))}${marca}</th>
+      ${fila.rubros.map((importe) => celdaDeImporte(importe)).join('')}
+      ${celdaDeImporte(fila.gastos, ' separada')}
+      ${celdaDeImporte(fila.ingresos)}
+      <td class="importe ${fila.saldo < 0 ? 'gasto' : 'ingreso'}">${escapar(formatearNumero(fila.saldo, DECIMALES_EURO))}</td>
+    </tr>
+  `;
+}
+
+/** Las dos filas del pie: total y promedio. */
+function dibujarPieMatriz(matriz) {
+  const fila = (nombre, valores) => `
+    <tr>
+      <th scope="row" class="columna-mes">${escapar(nombre)}</th>
+      ${valores.rubros.map((importe) => celdaDeImporte(importe)).join('')}
+      ${celdaDeImporte(valores.gastos, ' separada')}
+      ${celdaDeImporte(valores.ingresos)}
+      ${celdaDeImporte(valores.saldo)}
+    </tr>
+  `;
+
+  return fila('Total', matriz.total) + fila('Promedio', matriz.promedio);
+}
+
+/**
+ * La explicación del promedio.
+ *
+ * No es un adorno: en el Excel el total sumaba once meses y el promedio
+ * promediaba diez, y no estaba escrito en ningún lado si era a propósito
+ * (L-006). Una decisión sin explicación es indistinguible de un error, así que
+ * acá la decisión se escribe abajo de la tabla, donde se lee el número.
+ */
+function dibujarNotaDelPromedio(matriz) {
+  const meses = matriz.mesesDelPromedio === 1 ? '1 mes' : `${matriz.mesesDelPromedio} meses`;
+
+  if (matriz.dejaAfuera === null) {
+    return `<p class="suave nota">El promedio es sobre ${escapar(meses)}.</p>`;
+  }
+
+  return `
+    <p class="suave nota">
+      El promedio es sobre los ${escapar(meses)} terminados: deja afuera
+      ${escapar(formatearMesCorto(matriz.dejaAfuera))}, que todavía va por la
+      mitad y tiraría el promedio para abajo. El total sí lo incluye.
+    </p>
+  `;
+}
+
+/** Lo que se ve cuando todavía no hay nada que comparar. */
+function dibujarSinHistorial() {
+  return `
+    <section class="tarjeta">
+      <h2>Evolución mes a mes</h2>
+      <p class="suave">Todavía no cargaste ningún movimiento, así que no hay meses
+      que comparar.</p>
+      <button type="button" class="principal" data-accion="ir" data-pantalla="nuevo">
+        Cargar un movimiento
+      </button>
+    </section>
+  `;
+}
+
+/**
+ * `mesActual` es **el mes en el que estamos**, no el que se está mirando: es el
+ * que queda afuera del promedio por estar empezado. Se puede pasar aparte
+ * porque si no, la única forma de probar esa regla sería esperar a que cambie
+ * el mes.
+ */
+function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
+  const matriz = matrizMesRubro(vista.estado, mesActual);
+  if (matriz.filas.length === 0) return dibujarSinHistorial();
+
+  const incompletos = matriz.filas.filter((f) => f.incompleto).length;
+  const aviso = incompletos === 0 ? '' : `
+    <p class="suave nota">
+      ${incompletos === 1 ? 'Un mes está marcado con un punto' : `${incompletos} meses están marcados con un punto`}
+      porque les falta un tipo de cambio: su total está incompleto.
+    </p>`;
+
+  // Del más nuevo al más viejo: lo que se mira primero es el mes pasado, no
+  // octubre de hace un año.
+  const filas = [...matriz.filas].reverse().map(dibujarFilaMes).join('');
+
+  return `
+    <section class="tarjeta">
+      <h2>Evolución mes a mes</h2>
+      <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gasto por mes y por rubro">
+        <table class="matriz">
+          <thead>${dibujarEncabezadoMatriz(matriz.rubros)}</thead>
+          <tbody>${filas}</tbody>
+          <tfoot>${dibujarPieMatriz(matriz)}</tfoot>
+        </table>
+      </div>
+      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros. Los importes están en euros.</p>
+      ${dibujarNotaDelPromedio(matriz)}
+      ${aviso}
+    </section>
   `;
 }
 
@@ -7017,6 +7404,7 @@ function dibujarNuevo(vista) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -7097,6 +7485,18 @@ registrarPantalla('datos', {
   icono: '↧',
   conMes: false,
   dibujar: dibujarDatos,
+});
+
+// Fuera de la barra de abajo, y a propósito. Se llega desde el resumen del mes,
+// que es donde nace la pregunta ("gasté 620 en gastos fijos… ¿es mucho?"). Una
+// quinta pestaña dejaría a "Movimientos" sin lugar para su etiqueta en un
+// teléfono de 390 px, y la evolución no es algo que se mire todos los días.
+registrarPantalla('evolucion', {
+  etiqueta: 'Evolución mes a mes',
+  icono: '↗',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarEvolucion,
 });
 
 registrarPantalla('cambios', {

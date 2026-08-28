@@ -6,6 +6,16 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Agregado
+- **La evolución mes a mes**, que reemplaza la hoja `Analisis1` del Excel: una
+  fila por mes, una columna por rubro, y abajo el total y el promedio. Se llega
+  desde el resumen del mes. Con once meses adentro es la pantalla que responde
+  "¿esto es mucho?", que era imposible de contestar mirando un mes solo.
+
+  La diferencia con la planilla no es el cálculo: es que **el promedio deja
+  afuera el mes en curso y la pantalla lo dice**, con el mes nombrado. En el
+  Excel esa misma diferencia existía —el total sumaba once meses y el promedio
+  promediaba diez— y no estaba explicada en ningún lado, así que era
+  indistinguible de un descuido. Ver ADR-031.
 - **Los dos gráficos del mes**, los que el usuario tiene en su planilla: una
   **torta** del reparto por rubro y una **línea del acumulado** día a día. La
   torta reemplaza a las barras de proporción, por decisión suya. La lista de
