@@ -814,3 +814,59 @@ propios archivos lee bien exactamente lo que él mismo escribe.
 **Lo que sigue en pie de ADR-010:** el ZIP se abre con `DecompressionStream`, que
 sí está en Node y en el navegador, y el usuario sigue sin tener que convertir su
 planilla a nada.
+
+---
+
+## ADR-029 · Los colores de los rubros salen de la planilla del usuario, con el matiz conservado y la luz corregida
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-922
+
+**El problema.** La app tenía una paleta categórica elegida por su legibilidad,
+sin ninguna relación con la planilla que el usuario viene mirando desde octubre
+de 2025. Ahí supermercado es naranja y viajes es verde desde hace once meses. Un
+color es una etiqueta que se aprende una sola vez: cambiarla sin motivo obliga a
+volver a leer los nombres, que es justo lo que el color evita.
+
+**Lo que se descartó: copiar los pasteles tal cual.** Se midieron los ocho
+colores de la planilla con el validador de la guía de visualización y dieron
+**cuatro fallas**: quedan fuera de la banda de luz, seis de los ocho se leen como
+gris por tener muy poco croma, `#FFCCCC` y `#FFCC99` se diferencian en **ΔE 6,6
+con visión normal** —abajo del piso de 15— y el lila de salud está en el **mismo
+matiz** que el violeta de entretenimiento (−53° contra −54°). Son colores
+pensados para ser **fondo de celda con texto negro encima**, no para ser un punto
+de 8 px o un pedazo de torta. Copiarlos habría sido fiel a la planilla y peor de
+leer que lo que ya había.
+
+**Lo que se hizo.** Se le sacó a cada color de la planilla su **matiz** —lo que
+uno reconoce: "el rosa", "el naranja"— y se le asignó a ese rubro el paso ya
+validado más cercano. Seis de los ocho se movieron **23° o menos**: siguen siendo
+el mismo color con otro nombre técnico. Los dos que se movieron más son los dos
+que estaban rotos: salud, porque su lila era indistinguible del violeta de
+entretenimiento, y otros, porque su gris clarito no contrasta contra un fondo
+blanco.
+
+**Dónde sí van los pasteles, tal cual.** En los fondos de celda del `.xlsx`
+(`FONDOS_RUBRO`), que es para lo que fueron elegidos y donde funcionan: ahí el
+color es fondo de un texto negro, y se comprueba con la fórmula de contraste de
+WCAG que ese texto se lea.
+
+**Los ingresos también.** En la planilla trabajo es verde, inversiones celeste,
+regalos rosa y otros gris. Antes la app los repartía por su posición en la lista.
+Ahora `FRANJA_DE_INGRESO` los ata a los colores de la planilla, aunque eso
+implique que un ingreso comparta color con un gasto: nunca aparecen en la misma
+tabla, porque el desglose se dibuja por tipo. Los dos "otros" —gasto e ingreso—
+comparten el gris por el mismo motivo, y eso da vuelta a propósito la decisión
+que había tomado T-909.
+
+**El límite que apareció.** Con ocho colores **ninguna** paleta pasa el validador
+en `--pairs all` —todos contra todos—, ni la anterior. Se comprobó, no se
+supuso. Por eso la torta de T-918 va a dibujar los rubros en **orden fijo**, no
+por tamaño: así los pares que quedan pegados son siempre los mismos y se pueden
+validar. Es la misma regla de siempre —el color sigue a la cosa, nunca a su
+puesto en el ranking.
+
+**Lo que quedó con aviso y no con falla.** Con fondo claro, dos pares dan ΔE 7,2
+en visión con daltonismo y uno queda corto de contraste. La guía lo permite
+cuando hay **rótulo directo**, y lo hay: cada fila dice su nombre y su importe, y
+la torta va a llevar los nombres al lado. Con fondo oscuro la paleta pasa las
+seis comprobaciones.

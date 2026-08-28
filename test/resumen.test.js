@@ -167,9 +167,23 @@ test('cada rubro de gasto cae en una franja distinta, y son ocho', () => {
   assert.equal(new Set(franjas).size, 8);
 });
 
-test('"otros" de gasto y "otros" de ingreso tienen colores distintos', () => {
-  // Son cosas distintas (PRODUCTO §4), así que no pueden verse iguales.
-  assert.notEqual(claseDeRubro(TIPO_GASTO, 'otros'), claseDeRubro(TIPO_INGRESO, 'otros'));
+test('los dos "otros" comparten el gris, y nunca se ven juntos', () => {
+  // Hasta el 2026-08-28 este test pedía lo contrario: que se vieran distintos,
+  // porque son cosas distintas (PRODUCTO §4). Se dio vuelta a propósito con
+  // T-922 (ADR-030): la paleta ahora sale de la planilla del usuario, y ahí
+  // los dos "otros" son grises. Se puede porque nunca comparten una tabla:
+  // el desglose se dibuja por tipo, y cada tipo tiene su título.
+  assert.equal(claseDeRubro(TIPO_GASTO, 'otros'), claseDeRubro(TIPO_INGRESO, 'otros'));
+
+  const estado = estadoCon([
+    mov({ monto: '10', rubro: 'otros' }),
+    mov({ monto: '2100', tipo: TIPO_INGRESO, rubro: 'otros' }),
+  ]);
+
+  // Si alguna vez se juntaran en una lista, esta cuenta daría 2 y el gris
+  // repetido pasaría a ser una confusión de verdad.
+  assert.equal([...dibujarDesglose(estado, MES, TIPO_GASTO).matchAll(/Otros/g)].length, 1);
+  assert.equal([...dibujarDesglose(estado, MES, TIPO_INGRESO).matchAll(/Otros/g)].length, 1);
 });
 
 test('los rótulos se muestran con mayúscula inicial', () => {

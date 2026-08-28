@@ -827,3 +827,31 @@ frecuente es al revés, y decirlo mal desperdicia el hallazgo.
 no es «¿dónde me equivoqué?» sino «¿cuál de los dos está mal?». Dar por sentado
 que el sistema viejo tiene razón porque es el que estaba primero es la forma más
 elegante de importar sus errores.
+
+---
+
+## L-024 · Buscar un valor en todo el archivo encuentra el que no era
+
+**Cuándo:** 2026-08-28, cambiando la paleta (T-922).
+
+El test que impide que el CSS y `core/paleta.js` se separen buscaba cada color
+suelto en todo el archivo: `--rubro-5:\s*#a552b7\s*;`. Parece razonable, y estaba
+en verde.
+
+Se le rompió a propósito el `--rubro-5` del **fondo claro**. El test **no falló**.
+El motivo: el archivo declara los ocho rubros dos veces —una para el fondo claro
+y otra para el oscuro—, y el violeta es uno de los dos colores que valen lo mismo
+en los dos modos. La búsqueda global lo encontró en el bloque oscuro y dio por
+buena una declaración clara que ya no existía. Peor todavía, la lista de colores
+del modo oscuro no la comprobaba **nadie**: era un comentario ejecutable.
+
+**La regla:** cuando un archivo declara la misma cosa más de una vez, un test que
+la busca en todo el archivo comprueba "existe en algún lado", no "está donde
+tiene que estar". Hay que leer las declaraciones **en orden y por bloque**, y
+exigir cuántas son. Ahora el test junta las dieciséis, exige que sean dieciséis,
+que estén en orden 1…8 dos veces, y compara cada mitad contra su lista.
+
+**Cómo apareció:** no la encontró nadie leyendo. La encontró una mutación —cambiar
+un color a mano y ver si algún test se quejaba—, que es exactamente para lo que
+sirven. Un test que no falla cuando rompés el código a propósito no está
+probando nada.

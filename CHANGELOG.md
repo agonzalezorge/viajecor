@@ -6,6 +6,15 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Cambiado
+- **Los colores de los rubros ahora son los de la planilla del usuario.** El rosa
+  de gastos fijos, el naranja de supermercado, el verde de viajes y el celeste de
+  transporte son los que viene mirando desde octubre de 2025: se conservó el
+  matiz de cada uno y se corrigieron la luz y el croma, porque los pasteles de la
+  planilla están pensados para ser fondo de celda y como punto de color seis de
+  los ocho se leen como gris. Solo dos rubros se corrieron de verdad, y son los
+  dos que estaban mal: el lila de salud era el mismo matiz que el violeta de
+  entretenimiento, y el gris de otros no contrastaba contra el fondo blanco. En
+  el `.xlsx` los pasteles siguen tal cual, que es donde funcionan. Ver ADR-029.
 - **La guardia de privacidad se volvió más estricta y más honesta.** Estaba
   escrita dos veces —en el constructor y en su test—, que es la forma más común
   de que una regla y su comprobación se separen; ahora vive en un solo lugar que
