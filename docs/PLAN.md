@@ -74,7 +74,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-015 | Lista de movimientos, editar y borrar | **Hecha** | T-011 |
 | T-016 | Exportar a JSON | **Hecha** | T-004 |
 | T-017 | Importar un respaldo JSON | **Hecha** | T-016 |
-| T-018 | Exportar a CSV | **Lista** | T-005, T-016 |
+| T-018 | Exportar a CSV | En curso (claude, 2026-08-27) | T-005, T-016 |
 | T-019 | Verificación real sin conexión | **Hecha** (usuario, 2026-08-27) | T-011…T-018 |
 | **Etapa 2 — Análisis** ||||
 | T-020 | Gasto día por día del mes | **Lista** | T-013 |
@@ -663,7 +663,7 @@ movimiento" — arreglados, con tests que los cubren (L-016).
 ---
 
 ### T-018 · Exportar a CSV — CU-07
-**Estado:** Lista · **Depende de:** T-005, T-016
+**Estado:** En curso (claude, 2026-08-27) · **Depende de:** T-005, T-016
 **Toca:** `src/datos/exportar.js`
 
 Con monto original, moneda, tipo de cambio aplicado e importe en euros. UTF-8 con
