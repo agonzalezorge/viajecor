@@ -110,7 +110,9 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-916 | La planilla se parece de verdad a la original | **Hecha** | T-906, T-915 |
 | T-917 | ~~Los dos gráficos del `.xlsx`~~ | **Descartada** (usuario, 2026-08-27) | — |
 | T-918 | Los dos gráficos del mes, en la app | Lista | T-013, T-909 |
-| T-919 | Verificar en el celular lo hecho después de T-019 | Pendiente | T-950, T-911…T-916 |
+| T-919 | Verificar en el celular lo hecho después de T-019 | **Hecha** (usuario, 2026-08-28) | T-950, T-911…T-916 |
+| T-920 | Sugerencias propias, sin depender del navegador | En curso (claude, 2026-08-28) | T-912 |
+| T-921 | Sacar el texto de "compartir no funciona" | En curso (claude, 2026-08-28) | T-914 |
 
 **Lo próximo: la etapa 3.** Con la etapa 1 cerrada (2026-08-27), la app hace todo
 lo que hacía el Excel — pero **está vacía**, y el historial del usuario sigue
@@ -814,6 +816,14 @@ Escribir cómo se traduce cada columna de la planilla al modelo de la app, y qu�
 hace con cada caso raro. Se trabaja contra `test/ejemplo/planilla-ejemplo.xlsx`,
 que tiene la estructura real con montos inventados (T-009).
 
+**Decidido con el usuario (2026-08-28):**
+- **Todos los montos están en euros**, convertidos a mano por él. No hace falta
+  ningún tipo de cambio histórico para importar: cada fila entra tal cual, en
+  euros. Es la respuesta que más simplifica la etapa 3.
+- **Las filas sin monto se descartan, pero se listan** en el informe de
+  importación, con lo que decían. Nada desaparece en silencio: si alguna era un
+  gasto real al que le faltaba el importe, tiene que poder verlo.
+
 **Casos que el mapeo tiene que resolver, ya identificados:**
 - Hay **celdas sueltas de referencia** fuera de las tablas: el usuario tenía un
   `49,5` al costado de los gráficos, que era el tipo de cambio del peso uruguayo
@@ -1316,12 +1326,76 @@ compartir se deje de ofrecer, y la planilla con la forma nueva.
 **Pidió que se le recuerde.** Queda acá para que no dependa de la memoria de
 nadie, y hay que mencionárselo al entregar lo siguiente.
 
-**Lo que hay que mirar cuando lo pruebe:**
-- Que el aviso de "no puedo guardar" **no aparezca** abriendo por `file:///`, y
-  que sí aparezca si abre desde el explorador de archivos.
-- Que el autocompletado del comentario funcione con el teclado del celular — es
-  un `<datalist>`, y cada navegador lo dibuja a su manera (L-013).
-- Que la planilla nueva abra en Excel con sus colores y sus bandas.
+**Lo que pasó (usuario, 2026-08-28).**
+
+| Qué | Resultado |
+|---|---|
+| El aviso de "no puedo guardar" abriendo por `file:///` | **No aparece** — correcto |
+| Que compartir se deje de ofrecer tras fallar | **Funciona**: ve la explicación en vez del botón |
+| El autocompletado del comentario | **No funciona** → T-920 |
+| La planilla en Excel: abre, con colores, con `08/26` | **Todo bien** — lo que no se podía comprobar acá |
+
+**Un error de método, y es mío.** La primera ronda de esta verificación se hizo
+sobre el **archivo viejo**: el usuario no había vuelto a bajar el HTML. Los tres
+"no funciona" que reportó eran las tres cosas que todavía no existían en su
+copia. Se detectó porque los tres fallos encajaban demasiado bien con una sola
+causa —y porque el cuarto resultado era la firma exacta de la versión anterior—,
+no porque nadie lo hubiera previsto.
+
+**Lo que deja:** cuando se le pide a alguien que verifique algo, la primera
+instrucción tiene que ser **cómo obtener la versión que se va a verificar**, y la
+primera comprobación tiene que ser **que la tenga**. Sin eso, un informe de
+pruebas puede describir un programa que no existe. → va a `docs/USO.md` (T-900).
+
+**Y otro error mío, más chico:** le pedí comprobar que el comentario `Barcelona26`
+se autocompletara **sin haberle dicho que primero cargara un gasto con ese
+comentario**. El autocompletado ofrece lo ya usado; no puede inventar. Una
+instrucción de prueba que pide algo imposible produce un "no funciona" que no
+dice nada.
+
+---
+
+### T-920 · Sugerencias propias, sin depender del navegador
+**Estado:** En curso (claude, 2026-08-28) · **Depende de:** T-912
+
+T-912 usó `<datalist>`, que dibuja el navegador. En el Android del usuario **no
+aparece nada** (verificado por él, 2026-08-28), ni en el comentario ni con un
+texto ya cargado. Es L-013 otra vez: un control que dibuja el sistema hace lo que
+el sistema quiere, y acá directamente no hace nada.
+
+**Se reemplaza por una lista propia** —unos botones debajo del campo—, que no
+depende de que el navegador coopere. Cuesta más código y hay que mantenerla, pero
+es la única forma de que se pueda comprobar que funciona.
+
+**Va también en el campo Detalle**, que es donde el usuario lo probó y donde
+tiene el mismo sentido: `alquiler`, `luz`, `psicóloga` se repiten todos los meses.
+
+**Lo que hay que cuidar:** la lista aparece mientras se escribe, y ADR-023 dice
+que lo escrito vive en el documento y **no se redibuja por tecla**. Se actualiza
+solo el trozo de las sugerencias, con la misma técnica que ya usa la fecha en
+palabras. Y tocar una sugerencia no puede perder lo demás escrito.
+
+---
+
+### T-921 · Sacar el texto de "compartir no funciona"
+**Estado:** En curso (claude, 2026-08-28) · **Depende de:** T-914
+
+Pedido del usuario (2026-08-28): *"si no funciona, ¿no es mejor eliminarlo?"*.
+
+T-914 ya sacó el botón, pero dejó un párrafo permanente explicando por qué no
+está. Explicar una vez está bien; explicarlo **cada vez que se entra a la
+pantalla** es dejar en la cara un cartel sobre algo que no se puede hacer. Queda
+solo la forma de volver a intentarlo, discreta.
+
+**Por qué falla, para que quede escrito.** Compartir un archivo exige un origen
+de verdad —un `https://`—, y la app abierta desde el disco no tiene ninguno: es
+la misma falta de identidad que hacía perder los datos (T-950). Ahí la ruta del
+archivo alcanzó como identidad para el almacenamiento; para compartir, no. **Es
+un límite del navegador, no algo que la app pueda resolver**, y por eso la
+salida es la descarga y no un arreglo.
+
+*(Sin comprobar: no hay ningún Android en el entorno donde reproducirlo. Es la
+explicación más probable de un `Permission denied` desde `file://`.)*
 
 ---
 
