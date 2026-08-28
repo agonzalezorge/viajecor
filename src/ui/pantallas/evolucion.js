@@ -30,6 +30,7 @@ import { matrizMesRubro } from '../../core/calculos.js';
 import { DECIMALES_EURO } from '../../core/dinero.js';
 import { formatearMesCorto, formatearNumero, formatearRubro } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
+import { dibujarGastosFijos } from './fijos.js';
 import { TIPO_GASTO, hoy, mesDe } from '../../core/modelo.js';
 
 /**
@@ -175,5 +176,6 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
+    ${dibujarGastosFijos(vista.estado)}
   `;
 }

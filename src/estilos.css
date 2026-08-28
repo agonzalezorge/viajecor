@@ -598,6 +598,14 @@ body {
 .nota { margin-top: 0.75rem; font-size: 0.8125rem; }
 .nota.deslizar { margin-top: 0.5rem; }
 
+/* Una nota pegada al final de una lista se lee como la última fila. Con una
+   línea arriba queda claro que habla de la lista entera y no de ese renglón. */
+.rubros + .nota {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--borde);
+}
+
 /* ── Un color por rubro (T-909, T-922) ───────────────────────────────────────
    Los ocho tonos salen de la PLANILLA DEL USUARIO: se conservó el matiz de
    cada color suyo y se corrigieron la luz y el croma hasta que el conjunto

@@ -197,7 +197,7 @@ export function dibujarIrAEvolucion() {
     <section class="tarjeta">
       <h2>¿Y comparado con los otros meses?</h2>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="evolucion">
-        Ver la evolución mes a mes
+        Ver la evolución y los gastos fijos
       </button>
     </section>
   `;

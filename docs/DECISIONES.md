@@ -981,3 +981,46 @@ rubro. Que todo está en euros lo dice el pie, una vez.
 nace la pregunta ("gasté 620 en gastos fijos… ¿es mucho?"). Una quinta pestaña
 dejaría a "Movimientos" sin lugar para su etiqueta en un teléfono de 390 px, y la
 evolución no es algo que se mire todos los días.
+
+---
+
+## ADR-032 · El promedio de un gasto fijo dice cuántos pagos y entre qué meses
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-022
+
+**El número del Excel.** El bloque `GASTOS FIJOS PROMEDIO` muestra, por cada
+gasto fijo, cuántas veces se pagó, el total y el promedio por pago.
+
+**El problema de mostrar solo el promedio.** "Internet: 48,63 €" se lee como
+*"me sale 48,63 por mes"*. Puede no serlo: si son tres pagos repartidos en diez
+meses, el promedio por pago no es un costo mensual, y la diferencia entre las dos
+lecturas es de tres veces. El número no está mal; la lectura obvia sí.
+
+**La decisión:** al lado de cada promedio va **"3 pagos · nov 25 → ago 26"**. Con
+eso, el mismo número dice lo que de verdad dice, y no hace falta inventar un
+segundo promedio "por mes" que tendría sus propios supuestos (¿desde el primer
+pago o desde el primer mes cargado? ¿cuentan los meses sin pagar?).
+
+**El promedio es el número grande, no el total.** La pregunta es "¿cuánto me
+sale?", no "¿cuánto llevo gastado?". El total va al lado en chico porque es lo
+que permite comprobar el promedio a mano.
+
+**Mira todo el historial, no un mes.** Un promedio sobre un mes es el gasto de
+ese mes con otro nombre. Por eso la pantalla no tiene selector de mes.
+
+**Agrupa por el comentario**, que es la columna B de la planilla y lo que el
+usuario ya viene usando como etiqueta (MAPEO-EXCEL §3). Por la clave normalizada,
+no por el texto: `Luz` y `luz` son la misma factura (RN-03).
+
+**Los pagos sin comentario se cuentan aparte y se dicen.** En la planilla real
+hay filas de gastos fijos sin comentario. Sin comentario no hay nada que
+promediar —no se sabe si son tres facturas de luz o tres cosas distintas—, pero
+descartarlas en silencio haría que **la lista no cerrara con el total del rubro**
+y el usuario no tendría cómo darse cuenta. Se muestran contadas y sumadas, con la
+frase que dice cómo hacer que entren. Se comprobó en el navegador: los tres
+grupos más los dos sueltos dan 471,90 €, que es exactamente lo que la matriz de
+al lado muestra en la columna de gastos fijos.
+
+**Vive en la misma pantalla que la evolución.** Las dos contestan preguntas sobre
+el historial y ninguna se mira todos los días; separarlas en dos pantallas sería
+dos puertas para el mismo cuarto.

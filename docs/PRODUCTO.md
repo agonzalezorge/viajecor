@@ -264,7 +264,7 @@ qué existe.
 | CU-09 | Usar la app sin conexión | **Hecho** — verificado en un Android real (T-019) |
 | CU-10 | Ver la evolución mes a mes | **Hecho** (T-021) |
 | CU-11 | Ver cuánto costó un viaje | Pendiente |
-| CU-12 | Ver el promedio de un gasto fijo | Pendiente |
+| CU-12 | Ver el promedio de un gasto fijo | **Hecho** (T-022) |
 | CU-13 | Importar el historial del Excel | **Hecho** (T-030, T-031, T-032) |
 | CU-14 | Llevar los ahorros conjuntos | Pendiente |
 | CU-15 | Agregar una moneda | Lógica hecha (T-008); falta la pantalla (T-024) |
@@ -518,8 +518,17 @@ antes):
 sale la luz por mes, en promedio?".
 
 **Muestra:** por cada gasto fijo recurrente (identificado por el comentario:
-`Luz`, `Gas`, `Internet+celular`, `Psicóloga`), cuántas veces se pagó, el total y
-el promedio por pago.
+`Luz`, `Gas`, `Internet+celular`, `Psicóloga`), el **promedio por pago** como
+número principal, y al lado cuántas veces se pagó y **entre qué meses** — porque
+un promedio por pago sin la cadencia se lee como si fuera mensual, y tres pagos
+en diez meses no lo son (ADR-032).
+
+**Mira todo el historial**, no un mes: un promedio sobre un mes es el gasto de
+ese mes con otro nombre.
+
+**Los pagos sin comentario se dicen**, contados y sumados. Sin comentario no hay
+nada que promediar, pero callarlos haría que la lista no cerrara con el total del
+rubro.
 
 ---
 

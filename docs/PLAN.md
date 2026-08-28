@@ -79,7 +79,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Etapa 2 — Análisis** ||||
 | T-020 | ~~Gasto día por día del mes~~ | **Descartada** (usuario, 2026-08-28) | — |
 | T-021 | Evolución mes a mes | **Hecha** | T-013 |
-| T-022 | Promedio de gastos fijos | En curso (claude, 2026-08-28) | T-013 |
+| T-022 | Promedio de gastos fijos | **Hecha** | T-013 |
 | T-023 | Gasto por viaje | Necesita decisión | T-013 |
 | T-024 | Pantalla de monedas | **Lista** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
@@ -810,10 +810,28 @@ Matriz mes × rubro con fila de total y de promedio, como `Analisis1`.
 - Apareció L-025: la pantalla le preguntaba la hora al reloj y por eso su test
   más importante pasaba por el motivo equivocado.
 
-### T-022 · Promedio de gastos fijos — CU-12
-**Depende de:** T-013 · **Toca:** `src/ui/pantallas/fijos.js`
+### T-022 · Promedio de gastos fijos — CU-12 — **Hecha** (2026-08-28)
+**Depende de:** T-013 · **Tocó:** `src/ui/pantallas/fijos.js` (nuevo),
+`src/core/calculos.js`, `evolucion.js`, `resumen.js`, `estilos.css`
 
 Agrupado por comentario: cuántas veces, total y promedio por pago.
+
+**Lo que quedó hecho, comprobado:**
+
+- `gastosFijos()` en `core/`: agrupa **todo el historial** por la clave del
+  comentario, solo los gastos del rubro `gastos fijos`.
+- Cada uno muestra el **promedio como número grande** —la pregunta es "¿cuánto me
+  sale?"— con **"3 pagos · nov 25 → ago 26"** al lado, para que un promedio por
+  pago no se lea como si fuera mensual. Ver ADR-032.
+- Los pagos **sin comentario** salen contados y sumados, con la frase que dice
+  cómo hacer que entren. Sin eso la lista no cerraría con el total del rubro y no
+  habría forma de notarlo.
+- Vive en la misma pantalla que la evolución: las dos son preguntas sobre el
+  historial.
+- 19 tests nuevos. Nueve mutaciones a propósito: las nueve fallan.
+- Vuelta por el navegador, claro y oscuro: los tres grupos más los dos sueltos
+  dan 471,90 €, **el mismo número que la matriz de arriba** en la columna de
+  gastos fijos. 0 peticiones de red, 0 errores de consola.
 
 ### T-024 · Pantalla de monedas — CU-15
 **Depende de:** T-008, T-010 · **Toca:** `src/ui/pantallas/monedas.js`

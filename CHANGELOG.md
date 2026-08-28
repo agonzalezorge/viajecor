@@ -6,6 +6,12 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Agregado
+- **Cuánto sale cada gasto fijo**, abajo de la evolución: el promedio por pago de
+  la luz, el gas, internet. La diferencia con la planilla es que al lado del
+  promedio dice **cuántos pagos y entre qué meses** — "3 pagos · nov 25 → ago 26"
+  —, porque un promedio por pago solo se lee como si fuera mensual y no siempre
+  lo es. Y los pagos sin comentario, que no se pueden agrupar, aparecen contados
+  y sumados en vez de desaparecer sin dejar rastro. Ver ADR-032.
 - **La evolución mes a mes**, que reemplaza la hoja `Analisis1` del Excel: una
   fila por mes, una columna por rubro, y abajo el total y el promedio. Se llega
   desde el resumen del mes. Con once meses adentro es la pantalla que responde

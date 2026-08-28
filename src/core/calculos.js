@@ -293,6 +293,71 @@ export function promedioPorDia(estado, mes, hasta) {
 }
 
 /**
+ * Los gastos fijos agrupados — CU-12. Reemplaza el bloque `GASTOS FIJOS
+ * PROMEDIO` del Excel. Responde "¿cuánto me sale la luz por mes?".
+ *
+ * Agrupa **todo el historial**, no un mes: un promedio sobre un mes es el gasto
+ * de ese mes con otro nombre. Por eso no recibe un mes.
+ *
+ * ── Qué se cuenta ───────────────────────────────────────────────────────────
+ *
+ * Los movimientos de **gasto** del rubro `gastos fijos`, agrupados por la
+ * **clave** del comentario (RN-03): `Luz` y `luz` son la misma factura, y el
+ * comentario es lo que el usuario ya viene usando como etiqueta en su planilla
+ * (MAPEO-EXCEL §3, columna B).
+ *
+ * ── Los que no tienen comentario salen aparte, no se tiran ──────────────────
+ *
+ * En la planilla del usuario hay filas de gastos fijos sin comentario. Sin
+ * comentario no hay nada que promediar —no se sabe si son tres facturas de luz o
+ * tres cosas distintas—, pero **descartarlas en silencio haría que la suma de la
+ * pantalla no cerrara con el total del rubro**, y el usuario no tendría forma de
+ * saber por qué. Se devuelven contadas y sumadas, para que la pantalla lo diga.
+ */
+export function gastosFijos(estado) {
+  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
+  const fijos = convertibles.filter(
+    (m) => m.tipo === TIPO_GASTO && normalizarClave(m.rubro) === 'gastos fijos',
+  );
+
+  const acumulado = new Map();
+  let sinComentario = { cuantos: 0, total: 0 };
+
+  for (const movimiento of fijos) {
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    if (!movimiento.comentario) {
+      sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
+      continue;
+    }
+
+    const clave = normalizarClave(movimiento.comentario);
+    const anterior = acumulado.get(clave);
+    const mes = mesDe(movimiento.fecha);
+    acumulado.set(clave, {
+      clave,
+      comentario: anterior?.comentario ?? movimiento.comentario,
+      total: (anterior?.total ?? 0) + euros,
+      cuantos: (anterior?.cuantos ?? 0) + 1,
+      // Entre qué meses se pagó. Es lo que deja ver la cadencia: ocho pagos en
+      // once meses no es lo mismo que ocho pagos en ocho meses, y el promedio
+      // por pago solo, sin eso, se lee como si fuera mensual.
+      desde: anterior === undefined || mes < anterior.desde ? mes : anterior.desde,
+      hasta: anterior === undefined || mes > anterior.hasta ? mes : anterior.hasta,
+    });
+  }
+
+  const grupos = [...acumulado.values()]
+    .map((g) => ({ ...g, promedio: redondear(g.total / g.cuantos) }))
+    .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
+
+  return {
+    grupos,
+    sinComentario,
+    total: sumar([...grupos.map((g) => g.total), sinComentario.total]),
+  };
+}
+
+/**
  * Los comentarios usados en un mes, con su total. Es la base de "cuánto costó un
  * viaje" (CU-11) y del promedio de gastos fijos (CU-12).
  *
