@@ -108,7 +108,9 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-914 | Recordar que compartir no funciona en este teléfono | **Hecha** | T-905 |
 | T-915 | Todos los rubros en cada mes del `.xlsx`, aunque estén en cero | **Hecha** | T-906 |
 | T-916 | La planilla se parece de verdad a la original | **Hecha** | T-906, T-915 |
-| T-917 | Los dos gráficos del `.xlsx` (torta y evolución) | Necesita decisión | T-916 |
+| T-917 | ~~Los dos gráficos del `.xlsx`~~ | **Descartada** (usuario, 2026-08-27) | — |
+| T-918 | Los dos gráficos del mes, en la app | Lista | T-013, T-909 |
+| T-919 | Verificar en el celular lo hecho después de T-019 | Pendiente | T-950, T-911…T-916 |
 
 **Hito v0.1:** T-001 a T-019, más T-008 y T-024 que la multimoneda necesita.
 En ese punto la app ya reemplaza al Excel para
@@ -770,6 +772,11 @@ hace con cada caso raro. Se trabaja contra `test/ejemplo/planilla-ejemplo.xlsx`,
 que tiene la estructura real con montos inventados (T-009).
 
 **Casos que el mapeo tiene que resolver, ya identificados:**
+- Hay **celdas sueltas de referencia** fuera de las tablas: el usuario tenía un
+  `49,5` al costado de los gráficos, que era el tipo de cambio del peso uruguayo
+  anotado a mano (confirmado por él, 2026-08-27). No son datos y no se importan,
+  pero **confirman que llevaba los tipos de cambio a mano**, que es justo lo que
+  la app resuelve con CU-03.
 - Día (`C`) y mes (`D`) en columnas separadas → una sola fecha (RN-01).
 - Rubro y tipo con mayúsculas inconsistentes → normalizar (RN-03).
 - Filas sin monto: ¿se descartan o se importan en cero? Hay muchas en el original.
@@ -1213,19 +1220,56 @@ tono en el encabezado del resumen, y la `I/G` en rojo.
 
 ---
 
-### T-917 · Los dos gráficos del `.xlsx` — **necesita decisión**
-**Depende de:** T-916
+### T-917 · ~~Los dos gráficos del `.xlsx`~~ — **descartada**
+**Respondida por el usuario (2026-08-27):** en el Excel no los quiere; **los
+quiere en la app**. → T-918.
 
-La planilla real tiene dos gráficos por mes: una **torta** de gastos por rubro
-con porcentajes, y una **línea de gasto acumulado día a día** con su línea de
-tendencia. Escribirlos exige generar el XML de gráficos de Excel, que es bastante
-más que el de una hoja: cada gráfico es una parte más del ZIP, con su relación,
-su definición de series y sus referencias a rangos.
+Queda anotado por qué se preguntó en vez de hacerlo: generar gráficos de Excel
+exige escribir el XML de cada uno como una parte más del ZIP, con su relación y
+sus referencias a rangos. Era caro, y resultó ser trabajo que no se iba a usar.
+Preguntar costó un párrafo.
 
-**Se pregunta antes de hacerlo** porque es caro y puede no valer la pena: la app
-ya muestra el desglose por rubro en la pantalla del mes, y el gasto día por día
-llega con T-020. Un gráfico en el Excel es útil si el Excel se mira; si el Excel
-es solo un respaldo legible, es trabajo que no se usa.
+---
+
+### T-918 · Los dos gráficos del mes, en la app
+**Estado:** Lista · **Depende de:** T-013, T-909
+
+Pedido del usuario (2026-08-27), a partir de los que tiene en su planilla:
+
+1. Una **torta de gastos por rubro** con su porcentaje.
+2. Una **línea de gasto acumulado día a día** del mes.
+
+**Lo que hay que decidir al hacerla, y no antes:** la pantalla del mes ya muestra
+el desglose por rubro como barras con su porcentaje (T-014, T-911). Una torta y
+unas barras que dicen exactamente lo mismo, una debajo de la otra, es repetir. Al
+tomar la tarea hay que resolver si la torta **reemplaza** a las barras o si son
+dos vistas de cosas distintas —y si reemplaza, que sea con un motivo, porque una
+torta se compara peor que una barra cuando los pedazos son parecidos.
+
+La línea de gasto acumulado se pisa con **T-020 (gasto día por día)**: conviene
+hacerlas juntas o decidir cuál sobrevive.
+
+Los colores salen de `core/paleta.js`, los mismos que ya tiene cada rubro.
+
+---
+
+### T-919 · Verificar en el celular lo hecho después de T-019
+**Estado:** Pendiente · **Depende de:** T-950, T-911 a T-916
+
+El usuario avisó (2026-08-27) que **no pudo probar** en su celular lo que se hizo
+después de su verificación: el aviso de almacenamiento, las barras arregladas, el
+orden de los campos, el autocompletado, "Cargar" como primera pestaña, que
+compartir se deje de ofrecer, y la planilla con la forma nueva.
+
+**Pidió que se le recuerde.** Queda acá para que no dependa de la memoria de
+nadie, y hay que mencionárselo al entregar lo siguiente.
+
+**Lo que hay que mirar cuando lo pruebe:**
+- Que el aviso de "no puedo guardar" **no aparezca** abriendo por `file:///`, y
+  que sí aparezca si abre desde el explorador de archivos.
+- Que el autocompletado del comentario funcione con el teclado del celular — es
+  un `<datalist>`, y cada navegador lo dibuja a su manera (L-013).
+- Que la planilla nueva abra en Excel con sus colores y sus bandas.
 
 ---
 
