@@ -26,7 +26,8 @@ import { dibujarEvolucion } from './pantallas/evolucion.js';
 import { dibujarEtiquetas, dibujarAvisoRenombrar, intentarRenombrar,
   intentarBorrarEtiqueta } from './pantallas/etiquetas.js';
 import { efectoDeRenombrar } from '../core/etiquetas.js';
-import { dibujarViajes, intentarFijarDias, intentarBorrarDias } from './pantallas/viajes.js';
+import { dibujarViajes, intentarFijarFechas, intentarBorrarFechas,
+  dibujarDuracion } from './pantallas/viajes.js';
 import { dibujarMonedas, dibujarAvisoDecimales, efectoDeCambiarDecimales,
   intentarAgregarMoneda, intentarOcultarMoneda, intentarMostrarMoneda,
   intentarBorrarMoneda, intentarCambiarDecimales } from './pantallas/monedas.js';
@@ -138,7 +139,7 @@ registrarPantalla('viajes', {
 });
 
 registrarPantalla('etiquetas', {
-  etiqueta: 'Comentarios y detalles',
+  etiqueta: 'Etiquetas y detalles',
   icono: '🏷',
   conMes: false,
   enBarra: false,
@@ -941,6 +942,10 @@ export function iniciar(documento, almacen) {
   });
 
   raiz.addEventListener('input', (evento) => {
+    if (evento.target.matches('[data-accion-entrada="fechas-viaje"]')) {
+      refrescarDuracion();
+      return;
+    }
     if (evento.target.matches('[data-accion-entrada="renombrar"]')) {
       refrescarAvisoEtiqueta(evento.target.value);
       return;
@@ -1130,32 +1135,46 @@ export function iniciar(documento, almacen) {
     ));
   }
 
-  /** Los días de un viaje — T-023. Toca datos, así que guarda antes de pintar. */
-  function guardarLosDias() {
-    const formulario = raiz.querySelector('[data-formulario="dias-viaje"]');
+  /** Las fechas de un viaje — T-941. Toca datos, así que guarda antes de pintar. */
+  function guardarLasFechas() {
+    const formulario = raiz.querySelector('[data-formulario="fechas-viaje"]');
     if (!formulario) return;
     const clave = formulario.elements.clave?.value ?? '';
-    const escrito = formulario.elements.dias?.value ?? '';
+    const escrito = {
+      desde: formulario.elements.desde?.value ?? '',
+      hasta: formulario.elements.hasta?.value ?? '',
+    };
 
-    const resultado = intentarFijarDias(vista.estado, clave, escrito);
+    const resultado = intentarFijarFechas(vista.estado, clave, escrito.desde, escrito.hasta);
     if (resultado.error) {
-      vista = { ...vista, borradorDias: escrito, error: resultado.error };
+      vista = { ...vista, borradorFechas: escrito, error: resultado.error };
       pintar();
       return;
     }
     try {
       guardarEstado(resultado.estado, almacen);
     } catch (error) {
-      vista = { ...vista, borradorDias: escrito, error: error.message };
+      vista = { ...vista, borradorFechas: escrito, error: error.message };
       pintar();
       return;
     }
-    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorDias: undefined };
+    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorFechas: undefined };
     pintar();
   }
 
+  /** La cuenta de los días se actualiza mientras se escriben las fechas. */
+  function refrescarDuracion() {
+    const formulario = raiz.querySelector('[data-formulario="fechas-viaje"]');
+    const donde = raiz.querySelector('[data-duracion]');
+    if (!formulario || !donde) return;
+    donde.textContent = dibujarDuracion(
+      formulario.elements.desde?.value ?? '',
+      formulario.elements.hasta?.value ?? '',
+    );
+  }
+
   function olvidarLosDias(clave) {
-    const resultado = intentarBorrarDias(vista.estado, clave);
+    const resultado = intentarBorrarFechas(vista.estado, clave);
     if (resultado.error) {
       vista = { ...vista, error: resultado.error };
       pintar();
@@ -1168,7 +1187,7 @@ export function iniciar(documento, almacen) {
       pintar();
       return;
     }
-    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorDias: undefined };
+    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorFechas: undefined };
     pintar();
   }
 
@@ -1270,15 +1289,15 @@ export function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
-    } else if (accion === 'dias-viaje') {
-      vista = { ...vista, viajeEditado: boton.dataset.clave, borradorDias: undefined, error: null };
-    } else if (accion === 'cancelar-dias-viaje') {
-      vista = { ...vista, viajeEditado: null, borradorDias: undefined, error: null };
-    } else if (accion === 'guardar-dias-viaje') {
+    } else if (accion === 'fechas-viaje') {
+      vista = { ...vista, viajeEditado: boton.dataset.clave, borradorFechas: undefined, error: null };
+    } else if (accion === 'cancelar-fechas-viaje') {
+      vista = { ...vista, viajeEditado: null, borradorFechas: undefined, error: null };
+    } else if (accion === 'guardar-fechas-viaje') {
       evento.preventDefault();
-      guardarLosDias();
+      guardarLasFechas();
       return;
-    } else if (accion === 'borrar-dias-viaje') {
+    } else if (accion === 'borrar-fechas-viaje') {
       olvidarLosDias(boton.dataset.clave);
       return;
     } else if (accion === 'renombrar-etiqueta') {

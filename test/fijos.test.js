@@ -189,7 +189,7 @@ test('la pantalla avisa de los pagos que no pudo agrupar, y dice cómo arreglarl
 
   assert.ok(html.includes('3 pagos'));
   assert.ok(html.includes('45,00'));
-  assert.ok(html.includes('comentario'), 'no dice por qué quedaron afuera');
+  assert.ok(html.includes('etiqueta'), 'no dice por qué quedaron afuera');
   assert.ok(html.includes('Luz'), 'no dice qué hacer para que entren');
 });
 

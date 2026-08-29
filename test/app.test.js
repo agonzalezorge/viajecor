@@ -236,6 +236,30 @@ test('ninguna pantalla dice ya "todavía no está construida"', () => {
   }
 });
 
+test('ninguna pantalla le dice «comentario» a la etiqueta', () => {
+  // El usuario lo renombró (2026-08-28): "Etiqueta (agrupar por)" dice para qué
+  // sirve, y "comentario" sonaba a nota suelta cuando es de lo que dependen los
+  // totales por viaje y por gasto fijo.
+  //
+  // El nombre GUARDADO sigue siendo `comentario` a propósito: cambiarlo dejaría
+  // ilegibles los respaldos que el usuario ya tiene. Lo que cambia es lo que se
+  // lee en la pantalla, así que se mira el texto y no el HTML — `data-comentario`
+  // y `name="comentario"` tienen que seguir estando.
+  const conDatos = {
+    ...VISTA,
+    estado: { ...VISTA.estado, movimientos: [] },
+  };
+
+  for (const p of pantallasRegistradas()) {
+    const html = dibujarApp({ ...conDatos, pantalla: p.nombre });
+    const texto = html
+      .replace(/<!--[\s\S]*?-->/g, '')   // los comentarios del código no se ven
+      .replace(/<[^>]*>/g, ' ');          // ni los atributos
+    assert.equal(/[Cc]omentario/.test(texto), false,
+      `la pantalla ${p.nombre} todavía dice "comentario": ${texto.match(/.{0,40}[Cc]omentario.{0,40}/)}`);
+  }
+});
+
 test('a las pantallas de historial se llega aunque el mes esté vacío', () => {
   // Los botones vivían solo al final del desglose del mes, así que un mes sin
   // movimientos —el 1 de cada mes, o uno que todavía no cargaste— dejaba la

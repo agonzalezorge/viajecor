@@ -18,21 +18,27 @@
 // eso es plata del viaje. Es lo mismo que hace la planilla, que suma por
 // comentario sin mirar el rubro.
 //
-// ── Los días se escriben ────────────────────────────────────────────────────
+// ── Se escriben las FECHAS, y los días se calculan ──────────────────────────
 //
-// Decidido por el usuario: la duración **no se deduce** de la primera y la
-// última fecha con gastos. Un viaje puede empezar antes de que se registre el
-// primer gasto o terminar después del último, y deducirlo daría un gasto por día
-// más alto de lo real, sin avisar.
+// La duración **no se deduce de los movimientos**: un viaje puede empezar antes
+// de que se registre el primer gasto o terminar después del último, y deducirlo
+// daría un gasto por día más alto de lo real, sin avisar.
 //
-// Por eso son el único dato de un viaje que hay que guardar, y viven en
-// `estado.dias_de_viaje`: una lista de `{ clave, dias }`. **Se llama así y no
-// `viajes` a propósito**: no es un catálogo de viajes —la lista de viajes sigue
-// saliendo de los comentarios— sino un dato suelto sobre uno de ellos.
+// Pero tampoco se escribe a mano. **Se escriben la fecha de inicio y la de fin,
+// y los días salen de restarlas** (pedido del usuario, 2026-08-28). Es mejor por
+// dos motivos: una fecha es un dato que uno recuerda —"salí el 3 y volví el
+// 12"— y un número de días es una cuenta que hay que hacer; y con las fechas
+// guardadas, los viajes se pueden **ordenar por cuándo terminaron**, que es como
+// uno los piensa.
+//
+// Viven en `estado.fechas_de_viaje`: una lista de `{ clave, desde, hasta }`.
+// **Se llama así y no `viajes` a propósito**: no es un catálogo de viajes —la
+// lista de viajes sigue saliendo de las etiquetas— sino un dato suelto sobre
+// uno de ellos.
 //
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
-import { normalizarClave, TIPO_GASTO, mesDe } from './modelo.js';
+import { normalizarClave, TIPO_GASTO, mesDe, validarFecha } from './modelo.js';
 import { redondear } from './dinero.js';
 import { separarConvertibles } from './calculos.js';
 import { movimientoEnEuros } from './cambio.js';
@@ -40,42 +46,59 @@ import { movimientoEnEuros } from './cambio.js';
 /** El rubro que marca a un comentario como viaje. */
 export const RUBRO_VIAJE = 'viajes';
 
-/** Los días guardados de un viaje, o `null` si no se escribieron. */
-export function diasDeViaje(estado, clave) {
+/** Las fechas guardadas de un viaje, o `null` si no se escribieron. */
+export function fechasDeViaje(estado, clave) {
   const buscada = normalizarClave(String(clave ?? ''));
-  const guardado = (estado?.dias_de_viaje ?? []).find(
+  const guardado = (estado?.fechas_de_viaje ?? []).find(
     (v) => normalizarClave(String(v?.clave ?? '')) === buscada,
   );
-  return guardado ? guardado.dias : null;
+  return guardado ? { desde: guardado.desde, hasta: guardado.hasta } : null;
 }
 
 /**
- * Escribe los días de un viaje. Devuelve un estado nuevo.
+ * Cuántos días dura un viaje entre dos fechas, **contando las dos puntas**.
  *
- * `null` o `0` los borra: es la forma de decir "no sé cuántos días fue", y es
- * distinta de decir "cero días", que no significa nada.
+ * Del 3 al 12 son diez días, no nueve: el 3 se viajó y el 12 también. Es la
+ * cuenta que hace una persona, y la que no hace una resta de fechas a secas.
  */
-export function fijarDiasDeViaje(estado, clave, dias) {
-  const buscada = normalizarClave(String(clave ?? ''));
-  if (buscada === '') throw new Error('Hace falta saber de qué viaje son los días.');
+export function duracionEnDias(desde, hasta) {
+  const dias = (Date.parse(`${hasta}T12:00:00Z`) - Date.parse(`${desde}T12:00:00Z`)) / 86400000;
+  return Math.round(dias) + 1;
+}
 
-  const otros = (estado.dias_de_viaje ?? []).filter(
+/**
+ * Escribe las fechas de un viaje. Devuelve un estado nuevo.
+ *
+ * `null` las borra: es la forma de decir "no me acuerdo cuándo fue".
+ */
+export function fijarFechasDeViaje(estado, clave, desde, hasta) {
+  const buscada = normalizarClave(String(clave ?? ''));
+  if (buscada === '') throw new Error('Hace falta saber de qué viaje son las fechas.');
+
+  const otros = (estado.fechas_de_viaje ?? []).filter(
     (v) => normalizarClave(String(v?.clave ?? '')) !== buscada,
   );
 
-  if (dias === null || dias === undefined || dias === '') {
-    return { ...estado, dias_de_viaje: otros };
+  const vacia = (f) => f === null || f === undefined || String(f).trim() === '';
+  if (vacia(desde) && vacia(hasta)) return { ...estado, fechas_de_viaje: otros };
+
+  if (vacia(desde) || vacia(hasta)) {
+    throw new Error('Hacen falta las dos fechas: la de inicio y la de fin.');
   }
 
-  const numero = Number(dias);
-  if (!Number.isInteger(numero) || numero < 1) {
-    throw new Error('Los días del viaje son un número entero de 1 para arriba.');
+  // `validarFecha` comprueba que la fecha EXISTA, no solo que tenga la forma:
+  // un 31 de abril tiene la forma correcta y no existe (L-005).
+  const inicio = validarFecha(desde);
+  const fin = validarFecha(hasta);
+
+  if (fin < inicio) {
+    throw new Error('El viaje no puede terminar antes de empezar: revisá las fechas.');
   }
-  if (numero > 3650) {
-    throw new Error('Diez años de viaje son muchos: revisá el número.');
+  if (duracionEnDias(inicio, fin) > 3650) {
+    throw new Error('Diez años de viaje son muchos: revisá las fechas.');
   }
 
-  return { ...estado, dias_de_viaje: [...otros, { clave: buscada, dias: numero }] };
+  return { ...estado, fechas_de_viaje: [...otros, { clave: buscada, desde: inicio, hasta: fin }] };
 }
 
 /**
@@ -134,14 +157,22 @@ export function viajes(estado) {
 
   return [...acumulado.values()]
     .map((v) => {
-      const dias = diasDeViaje(estado, v.clave);
+      const fechas = fechasDeViaje(estado, v.clave);
+      const dias = fechas === null ? null : duracionEnDias(fechas.desde, fechas.hasta);
       return {
         ...v,
         mes: mesDe(v.desde),
+        fechas,
         dias,
         porDia: dias === null ? null : redondear(v.total / dias),
+        // Por cuándo terminó, que es el orden que pidió el usuario. Un viaje sin
+        // fechas escritas se ordena por su último gasto: es lo más parecido que
+        // se sabe, y sin eso todos los viajes sin fechas se amontonarían juntos
+        // en una punta de la lista, lejos de cuando de verdad pasaron.
+        termino: fechas === null ? v.hasta : fechas.hasta,
         incompleto: incompletos.has(v.clave),
       };
     })
-    .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
+    // Del más reciente arriba al más viejo abajo.
+    .sort((a, b) => b.termino.localeCompare(a.termino) || a.clave.localeCompare(b.clave));
 }

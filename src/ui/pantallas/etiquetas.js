@@ -22,12 +22,12 @@ import {
 } from '../../core/etiquetas.js';
 
 const TITULOS = {
-  comentario: 'Comentarios',
+  comentario: 'Etiquetas',
   detalle: 'Detalles',
 };
 
 const EXPLICACIONES = {
-  comentario: `El comentario es lo que <strong>agrupa</strong>: de él salen los
+  comentario: `La etiqueta es lo que <strong>agrupa</strong>: de ella salen los
     totales por viaje y por gasto fijo. Dos escrituras distintas son dos totales
     distintos, así que renombrar una con el nombre de la otra las une.`,
   detalle: `El detalle es una nota para acordarte: <strong>no agrupa nada</strong>.
@@ -142,11 +142,12 @@ export function dibujarBorrarEtiqueta(vista) {
   return `
     <section class="tarjeta aviso importante" role="alert">
       <h2>¿Sacar «${escapar(etiqueta.texto)}»?</h2>
-      <p>Se le saca el ${escapar(campo)} a ${escapar(enCuantos(etiqueta.cuantos))}.</p>
+      <p>Se le saca ${campo === 'comentario' ? 'la etiqueta' : 'el detalle'} a
+      ${escapar(enCuantos(etiqueta.cuantos))}.</p>
       <p><strong>Los movimientos no se borran</strong>: siguen ahí, con su fecha,
       su rubro y su importe. Lo único que se va es la etiqueta.</p>
       ${campo === 'comentario' ? `<p class="suave">Van a dejar de contarse en
-        cualquier total agrupado por ese comentario.</p>` : ''}
+        cualquier total agrupado por esa etiqueta.</p>` : ''}
       <button type="button" class="principal" data-accion="confirmar-borrar-etiqueta"
               data-campo="${escapar(campo)}" data-clave="${escapar(clave)}">
         Sí, sacarla

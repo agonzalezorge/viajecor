@@ -76,8 +76,8 @@ export function dibujarSinComentario(sinComentario) {
   return `
     <p class="suave nota">
       ${cuantos} en esta lista, por ${escapar(formatearEuros(sinComentario.total))}:
-      no tienen comentario, y el comentario es lo que dice cuál gasto fijo son.
-      Poniéndoles uno —"Luz", "Gas"— entran solos.
+      no tienen etiqueta, y la etiqueta es lo que dice cuál gasto fijo son.
+      Poniéndoles una —"Luz", "Gas"— entran solos.
     </p>
   `;
 }
@@ -89,7 +89,7 @@ export function dibujarGastosFijos(estado) {
   const cuerpo = grupos.map(dibujarGastoFijo).join('');
 
   const vacio = grupos.length > 0 ? '' : `
-    <p class="suave">Ninguno de tus gastos fijos tiene comentario todavía, así que
+    <p class="suave">Ninguno de tus gastos fijos tiene etiqueta todavía, así que
     no hay nada que agrupar.</p>`;
 
   return `

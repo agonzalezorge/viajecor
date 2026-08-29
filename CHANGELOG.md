@@ -5,6 +5,20 @@ La versión publicada vive en el archivo `VERSION`.
 
 ## Sin publicar
 
+### Cambiado
+- **«Comentario» ahora se llama «Etiqueta (agrupar por)»** en toda la app. El
+  nombre viejo venía de la planilla y sonaba a nota suelta, cuando es de lo que
+  dependen los totales por viaje y por gasto fijo. Lo que cambia es lo que se
+  lee: el campo guardado se sigue llamando `comentario`, así que los respaldos
+  que ya tenés se siguen leyendo igual.
+- **En los viajes se escriben la fecha de inicio y la de fin, y los días se
+  calculan solos** —contando el primero y el último—, en vez de escribir el
+  número de días. Una fecha es algo que uno recuerda; un número de días es una
+  cuenta que hay que hacer. La cuenta se muestra mientras escribís, antes de
+  guardar. Ver ADR-037.
+- **Los viajes van ordenados por cuándo terminaron**, del más reciente arriba.
+  Antes iban de más caro a más barato.
+
 ### Agregado
 - **Los dos gráficos que faltaban de `Analisis1`**, abajo de la matriz:
   **Mes a mes** (ingresos, gastos y saldo de cada mes, en un solo eje, con la

@@ -186,11 +186,11 @@ export function dibujarDatos(vista) {
     </section>
 
     <section class="tarjeta">
-      <h2>Comentarios y detalles</h2>
-      <p class="suave">Ver los que ya escribiste, renombrarlos —renombrar uno con
-      el nombre de otro los une— o sacarlos. Los movimientos no se tocan.</p>
+      <h2>Etiquetas y detalles</h2>
+      <p class="suave">Ver las que ya escribiste, renombrarlas —renombrar una con
+      el nombre de otra las une— o sacarlas. Los movimientos no se tocan.</p>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="etiquetas">
-        Ver comentarios y detalles
+        Ver etiquetas y detalles
       </button>
     </section>
 

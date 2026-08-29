@@ -231,9 +231,12 @@ test('un toque no borra: primero pregunta', () => {
 test('están las dos secciones, y cada una dice para qué sirve', () => {
   const html = dibujarEtiquetas({ estado: estadoCon([mov({ comentario: 'Roma', detalle: 'cena' })]) });
 
-  assert.ok(html.includes('Comentarios'));
+  // Se llamaba "Comentarios" hasta el 2026-08-28. Lo renombró el usuario:
+  // "Etiqueta (agrupar por)" dice para qué sirve, y "comentario" sonaba a nota
+  // suelta cuando es de lo que dependen los totales por viaje y por gasto fijo.
+  assert.ok(html.includes('Etiquetas'));
   assert.ok(html.includes('Detalles'));
-  assert.ok(html.includes('agrupa'), 'no explica por qué el comentario importa');
+  assert.ok(html.includes('agrupa'), 'no explica por qué la etiqueta importa');
   assert.ok(html.includes('no agrupa nada'), 'no aclara que el detalle es solo una nota');
 });
 

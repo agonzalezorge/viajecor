@@ -10,10 +10,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { viajes, diasDeViaje, fijarDiasDeViaje, RUBRO_VIAJE } from '../src/core/viajes.js';
 import {
-  dibujarViajes, dibujarViaje, dibujarDiasDeViaje, dibujarFechas,
-  intentarFijarDias, intentarBorrarDias,
+  viajes, fechasDeViaje, fijarFechasDeViaje, duracionEnDias, RUBRO_VIAJE,
+} from '../src/core/viajes.js';
+import {
+  dibujarViajes, dibujarViaje, dibujarFechasDeViaje, dibujarFechas, dibujarRango,
+  dibujarDuracion, intentarFijarFechas, intentarBorrarFechas,
 } from '../src/ui/pantallas/viajes.js';
 
 import { crearMovimiento, TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
@@ -142,63 +144,7 @@ test('sin tope de filas (L-001)', () => {
 });
 
 
-// ── Los días: se escriben, no se deducen ─────────────────────────────────────
-
-test('sin días escritos NO hay gasto por día', () => {
-  // Deducirlo de la primera y la última fecha daría 7 días acá, y el viaje pudo
-  // ser de 10: el número saldría 40 % más alto, con cara de exacto.
-  const viaje = viajes(ROMA())[0];
-
-  assert.equal(viaje.dias, null);
-  assert.equal(viaje.porDia, null);
-});
-
-test('con los días escritos, el gasto por día sale de ellos', () => {
-  const estado = fijarDiasDeViaje(ROMA(), 'roma', 10);
-  const viaje = viajes(estado)[0];
-
-  assert.equal(viaje.dias, 10);
-  assert.equal(viaje.porDia, 4500, '450 € en 10 días');
-});
-
-test('los días se guardan por clave, así que sobreviven a cambiar mayúsculas', () => {
-  const estado = fijarDiasDeViaje(ROMA(), 'ROMA', 10);
-  assert.equal(diasDeViaje(estado, 'roma'), 10);
-  assert.equal(diasDeViaje(estado, ' Roma '), 10);
-});
-
-test('escribir los días otra vez los reemplaza, no los duplica', () => {
-  let estado = fijarDiasDeViaje(ROMA(), 'roma', 10);
-  estado = fijarDiasDeViaje(estado, 'roma', 5);
-
-  assert.equal(estado.dias_de_viaje.length, 1);
-  assert.equal(diasDeViaje(estado, 'roma'), 5);
-});
-
-test('se pueden borrar los días, que es distinto de poner cero', () => {
-  // "No sé cuántos días fue" es una respuesta; "cero días" no significa nada, y
-  // dividir por cero daría infinito.
-  const conDias = fijarDiasDeViaje(ROMA(), 'roma', 10);
-  const sinDias = fijarDiasDeViaje(conDias, 'roma', null);
-
-  assert.equal(diasDeViaje(sinDias, 'roma'), null);
-  assert.equal(viajes(sinDias)[0].porDia, null);
-  assert.throws(() => fijarDiasDeViaje(ROMA(), 'roma', 0), /entero de 1 para arriba/);
-});
-
-test('los días tienen que ser un número entero razonable', () => {
-  for (const malo of [-1, 1.5, 'siete', NaN, 4000]) {
-    assert.throws(() => fijarDiasDeViaje(ROMA(), 'roma', malo));
-  }
-});
-
-test('un campo vacío no guarda cero días', () => {
-  // `Number('')` da 0, y sin este filtro el gasto por día sería infinito.
-  for (const escrito of ['', '   ', '7 días', 'siete', '1,5']) {
-    assert.notEqual(intentarFijarDias(ROMA(), 'roma', escrito).error, undefined, escrito);
-  }
-  assert.equal(intentarFijarDias(ROMA(), 'roma', ' 7 ').error, undefined);
-});
+// ── Las fechas se escriben; los días se calculan ────────────────────────────
 
 /** Un almacén de mentira con un contenido puesto a mano. */
 const almacenCon = (crudo) => ({
@@ -207,24 +153,163 @@ const almacenCon = (crudo) => ({
   removeItem: () => {},
 });
 
-test('los días sobreviven a guardar y volver a leer', () => {
-  // Si no se leyeran al arrancar, el usuario los escribiría una vez por sesión.
-  const estado = fijarDiasDeViaje(ROMA(), 'roma', 10);
-  const { estado: leido } = leerEstado(almacenCon(JSON.stringify(estado)));
+test('sin fechas escritas NO hay gasto por día', () => {
+  // Deducirlas de la primera y la última fecha con gastos daría 7 días acá, y
+  // el viaje pudo ser de 10: el número saldría 40 % más alto, con cara de exacto.
+  const viaje = viajes(ROMA())[0];
 
-  assert.equal(diasDeViaje(leido, 'roma'), 10);
+  assert.equal(viaje.fechas, null);
+  assert.equal(viaje.dias, null);
+  assert.equal(viaje.porDia, null);
 });
 
-test('unos días rotos en el archivo no se llevan a los demás', () => {
+test('con las fechas escritas, los días se cuentan CON las dos puntas', () => {
+  // Del 1 al 10 son diez días, no nueve: el 1 se viajó y el 10 también. Es la
+  // cuenta que hace una persona, y la que no hace una resta de fechas a secas.
+  const estado = fijarFechasDeViaje(ROMA(), 'roma', '2026-07-01', '2026-07-10');
+  const viaje = viajes(estado)[0];
+
+  assert.equal(viaje.dias, 10);
+  assert.equal(viaje.porDia, 4500, '450 € en 10 días');
+  assert.deepEqual(viaje.fechas, { desde: '2026-07-01', hasta: '2026-07-10' });
+});
+
+test('duracionEnDias cuenta bien los bordes', () => {
+  assert.equal(duracionEnDias('2026-07-03', '2026-07-03'), 1, 'un viaje de un día');
+  assert.equal(duracionEnDias('2026-07-28', '2026-08-02'), 6, 'cruzando el fin de mes');
+  assert.equal(duracionEnDias('2025-12-30', '2026-01-02'), 4, 'cruzando el fin de año');
+  // Cruzando el cambio de hora, que es donde una resta de fechas ingenua falla.
+  assert.equal(duracionEnDias('2026-03-28', '2026-03-30'), 3);
+  assert.equal(duracionEnDias('2026-10-24', '2026-10-26'), 3);
+  assert.equal(duracionEnDias('2024-02-28', '2024-03-01'), 3, 'año bisiesto');
+});
+
+test('las fechas se guardan por clave, así que sobreviven a cambiar mayúsculas', () => {
+  const estado = fijarFechasDeViaje(ROMA(), 'ROMA', '2026-07-01', '2026-07-10');
+  assert.deepEqual(fechasDeViaje(estado, 'roma'), { desde: '2026-07-01', hasta: '2026-07-10' });
+  assert.deepEqual(fechasDeViaje(estado, ' Roma '), { desde: '2026-07-01', hasta: '2026-07-10' });
+});
+
+test('escribirlas otra vez las reemplaza, no las duplica', () => {
+  let estado = fijarFechasDeViaje(ROMA(), 'roma', '2026-07-01', '2026-07-10');
+  estado = fijarFechasDeViaje(estado, 'roma', '2026-07-02', '2026-07-06');
+
+  assert.equal(estado.fechas_de_viaje.length, 1);
+  assert.equal(viajes(estado)[0].dias, 5);
+});
+
+test('se pueden borrar las fechas: "no me acuerdo" es una respuesta', () => {
+  const conFechas = fijarFechasDeViaje(ROMA(), 'roma', '2026-07-01', '2026-07-10');
+  const sinFechas = fijarFechasDeViaje(conFechas, 'roma', null, null);
+
+  assert.equal(fechasDeViaje(sinFechas, 'roma'), null);
+  assert.equal(viajes(sinFechas)[0].porDia, null);
+});
+
+test('una sola fecha no alcanza, y lo dice', () => {
+  // Con solo la de inicio no hay duración, y guardarla a medias dejaría un dato
+  // que ninguna pantalla puede usar y que el usuario cree haber cargado.
+  assert.throws(() => fijarFechasDeViaje(ROMA(), 'roma', '2026-07-01', ''), /las dos fechas/);
+  assert.throws(() => fijarFechasDeViaje(ROMA(), 'roma', '', '2026-07-10'), /las dos fechas/);
+});
+
+test('un viaje no puede terminar antes de empezar', () => {
+  assert.throws(() => fijarFechasDeViaje(ROMA(), 'roma', '2026-07-10', '2026-07-01'),
+    /terminar antes de empezar/);
+});
+
+test('una fecha que no existe se rechaza, no se corre al día siguiente', () => {
+  // El 31 de abril tiene la forma correcta y no existe. Comprobar la forma no es
+  // comprobar la fecha (L-005).
+  for (const mala of ['2026-04-31', '2026-13-01', '2026-02-30', 'ayer', '']) {
+    assert.throws(() => fijarFechasDeViaje(ROMA(), 'roma', mala, '2026-07-10'));
+  }
+});
+
+test('diez años de viaje se rechazan, por las dudas', () => {
+  assert.throws(() => fijarFechasDeViaje(ROMA(), 'roma', '2000-01-01', '2026-07-10'), /muchos/);
+});
+
+test('las fechas sobreviven a guardar y volver a leer', () => {
+  // Si no se leyeran al arrancar, el usuario las escribiría una vez por sesión.
+  const estado = fijarFechasDeViaje(ROMA(), 'roma', '2026-07-01', '2026-07-10');
+  const { estado: leido } = leerEstado(almacenCon(JSON.stringify(estado)));
+
+  assert.deepEqual(fechasDeViaje(leido, 'roma'), { desde: '2026-07-01', hasta: '2026-07-10' });
+});
+
+test('unas fechas rotas en el archivo no se llevan a las demás', () => {
   const crudo = JSON.stringify({
     ...estadoInicial({ monedas: monedasIniciales() }),
-    dias_de_viaje: [{ clave: 'roma', dias: 10 }, { clave: 'paris', dias: 'ocho' }, { dias: 3 }],
+    fechas_de_viaje: [
+      { clave: 'roma', desde: '2026-07-01', hasta: '2026-07-10' },
+      { clave: 'paris', desde: '2026-04-31', hasta: '2026-05-02' },
+      { clave: 'lima', desde: '2026-05-10', hasta: '2026-05-01' },
+      { desde: '2026-01-01', hasta: '2026-01-02' },
+    ],
   });
   const { estado, incidencias } = leerEstado(almacenCon(crudo));
 
-  assert.equal(diasDeViaje(estado, 'roma'), 10);
-  assert.equal(estado.dias_de_viaje.length, 1);
+  assert.equal(estado.fechas_de_viaje.length, 1);
+  assert.deepEqual(fechasDeViaje(estado, 'roma'), { desde: '2026-07-01', hasta: '2026-07-10' });
   assert.ok(incidencias.length > 0, 'lo que no se pudo leer tiene que decirse');
+});
+
+
+// ── El orden: por cuándo TERMINÓ el viaje ───────────────────────────────────
+
+test('los viajes van del que terminó más recientemente al más viejo', () => {
+  // Pedido del usuario (2026-08-28). Antes iban de más caro a más barato, que
+  // es un orden útil para otra pregunta pero no para "¿cuándo fui a dónde?".
+  let estado = estadoCon([
+    mov({ monto: '900', rubro: 'viajes', fecha: '2026-01-10', comentario: 'Costa Rica' }),
+    mov({ monto: '100', rubro: 'viajes', fecha: '2026-07-10', comentario: 'Roma' }),
+    mov({ monto: '500', rubro: 'viajes', fecha: '2026-04-10', comentario: 'París' }),
+  ]);
+  estado = fijarFechasDeViaje(estado, 'costa rica', '2026-01-05', '2026-01-20');
+  estado = fijarFechasDeViaje(estado, 'roma', '2026-07-01', '2026-07-12');
+  estado = fijarFechasDeViaje(estado, 'parís', '2026-04-05', '2026-04-09');
+
+  assert.deepEqual(viajes(estado).map((v) => v.comentario), ['Roma', 'París', 'Costa Rica']);
+});
+
+test('el orden manda sobre el importe', () => {
+  // Costa Rica es nueve veces más caro y va abajo igual: lo que ordena es cuándo
+  // terminó, no cuánto salió.
+  let estado = estadoCon([
+    mov({ monto: '900', rubro: 'viajes', fecha: '2026-01-10', comentario: 'Costa Rica' }),
+    mov({ monto: '100', rubro: 'viajes', fecha: '2026-07-10', comentario: 'Roma' }),
+  ]);
+  estado = fijarFechasDeViaje(estado, 'costa rica', '2026-01-05', '2026-01-20');
+  estado = fijarFechasDeViaje(estado, 'roma', '2026-07-01', '2026-07-12');
+
+  assert.deepEqual(viajes(estado).map((v) => v.comentario), ['Roma', 'Costa Rica']);
+});
+
+test('un viaje sin fechas se ordena por su último gasto', () => {
+  // Sin esta regla, todos los viajes sin fechas se amontonarían en una punta de
+  // la lista, lejos de cuando de verdad pasaron.
+  let estado = estadoCon([
+    mov({ monto: '100', rubro: 'viajes', fecha: '2026-01-10', comentario: 'Viejo' }),
+    mov({ monto: '100', rubro: 'viajes', fecha: '2026-07-10', comentario: 'Nuevo' }),
+    mov({ monto: '100', rubro: 'viajes', fecha: '2026-04-10', comentario: 'Medio' }),
+  ]);
+  estado = fijarFechasDeViaje(estado, 'medio', '2026-04-01', '2026-04-15');
+
+  assert.deepEqual(viajes(estado).map((v) => v.comentario), ['Nuevo', 'Medio', 'Viejo']);
+});
+
+test('las fechas escritas mandan sobre las de los gastos para ordenar', () => {
+  // Un viaje cuyos gastos se cargaron tarde —el hotel se paga a la vuelta— no
+  // tiene por qué aparecer como el más reciente.
+  let estado = estadoCon([
+    mov({ monto: '100', rubro: 'viajes', fecha: '2026-08-01', comentario: 'Enero' }),
+    mov({ monto: '100', rubro: 'viajes', fecha: '2026-07-10', comentario: 'Julio' }),
+  ]);
+  estado = fijarFechasDeViaje(estado, 'enero', '2026-01-05', '2026-01-20');
+  estado = fijarFechasDeViaje(estado, 'julio', '2026-07-01', '2026-07-12');
+
+  assert.deepEqual(viajes(estado).map((v) => v.comentario), ['Julio', 'Enero']);
 });
 
 
@@ -235,25 +320,25 @@ test('el número grande es el total del viaje', () => {
   assert.match(html, /class="importe">450,00/);
 });
 
-test('sin días, en vez de un promedio inventado hay un botón para escribirlos', () => {
+test('sin fechas, en vez de un promedio inventado hay un botón para escribirlas', () => {
   const html = dibujarViaje(viajes(ROMA())[0]);
 
-  assert.ok(html.includes('¿Cuántos días fue?'));
-  assert.ok(html.includes('data-accion="dias-viaje"'));
-  assert.equal(html.includes('por día'), false, 'no puede haber un gasto por día sin días');
+  assert.ok(html.includes('¿Cuándo fue?'));
+  assert.ok(html.includes('data-accion="fechas-viaje"'));
+  assert.equal(html.includes('por día'), false, 'no puede haber un gasto por día sin fechas');
 });
 
-test('con días, se muestra el gasto por día y se puede cambiar', () => {
-  const html = dibujarViaje(viajes(fijarDiasDeViaje(ROMA(), 'roma', 10))[0]);
+test('con fechas, se muestra el gasto por día y las fechas para cambiarlas', () => {
+  const html = dibujarViaje(viajes(fijarFechasDeViaje(ROMA(), 'roma', '2026-07-01', '2026-07-10'))[0]);
 
   assert.ok(html.includes('45,00'));
   assert.ok(html.includes('por día'));
   assert.ok(html.includes('en 10 días'));
-  assert.ok(html.includes('cambiar'));
+  assert.ok(html.includes('01/07/2026'), 'el botón para cambiar muestra las fechas');
 });
 
 test('un día en singular se escribe en singular', () => {
-  const html = dibujarViaje(viajes(fijarDiasDeViaje(ROMA(), 'roma', 1))[0]);
+  const html = dibujarViaje(viajes(fijarFechasDeViaje(ROMA(), 'roma', '2026-07-03', '2026-07-03'))[0]);
   assert.ok(html.includes('en 1 día'));
   assert.equal(html.includes('en 1 días'), false);
 });
@@ -264,12 +349,30 @@ test('el viaje lleva a sus gastos', () => {
   assert.ok(html.includes('data-comentario="Roma"'));
 });
 
-test('el formulario de días explica por qué se escriben', () => {
-  const html = dibujarDiasDeViaje({ estado: ROMA(), viajeEditado: 'roma' });
+test('el formulario de fechas explica por qué se escriben', () => {
+  const html = dibujarFechasDeViaje({ estado: ROMA(), viajeEditado: 'roma' });
 
-  assert.ok(html.includes('03/07/2026'));
+  assert.ok(html.includes('03/07/2026'), 'no dice entre qué fechas se gastó');
   assert.ok(html.includes('no se deducen'), 'no explica por qué se piden');
-  assert.ok(html.includes('No sé cuántos días fue'), 'no se puede volver atrás');
+  assert.ok(html.includes('No me acuerdo cuándo fue'), 'no se puede volver atrás');
+  assert.ok(html.includes('name="desde"') && html.includes('name="hasta"'));
+});
+
+test('el formulario muestra LA CUENTA HECHA antes de guardar', () => {
+  // Es lo que convierte dos fechas en el dato que interesa sin pedir confianza.
+  const html = dibujarFechasDeViaje({
+    estado: ROMA(), viajeEditado: 'roma',
+    borradorFechas: { desde: '2026-07-01', hasta: '2026-07-10' },
+  });
+
+  assert.ok(html.includes('Son 10 días'));
+});
+
+test('la cuenta de días avisa antes de dejar guardar un rango dado vuelta', () => {
+  assert.match(dibujarDuracion('2026-07-10', '2026-07-01'), /no puede terminar antes/);
+  assert.match(dibujarDuracion('2026-07-01', ''), /Escribí las dos fechas/);
+  assert.match(dibujarDuracion('', ''), /Escribí las dos fechas/);
+  assert.match(dibujarDuracion('2026-07-03', '2026-07-03'), /Son 1 día,/);
 });
 
 test('el aviso de total incompleto se muestra', () => {
@@ -293,16 +396,17 @@ test('la pantalla aclara que el total incluye todos los rubros', () => {
   assert.ok(html.includes('Roma'));
 });
 
-test('editando los días no se muestra también la lista', () => {
+test('editando las fechas no se muestra también la lista', () => {
   const html = dibujarViajes({ estado: ROMA(), viajeEditado: 'roma' });
 
-  assert.ok(html.includes('data-formulario="dias-viaje"'));
+  assert.ok(html.includes('data-formulario="fechas-viaje"'));
   assert.equal(html.includes('<ul class="rubros">'), false);
 });
 
-test('dibujarFechas dice una sola cuando el viaje fue de un día', () => {
+test('un rango de un solo día se escribe con una sola fecha', () => {
   assert.equal(dibujarFechas({ desde: '2026-07-03', hasta: '2026-07-03' }), '03/07/2026');
   assert.equal(dibujarFechas({ desde: '2026-07-03', hasta: '2026-07-09' }), '03/07/2026 → 09/07/2026');
+  assert.equal(dibujarRango('2026-07-03', '2026-07-09'), '03/07/2026 → 09/07/2026');
 });
 
 test('el nombre de un viaje no puede romper la página', () => {
@@ -317,7 +421,18 @@ test('la pantalla no pide nada a internet', () => {
   assert.equal(/https?:\/\//.test(dibujarViajes({ estado: ROMA() })), false);
 });
 
-test('intentarBorrarDias deja el estado sin esos días', () => {
-  const { estado } = intentarBorrarDias(fijarDiasDeViaje(ROMA(), 'roma', 10), 'roma');
-  assert.equal(diasDeViaje(estado, 'roma'), null);
+test('intentarBorrarFechas deja el estado sin esas fechas', () => {
+  const conFechas = fijarFechasDeViaje(ROMA(), 'roma', '2026-07-01', '2026-07-10');
+  const { estado } = intentarBorrarFechas(conFechas, 'roma');
+
+  assert.equal(fechasDeViaje(estado, 'roma'), null);
+});
+
+test('intentarFijarFechas devuelve el error en vez de tirar', () => {
+  // La pantalla tiene que poder mostrarlo. Una excepción sin atrapar deja la app
+  // en blanco, que para el usuario es lo mismo que perder los datos.
+  const { estado, error } = intentarFijarFechas(ROMA(), 'roma', '2026-07-10', '2026-07-01');
+
+  assert.equal(estado, undefined);
+  assert.match(error, /terminar antes de empezar/);
 });

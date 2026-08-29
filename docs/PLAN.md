@@ -94,7 +94,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
 | T-026 | Tocar un grupo y ver los movimientos que contiene | **Hecha** | T-015 |
 | T-940 | Los dos gráficos de `Analisis1`, y la tabla en el orden del usuario | **Hecha** | T-021, T-918 |
-| T-941 | Fechas del viaje, orden por fecha de fin, y «Etiqueta» en vez de «Comentario» | En curso (claude, 2026-08-28) | T-023 |
+| T-941 | Fechas del viaje, orden por fecha de fin, y «Etiqueta» en vez de «Comentario» | **Hecha** | T-023 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -869,6 +869,39 @@ sin construir; con esta tarea dejó de haber ninguna, así que se borró junto c
 el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
 construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
 cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
+
+### T-941 · Fechas del viaje, orden por fecha de fin, y «Etiqueta» — **Hecha** (2026-08-28)
+**Depende de:** T-023 · **Pedida por el usuario (2026-08-28)** · **Tocó:**
+`core/viajes.js`, `ui/pantallas/viajes.js`, `almacenamiento.js`, `app.js`,
+`movimiento.js`, `etiquetas.js`, `fijos.js`, `datos.js`
+
+Tres cambios, los tres decisiones suyas. Ver ADR-037.
+
+1. **Se escriben las fechas y los días se calculan.** Reemplaza la mitad de
+   ADR-036, que los pedía a mano. `dias_de_viaje` pasó a ser `fechas_de_viaje`
+   con `{ clave, desde, hasta }`. Los días se cuentan **con las dos puntas** y la
+   cuenta se muestra mientras se escribe, antes de guardar.
+2. **Los viajes van por fecha de fin, del más reciente arriba.** Un viaje sin
+   fechas se ordena por su último gasto, para que no se amontonen todos juntos.
+3. **«Comentario» se llama «Etiqueta (agrupar por)»** en toda la interfaz. El
+   campo guardado sigue llamándose `comentario`: renombrarlo dejaría ilegibles
+   los respaldos que el usuario ya tiene.
+
+**Comprobado:** 33 tests nuevos, once mutaciones a propósito y las once fallan.
+Recorrido en el navegador con recarga: los tres viajes salen ordenados
+`Roma → París → Costa Rica` por fecha de fin, la cuenta de días se actualiza
+mientras se escriben las fechas, un rango dado vuelta no se guarda, y las fechas
+sobreviven a recargar. **Un recorrido aparte recorre las ocho pantallas** y
+comprueba que ninguna dice ya "comentario" en su texto visible. 0 peticiones de
+red, 0 errores.
+
+**Un error de método mío:** la primera comprobación de que no quedara la palabra
+"comentario" leía `textContent` del `body`, que **incluye el `<script>`** — o
+sea, la app entera. Dio positivo por el código fuente, no por la pantalla. Se
+rehízo con `innerText`, que es lo que se ve. Un test que mide lo que no es se
+equivoca en las dos direcciones.
+
+---
 
 ### T-940 · Los dos gráficos de `Analisis1`, y la tabla en su orden — **Hecha** (2026-08-28)
 **Depende de:** T-021, T-918 · **Pedida por el usuario (2026-08-28)** ·

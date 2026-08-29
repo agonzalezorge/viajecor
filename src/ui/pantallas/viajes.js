@@ -3,28 +3,34 @@
 //
 // ── Lo que esta pantalla no hace, y por qué ─────────────────────────────────
 //
-// **No deduce los días.** El usuario decidió (2026-08-28) que se escriben. Un
-// viaje puede empezar antes del primer gasto registrado o terminar después del
-// último, y deducirlo daría un gasto por día más bajo de lo real sin avisar.
-// Por eso, mientras los días no estén escritos, **no hay gasto por día**: no se
-// muestra un número aproximado, se muestra el pedido de escribirlos.
+// **No deduce la duración de los movimientos.** Se escriben **la fecha de inicio
+// y la de fin**, y los días salen de restarlas (T-941). Un viaje puede empezar
+// antes del primer gasto registrado o terminar después del último, y deducirlo
+// daría un gasto por día más alto de lo real sin avisar. Mientras las fechas no
+// estén, **no hay gasto por día**: no se muestra un número aproximado, se
+// muestra el pedido de escribirlas.
 //
-// **No tiene una lista de viajes propia.** Un viaje es un comentario con al
-// menos un gasto del rubro `viajes` (ver `core/viajes.js`). Se escribe a mano al
-// cargar, y se corrige en Datos → Comentarios y detalles, donde renombrar une
-// dos escrituras del mismo viaje.
+// **No tiene una lista de viajes propia.** Un viaje es una etiqueta con al menos
+// un gasto del rubro `viajes` (ver `core/viajes.js`). Se escribe a mano al
+// cargar, y se corrige en Datos → Etiquetas y detalles, donde renombrar une dos
+// escrituras del mismo viaje.
 //
 // Igual que el resto de la interfaz (ADR-022), las funciones de dibujo son puras.
 
 import { escapar } from '../app.js';
 import { dibujarError } from './movimiento.js';
-import { viajes, fijarDiasDeViaje } from '../../core/viajes.js';
+import { viajes, fijarFechasDeViaje, duracionEnDias } from '../../core/viajes.js';
 import { formatearEuros, formatearFecha } from '../../core/formato.js';
 
-/** Entre qué fechas se gastó. Es contexto para escribir los días, no el dato. */
+/** Un rango de fechas, o una sola si son la misma. */
+export function dibujarRango(desde, hasta) {
+  if (desde === hasta) return formatearFecha(desde);
+  return `${formatearFecha(desde)} → ${formatearFecha(hasta)}`;
+}
+
+/** Entre qué fechas se GASTÓ. Es contexto para escribir las del viaje, no el dato. */
 export function dibujarFechas(viaje) {
-  if (viaje.desde === viaje.hasta) return formatearFecha(viaje.desde);
-  return `${formatearFecha(viaje.desde)} → ${formatearFecha(viaje.hasta)}`;
+  return dibujarRango(viaje.desde, viaje.hasta);
 }
 
 /**
@@ -37,13 +43,13 @@ export function dibujarFechas(viaje) {
 export function dibujarViaje(viaje) {
   const cuantos = viaje.cuantos === 1 ? '1 gasto' : `${viaje.cuantos} gastos`;
 
-  const porDia = viaje.dias === null
-    ? `<button type="button" class="secundario chico" data-accion="dias-viaje"
-               data-clave="${escapar(viaje.clave)}">¿Cuántos días fue?</button>`
+  const porDia = viaje.fechas === null
+    ? `<button type="button" class="secundario chico" data-accion="fechas-viaje"
+               data-clave="${escapar(viaje.clave)}">¿Cuándo fue?</button>`
     : `<span><strong>${escapar(formatearEuros(viaje.porDia))}</strong> por día
          en ${viaje.dias} ${viaje.dias === 1 ? 'día' : 'días'}
-         <button type="button" class="enlace" data-accion="dias-viaje"
-                 data-clave="${escapar(viaje.clave)}">cambiar</button></span>`;
+         <button type="button" class="enlace" data-accion="fechas-viaje"
+                 data-clave="${escapar(viaje.clave)}">${escapar(dibujarRango(viaje.fechas.desde, viaje.fechas.hasta))}</button></span>`;
 
   const aviso = viaje.incompleto
     ? `<p class="suave">A este viaje le falta un tipo de cambio: el total está incompleto.</p>`
@@ -67,50 +73,83 @@ export function dibujarViaje(viaje) {
   `;
 }
 
-/** El formulario para escribir los días. */
-export function dibujarDiasDeViaje(vista) {
+/**
+ * El formulario para escribir cuándo fue el viaje.
+ *
+ * **Los días no se piden: se calculan y se muestran mientras se escribe.** Es la
+ * diferencia con la versión anterior, que pedía el número de días: una fecha es
+ * algo que uno recuerda —"salí el 3 y volví el 12"— y un número de días es una
+ * cuenta que hay que hacer, y hacerla mal es fácil.
+ */
+export function dibujarFechasDeViaje(vista) {
   const clave = vista.viajeEditado;
   const viaje = viajes(vista.estado).find((v) => v.clave === clave);
   if (viaje === undefined) return '';
 
+  const borrador = vista.borradorFechas ?? {};
+  const desde = borrador.desde ?? viaje.fechas?.desde ?? '';
+  const hasta = borrador.hasta ?? viaje.fechas?.hasta ?? '';
+
   return `
-    <form class="tarjeta" data-formulario="dias-viaje">
-      <h2>¿Cuántos días fue ${escapar(viaje.comentario)}?</h2>
-      <p class="suave">Se gastó entre el ${escapar(dibujarFechas(viaje))}. Los días
-      del viaje pueden ser más: podés haber salido antes del primer gasto que
-      anotaste, o vuelto después del último. Por eso se escriben y no se deducen.</p>
+    <form class="tarjeta" data-formulario="fechas-viaje">
+      <h2>¿Cuándo fue ${escapar(viaje.comentario)}?</h2>
+      <p class="suave">Se gastó entre el ${escapar(dibujarFechas(viaje))}, pero el
+      viaje puede haber sido más largo: podés haber salido antes del primer gasto
+      que anotaste, o vuelto después del último. Por eso se escriben las fechas y
+      no se deducen de los gastos.</p>
 
       <label class="campo">
-        <span>Días</span>
-        <input name="dias" type="text" inputmode="numeric" autocomplete="off"
-               enterkeyhint="done" placeholder="7"
-               value="${escapar(vista.borradorDias ?? (viaje.dias ?? ''))}">
+        <span>Salí el</span>
+        <input name="desde" type="date" data-accion-entrada="fechas-viaje"
+               value="${escapar(desde)}">
       </label>
+
+      <label class="campo">
+        <span>Volví el</span>
+        <input name="hasta" type="date" data-accion-entrada="fechas-viaje"
+               value="${escapar(hasta)}">
+      </label>
+
+      <p class="confirmacion" data-duracion role="status">${dibujarDuracion(desde, hasta)}</p>
 
       ${dibujarError(vista.error)}
 
       <input type="hidden" name="clave" value="${escapar(clave)}">
-      <button type="submit" class="principal" data-accion="guardar-dias-viaje">Guardar</button>
-      <button type="button" class="secundario" data-accion="borrar-dias-viaje"
-              data-clave="${escapar(clave)}">No sé cuántos días fue</button>
-      <button type="button" class="secundario" data-accion="cancelar-dias-viaje">Ahora no</button>
+      <button type="submit" class="principal" data-accion="guardar-fechas-viaje">Guardar</button>
+      <button type="button" class="secundario" data-accion="borrar-fechas-viaje"
+              data-clave="${escapar(clave)}">No me acuerdo cuándo fue</button>
+      <button type="button" class="secundario" data-accion="cancelar-fechas-viaje">Ahora no</button>
     </form>
   `;
 }
 
+/**
+ * Cuántos días dan las dos fechas escritas, para mostrarlo mientras se escribe.
+ *
+ * Es lo que convierte dos fechas en el dato que interesa sin que el usuario
+ * tenga que confiar: ve la cuenta hecha antes de guardar.
+ */
+export function dibujarDuracion(desde, hasta) {
+  if (!desde || !hasta) return 'Escribí las dos fechas y te digo cuántos días son.';
+  if (hasta < desde) return 'El viaje no puede terminar antes de empezar.';
+
+  const dias = duracionEnDias(desde, hasta);
+  return `Son ${dias} ${dias === 1 ? 'día' : 'días'}, contando el primero y el último.`;
+}
+
 export function dibujarViajes(vista) {
-  if (vista.viajeEditado) return dibujarDiasDeViaje(vista);
+  if (vista.viajeEditado) return dibujarFechasDeViaje(vista);
 
   const lista = viajes(vista.estado);
   if (lista.length === 0) {
     return `
       <section class="tarjeta">
         <h2>Gasto por viaje</h2>
-        <p class="suave">Todavía no hay ninguno. Un viaje es un comentario con al
+        <p class="suave">Todavía no hay ninguno. Un viaje es una etiqueta con al
         menos un gasto del rubro <strong>viajes</strong>: cargá el pasaje o el
-        hotel con el rubro «viajes» y el nombre del viaje en el comentario, y
-        todo lo que lleve ese comentario —comidas, transporte, supermercado— se
-        suma acá.</p>
+        hotel con el rubro «viajes» y el nombre del viaje en la etiqueta, y todo
+        lo que lleve esa etiqueta —comidas, transporte, supermercado— se suma
+        acá.</p>
       </section>
     `;
   }
@@ -142,17 +181,17 @@ export function dibujarViajes(vista) {
  * `Number('')` da 0 y `Number('7 días')` da NaN: los dos caen en el "entero de 1
  * para arriba" del núcleo.
  */
-export function intentarFijarDias(estado, clave, dias) {
+export function intentarFijarFechas(estado, clave, desde, hasta) {
   try {
-    return { estado: fijarDiasDeViaje(estado, clave, Number(String(dias ?? '').trim())) };
+    return { estado: fijarFechasDeViaje(estado, clave, desde, hasta) };
   } catch (error) {
     return { error: error.message };
   }
 }
 
-export function intentarBorrarDias(estado, clave) {
+export function intentarBorrarFechas(estado, clave) {
   try {
-    return { estado: fijarDiasDeViaje(estado, clave, null) };
+    return { estado: fijarFechasDeViaje(estado, clave, null, null) };
   } catch (error) {
     return { error: error.message };
   }

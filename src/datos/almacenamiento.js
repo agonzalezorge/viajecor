@@ -40,11 +40,12 @@ export function estadoInicial({ monedas = [], versionApp } = {}) {
     movimientos: [],
     tipos_cambio: [],
     monedas: [...monedas],
-    // Cuántos días duró cada viaje, por clave de comentario (T-023). **No es un
-    // catálogo de viajes**: la lista de viajes sale de los comentarios. Es un
-    // dato suelto sobre uno de ellos, y el único que hay que guardar porque no
-    // se puede deducir de los movimientos.
-    dias_de_viaje: [],
+    // Entre qué fechas fue cada viaje, por clave de etiqueta (T-023, T-941).
+    // **No es un catálogo de viajes**: la lista de viajes sale de las etiquetas.
+    // Es un dato suelto sobre uno de ellos, y el único que hay que guardar
+    // porque no se puede deducir de los movimientos: un viaje puede empezar
+    // antes del primer gasto anotado.
+    fechas_de_viaje: [],
     preferencias: { moneda_predeterminada: 'EUR' },
   };
 }
@@ -214,18 +215,20 @@ export function migrarEstado(guardado, incidencias = []) {
   //
   // Se leen una por una igual, en vez de copiar el objeto entero, porque un
   // respaldo editado a mano puede traer cualquier cosa ahí adentro.
-  // Los días de cada viaje. Un registro roto se descarta solo, sin llevarse los
-  // demás: perder cuántos días duró un viaje es molesto; perder los otros
-  // veinte por culpa de ese, no.
-  estado.dias_de_viaje = leerLista(guardado.dias_de_viaje, 'días de viaje', incidencias, (v) => {
+  // Las fechas de cada viaje. Un registro roto se descarta solo, sin llevarse a
+  // los demás: perder cuándo fue un viaje es molesto; perder los otros veinte
+  // por culpa de ese, no.
+  estado.fechas_de_viaje = leerLista(guardado.fechas_de_viaje, 'fechas de viaje', incidencias, (v) => {
     if (v === null || typeof v !== 'object') throw new Error('no es un viaje');
     if (typeof v.clave !== 'string' || v.clave.trim() === '') {
-      throw new Error('no dice de qué viaje son los días');
+      throw new Error('no dice de qué viaje son las fechas');
     }
-    if (!Number.isInteger(v.dias) || v.dias < 1) {
-      throw new Error('los días no son un número entero de 1 para arriba');
-    }
-    return { clave: v.clave.trim().toLowerCase(), dias: v.dias };
+    // Con `validarFecha` y no con una expresión regular: un 31 de abril tiene la
+    // forma correcta y no existe (L-005).
+    const desde = validarFecha(v.desde);
+    const hasta = validarFecha(v.hasta);
+    if (hasta < desde) throw new Error('el viaje termina antes de empezar');
+    return { clave: v.clave.trim().toLowerCase(), desde, hasta };
   });
 
   const preferencias = guardado.preferencias;

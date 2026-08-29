@@ -115,10 +115,11 @@ parado en la caja del supermercado.
 - **Rubro.** El campo se pinta del color del rubro elegido: es la confirmación de
   que quedó puesto el que querías, sin tener que releerlo.
 - **Detalle** — una nota para acordarte. No agrupa nada.
-- **Comentario** — **esto sí agrupa.** Es lo que junta los gastos de un viaje o
-  de un gasto fijo. Por eso la app te ofrece los que ya usaste: `Barcelona26` y
-  `barcelona 26` son **dos grupos distintos** en los totales, y elegir el que ya
-  existe es la forma más barata de que no se te parta un total en dos.
+- **Etiqueta (agrupar por)** — **esto sí agrupa.** Es lo que junta los gastos de
+  un viaje o de un gasto fijo. Por eso la app te ofrece las que ya usaste:
+  `Barcelona26` y `barcelona 26` son **dos grupos distintos** en los totales, y
+  elegir la que ya existe es la forma más barata de que no se te parta un total
+  en dos.
 
 **Mes** te responde "¿cómo vengo?": los tres números, la torta del reparto por
 rubro con su lista al lado, y la línea del acumulado del mes.
@@ -163,14 +164,14 @@ cargar y sus movimientos siguen contando.
 
 ---
 
-## 6. Arreglar un comentario mal escrito
+## 6. Arreglar una etiqueta mal escrita
 
-**Datos → Comentarios y detalles.**
+**Datos → Etiquetas y detalles.**
 
 Es la pantalla que arregla el problema más caro de este tipo de registro: si un
 mes escribiste `Barcelona26` y otro `barcelona 26`, **son dos viajes distintos en
-las cuentas** y ninguna pantalla te lo va a decir sola. Acá cada comentario dice
-cuántos movimientos usa y **cuántas formas de escribirlo hay** — eso último es lo
+las cuentas** y ninguna pantalla te lo va a decir sola. Acá cada etiqueta dice
+cuántos movimientos usa y **cuántas formas de escribirla hay** — eso último es lo
 que delata el typo.
 
 - **Renombrar** uno con el nombre de otro **los une**, y sus totales pasan a
@@ -189,15 +190,18 @@ decisión de unirlos es tuya.
 **Datos → Mirar el historial → Gasto por viaje**, o desde el final del resumen
 del mes.
 
-**Un viaje es un comentario con al menos un gasto del rubro «viajes».** O sea:
-cargá el pasaje o el hotel con rubro *viajes* y el nombre del viaje en el
-comentario, y desde ahí **todo lo que lleve ese comentario se suma al viaje** —
-las comidas, el transporte, el supermercado—, no solo lo del rubro «viajes».
+**Un viaje es una etiqueta con al menos un gasto del rubro «viajes».** O sea:
+cargá el pasaje o el hotel con rubro *viajes* y el nombre del viaje en la
+etiqueta, y desde ahí **todo lo que lleve esa etiqueta se suma al viaje** — las
+comidas, el transporte, el supermercado—, no solo lo del rubro «viajes».
 
-**Los días los escribís vos.** La app no los deduce de la primera y la última
-fecha con gastos: podés haber salido dos días antes de anotar el primero, y ese
-número saldría más alto de lo real sin avisarte. Mientras no los escribas **no
-hay gasto por día**, y *"No sé cuántos días fue"* es una respuesta válida.
+**Escribís cuándo saliste y cuándo volviste; los días los cuenta la app**,
+incluyendo el primero y el último. No los deduce de tus gastos: podés haber
+salido dos días antes de anotar el primero, y ese número saldría más alto de lo
+real sin avisarte. Mientras no escribas las fechas **no hay gasto por día**, y
+*"No me acuerdo cuándo fue"* es una respuesta válida.
+
+**Los viajes van ordenados por cuándo terminaron**, del más reciente arriba.
 
 **Ojo con dos viajes viejos.** En tu planilla, París y Costa Rica sumaban a mano
 el vuelo y el alojamiento adentro de la fórmula (`=96+SUMIFS(...)`,

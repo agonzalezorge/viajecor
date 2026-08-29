@@ -514,10 +514,14 @@ gastó y el gasto por día.
 total suma **todos** sus rubros —comidas, transporte, supermercado—, no solo los
 del rubro `viajes`.
 
-**El gasto por día solo aparece si los días están escritos.** No se deducen de la
-primera y la última fecha: un viaje puede empezar antes del primer gasto anotado
-o terminar después del último, y deducirlo daría un número más alto de lo real
-con cara de exacto (ADR-036).
+**Se escriben la fecha de inicio y la de fin, y los días se calculan** contando
+las dos puntas (ADR-037). No se deducen de los gastos: un viaje puede empezar
+antes del primer gasto anotado o terminar después del último, y deducirlo daría
+un número más alto de lo real con cara de exacto. **Sin fechas escritas no hay
+gasto por día.**
+
+**Los viajes van ordenados por fecha de fin, del más reciente arriba.** Uno sin
+fechas se ordena por su último gasto.
 
 **Decidido por el usuario (2026-08-28):**
 - **El viaje se escribe a mano**, como en el Excel, **pero se tiene que poder

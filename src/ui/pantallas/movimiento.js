@@ -351,13 +351,13 @@ export function dibujarNuevo(vista) {
                placeholder="cena" value="${escapar(borrador.detalle)}">
       </label>
 
-      <!-- El comentario va último y ofrece los que ya usaste (T-912, T-920). No
-           es comodidad: el comentario es lo que agrupa los gastos de un viaje
+      <!-- La etiqueta va última y ofrece las que ya usaste (T-912, T-920). No
+           es comodidad: la etiqueta es lo que agrupa los gastos de un viaje
            (RN-03), y "Barcelona26" y "barcelona 26" son dos viajes distintos en
            los totales. Ofrecer lo que ya existe es la forma más barata de que
            elijas la escritura que ya tenés en vez de inventar una nueva. -->
       <label class="campo">
-        <span>Comentario <em class="suave">— viaje o gasto fijo, para agrupar</em></span>
+        <span>Etiqueta <em class="suave">(agrupar por)</em></span>
         <input name="comentario" type="text" autocomplete="off"
                placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
         <div class="sugerencias" data-sugerencias="comentario">${

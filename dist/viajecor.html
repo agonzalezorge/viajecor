@@ -3043,11 +3043,12 @@ function estadoInicial({ monedas = [], versionApp } = {}) {
     movimientos: [],
     tipos_cambio: [],
     monedas: [...monedas],
-    // Cuántos días duró cada viaje, por clave de comentario (T-023). **No es un
-    // catálogo de viajes**: la lista de viajes sale de los comentarios. Es un
-    // dato suelto sobre uno de ellos, y el único que hay que guardar porque no
-    // se puede deducir de los movimientos.
-    dias_de_viaje: [],
+    // Entre qué fechas fue cada viaje, por clave de etiqueta (T-023, T-941).
+    // **No es un catálogo de viajes**: la lista de viajes sale de las etiquetas.
+    // Es un dato suelto sobre uno de ellos, y el único que hay que guardar
+    // porque no se puede deducir de los movimientos: un viaje puede empezar
+    // antes del primer gasto anotado.
+    fechas_de_viaje: [],
     preferencias: { moneda_predeterminada: 'EUR' },
   };
 }
@@ -3217,18 +3218,20 @@ function migrarEstado(guardado, incidencias = []) {
   //
   // Se leen una por una igual, en vez de copiar el objeto entero, porque un
   // respaldo editado a mano puede traer cualquier cosa ahí adentro.
-  // Los días de cada viaje. Un registro roto se descarta solo, sin llevarse los
-  // demás: perder cuántos días duró un viaje es molesto; perder los otros
-  // veinte por culpa de ese, no.
-  estado.dias_de_viaje = leerLista(guardado.dias_de_viaje, 'días de viaje', incidencias, (v) => {
+  // Las fechas de cada viaje. Un registro roto se descarta solo, sin llevarse a
+  // los demás: perder cuándo fue un viaje es molesto; perder los otros veinte
+  // por culpa de ese, no.
+  estado.fechas_de_viaje = leerLista(guardado.fechas_de_viaje, 'fechas de viaje', incidencias, (v) => {
     if (v === null || typeof v !== 'object') throw new Error('no es un viaje');
     if (typeof v.clave !== 'string' || v.clave.trim() === '') {
-      throw new Error('no dice de qué viaje son los días');
+      throw new Error('no dice de qué viaje son las fechas');
     }
-    if (!Number.isInteger(v.dias) || v.dias < 1) {
-      throw new Error('los días no son un número entero de 1 para arriba');
-    }
-    return { clave: v.clave.trim().toLowerCase(), dias: v.dias };
+    // Con `validarFecha` y no con una expresión regular: un 31 de abril tiene la
+    // forma correcta y no existe (L-005).
+    const desde = validarFecha(v.desde);
+    const hasta = validarFecha(v.hasta);
+    if (hasta < desde) throw new Error('el viaje termina antes de empezar');
+    return { clave: v.clave.trim().toLowerCase(), desde, hasta };
   });
 
   const preferencias = guardado.preferencias;
@@ -6798,17 +6801,23 @@ function borrarEtiqueta(movimientos, campo, clave) {
 // eso es plata del viaje. Es lo mismo que hace la planilla, que suma por
 // comentario sin mirar el rubro.
 //
-// ── Los días se escriben ────────────────────────────────────────────────────
+// ── Se escriben las FECHAS, y los días se calculan ──────────────────────────
 //
-// Decidido por el usuario: la duración **no se deduce** de la primera y la
-// última fecha con gastos. Un viaje puede empezar antes de que se registre el
-// primer gasto o terminar después del último, y deducirlo daría un gasto por día
-// más alto de lo real, sin avisar.
+// La duración **no se deduce de los movimientos**: un viaje puede empezar antes
+// de que se registre el primer gasto o terminar después del último, y deducirlo
+// daría un gasto por día más alto de lo real, sin avisar.
 //
-// Por eso son el único dato de un viaje que hay que guardar, y viven en
-// `estado.dias_de_viaje`: una lista de `{ clave, dias }`. **Se llama así y no
-// `viajes` a propósito**: no es un catálogo de viajes —la lista de viajes sigue
-// saliendo de los comentarios— sino un dato suelto sobre uno de ellos.
+// Pero tampoco se escribe a mano. **Se escriben la fecha de inicio y la de fin,
+// y los días salen de restarlas** (pedido del usuario, 2026-08-28). Es mejor por
+// dos motivos: una fecha es un dato que uno recuerda —"salí el 3 y volví el
+// 12"— y un número de días es una cuenta que hay que hacer; y con las fechas
+// guardadas, los viajes se pueden **ordenar por cuándo terminaron**, que es como
+// uno los piensa.
+//
+// Viven en `estado.fechas_de_viaje`: una lista de `{ clave, desde, hasta }`.
+// **Se llama así y no `viajes` a propósito**: no es un catálogo de viajes —la
+// lista de viajes sigue saliendo de las etiquetas— sino un dato suelto sobre
+// uno de ellos.
 //
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
@@ -6818,42 +6827,59 @@ function borrarEtiqueta(movimientos, campo, clave) {
 /** El rubro que marca a un comentario como viaje. */
 const RUBRO_VIAJE = 'viajes';
 
-/** Los días guardados de un viaje, o `null` si no se escribieron. */
-function diasDeViaje(estado, clave) {
+/** Las fechas guardadas de un viaje, o `null` si no se escribieron. */
+function fechasDeViaje(estado, clave) {
   const buscada = normalizarClave(String(clave ?? ''));
-  const guardado = (estado?.dias_de_viaje ?? []).find(
+  const guardado = (estado?.fechas_de_viaje ?? []).find(
     (v) => normalizarClave(String(v?.clave ?? '')) === buscada,
   );
-  return guardado ? guardado.dias : null;
+  return guardado ? { desde: guardado.desde, hasta: guardado.hasta } : null;
 }
 
 /**
- * Escribe los días de un viaje. Devuelve un estado nuevo.
+ * Cuántos días dura un viaje entre dos fechas, **contando las dos puntas**.
  *
- * `null` o `0` los borra: es la forma de decir "no sé cuántos días fue", y es
- * distinta de decir "cero días", que no significa nada.
+ * Del 3 al 12 son diez días, no nueve: el 3 se viajó y el 12 también. Es la
+ * cuenta que hace una persona, y la que no hace una resta de fechas a secas.
  */
-function fijarDiasDeViaje(estado, clave, dias) {
-  const buscada = normalizarClave(String(clave ?? ''));
-  if (buscada === '') throw new Error('Hace falta saber de qué viaje son los días.');
+function duracionEnDias(desde, hasta) {
+  const dias = (Date.parse(`${hasta}T12:00:00Z`) - Date.parse(`${desde}T12:00:00Z`)) / 86400000;
+  return Math.round(dias) + 1;
+}
 
-  const otros = (estado.dias_de_viaje ?? []).filter(
+/**
+ * Escribe las fechas de un viaje. Devuelve un estado nuevo.
+ *
+ * `null` las borra: es la forma de decir "no me acuerdo cuándo fue".
+ */
+function fijarFechasDeViaje(estado, clave, desde, hasta) {
+  const buscada = normalizarClave(String(clave ?? ''));
+  if (buscada === '') throw new Error('Hace falta saber de qué viaje son las fechas.');
+
+  const otros = (estado.fechas_de_viaje ?? []).filter(
     (v) => normalizarClave(String(v?.clave ?? '')) !== buscada,
   );
 
-  if (dias === null || dias === undefined || dias === '') {
-    return { ...estado, dias_de_viaje: otros };
+  const vacia = (f) => f === null || f === undefined || String(f).trim() === '';
+  if (vacia(desde) && vacia(hasta)) return { ...estado, fechas_de_viaje: otros };
+
+  if (vacia(desde) || vacia(hasta)) {
+    throw new Error('Hacen falta las dos fechas: la de inicio y la de fin.');
   }
 
-  const numero = Number(dias);
-  if (!Number.isInteger(numero) || numero < 1) {
-    throw new Error('Los días del viaje son un número entero de 1 para arriba.');
+  // `validarFecha` comprueba que la fecha EXISTA, no solo que tenga la forma:
+  // un 31 de abril tiene la forma correcta y no existe (L-005).
+  const inicio = validarFecha(desde);
+  const fin = validarFecha(hasta);
+
+  if (fin < inicio) {
+    throw new Error('El viaje no puede terminar antes de empezar: revisá las fechas.');
   }
-  if (numero > 3650) {
-    throw new Error('Diez años de viaje son muchos: revisá el número.');
+  if (duracionEnDias(inicio, fin) > 3650) {
+    throw new Error('Diez años de viaje son muchos: revisá las fechas.');
   }
 
-  return { ...estado, dias_de_viaje: [...otros, { clave: buscada, dias: numero }] };
+  return { ...estado, fechas_de_viaje: [...otros, { clave: buscada, desde: inicio, hasta: fin }] };
 }
 
 /**
@@ -6912,16 +6938,24 @@ function viajes(estado) {
 
   return [...acumulado.values()]
     .map((v) => {
-      const dias = diasDeViaje(estado, v.clave);
+      const fechas = fechasDeViaje(estado, v.clave);
+      const dias = fechas === null ? null : duracionEnDias(fechas.desde, fechas.hasta);
       return {
         ...v,
         mes: mesDe(v.desde),
+        fechas,
         dias,
         porDia: dias === null ? null : redondear(v.total / dias),
+        // Por cuándo terminó, que es el orden que pidió el usuario. Un viaje sin
+        // fechas escritas se ordena por su último gasto: es lo más parecido que
+        // se sabe, y sin eso todos los viajes sin fechas se amontonarían juntos
+        // en una punta de la lista, lejos de cuando de verdad pasaron.
+        termino: fechas === null ? v.hasta : fechas.hasta,
         incompleto: incompletos.has(v.clave),
       };
     })
-    .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
+    // Del más reciente arriba al más viejo abajo.
+    .sort((a, b) => b.termino.localeCompare(a.termino) || a.clave.localeCompare(b.clave));
 }
 
 // ── src/ui/pantallas/etiquetas.js ───────────────────────────────
@@ -6945,12 +6979,12 @@ function viajes(estado) {
 
 
 const TITULOS = {
-  comentario: 'Comentarios',
+  comentario: 'Etiquetas',
   detalle: 'Detalles',
 };
 
 const EXPLICACIONES = {
-  comentario: `El comentario es lo que <strong>agrupa</strong>: de él salen los
+  comentario: `La etiqueta es lo que <strong>agrupa</strong>: de ella salen los
     totales por viaje y por gasto fijo. Dos escrituras distintas son dos totales
     distintos, así que renombrar una con el nombre de la otra las une.`,
   detalle: `El detalle es una nota para acordarte: <strong>no agrupa nada</strong>.
@@ -7065,11 +7099,12 @@ function dibujarBorrarEtiqueta(vista) {
   return `
     <section class="tarjeta aviso importante" role="alert">
       <h2>¿Sacar «${escapar(etiqueta.texto)}»?</h2>
-      <p>Se le saca el ${escapar(campo)} a ${escapar(enCuantos(etiqueta.cuantos))}.</p>
+      <p>Se le saca ${campo === 'comentario' ? 'la etiqueta' : 'el detalle'} a
+      ${escapar(enCuantos(etiqueta.cuantos))}.</p>
       <p><strong>Los movimientos no se borran</strong>: siguen ahí, con su fecha,
       su rubro y su importe. Lo único que se va es la etiqueta.</p>
       ${campo === 'comentario' ? `<p class="suave">Van a dejar de contarse en
-        cualquier total agrupado por ese comentario.</p>` : ''}
+        cualquier total agrupado por esa etiqueta.</p>` : ''}
       <button type="button" class="principal" data-accion="confirmar-borrar-etiqueta"
               data-campo="${escapar(campo)}" data-clave="${escapar(clave)}">
         Sí, sacarla
@@ -7151,26 +7186,32 @@ function intentarBorrarEtiqueta(estado, campo, clave) {
 //
 // ── Lo que esta pantalla no hace, y por qué ─────────────────────────────────
 //
-// **No deduce los días.** El usuario decidió (2026-08-28) que se escriben. Un
-// viaje puede empezar antes del primer gasto registrado o terminar después del
-// último, y deducirlo daría un gasto por día más bajo de lo real sin avisar.
-// Por eso, mientras los días no estén escritos, **no hay gasto por día**: no se
-// muestra un número aproximado, se muestra el pedido de escribirlos.
+// **No deduce la duración de los movimientos.** Se escriben **la fecha de inicio
+// y la de fin**, y los días salen de restarlas (T-941). Un viaje puede empezar
+// antes del primer gasto registrado o terminar después del último, y deducirlo
+// daría un gasto por día más alto de lo real sin avisar. Mientras las fechas no
+// estén, **no hay gasto por día**: no se muestra un número aproximado, se
+// muestra el pedido de escribirlas.
 //
-// **No tiene una lista de viajes propia.** Un viaje es un comentario con al
-// menos un gasto del rubro `viajes` (ver `core/viajes.js`). Se escribe a mano al
-// cargar, y se corrige en Datos → Comentarios y detalles, donde renombrar une
-// dos escrituras del mismo viaje.
+// **No tiene una lista de viajes propia.** Un viaje es una etiqueta con al menos
+// un gasto del rubro `viajes` (ver `core/viajes.js`). Se escribe a mano al
+// cargar, y se corrige en Datos → Etiquetas y detalles, donde renombrar une dos
+// escrituras del mismo viaje.
 //
 // Igual que el resto de la interfaz (ADR-022), las funciones de dibujo son puras.
 
 
 
 
-/** Entre qué fechas se gastó. Es contexto para escribir los días, no el dato. */
+/** Un rango de fechas, o una sola si son la misma. */
+function dibujarRango(desde, hasta) {
+  if (desde === hasta) return formatearFecha(desde);
+  return `${formatearFecha(desde)} → ${formatearFecha(hasta)}`;
+}
+
+/** Entre qué fechas se GASTÓ. Es contexto para escribir las del viaje, no el dato. */
 function dibujarFechas(viaje) {
-  if (viaje.desde === viaje.hasta) return formatearFecha(viaje.desde);
-  return `${formatearFecha(viaje.desde)} → ${formatearFecha(viaje.hasta)}`;
+  return dibujarRango(viaje.desde, viaje.hasta);
 }
 
 /**
@@ -7183,13 +7224,13 @@ function dibujarFechas(viaje) {
 function dibujarViaje(viaje) {
   const cuantos = viaje.cuantos === 1 ? '1 gasto' : `${viaje.cuantos} gastos`;
 
-  const porDia = viaje.dias === null
-    ? `<button type="button" class="secundario chico" data-accion="dias-viaje"
-               data-clave="${escapar(viaje.clave)}">¿Cuántos días fue?</button>`
+  const porDia = viaje.fechas === null
+    ? `<button type="button" class="secundario chico" data-accion="fechas-viaje"
+               data-clave="${escapar(viaje.clave)}">¿Cuándo fue?</button>`
     : `<span><strong>${escapar(formatearEuros(viaje.porDia))}</strong> por día
          en ${viaje.dias} ${viaje.dias === 1 ? 'día' : 'días'}
-         <button type="button" class="enlace" data-accion="dias-viaje"
-                 data-clave="${escapar(viaje.clave)}">cambiar</button></span>`;
+         <button type="button" class="enlace" data-accion="fechas-viaje"
+                 data-clave="${escapar(viaje.clave)}">${escapar(dibujarRango(viaje.fechas.desde, viaje.fechas.hasta))}</button></span>`;
 
   const aviso = viaje.incompleto
     ? `<p class="suave">A este viaje le falta un tipo de cambio: el total está incompleto.</p>`
@@ -7213,50 +7254,83 @@ function dibujarViaje(viaje) {
   `;
 }
 
-/** El formulario para escribir los días. */
-function dibujarDiasDeViaje(vista) {
+/**
+ * El formulario para escribir cuándo fue el viaje.
+ *
+ * **Los días no se piden: se calculan y se muestran mientras se escribe.** Es la
+ * diferencia con la versión anterior, que pedía el número de días: una fecha es
+ * algo que uno recuerda —"salí el 3 y volví el 12"— y un número de días es una
+ * cuenta que hay que hacer, y hacerla mal es fácil.
+ */
+function dibujarFechasDeViaje(vista) {
   const clave = vista.viajeEditado;
   const viaje = viajes(vista.estado).find((v) => v.clave === clave);
   if (viaje === undefined) return '';
 
+  const borrador = vista.borradorFechas ?? {};
+  const desde = borrador.desde ?? viaje.fechas?.desde ?? '';
+  const hasta = borrador.hasta ?? viaje.fechas?.hasta ?? '';
+
   return `
-    <form class="tarjeta" data-formulario="dias-viaje">
-      <h2>¿Cuántos días fue ${escapar(viaje.comentario)}?</h2>
-      <p class="suave">Se gastó entre el ${escapar(dibujarFechas(viaje))}. Los días
-      del viaje pueden ser más: podés haber salido antes del primer gasto que
-      anotaste, o vuelto después del último. Por eso se escriben y no se deducen.</p>
+    <form class="tarjeta" data-formulario="fechas-viaje">
+      <h2>¿Cuándo fue ${escapar(viaje.comentario)}?</h2>
+      <p class="suave">Se gastó entre el ${escapar(dibujarFechas(viaje))}, pero el
+      viaje puede haber sido más largo: podés haber salido antes del primer gasto
+      que anotaste, o vuelto después del último. Por eso se escriben las fechas y
+      no se deducen de los gastos.</p>
 
       <label class="campo">
-        <span>Días</span>
-        <input name="dias" type="text" inputmode="numeric" autocomplete="off"
-               enterkeyhint="done" placeholder="7"
-               value="${escapar(vista.borradorDias ?? (viaje.dias ?? ''))}">
+        <span>Salí el</span>
+        <input name="desde" type="date" data-accion-entrada="fechas-viaje"
+               value="${escapar(desde)}">
       </label>
+
+      <label class="campo">
+        <span>Volví el</span>
+        <input name="hasta" type="date" data-accion-entrada="fechas-viaje"
+               value="${escapar(hasta)}">
+      </label>
+
+      <p class="confirmacion" data-duracion role="status">${dibujarDuracion(desde, hasta)}</p>
 
       ${dibujarError(vista.error)}
 
       <input type="hidden" name="clave" value="${escapar(clave)}">
-      <button type="submit" class="principal" data-accion="guardar-dias-viaje">Guardar</button>
-      <button type="button" class="secundario" data-accion="borrar-dias-viaje"
-              data-clave="${escapar(clave)}">No sé cuántos días fue</button>
-      <button type="button" class="secundario" data-accion="cancelar-dias-viaje">Ahora no</button>
+      <button type="submit" class="principal" data-accion="guardar-fechas-viaje">Guardar</button>
+      <button type="button" class="secundario" data-accion="borrar-fechas-viaje"
+              data-clave="${escapar(clave)}">No me acuerdo cuándo fue</button>
+      <button type="button" class="secundario" data-accion="cancelar-fechas-viaje">Ahora no</button>
     </form>
   `;
 }
 
+/**
+ * Cuántos días dan las dos fechas escritas, para mostrarlo mientras se escribe.
+ *
+ * Es lo que convierte dos fechas en el dato que interesa sin que el usuario
+ * tenga que confiar: ve la cuenta hecha antes de guardar.
+ */
+function dibujarDuracion(desde, hasta) {
+  if (!desde || !hasta) return 'Escribí las dos fechas y te digo cuántos días son.';
+  if (hasta < desde) return 'El viaje no puede terminar antes de empezar.';
+
+  const dias = duracionEnDias(desde, hasta);
+  return `Son ${dias} ${dias === 1 ? 'día' : 'días'}, contando el primero y el último.`;
+}
+
 function dibujarViajes(vista) {
-  if (vista.viajeEditado) return dibujarDiasDeViaje(vista);
+  if (vista.viajeEditado) return dibujarFechasDeViaje(vista);
 
   const lista = viajes(vista.estado);
   if (lista.length === 0) {
     return `
       <section class="tarjeta">
         <h2>Gasto por viaje</h2>
-        <p class="suave">Todavía no hay ninguno. Un viaje es un comentario con al
+        <p class="suave">Todavía no hay ninguno. Un viaje es una etiqueta con al
         menos un gasto del rubro <strong>viajes</strong>: cargá el pasaje o el
-        hotel con el rubro «viajes» y el nombre del viaje en el comentario, y
-        todo lo que lleve ese comentario —comidas, transporte, supermercado— se
-        suma acá.</p>
+        hotel con el rubro «viajes» y el nombre del viaje en la etiqueta, y todo
+        lo que lleve esa etiqueta —comidas, transporte, supermercado— se suma
+        acá.</p>
       </section>
     `;
   }
@@ -7288,17 +7362,17 @@ function dibujarViajes(vista) {
  * `Number('')` da 0 y `Number('7 días')` da NaN: los dos caen en el "entero de 1
  * para arriba" del núcleo.
  */
-function intentarFijarDias(estado, clave, dias) {
+function intentarFijarFechas(estado, clave, desde, hasta) {
   try {
-    return { estado: fijarDiasDeViaje(estado, clave, Number(String(dias ?? '').trim())) };
+    return { estado: fijarFechasDeViaje(estado, clave, desde, hasta) };
   } catch (error) {
     return { error: error.message };
   }
 }
 
-function intentarBorrarDias(estado, clave) {
+function intentarBorrarFechas(estado, clave) {
   try {
-    return { estado: fijarDiasDeViaje(estado, clave, null) };
+    return { estado: fijarFechasDeViaje(estado, clave, null, null) };
   } catch (error) {
     return { error: error.message };
   }
@@ -7649,8 +7723,8 @@ function dibujarSinComentario(sinComentario) {
   return `
     <p class="suave nota">
       ${cuantos} en esta lista, por ${escapar(formatearEuros(sinComentario.total))}:
-      no tienen comentario, y el comentario es lo que dice cuál gasto fijo son.
-      Poniéndoles uno —"Luz", "Gas"— entran solos.
+      no tienen etiqueta, y la etiqueta es lo que dice cuál gasto fijo son.
+      Poniéndoles una —"Luz", "Gas"— entran solos.
     </p>
   `;
 }
@@ -7662,7 +7736,7 @@ function dibujarGastosFijos(estado) {
   const cuerpo = grupos.map(dibujarGastoFijo).join('');
 
   const vacio = grupos.length > 0 ? '' : `
-    <p class="suave">Ninguno de tus gastos fijos tiene comentario todavía, así que
+    <p class="suave">Ninguno de tus gastos fijos tiene etiqueta todavía, así que
     no hay nada que agrupar.</p>`;
 
   return `
@@ -8324,11 +8398,11 @@ function dibujarDatos(vista) {
     </section>
 
     <section class="tarjeta">
-      <h2>Comentarios y detalles</h2>
-      <p class="suave">Ver los que ya escribiste, renombrarlos —renombrar uno con
-      el nombre de otro los une— o sacarlos. Los movimientos no se tocan.</p>
+      <h2>Etiquetas y detalles</h2>
+      <p class="suave">Ver las que ya escribiste, renombrarlas —renombrar una con
+      el nombre de otra las une— o sacarlas. Los movimientos no se tocan.</p>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="etiquetas">
-        Ver comentarios y detalles
+        Ver etiquetas y detalles
       </button>
     </section>
 
@@ -8981,13 +9055,13 @@ function dibujarNuevo(vista) {
                placeholder="cena" value="${escapar(borrador.detalle)}">
       </label>
 
-      <!-- El comentario va último y ofrece los que ya usaste (T-912, T-920). No
-           es comodidad: el comentario es lo que agrupa los gastos de un viaje
+      <!-- La etiqueta va última y ofrece las que ya usaste (T-912, T-920). No
+           es comodidad: la etiqueta es lo que agrupa los gastos de un viaje
            (RN-03), y "Barcelona26" y "barcelona 26" son dos viajes distintos en
            los totales. Ofrecer lo que ya existe es la forma más barata de que
            elijas la escritura que ya tenés en vez de inventar una nueva. -->
       <label class="campo">
-        <span>Comentario <em class="suave">— viaje o gasto fijo, para agrupar</em></span>
+        <span>Etiqueta <em class="suave">(agrupar por)</em></span>
         <input name="comentario" type="text" autocomplete="off"
                placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
         <div class="sugerencias" data-sugerencias="comentario">${
@@ -9143,7 +9217,7 @@ registrarPantalla('viajes', {
 });
 
 registrarPantalla('etiquetas', {
-  etiqueta: 'Comentarios y detalles',
+  etiqueta: 'Etiquetas y detalles',
   icono: '🏷',
   conMes: false,
   enBarra: false,
@@ -9946,6 +10020,10 @@ function iniciar(documento, almacen) {
   });
 
   raiz.addEventListener('input', (evento) => {
+    if (evento.target.matches('[data-accion-entrada="fechas-viaje"]')) {
+      refrescarDuracion();
+      return;
+    }
     if (evento.target.matches('[data-accion-entrada="renombrar"]')) {
       refrescarAvisoEtiqueta(evento.target.value);
       return;
@@ -10135,32 +10213,46 @@ function iniciar(documento, almacen) {
     ));
   }
 
-  /** Los días de un viaje — T-023. Toca datos, así que guarda antes de pintar. */
-  function guardarLosDias() {
-    const formulario = raiz.querySelector('[data-formulario="dias-viaje"]');
+  /** Las fechas de un viaje — T-941. Toca datos, así que guarda antes de pintar. */
+  function guardarLasFechas() {
+    const formulario = raiz.querySelector('[data-formulario="fechas-viaje"]');
     if (!formulario) return;
     const clave = formulario.elements.clave?.value ?? '';
-    const escrito = formulario.elements.dias?.value ?? '';
+    const escrito = {
+      desde: formulario.elements.desde?.value ?? '',
+      hasta: formulario.elements.hasta?.value ?? '',
+    };
 
-    const resultado = intentarFijarDias(vista.estado, clave, escrito);
+    const resultado = intentarFijarFechas(vista.estado, clave, escrito.desde, escrito.hasta);
     if (resultado.error) {
-      vista = { ...vista, borradorDias: escrito, error: resultado.error };
+      vista = { ...vista, borradorFechas: escrito, error: resultado.error };
       pintar();
       return;
     }
     try {
       guardarEstado(resultado.estado, almacen);
     } catch (error) {
-      vista = { ...vista, borradorDias: escrito, error: error.message };
+      vista = { ...vista, borradorFechas: escrito, error: error.message };
       pintar();
       return;
     }
-    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorDias: undefined };
+    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorFechas: undefined };
     pintar();
   }
 
+  /** La cuenta de los días se actualiza mientras se escriben las fechas. */
+  function refrescarDuracion() {
+    const formulario = raiz.querySelector('[data-formulario="fechas-viaje"]');
+    const donde = raiz.querySelector('[data-duracion]');
+    if (!formulario || !donde) return;
+    donde.textContent = dibujarDuracion(
+      formulario.elements.desde?.value ?? '',
+      formulario.elements.hasta?.value ?? '',
+    );
+  }
+
   function olvidarLosDias(clave) {
-    const resultado = intentarBorrarDias(vista.estado, clave);
+    const resultado = intentarBorrarFechas(vista.estado, clave);
     if (resultado.error) {
       vista = { ...vista, error: resultado.error };
       pintar();
@@ -10173,7 +10265,7 @@ function iniciar(documento, almacen) {
       pintar();
       return;
     }
-    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorDias: undefined };
+    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorFechas: undefined };
     pintar();
   }
 
@@ -10275,15 +10367,15 @@ function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
-    } else if (accion === 'dias-viaje') {
-      vista = { ...vista, viajeEditado: boton.dataset.clave, borradorDias: undefined, error: null };
-    } else if (accion === 'cancelar-dias-viaje') {
-      vista = { ...vista, viajeEditado: null, borradorDias: undefined, error: null };
-    } else if (accion === 'guardar-dias-viaje') {
+    } else if (accion === 'fechas-viaje') {
+      vista = { ...vista, viajeEditado: boton.dataset.clave, borradorFechas: undefined, error: null };
+    } else if (accion === 'cancelar-fechas-viaje') {
+      vista = { ...vista, viajeEditado: null, borradorFechas: undefined, error: null };
+    } else if (accion === 'guardar-fechas-viaje') {
       evento.preventDefault();
-      guardarLosDias();
+      guardarLasFechas();
       return;
-    } else if (accion === 'borrar-dias-viaje') {
+    } else if (accion === 'borrar-fechas-viaje') {
       olvidarLosDias(boton.dataset.clave);
       return;
     } else if (accion === 'renombrar-etiqueta') {

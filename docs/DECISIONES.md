@@ -1232,3 +1232,64 @@ decisión del usuario: eran dos excepciones del comienzo del registro
 (`=96+SUMIFS(...)` en París, `=850+...` en Costa Rica) y no va a haber más. Si se
 los quiere incluir, se cargan como lo que son: un gasto con su fecha, su rubro y
 el comentario del viaje.
+
+---
+
+## ADR-037 · Se escriben las fechas del viaje, no los días; y «Comentario» pasa a llamarse «Etiqueta»
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-941 ·
+**Reemplaza parte de ADR-036**
+
+**Los días pasan a calcularse.** ADR-036 decía que la duración se escribía a
+mano. El usuario pidió otra cosa y es mejor: **se escriben la fecha de inicio y
+la de fin, y los días salen de restarlas.** Dos motivos:
+
+1. **Una fecha es un dato que uno recuerda** —"salí el 3 y volví el 12"—; un
+   número de días es una cuenta que hay que hacer, y hacerla mal es fácil.
+2. **Con las fechas guardadas, los viajes se pueden ordenar por cuándo
+   terminaron**, que es como uno los piensa. Con solo un número de días, no.
+
+**Lo que NO cambia de ADR-036:** la duración sigue sin deducirse de los
+movimientos. Un viaje puede empezar antes del primer gasto anotado o terminar
+después del último, y deducirlo daría un gasto por día más alto de lo real con
+cara de exacto. Y sin fechas escritas **sigue sin haber gasto por día**.
+
+**Los días se cuentan con las dos puntas.** Del 3 al 12 son diez días, no nueve:
+el 3 se viajó y el 12 también. Es la cuenta que hace una persona y la que no hace
+una resta de fechas a secas. La aritmética va en UTC al mediodía, que es lo único
+que no se corre en marzo y en octubre por el horario de verano.
+
+**La cuenta se muestra mientras se escribe**, antes de guardar: "Son 12 días,
+contando el primero y el último". Convierte dos fechas en el dato que interesa
+sin pedirle al usuario que confíe.
+
+**El orden es por fecha de fin, del más reciente arriba** (pedido del usuario).
+Antes iban de más caro a más barato: es un orden útil para *otra* pregunta, no
+para "¿cuándo fui a dónde?".
+
+**Un viaje sin fechas se ordena por su último gasto.** Sin esa regla, todos los
+viajes sin fechas se amontonarían en una punta de la lista, lejos de cuando de
+verdad pasaron. Y **las fechas escritas mandan sobre las de los gastos**: un
+viaje cuyo hotel se pagó a la vuelta no tiene por qué aparecer como el más
+reciente.
+
+**Media fecha no se guarda.** Con solo la de inicio no hay duración, y guardarla
+a medias dejaría un dato que ninguna pantalla puede usar y que el usuario cree
+haber cargado.
+
+---
+
+**«Comentario» pasa a llamarse «Etiqueta (agrupar por)»** (pedido del usuario).
+El nombre viejo venía de la columna `Comentarios` de la planilla y sonaba a nota
+suelta, cuando es **de lo que dependen los totales por viaje y por gasto fijo**.
+El nombre nuevo dice para qué sirve.
+
+**Lo que cambia es lo que se lee, no lo que se guarda.** Adentro el campo se
+sigue llamando `comentario`: renombrarlo dejaría ilegibles los respaldos que el
+usuario ya tiene, y el nombre de un campo guardado no es algo que él vea nunca.
+Hay un test que recorre **todas** las pantallas y falla si alguna vuelve a decir
+"comentario" en su texto.
+
+**La única excepción es el `.xlsx` exportado**, donde la columna sigue diciendo
+`Comentarios`: esa hoja existe para parecerse a la planilla de siempre, y esa es
+la palabra que su planilla usa.
