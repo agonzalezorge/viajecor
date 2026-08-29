@@ -6,6 +6,10 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Cambiado
+- **La tabla mes a mes se lee mejor al deslizarla.** El rótulo de cada bloque va
+  alineado a la izquierda —centrado sobre ocho columnas caía fuera de la
+  pantalla— y las columnas que ya pasaron dejaron de asomar por detrás de la
+  columna del mes.
 - **En la lista de movimientos, lo último que cargaste aparece primero dentro de
   su día.** Antes quedaba abajo de todo el día, que es justo lo contrario de para
   lo que se abre esa pantalla: arreglar el gasto que acabás de anotar.
@@ -16,6 +20,15 @@ La versión publicada vive en el archivo `VERSION`.
   recalculan solas. Ver ADR-040.
 
 ### Agregado
+- **Los rubros de ingreso en la tabla mes a mes.** Antes decía cuánto entró cada
+  mes pero no de dónde: cuatro columnas nuevas —trabajo, inversiones, regalos,
+  otros—, con su color, y el total y el promedio también las desglosan. La hoja
+  `Evolución` del `.xlsx` cambia igual, porque las dos leen el mismo cálculo.
+
+  Como `otros` está en los rubros de gasto **y** en los de ingreso, los dos
+  bloques van rotulados arriba, tocar una celda filtra por rubro **y por tipo**,
+  y el cartel del filtro dice cuál: *"Mostrando solo Otros (ingresos)"*.
+
 - **Otros grupos de gastos**, una pantalla nueva junto a la evolución y los
   viajes. La etiqueta agrupa cualquier cosa —una mudanza, unos regalos, el
   arreglo del auto—, y hasta ahora esos grupos existían en los datos y no se

@@ -32,7 +32,7 @@ import { formatearMesCorto, formatearNumero, formatearRubro } from '../../core/f
 import { claseDeRubro } from '../colores.js';
 import { dibujarGastosFijos } from './fijos.js';
 import { dibujarAcumuladoHistorico, dibujarMesAMes } from './graficos.js';
-import { TIPO_GASTO, hoy, mesDe } from '../../core/modelo.js';
+import { TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../../core/modelo.js';
 
 /**
  * Un importe de celda.
@@ -53,37 +53,64 @@ function celdaDeImporte(importe, extra = '', toque = null) {
   const contenido = toque === null || importe === 0
     ? numero
     : `<button type="button" class="celda-toque" data-accion="ver-celda"
-               data-mes="${escapar(toque.mes)}" data-rubro="${escapar(toque.rubro)}">${numero}</button>`;
+               data-mes="${escapar(toque.mes)}" data-tipo="${escapar(toque.tipo ?? TIPO_GASTO)}"
+               data-rubro="${escapar(toque.rubro)}">${numero}</button>`;
 
   return `<td class="${clase}${extra}">${contenido}</td>`;
 }
 
 /**
- * El encabezado de la tabla: el mes y los ocho rubros, con su punto de color.
+ * El encabezado de la tabla, en **dos niveles**: arriba de qué es cada bloque,
+ * abajo la columna.
  *
- * El punto es lo que ata esta pantalla al resumen del mes: la columna que acá
- * dice "Supermercado" es la porción ámbar de allá.
+ * El nivel de arriba no es decoración: `otros` está en los rubros de gasto y
+ * también en los de ingreso, y son cosas distintas (RN-02). Dos columnas
+ * llamadas "Otros" en la misma tabla, sin nada que las separe, son un número
+ * que se lee en la columna equivocada. La banda dice cuál es cuál, y además la
+ * paleta les da el mismo gris a los dos —viene de la planilla del usuario—, así
+ * que el color no alcanzaba para distinguirlas.
+ *
+ * El punto de color es lo que ata esta pantalla al resumen del mes: la columna
+ * que acá dice "Supermercado" es la porción ámbar de allá.
  */
-export function dibujarEncabezadoMatriz(rubros) {
-  const columnas = rubros.map((rubro) => `
+export function dibujarEncabezadoMatriz(rubros, rubrosIngreso = []) {
+  const columna = (tipo, rubro) => `
     <th scope="col">
-      <span class="punto-rubro ${claseDeRubro(TIPO_GASTO, rubro)}" aria-hidden="true"></span>
+      <span class="punto-rubro ${claseDeRubro(tipo, rubro)}" aria-hidden="true"></span>
       ${escapar(formatearRubro(rubro))}
-    </th>`).join('');
+    </th>`;
+
+  const deGasto = rubros.map((rubro) => columna(TIPO_GASTO, rubro)).join('');
+  // El primer rubro de ingreso abre el bloque, así que lleva la línea que lo
+  // separa de los gastos. Sin esa línea, "Otros" de gasto y "Otros" de ingreso
+  // quedan pegados y son dos columnas grises con el mismo nombre.
+  const deIngreso = rubrosIngreso
+    .map((rubro, i) => columna(TIPO_INGRESO, rubro).replace('<th scope="col">',
+      i === 0 ? '<th scope="col" class="separada">' : '<th scope="col">'))
+    .join('');
 
   return `
+    <tr class="bandas">
+      <td class="columna-mes"></td>
+      <th scope="colgroup" colspan="${rubros.length}" class="banda">Rubros de gasto</th>
+      <td class="separada"></td>
+      <th scope="colgroup" colspan="${rubrosIngreso.length}" class="banda separada">Rubros de ingreso</th>
+      <td class="separada"></td>
+      <td class="separada"></td>
+    </tr>
     <tr>
       <th scope="col" class="columna-mes">Mes</th>
-      ${columnas}
+      ${deGasto}
       <th scope="col" class="separada">Gastos</th>
-      <th scope="col">Ingresos</th>
-      <th scope="col">Saldo</th>
+      ${deIngreso}
+      <th scope="col" class="separada">Ingresos</th>
+      <th scope="col" class="separada">Saldo</th>
     </tr>
   `;
 }
 
 /** Una fila de mes. */
-export function dibujarFilaMes(fila, rubros = []) {
+export function dibujarFilaMes(fila, rubros = [], rubrosIngreso = []) {
   const marca = fila.incompleto
     ? ' <abbr title="A este mes le falta un tipo de cambio: el total está incompleto">·</abbr>'
     : '';
@@ -96,10 +123,12 @@ export function dibujarFilaMes(fila, rubros = []) {
                 data-mes="${escapar(fila.mes)}">${escapar(formatearMesCorto(fila.mes))}</button>${marca}
       </th>
       ${fila.rubros.map((importe, i) => celdaDeImporte(importe, '',
-        rubros[i] === undefined ? null : { mes: fila.mes, rubro: rubros[i] })).join('')}
+        rubros[i] === undefined ? null : { mes: fila.mes, tipo: TIPO_GASTO, rubro: rubros[i] })).join('')}
       ${celdaDeImporte(fila.gastos, ' separada')}
-      ${celdaDeImporte(fila.ingresos)}
-      <td class="importe ${fila.saldo < 0 ? 'gasto' : 'ingreso'}">${escapar(formatearNumero(fila.saldo, DECIMALES_EURO))}</td>
+      ${(fila.rubrosIngreso ?? []).map((importe, i) => celdaDeImporte(importe, '',
+        rubrosIngreso[i] === undefined ? null : { mes: fila.mes, tipo: TIPO_INGRESO, rubro: rubrosIngreso[i] })).join('')}
+      ${celdaDeImporte(fila.ingresos, ' separada')}
+      <td class="importe separada ${fila.saldo < 0 ? 'gasto' : 'ingreso'}">${escapar(formatearNumero(fila.saldo, DECIMALES_EURO))}</td>
     </tr>
   `;
 }
@@ -111,8 +140,9 @@ export function dibujarPieMatriz(matriz) {
       <th scope="row" class="columna-mes">${escapar(nombre)}</th>
       ${valores.rubros.map((importe) => celdaDeImporte(importe)).join('')}
       ${celdaDeImporte(valores.gastos, ' separada')}
-      ${celdaDeImporte(valores.ingresos)}
-      ${celdaDeImporte(valores.saldo)}
+      ${(valores.rubrosIngreso ?? []).map((importe) => celdaDeImporte(importe)).join('')}
+      ${celdaDeImporte(valores.ingresos, ' separada')}
+      ${celdaDeImporte(valores.saldo, ' separada')}
     </tr>
   `;
 
@@ -183,20 +213,21 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
   // línea de tiempo va para adelante. Además así **la pantalla y la hoja del
   // .xlsx cuentan lo mismo en el mismo orden**, que es lo que tendría que haber
   // pesado desde el principio.
-  const filas = matriz.filas.map((f) => dibujarFilaMes(f, matriz.rubros)).join('');
+  const filas = matriz.filas.map((f) => dibujarFilaMes(f, matriz.rubros, matriz.rubrosIngreso)).join('');
 
   return `
     <section class="tarjeta">
       <h2>Evolución mes a mes</h2>
-      <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gasto por mes y por rubro">
+      <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gastos e ingresos por mes y por rubro">
         <table class="matriz">
-          <thead>${dibujarEncabezadoMatriz(matriz.rubros)}</thead>
+          <thead>${dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso)}</thead>
           <tbody>${filas}</tbody>
           <tfoot>${dibujarPieMatriz(matriz)}</tfoot>
         </table>
       </div>
-      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros. Los
-      importes están en euros, y tocando uno se ven los movimientos que lo componen.</p>
+      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros, los
+      de gasto y los de ingreso. Los importes están en euros, y tocando uno se ven
+      los movimientos que lo componen.</p>
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>

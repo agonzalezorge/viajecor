@@ -969,3 +969,27 @@ propósito, y hay un test que lo hace en cada corrida.
 **El patrón, otra vez:** *lo que se puede comprobar no se recuerda*. Y su
 corolario: **un paso que puede fallar en silencio necesita una guardia, no
 cuidado.**
+
+
+## L-029 · `overflow` recorta en el borde interno: el padding deja ver lo que ya pasó
+
+**Dónde apareció.** La tabla mes a mes, al agregarle los rubros de ingreso
+(T-947). Al deslizarla hacia el final se veían restos de números asomando a la
+izquierda de la columna del mes, que está fija: pedazos de columnas que ya
+tendrían que haber salido de la pantalla.
+
+**Por qué.** `.tabla-ancha` separaba con `padding: 0 1rem`, y **`overflow`
+recorta en el borde interno de la caja, no en el externo**: todo lo que se
+desplaza queda visible dentro de ese centímetro de padding. La columna fija se
+pega a `left: 0`, que es el borde interno, así que el contenido asomaba justo
+antes de ella.
+
+**La solución.** El aire va como `border-left: 1rem solid transparent`. El borde
+está **afuera** del área que recorta el overflow, así que el mismo espacio ahora
+recorta bien.
+
+**Lo que hay que aprender de esto.** Es un defecto viejo —existía desde que la
+tabla se desliza— que ningún test iba a encontrar: los tests miran el HTML, y
+esto es geometría. **Lo encontró mirar la pantalla.** El recorrido en el
+navegador no está para confirmar que algo anda: está para ver lo que los tests
+no miran.

@@ -433,8 +433,8 @@ export function hojaDeMovimientos(estado) {
  * la planilla original.
  *
  * **Cuenta exactamente lo mismo que la pantalla de evolución** (T-021): los
- * mismos meses, los mismos ocho rubros siempre, el mismo criterio para el total
- * y el promedio. No es una casualidad: las dos leen `matrizMesRubro()`. Dos
+ * mismos meses, los mismos rubros siempre —los ocho de gasto y los cuatro de
+ * ingreso—, el mismo criterio para el total y el promedio. No es una casualidad: las dos leen `matrizMesRubro()`. Dos
  * cálculos separados para la misma tabla terminan diciendo cosas distintas, y el
  * usuario no tendría forma de saber a cuál creerle.
  *
@@ -446,7 +446,11 @@ export function hojaDeMovimientos(estado) {
 export function hojaDeAnalisis(estado, mesActual = mesDe(hoy())) {
   const rejilla = nuevaRejilla();
   const matriz = matrizMesRubro(estado, mesActual);
-  const ancho = matriz.rubros.length + 3;  // los rubros más gastos, ingresos y saldo
+  // Los rubros de gasto, los de ingreso, y gastos, ingresos y saldo.
+  const ancho = matriz.rubros.length + matriz.rubrosIngreso.length + 3;
+  const COL_GASTOS = 2 + matriz.rubros.length;
+  const COL_ING_1 = COL_GASTOS + 1;
+  const COL_INGRESOS = COL_ING_1 + matriz.rubrosIngreso.length;
 
   // La banda de título, como los bloques de la otra hoja.
   for (let i = 0; i <= ancho; i += 1) {
@@ -454,28 +458,45 @@ export function hojaDeAnalisis(estado, mesActual = mesDe(hoy())) {
   }
   rejilla.combinar(1, 1, 1, 1 + ancho);
 
-  // Los encabezados: el mes, los ocho rubros con su color, y las tres cuentas.
-  rejilla.poner(2, 1, 'MES', ENCABEZADO);
+  // Una fila de rótulos arriba de los encabezados, que dice de qué es cada
+  // bloque. Hace falta porque `otros` está en los rubros de gasto y en los de
+  // ingreso, y son cosas distintas (RN-02): dos columnas llamadas "OTROS" en la
+  // misma hoja, sin nada que las separe, es un número leído en la columna
+  // equivocada. La pantalla lleva la misma banda, por el mismo motivo.
+  rejilla.poner(2, 2, 'RUBROS DE GASTO', ENCABEZADO);
+  rejilla.combinar(2, 2, 2, 1 + matriz.rubros.length);
+  rejilla.poner(2, COL_ING_1, 'RUBROS DE INGRESO', ENCABEZADO);
+  rejilla.combinar(2, COL_ING_1, 2, COL_INGRESOS - 1);
+
+  // Los encabezados: el mes, los rubros con su color, y las tres cuentas.
+  rejilla.poner(3, 1, 'MES', ENCABEZADO);
   for (const [i, rubro] of matriz.rubros.entries()) {
-    rejilla.poner(2, 2 + i, formatearRubro(rubro).toUpperCase(),
+    rejilla.poner(3, 2 + i, formatearRubro(rubro).toUpperCase(),
       RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_GASTO, rubro));
   }
-  for (const [i, etiqueta] of ['GASTOS', 'INGRESOS', 'SALDO'].entries()) {
-    rejilla.poner(2, 2 + matriz.rubros.length + i, etiqueta, ENCABEZADO);
+  for (const [i, rubro] of matriz.rubrosIngreso.entries()) {
+    rejilla.poner(3, COL_ING_1 + i, formatearRubro(rubro).toUpperCase(),
+      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_INGRESO, rubro));
   }
+  rejilla.poner(3, COL_GASTOS, 'GASTOS', ENCABEZADO);
+  rejilla.poner(3, COL_INGRESOS, 'INGRESOS', ENCABEZADO);
+  rejilla.poner(3, COL_INGRESOS + 1, 'SALDO', ENCABEZADO);
 
   // Una fila por mes, del más viejo al más nuevo — como `Analisis1`. En la
   // pantalla van al revés porque ahí lo primero que se mira es el mes pasado;
   // en una planilla se lee de arriba abajo como una línea de tiempo.
-  let n = 3;
+  let n = 4;
   const filaDeValores = (etiqueta, valores, estilo) => {
     rejilla.poner(n, 1, etiqueta, MES_CORTO);
     for (const [i, valor] of valores.rubros.entries()) {
       rejilla.poner(n, 2 + i, aDosDecimales(aEuros(valor)), estilo);
     }
-    for (const [i, valor] of [valores.gastos, valores.ingresos, valores.saldo].entries()) {
-      rejilla.poner(n, 2 + valores.rubros.length + i, aDosDecimales(aEuros(valor)), EUROS_TOTAL);
+    for (const [i, valor] of valores.rubrosIngreso.entries()) {
+      rejilla.poner(n, COL_ING_1 + i, aDosDecimales(aEuros(valor)), estilo);
     }
+    rejilla.poner(n, COL_GASTOS, aDosDecimales(aEuros(valores.gastos)), EUROS_TOTAL);
+    rejilla.poner(n, COL_INGRESOS, aDosDecimales(aEuros(valores.ingresos)), EUROS_TOTAL);
+    rejilla.poner(n, COL_INGRESOS + 1, aDosDecimales(aEuros(valores.saldo)), EUROS_TOTAL);
     n += 1;
   };
 

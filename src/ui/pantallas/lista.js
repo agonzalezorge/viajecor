@@ -209,7 +209,15 @@ export function dibujarFiltro(vista) {
   if (!hayFiltro(filtro)) return '';
 
   const partes = [];
-  if (filtro.rubro !== undefined) partes.push(formatearRubro(filtro.rubro));
+  // El rubro va con su tipo al lado, desde que la tabla mes a mes tiene también
+  // los rubros de ingreso: `otros` está en las dos listas y son cosas distintas
+  // (RN-02). "Mostrando solo Otros" no dice cuál de los dos se está mirando.
+  if (filtro.rubro !== undefined) {
+    const tipo = filtro.tipo === undefined
+      ? ''
+      : ` (${filtro.tipo === TIPO_GASTO ? 'gastos' : 'ingresos'})`;
+    partes.push(`${formatearRubro(filtro.rubro)}${tipo}`);
+  }
   if (filtro.comentario !== undefined) partes.push(filtro.comentario);
   if (filtro.rubro === undefined && filtro.comentario === undefined && filtro.tipo !== undefined) {
     partes.push(filtro.tipo === TIPO_GASTO ? 'gastos' : 'ingresos');

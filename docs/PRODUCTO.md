@@ -480,8 +480,9 @@ desde el almacenamiento del dispositivo, todos los casos de uso funcionan igual.
 
 **Para qué:** reemplaza la matriz mes × rubro de `Analisis1`.
 
-**Muestra:** una fila por mes con el gasto de cada rubro, el total de gastos, el
-total de ingresos y el saldo; más una fila de **total** y una de **promedio**.
+**Muestra:** una fila por mes con el gasto de cada rubro de gasto, el total de
+gastos, **lo que entró por cada rubro de ingreso**, el total de ingresos y el
+saldo; más una fila de **total** y una de **promedio**.
 
 **Y los dos gráficos de `Analisis1`** (T-940), que **se pueden recorrer**
 (T-942): acercar con los botones o pellizcando, arrastrar para moverse, y tocar
@@ -493,7 +494,11 @@ un punto para ver **en qué momento estás y cuánto valía cada línea ahí**.
   separan o se juntan.
 
 **Reglas, escritas porque en el Excel no lo estaban (L-006, ADR-031):**
-- Están **los ocho rubros siempre**, aunque un mes no tenga ninguno.
+- Están **todos los rubros siempre** —los ocho de gasto y los cuatro de
+  ingreso—, aunque un mes no tenga ninguno.
+- Los dos bloques van **rotulados arriba**: `otros` está en las dos listas de
+  rubros y son cosas distintas (RN-02). Por eso también, tocar una celda filtra
+  por rubro **y por tipo**, y el cartel dice cuál: "Otros (ingresos)".
 - Los meses van **seguidos**: un mes sin movimientos aparece en cero, no se
   saltea.
 - Van **del más viejo al más nuevo**, con el total y el promedio abajo, como

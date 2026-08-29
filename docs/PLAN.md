@@ -100,6 +100,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-944 | Eje Y con marcas cada tanto, no solo el máximo | **Hecha** | T-942 |
 | T-945 | Dentro de cada día, lo último cargado arriba | **Hecha** | T-015 |
 | T-946 | Otros grupos de gastos: las etiquetas que no son ni gasto fijo ni viaje | **Hecha** | T-022, T-023 |
+| T-947 | Los rubros de ingreso en la tabla mes a mes | **Hecha** | T-021 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -2146,3 +2147,52 @@ puro y uno mezclado; la pantalla lista los dos grupos con sus totales completos,
 tocar uno abre sus gastos filtrados, Roma sigue en viajes, la tarjeta de fijos
 anuncia los 60 € que se fueron, y todo sobrevive a la recarga. Cero pedidos de
 red, cero errores de consola.
+
+### T-947 · Los rubros de ingreso en la tabla mes a mes — **Hecha** (2026-08-29)
+**Depende de:** T-021 · **Pedida por el usuario (2026-08-29)** · **Tocó:**
+`core/calculos.js`, `ui/pantallas/evolucion.js`, `ui/pantallas/lista.js`,
+`ui/app.js`, `datos/xlsx.js`, `estilos.css`
+
+La tabla decía cuánto entró cada mes, pero no **de dónde**: la columna
+`Ingresos` era un total sin desglose, mientras los gastos tenían sus ocho
+columnas. El Excel tampoco lo desglosaba.
+
+Ahora hay cuatro columnas más —trabajo, inversiones, regalos, otros—, con el
+color que cada rubro de ingreso tiene en el resto de la app, y el total y el
+promedio también las desglosan. **Lo mismo en la hoja `Evolución` del .xlsx**:
+las dos leen `matrizMesRubro()`, y si la pantalla creciera sola la planilla
+pasaría a contar otra cosa.
+
+**El problema del que salió casi todo lo demás: `otros` está en las dos listas
+de rubros y son cosas distintas** (RN-02). Dos columnas llamadas "Otros" en la
+misma tabla, y encima del mismo gris —la paleta viene de la planilla del
+usuario, donde los dos son grises—, es un número leído en la columna
+equivocada. Tres consecuencias:
+
+1. **Una banda arriba** que dice "Rubros de gasto" / "Rubros de ingreso", en la
+   pantalla y en la hoja del .xlsx.
+2. **La celda lleva su tipo**: `data-tipo` además de `data-rubro`. Sin eso,
+   tocar "Otros" de ingreso mostraba los otros **gastos** — la peor forma de
+   fallar, con datos que parecen bien.
+3. **El cartel del filtro dice cuál es**: "Mostrando solo Otros (ingresos)".
+
+**Dos arreglos de la tabla que aparecieron al mirarla en el teléfono**, no en
+los tests:
+
+- La banda estaba **centrada** sobre su bloque, así que el rótulo de ocho
+  columnas caía en el medio de algo que no entra en la pantalla: estaba y no se
+  veía nunca. Va alineada a la izquierda.
+- `.tabla-ancha` separaba con `padding`, y **`overflow` recorta en el borde
+  interno de la caja**: las columnas que ya habían pasado se seguían dibujando
+  en ese centímetro y asomaban por detrás de la columna del mes. Ahora el aire
+  va como borde transparente. Es un defecto viejo que la tabla más ancha volvió
+  imposible de no ver.
+
+**Mutaciones:** 20 sembradas, 19 muertas. La que sobrevive es el `data-tipo` del
+manejador de `ver-celda`, que vive dentro de `iniciar()` y por eso no lo alcanza
+`node --test`; se mata en el recorrido del navegador, que toca las dos celdas
+"Otros" y comprueba que cada una trae lo suyo.
+
+**Verificación independiente:** el .xlsx exportado, abierto con `openpyxl`. La
+banda combinada está donde tiene que estar (C2:J2 y L2:O2) y cada fila cierra:
+900 + 0 + 50 + 25 = 975, que es la columna de ingresos.

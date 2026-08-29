@@ -14,13 +14,14 @@ import {
   borrarMovimiento,
   restaurarMovimiento,
   buscarMovimiento,
+  dibujarFiltro,
 } from '../src/ui/pantallas/lista.js';
 
 import { intentarGuardar, borradorNuevo, borradorDesde } from '../src/ui/pantallas/movimiento.js';
 import { estadoInicial } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
 import { crearCambio, desdeUnidadesPorEuro } from '../src/core/cambio.js';
-import { TIPO_INGRESO } from '../src/core/modelo.js';
+import { TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
 
 const DURO = '\u00A0';
 const MES = '2026-03';
@@ -342,4 +343,18 @@ test('buscarMovimiento encuentra por identificador, o devuelve null', () => {
   const estado = cargar(estadoLimpio());
   assert.equal(buscarMovimiento(estado, estado.movimientos[0].id).id, estado.movimientos[0].id);
   assert.equal(buscarMovimiento(estado, 'mov_inventado'), null);
+});
+
+test('el cartel del filtro dice si el rubro es de gasto o de ingreso', () => {
+  // Desde que la tabla mes a mes tiene los rubros de ingreso hay dos "Otros", y
+  // son cosas distintas (RN-02). "Mostrando solo Otros" no alcanza.
+  const conGasto = dibujarFiltro({ mes: '2026-08', filtro: { tipo: TIPO_GASTO, rubro: 'otros' } });
+  const conIngreso = dibujarFiltro({ mes: '2026-08', filtro: { tipo: TIPO_INGRESO, rubro: 'otros' } });
+
+  assert.match(conGasto, /Otros \(gastos\)/);
+  assert.match(conIngreso, /Otros \(ingresos\)/);
+});
+
+test('sin tipo, el rubro va solo y no se inventa uno', () => {
+  assert.match(dibujarFiltro({ mes: '2026-08', filtro: { rubro: 'salud' } }), /<strong>Salud<\/strong>/);
 });

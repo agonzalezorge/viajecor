@@ -203,9 +203,15 @@ export function mesesSeguidos(desde, hasta) {
  *
  * ── Tres decisiones, escritas porque en el Excel no lo estaban ──────────────
  *
- * 1. **Están los ocho rubros siempre**, aunque un mes no tenga ninguno. Es una
- *    matriz: una columna que aparece y desaparece según el mes deja de ser una
- *    columna. (Es lo mismo que el usuario pidió para la planilla exportada.)
+ * 1. **Están todos los rubros siempre** —los ocho de gasto y los cuatro de
+ *    ingreso—, aunque un mes no tenga ninguno. Es una matriz: una columna que
+ *    aparece y desaparece según el mes deja de ser una columna. (Es lo mismo que
+ *    el usuario pidió para la planilla exportada.)
+ *
+ *    Los rubros de ingreso se agregaron el 2026-08-29 a pedido del usuario. Van
+ *    en una lista aparte, `rubrosIngreso`, y **no se mezclan con los de gasto**:
+ *    `otros` está en las dos listas y son cosas distintas (RN-02). Lo que los
+ *    separa es el `tipo`, nunca el nombre.
  *
  * 2. **El promedio deja afuera el mes en curso; el total lo incluye.** Un mes
  *    empezado tiene menos días que los demás y arrastra el promedio para abajo,
@@ -224,17 +230,22 @@ export function mesesSeguidos(desde, hasta) {
 export function matrizMesRubro(estado, mesActual) {
   const conMovimientos = mesesConMovimientos(estado.movimientos);
   const rubros = rubrosDe(TIPO_GASTO);
-  if (conMovimientos.length === 0) return { meses: [], rubros, filas: [], total: null, promedio: null, mesesDelPromedio: 0 };
+  const rubrosIngreso = rubrosDe(TIPO_INGRESO);
+  if (conMovimientos.length === 0) {
+    return { meses: [], rubros, rubrosIngreso, filas: [], total: null, promedio: null, mesesDelPromedio: 0 };
+  }
 
   const meses = mesesSeguidos(conMovimientos[conMovimientos.length - 1], conMovimientos[0]);
 
   const filas = meses.map((mes) => {
     const totales = totalesDelMes(estado, mes);
     const desglose = new Map(porRubro(estado, mes, TIPO_GASTO).map((f) => [normalizarClave(f.rubro), f.total]));
+    const desgloseIngreso = new Map(porRubro(estado, mes, TIPO_INGRESO).map((f) => [normalizarClave(f.rubro), f.total]));
 
     return {
       mes,
       rubros: rubros.map((rubro) => desglose.get(rubro) ?? 0),
+      rubrosIngreso: rubrosIngreso.map((rubro) => desgloseIngreso.get(rubro) ?? 0),
       gastos: totales.gastos,
       ingresos: totales.ingresos,
       saldo: totales.saldo,
@@ -244,6 +255,7 @@ export function matrizMesRubro(estado, mesActual) {
 
   const sumarFilas = (deLasQue) => ({
     rubros: rubros.map((_, i) => sumar(deLasQue.map((f) => f.rubros[i]))),
+    rubrosIngreso: rubrosIngreso.map((_, i) => sumar(deLasQue.map((f) => f.rubrosIngreso[i]))),
     gastos: sumar(deLasQue.map((f) => f.gastos)),
     ingresos: sumar(deLasQue.map((f) => f.ingresos)),
     saldo: sumar(deLasQue.map((f) => f.saldo)),
@@ -260,6 +272,7 @@ export function matrizMesRubro(estado, mesActual) {
   const dividir = (valor) => redondear(valor / paraPromediar.length);
   const promedio = {
     rubros: sumas.rubros.map(dividir),
+    rubrosIngreso: sumas.rubrosIngreso.map(dividir),
     gastos: dividir(sumas.gastos),
     ingresos: dividir(sumas.ingresos),
     saldo: dividir(sumas.saldo),
@@ -268,6 +281,7 @@ export function matrizMesRubro(estado, mesActual) {
   return {
     meses,
     rubros,
+    rubrosIngreso,
     filas,
     total,
     promedio,

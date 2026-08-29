@@ -717,7 +717,13 @@ body {
   /* Que se pueda enfocar con el teclado, para poder deslizarla sin mouse. */
   scrollbar-width: thin;
   margin: 0 -1rem;
-  padding: 0 1rem;
+  /* El aire de los costados va como BORDE y no como padding, y es la diferencia
+     entre que se vea bien o no: `overflow` recorta en el borde interno de la
+     caja, así que con padding las columnas que ya pasaron se siguen viendo en
+     ese centímetro, asomando por detrás de la columna del mes. Con borde, se
+     recortan donde tienen que recortarse. */
+  border-left: 1rem solid transparent;
+  border-right: 1rem solid transparent;
 }
 
 .matriz {
@@ -746,7 +752,9 @@ body {
   text-align: left;
   font-weight: 600;
   /* Fondo opaco: sin esto las cifras pasan POR DEBAJO del mes al deslizar y se
-     lee un número encima del otro. */
+     lee un número encima del otro. La sombra plana tapa además el sangrado de
+     la caja —`.tabla-ancha` tiene 1rem de padding—, donde si no se ven asomar
+     los restos de las columnas que ya pasaron. */
   background: var(--superficie);
   padding-left: 0;
 }
@@ -762,6 +770,25 @@ body {
 .matriz .vacio { color: var(--texto-suave); opacity: 0.55; }
 
 .matriz .separada { border-left: 1px solid var(--borde); }
+
+/* La banda de arriba dice de qué es cada bloque de columnas. Hace falta porque
+   `otros` está en los rubros de gasto y en los de ingreso, y son cosas
+   distintas: dos columnas grises llamadas "Otros" pegadas una a la otra es un
+   número leído en la columna equivocada. Va centrada sobre su bloque, en
+   minúscula versalita, para que se lea como un rótulo y no como una fila más. */
+.matriz .bandas td { border-bottom: none; }
+.matriz thead .banda {
+  /* A la izquierda, no centrada sobre su bloque: centrada, el rótulo de ocho
+     columnas cae en el medio de un bloque que no entra en la pantalla y no se
+     ve nunca. Alineado al inicio, aparece justo cuando el bloque empieza. */
+  text-align: left;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  border-bottom: none;
+  padding-bottom: 0.125rem;
+}
 .matriz .gasto { color: var(--gasto); }
 .matriz .ingreso { color: var(--ingreso); }
 
@@ -2503,9 +2530,15 @@ function mesesSeguidos(desde, hasta) {
  *
  * ── Tres decisiones, escritas porque en el Excel no lo estaban ──────────────
  *
- * 1. **Están los ocho rubros siempre**, aunque un mes no tenga ninguno. Es una
- *    matriz: una columna que aparece y desaparece según el mes deja de ser una
- *    columna. (Es lo mismo que el usuario pidió para la planilla exportada.)
+ * 1. **Están todos los rubros siempre** —los ocho de gasto y los cuatro de
+ *    ingreso—, aunque un mes no tenga ninguno. Es una matriz: una columna que
+ *    aparece y desaparece según el mes deja de ser una columna. (Es lo mismo que
+ *    el usuario pidió para la planilla exportada.)
+ *
+ *    Los rubros de ingreso se agregaron el 2026-08-29 a pedido del usuario. Van
+ *    en una lista aparte, `rubrosIngreso`, y **no se mezclan con los de gasto**:
+ *    `otros` está en las dos listas y son cosas distintas (RN-02). Lo que los
+ *    separa es el `tipo`, nunca el nombre.
  *
  * 2. **El promedio deja afuera el mes en curso; el total lo incluye.** Un mes
  *    empezado tiene menos días que los demás y arrastra el promedio para abajo,
@@ -2524,17 +2557,22 @@ function mesesSeguidos(desde, hasta) {
 function matrizMesRubro(estado, mesActual) {
   const conMovimientos = mesesConMovimientos(estado.movimientos);
   const rubros = rubrosDe(TIPO_GASTO);
-  if (conMovimientos.length === 0) return { meses: [], rubros, filas: [], total: null, promedio: null, mesesDelPromedio: 0 };
+  const rubrosIngreso = rubrosDe(TIPO_INGRESO);
+  if (conMovimientos.length === 0) {
+    return { meses: [], rubros, rubrosIngreso, filas: [], total: null, promedio: null, mesesDelPromedio: 0 };
+  }
 
   const meses = mesesSeguidos(conMovimientos[conMovimientos.length - 1], conMovimientos[0]);
 
   const filas = meses.map((mes) => {
     const totales = totalesDelMes(estado, mes);
     const desglose = new Map(porRubro(estado, mes, TIPO_GASTO).map((f) => [normalizarClave(f.rubro), f.total]));
+    const desgloseIngreso = new Map(porRubro(estado, mes, TIPO_INGRESO).map((f) => [normalizarClave(f.rubro), f.total]));
 
     return {
       mes,
       rubros: rubros.map((rubro) => desglose.get(rubro) ?? 0),
+      rubrosIngreso: rubrosIngreso.map((rubro) => desgloseIngreso.get(rubro) ?? 0),
       gastos: totales.gastos,
       ingresos: totales.ingresos,
       saldo: totales.saldo,
@@ -2544,6 +2582,7 @@ function matrizMesRubro(estado, mesActual) {
 
   const sumarFilas = (deLasQue) => ({
     rubros: rubros.map((_, i) => sumar(deLasQue.map((f) => f.rubros[i]))),
+    rubrosIngreso: rubrosIngreso.map((_, i) => sumar(deLasQue.map((f) => f.rubrosIngreso[i]))),
     gastos: sumar(deLasQue.map((f) => f.gastos)),
     ingresos: sumar(deLasQue.map((f) => f.ingresos)),
     saldo: sumar(deLasQue.map((f) => f.saldo)),
@@ -2560,6 +2599,7 @@ function matrizMesRubro(estado, mesActual) {
   const dividir = (valor) => redondear(valor / paraPromediar.length);
   const promedio = {
     rubros: sumas.rubros.map(dividir),
+    rubrosIngreso: sumas.rubrosIngreso.map(dividir),
     gastos: dividir(sumas.gastos),
     ingresos: dividir(sumas.ingresos),
     saldo: dividir(sumas.saldo),
@@ -2568,6 +2608,7 @@ function matrizMesRubro(estado, mesActual) {
   return {
     meses,
     rubros,
+    rubrosIngreso,
     filas,
     total,
     promedio,
@@ -3266,7 +3307,12 @@ function franjaDeRubro(tipo, rubro) {
  * tamaño**—, que es lo que importa: cargar un ingreso nuevo no repinta nada.
  *
  * Que `otros` de gasto y `otros` de ingreso caigan los dos en el gris es
- * correcto: en la planilla también, y no aparecen nunca en la misma tabla.
+ * correcto: en la planilla del usuario también es así. **Sí aparecen juntos en
+ * la tabla mes a mes** desde T-947, y por eso esa tabla lleva un rótulo arriba
+ * de cada bloque: el color no puede distinguirlos, y el nombre tampoco —los dos
+ * se llaman "Otros"—, así que lo distingue el rótulo. Darles dos grises
+ * distintos sería peor: rompería la correspondencia con el resto de la app, que
+ * es para lo que existe esta paleta.
  */
 const FRANJA_DE_INGRESO = Object.freeze({
   trabajo: 4,      // verde
@@ -4862,8 +4908,8 @@ function hojaDeMovimientos(estado) {
  * la planilla original.
  *
  * **Cuenta exactamente lo mismo que la pantalla de evolución** (T-021): los
- * mismos meses, los mismos ocho rubros siempre, el mismo criterio para el total
- * y el promedio. No es una casualidad: las dos leen `matrizMesRubro()`. Dos
+ * mismos meses, los mismos rubros siempre —los ocho de gasto y los cuatro de
+ * ingreso—, el mismo criterio para el total y el promedio. No es una casualidad: las dos leen `matrizMesRubro()`. Dos
  * cálculos separados para la misma tabla terminan diciendo cosas distintas, y el
  * usuario no tendría forma de saber a cuál creerle.
  *
@@ -4875,7 +4921,11 @@ function hojaDeMovimientos(estado) {
 function hojaDeAnalisis(estado, mesActual = mesDe(hoy())) {
   const rejilla = nuevaRejilla();
   const matriz = matrizMesRubro(estado, mesActual);
-  const ancho = matriz.rubros.length + 3;  // los rubros más gastos, ingresos y saldo
+  // Los rubros de gasto, los de ingreso, y gastos, ingresos y saldo.
+  const ancho = matriz.rubros.length + matriz.rubrosIngreso.length + 3;
+  const COL_GASTOS = 2 + matriz.rubros.length;
+  const COL_ING_1 = COL_GASTOS + 1;
+  const COL_INGRESOS = COL_ING_1 + matriz.rubrosIngreso.length;
 
   // La banda de título, como los bloques de la otra hoja.
   for (let i = 0; i <= ancho; i += 1) {
@@ -4883,28 +4933,45 @@ function hojaDeAnalisis(estado, mesActual = mesDe(hoy())) {
   }
   rejilla.combinar(1, 1, 1, 1 + ancho);
 
-  // Los encabezados: el mes, los ocho rubros con su color, y las tres cuentas.
-  rejilla.poner(2, 1, 'MES', ENCABEZADO);
+  // Una fila de rótulos arriba de los encabezados, que dice de qué es cada
+  // bloque. Hace falta porque `otros` está en los rubros de gasto y en los de
+  // ingreso, y son cosas distintas (RN-02): dos columnas llamadas "OTROS" en la
+  // misma hoja, sin nada que las separe, es un número leído en la columna
+  // equivocada. La pantalla lleva la misma banda, por el mismo motivo.
+  rejilla.poner(2, 2, 'RUBROS DE GASTO', ENCABEZADO);
+  rejilla.combinar(2, 2, 2, 1 + matriz.rubros.length);
+  rejilla.poner(2, COL_ING_1, 'RUBROS DE INGRESO', ENCABEZADO);
+  rejilla.combinar(2, COL_ING_1, 2, COL_INGRESOS - 1);
+
+  // Los encabezados: el mes, los rubros con su color, y las tres cuentas.
+  rejilla.poner(3, 1, 'MES', ENCABEZADO);
   for (const [i, rubro] of matriz.rubros.entries()) {
-    rejilla.poner(2, 2 + i, formatearRubro(rubro).toUpperCase(),
+    rejilla.poner(3, 2 + i, formatearRubro(rubro).toUpperCase(),
       RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_GASTO, rubro));
   }
-  for (const [i, etiqueta] of ['GASTOS', 'INGRESOS', 'SALDO'].entries()) {
-    rejilla.poner(2, 2 + matriz.rubros.length + i, etiqueta, ENCABEZADO);
+  for (const [i, rubro] of matriz.rubrosIngreso.entries()) {
+    rejilla.poner(3, COL_ING_1 + i, formatearRubro(rubro).toUpperCase(),
+      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_INGRESO, rubro));
   }
+  rejilla.poner(3, COL_GASTOS, 'GASTOS', ENCABEZADO);
+  rejilla.poner(3, COL_INGRESOS, 'INGRESOS', ENCABEZADO);
+  rejilla.poner(3, COL_INGRESOS + 1, 'SALDO', ENCABEZADO);
 
   // Una fila por mes, del más viejo al más nuevo — como `Analisis1`. En la
   // pantalla van al revés porque ahí lo primero que se mira es el mes pasado;
   // en una planilla se lee de arriba abajo como una línea de tiempo.
-  let n = 3;
+  let n = 4;
   const filaDeValores = (etiqueta, valores, estilo) => {
     rejilla.poner(n, 1, etiqueta, MES_CORTO);
     for (const [i, valor] of valores.rubros.entries()) {
       rejilla.poner(n, 2 + i, aDosDecimales(aEuros(valor)), estilo);
     }
-    for (const [i, valor] of [valores.gastos, valores.ingresos, valores.saldo].entries()) {
-      rejilla.poner(n, 2 + valores.rubros.length + i, aDosDecimales(aEuros(valor)), EUROS_TOTAL);
+    for (const [i, valor] of valores.rubrosIngreso.entries()) {
+      rejilla.poner(n, COL_ING_1 + i, aDosDecimales(aEuros(valor)), estilo);
     }
+    rejilla.poner(n, COL_GASTOS, aDosDecimales(aEuros(valores.gastos)), EUROS_TOTAL);
+    rejilla.poner(n, COL_INGRESOS, aDosDecimales(aEuros(valores.ingresos)), EUROS_TOTAL);
+    rejilla.poner(n, COL_INGRESOS + 1, aDosDecimales(aEuros(valores.saldo)), EUROS_TOTAL);
     n += 1;
   };
 
@@ -8612,37 +8679,64 @@ function celdaDeImporte(importe, extra = '', toque = null) {
   const contenido = toque === null || importe === 0
     ? numero
     : `<button type="button" class="celda-toque" data-accion="ver-celda"
-               data-mes="${escapar(toque.mes)}" data-rubro="${escapar(toque.rubro)}">${numero}</button>`;
+               data-mes="${escapar(toque.mes)}" data-tipo="${escapar(toque.tipo ?? TIPO_GASTO)}"
+               data-rubro="${escapar(toque.rubro)}">${numero}</button>`;
 
   return `<td class="${clase}${extra}">${contenido}</td>`;
 }
 
 /**
- * El encabezado de la tabla: el mes y los ocho rubros, con su punto de color.
+ * El encabezado de la tabla, en **dos niveles**: arriba de qué es cada bloque,
+ * abajo la columna.
  *
- * El punto es lo que ata esta pantalla al resumen del mes: la columna que acá
- * dice "Supermercado" es la porción ámbar de allá.
+ * El nivel de arriba no es decoración: `otros` está en los rubros de gasto y
+ * también en los de ingreso, y son cosas distintas (RN-02). Dos columnas
+ * llamadas "Otros" en la misma tabla, sin nada que las separe, son un número
+ * que se lee en la columna equivocada. La banda dice cuál es cuál, y además la
+ * paleta les da el mismo gris a los dos —viene de la planilla del usuario—, así
+ * que el color no alcanzaba para distinguirlas.
+ *
+ * El punto de color es lo que ata esta pantalla al resumen del mes: la columna
+ * que acá dice "Supermercado" es la porción ámbar de allá.
  */
-function dibujarEncabezadoMatriz(rubros) {
-  const columnas = rubros.map((rubro) => `
+function dibujarEncabezadoMatriz(rubros, rubrosIngreso = []) {
+  const columna = (tipo, rubro) => `
     <th scope="col">
-      <span class="punto-rubro ${claseDeRubro(TIPO_GASTO, rubro)}" aria-hidden="true"></span>
+      <span class="punto-rubro ${claseDeRubro(tipo, rubro)}" aria-hidden="true"></span>
       ${escapar(formatearRubro(rubro))}
-    </th>`).join('');
+    </th>`;
+
+  const deGasto = rubros.map((rubro) => columna(TIPO_GASTO, rubro)).join('');
+  // El primer rubro de ingreso abre el bloque, así que lleva la línea que lo
+  // separa de los gastos. Sin esa línea, "Otros" de gasto y "Otros" de ingreso
+  // quedan pegados y son dos columnas grises con el mismo nombre.
+  const deIngreso = rubrosIngreso
+    .map((rubro, i) => columna(TIPO_INGRESO, rubro).replace('<th scope="col">',
+      i === 0 ? '<th scope="col" class="separada">' : '<th scope="col">'))
+    .join('');
 
   return `
+    <tr class="bandas">
+      <td class="columna-mes"></td>
+      <th scope="colgroup" colspan="${rubros.length}" class="banda">Rubros de gasto</th>
+      <td class="separada"></td>
+      <th scope="colgroup" colspan="${rubrosIngreso.length}" class="banda separada">Rubros de ingreso</th>
+      <td class="separada"></td>
+      <td class="separada"></td>
+    </tr>
     <tr>
       <th scope="col" class="columna-mes">Mes</th>
-      ${columnas}
+      ${deGasto}
       <th scope="col" class="separada">Gastos</th>
-      <th scope="col">Ingresos</th>
-      <th scope="col">Saldo</th>
+      ${deIngreso}
+      <th scope="col" class="separada">Ingresos</th>
+      <th scope="col" class="separada">Saldo</th>
     </tr>
   `;
 }
 
 /** Una fila de mes. */
-function dibujarFilaMes(fila, rubros = []) {
+function dibujarFilaMes(fila, rubros = [], rubrosIngreso = []) {
   const marca = fila.incompleto
     ? ' <abbr title="A este mes le falta un tipo de cambio: el total está incompleto">·</abbr>'
     : '';
@@ -8655,10 +8749,12 @@ function dibujarFilaMes(fila, rubros = []) {
                 data-mes="${escapar(fila.mes)}">${escapar(formatearMesCorto(fila.mes))}</button>${marca}
       </th>
       ${fila.rubros.map((importe, i) => celdaDeImporte(importe, '',
-        rubros[i] === undefined ? null : { mes: fila.mes, rubro: rubros[i] })).join('')}
+        rubros[i] === undefined ? null : { mes: fila.mes, tipo: TIPO_GASTO, rubro: rubros[i] })).join('')}
       ${celdaDeImporte(fila.gastos, ' separada')}
-      ${celdaDeImporte(fila.ingresos)}
-      <td class="importe ${fila.saldo < 0 ? 'gasto' : 'ingreso'}">${escapar(formatearNumero(fila.saldo, DECIMALES_EURO))}</td>
+      ${(fila.rubrosIngreso ?? []).map((importe, i) => celdaDeImporte(importe, '',
+        rubrosIngreso[i] === undefined ? null : { mes: fila.mes, tipo: TIPO_INGRESO, rubro: rubrosIngreso[i] })).join('')}
+      ${celdaDeImporte(fila.ingresos, ' separada')}
+      <td class="importe separada ${fila.saldo < 0 ? 'gasto' : 'ingreso'}">${escapar(formatearNumero(fila.saldo, DECIMALES_EURO))}</td>
     </tr>
   `;
 }
@@ -8670,8 +8766,9 @@ function dibujarPieMatriz(matriz) {
       <th scope="row" class="columna-mes">${escapar(nombre)}</th>
       ${valores.rubros.map((importe) => celdaDeImporte(importe)).join('')}
       ${celdaDeImporte(valores.gastos, ' separada')}
-      ${celdaDeImporte(valores.ingresos)}
-      ${celdaDeImporte(valores.saldo)}
+      ${(valores.rubrosIngreso ?? []).map((importe) => celdaDeImporte(importe)).join('')}
+      ${celdaDeImporte(valores.ingresos, ' separada')}
+      ${celdaDeImporte(valores.saldo, ' separada')}
     </tr>
   `;
 
@@ -8742,20 +8839,21 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
   // línea de tiempo va para adelante. Además así **la pantalla y la hoja del
   // .xlsx cuentan lo mismo en el mismo orden**, que es lo que tendría que haber
   // pesado desde el principio.
-  const filas = matriz.filas.map((f) => dibujarFilaMes(f, matriz.rubros)).join('');
+  const filas = matriz.filas.map((f) => dibujarFilaMes(f, matriz.rubros, matriz.rubrosIngreso)).join('');
 
   return `
     <section class="tarjeta">
       <h2>Evolución mes a mes</h2>
-      <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gasto por mes y por rubro">
+      <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gastos e ingresos por mes y por rubro">
         <table class="matriz">
-          <thead>${dibujarEncabezadoMatriz(matriz.rubros)}</thead>
+          <thead>${dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso)}</thead>
           <tbody>${filas}</tbody>
           <tfoot>${dibujarPieMatriz(matriz)}</tfoot>
         </table>
       </div>
-      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros. Los
-      importes están en euros, y tocando uno se ven los movimientos que lo componen.</p>
+      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros, los
+      de gasto y los de ingreso. Los importes están en euros, y tocando uno se ven
+      los movimientos que lo componen.</p>
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
@@ -8967,7 +9065,15 @@ function dibujarFiltro(vista) {
   if (!hayFiltro(filtro)) return '';
 
   const partes = [];
-  if (filtro.rubro !== undefined) partes.push(formatearRubro(filtro.rubro));
+  // El rubro va con su tipo al lado, desde que la tabla mes a mes tiene también
+  // los rubros de ingreso: `otros` está en las dos listas y son cosas distintas
+  // (RN-02). "Mostrando solo Otros" no dice cuál de los dos se está mirando.
+  if (filtro.rubro !== undefined) {
+    const tipo = filtro.tipo === undefined
+      ? ''
+      : ` (${filtro.tipo === TIPO_GASTO ? 'gastos' : 'ingresos'})`;
+    partes.push(`${formatearRubro(filtro.rubro)}${tipo}`);
+  }
   if (filtro.comentario !== undefined) partes.push(filtro.comentario);
   if (filtro.rubro === undefined && filtro.comentario === undefined && filtro.tipo !== undefined) {
     partes.push(filtro.tipo === TIPO_GASTO ? 'gastos' : 'ingresos');
@@ -11535,8 +11641,13 @@ function iniciar(documento, almacen) {
     } else if (accion === 'ver-celda') {
       // Una celda de la matriz: además del filtro, hay que MOVER el mes, porque
       // la celda es de un mes que no es necesariamente el que se está mirando.
+      //
+      // El tipo viene de la celda desde que la tabla tiene también los rubros de
+      // ingreso: `otros` está en las dos listas y son cosas distintas (RN-02).
+      // Darlo por sentado mostraría los otros GASTOS al tocar los otros
+      // ingresos, que es la peor forma de fallar — con datos que parecen bien.
       vista = { ...vista, pantalla: 'movimientos', mes: boton.dataset.mes, error: null,
-        filtro: { tipo: TIPO_GASTO, rubro: boton.dataset.rubro } };
+        filtro: { tipo: boton.dataset.tipo ?? TIPO_GASTO, rubro: boton.dataset.rubro } };
     } else if (accion === 'ver-mes') {
       vista = { ...vista, pantalla: 'movimientos', mes: boton.dataset.mes, error: null, filtro: null };
     } else if (accion === 'quitar-filtro') {

@@ -529,12 +529,34 @@ const TRES_MESES = () => estadoCon([
 test('la hoja de análisis tiene una fila por mes y una columna por rubro', () => {
   const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
 
-  // Fila 2: el mes, ocho rubros, gastos, ingresos, saldo. De B a M.
-  assert.equal(celdas.B2, 'MES');
-  assert.equal(celdas.C2, 'GASTOS FIJOS');
-  assert.equal(celdas.J2, 'OTROS');
-  assert.equal(celdas.K2, 'GASTOS');
-  assert.equal(celdas.M2, 'SALDO');
+  // Fila 3: el mes, ocho rubros de gasto, gastos, cuatro rubros de ingreso,
+  // ingresos y saldo. De B a Q.
+  assert.equal(celdas.B3, 'MES');
+  assert.equal(celdas.C3, 'GASTOS FIJOS');
+  assert.equal(celdas.J3, 'OTROS');
+  assert.equal(celdas.K3, 'GASTOS');
+  assert.equal(celdas.L3, 'TRABAJO');
+  assert.equal(celdas.O3, 'OTROS', 'el otro "OTROS", el de ingresos');
+  assert.equal(celdas.P3, 'INGRESOS');
+  assert.equal(celdas.Q3, 'SALDO');
+});
+
+test('una banda arriba dice cuál "OTROS" es cuál', () => {
+  // `otros` está en las dos listas de rubros y son cosas distintas (RN-02). Sin
+  // la banda, la hoja tiene dos columnas con el mismo nombre y nada que las
+  // separe. La pantalla lleva la misma, por el mismo motivo.
+  const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
+
+  assert.equal(celdas.C2, 'RUBROS DE GASTO');
+  assert.equal(celdas.L2, 'RUBROS DE INGRESO');
+});
+
+test('cada ingreso cae en su columna de rubro, y la fila cierra', () => {
+  const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
+
+  assert.equal(Number(celdas.L5), 900, 'los 900 € de febrero entraron por trabajo');
+  assert.equal(Number(celdas.L4), 0, 'y en enero el cero está escrito');
+  assert.equal(Number(celdas.P5), 900, 'la suma del bloque es el total de ingresos');
 });
 
 test('los meses van del más viejo al más nuevo, como en Analisis1', () => {
@@ -543,24 +565,24 @@ test('los meses van del más viejo al más nuevo, como en Analisis1', () => {
   // pasado.
   const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
 
-  assert.equal(celdas.B3, 'ene 26');
-  assert.equal(celdas.B4, 'feb 26');
-  assert.equal(celdas.B5, 'mar 26');
+  assert.equal(celdas.B4, 'ene 26');
+  assert.equal(celdas.B5, 'feb 26');
+  assert.equal(celdas.B6, 'mar 26');
 });
 
 test('cada gasto cae en su celda de mes y rubro', () => {
   const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
 
   // Viajes es la columna F (cuarto rubro), salud la I (séptimo).
-  assert.equal(Number(celdas.F3), 100);
-  assert.equal(Number(celdas.I3), 40);
-  assert.equal(Number(celdas.F4), 200);
-  assert.equal(Number(celdas.I4), 0, 'el cero tiene que estar escrito');
+  assert.equal(Number(celdas.F4), 100);
+  assert.equal(Number(celdas.I4), 40);
+  assert.equal(Number(celdas.F5), 200);
+  assert.equal(Number(celdas.I5), 0, 'el cero tiene que estar escrito');
 });
 
 test('los ocho rubros están aunque el mes no tenga ninguno', () => {
   const celdas = celdasDelXml(hojaDeAnalisis(estadoCon([mov('2026-01-10', 'viajes', '100')]), '2026-09').xml);
-  const fila = ['C3', 'D3', 'E3', 'F3', 'G3', 'H3', 'I3', 'J3'].map((r) => celdas[r]);
+  const fila = ['C4', 'D4', 'E4', 'F4', 'G4', 'H4', 'I4', 'J4'].map((r) => celdas[r]);
 
   assert.equal(fila.filter((v) => v !== undefined).length, 8);
 });
@@ -569,7 +591,7 @@ test('los rubros de cada fila suman su columna de gastos', () => {
   // Es la comprobación que hace que la hoja no pueda esconder plata.
   const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
 
-  for (const fila of [3, 4, 5]) {
+  for (const fila of [4, 5, 6]) {
     const rubros = ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
       .reduce((t, col) => t + Number(celdas[`${col}${fila}`] ?? 0), 0);
     assert.equal(Math.round(rubros * 100), Math.round(Number(celdas[`K${fila}`]) * 100),
@@ -580,18 +602,18 @@ test('los rubros de cada fila suman su columna de gastos', () => {
 test('están el total y el promedio, y son distintos', () => {
   const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
 
-  assert.equal(celdas.B6, 'TOTAL');
-  assert.equal(celdas.B7, 'PROMEDIO');
-  assert.equal(Number(celdas.K6), 640);
+  assert.equal(celdas.B7, 'TOTAL');
+  assert.equal(celdas.B8, 'PROMEDIO');
+  assert.equal(Number(celdas.K7), 640);
   // 640 / 3 son 213,3333…: la hoja escribe dos decimales, como los euros.
-  assert.equal(Number(celdas.K7), 213.33);
+  assert.equal(Number(celdas.K8), 213.33);
 });
 
 test('el promedio deja afuera el mes en curso, igual que la pantalla', () => {
   const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-03').xml);
 
-  assert.equal(Number(celdas.K6), 640, 'el total sí incluye marzo');
-  assert.equal(Number(celdas.K7), 170, 'el promedio son 340 sobre dos meses');
+  assert.equal(Number(celdas.K7), 640, 'el total sí incluye marzo');
+  assert.equal(Number(celdas.K8), 170, 'el promedio son 340 sobre dos meses');
 });
 
 test('LA REGLA DEL PROMEDIO VA ESCRITA EN LA HOJA', () => {
@@ -623,10 +645,16 @@ test('sin movimientos la hoja no se rompe ni miente', () => {
 test('los encabezados de rubro llevan el color de su rubro', () => {
   // El mismo que ese rubro tiene en la app y en los bloques de la otra hoja.
   const xml = hojaDeAnalisis(TRES_MESES(), '2026-09').xml;
-  const estilos = [...xml.matchAll(/<c r="([C-J])2" s="(\d+)"/g)].map((m) => Number(m[2]));
+  const estilos = [...xml.matchAll(/<c r="([C-J])3" s="(\d+)"/g)].map((m) => Number(m[2]));
 
   assert.equal(estilos.length, 8);
   assert.equal(new Set(estilos).size, 8, 'dos rubros comparten el mismo estilo');
+
+  // Y los de ingreso llevan el suyo, el de la planilla del usuario: trabajo
+  // verde, inversiones celeste, regalos rosa. `otros` comparte el gris con
+  // `otros` de gasto, que es lo que hace falta la banda de arriba.
+  const deIngreso = [...xml.matchAll(/<c r="([L-N])3" s="(\d+)"/g)].map((m) => Number(m[2]));
+  assert.equal(new Set(deIngreso).size, 3);
 });
 
 test('el .xlsx trae las dos hojas, y Excel las encuentra', async () => {

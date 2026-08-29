@@ -145,7 +145,12 @@ export function franjaDeRubro(tipo, rubro) {
  * tamaño**—, que es lo que importa: cargar un ingreso nuevo no repinta nada.
  *
  * Que `otros` de gasto y `otros` de ingreso caigan los dos en el gris es
- * correcto: en la planilla también, y no aparecen nunca en la misma tabla.
+ * correcto: en la planilla del usuario también es así. **Sí aparecen juntos en
+ * la tabla mes a mes** desde T-947, y por eso esa tabla lleva un rótulo arriba
+ * de cada bloque: el color no puede distinguirlos, y el nombre tampoco —los dos
+ * se llaman "Otros"—, así que lo distingue el rótulo. Darles dos grises
+ * distintos sería peor: rompería la correspondencia con el resto de la app, que
+ * es para lo que existe esta paleta.
  */
 const FRANJA_DE_INGRESO = Object.freeze({
   trabajo: 4,      // verde

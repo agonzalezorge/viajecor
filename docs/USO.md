@@ -124,8 +124,17 @@ parado en la caja del supermercado.
 **Mes** te responde "¿cómo vengo?": los tres números, la torta del reparto por
 rubro con su lista al lado, y la línea del acumulado del mes.
 
-En **Datos → Mirar el historial → Evolución** está la matriz mes × rubro, y
-debajo los dos gráficos de tu `Analisis1`: **mes a mes** (ingresos, gastos y
+En **Datos → Mirar el historial → Evolución** está la matriz mes × rubro. Va con
+**todos los rubros**: los ocho de gasto, después el total de gastos, después los
+cuatro de ingreso —trabajo, inversiones, regalos, otros— y al final los ingresos
+y el saldo. Deslizala a lo ancho; la columna del mes queda fija.
+
+**Hay dos columnas "Otros" y no son lo mismo:** una es el rubro de gasto y la
+otra el de ingreso. Por eso arriba de cada bloque dice *"Rubros de gasto"* y
+*"Rubros de ingreso"*, y cuando tocás una celda el cartel te aclara cuál estás
+mirando: *"Mostrando solo Otros (ingresos)"*.
+
+Debajo están los dos gráficos de tu `Analisis1`: **mes a mes** (ingresos, gastos y
 saldo de cada mes) y **todo lo que llevás gastado y cobrado** (el acumulado día
 por día desde el primer movimiento — ahí lo que se mira no es la altura sino si
 las dos líneas se separan o se juntan).

@@ -712,7 +712,13 @@ body {
   /* Que se pueda enfocar con el teclado, para poder deslizarla sin mouse. */
   scrollbar-width: thin;
   margin: 0 -1rem;
-  padding: 0 1rem;
+  /* El aire de los costados va como BORDE y no como padding, y es la diferencia
+     entre que se vea bien o no: `overflow` recorta en el borde interno de la
+     caja, así que con padding las columnas que ya pasaron se siguen viendo en
+     ese centímetro, asomando por detrás de la columna del mes. Con borde, se
+     recortan donde tienen que recortarse. */
+  border-left: 1rem solid transparent;
+  border-right: 1rem solid transparent;
 }
 
 .matriz {
@@ -741,7 +747,9 @@ body {
   text-align: left;
   font-weight: 600;
   /* Fondo opaco: sin esto las cifras pasan POR DEBAJO del mes al deslizar y se
-     lee un número encima del otro. */
+     lee un número encima del otro. La sombra plana tapa además el sangrado de
+     la caja —`.tabla-ancha` tiene 1rem de padding—, donde si no se ven asomar
+     los restos de las columnas que ya pasaron. */
   background: var(--superficie);
   padding-left: 0;
 }
@@ -757,6 +765,25 @@ body {
 .matriz .vacio { color: var(--texto-suave); opacity: 0.55; }
 
 .matriz .separada { border-left: 1px solid var(--borde); }
+
+/* La banda de arriba dice de qué es cada bloque de columnas. Hace falta porque
+   `otros` está en los rubros de gasto y en los de ingreso, y son cosas
+   distintas: dos columnas grises llamadas "Otros" pegadas una a la otra es un
+   número leído en la columna equivocada. Va centrada sobre su bloque, en
+   minúscula versalita, para que se lea como un rótulo y no como una fila más. */
+.matriz .bandas td { border-bottom: none; }
+.matriz thead .banda {
+  /* A la izquierda, no centrada sobre su bloque: centrada, el rótulo de ocho
+     columnas cae en el medio de un bloque que no entra en la pantalla y no se
+     ve nunca. Alineado al inicio, aparece justo cuando el bloque empieza. */
+  text-align: left;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  border-bottom: none;
+  padding-bottom: 0.125rem;
+}
 .matriz .gasto { color: var(--gasto); }
 .matriz .ingreso { color: var(--ingreso); }
 

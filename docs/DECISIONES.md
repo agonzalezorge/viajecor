@@ -1520,3 +1520,43 @@ de creerle a los dos.
 **Alternativa descartada:** una lista aparte donde el usuario marque qué
 etiqueta es qué. Dos lugares que digan lo mismo son dos lugares que se
 desincronizan, y además obliga a mantener a mano algo que los datos ya saben.
+
+
+## ADR-042 · Los rubros de ingreso van en la misma tabla, con el bloque rotulado
+
+**Contexto.** La tabla mes a mes desglosaba los gastos en ocho columnas y
+resumía los ingresos en una sola: decía cuánto entró, no de dónde. El usuario
+pidió los rubros de ingreso (2026-08-29). El Excel tampoco los desglosaba, así
+que no había un formato previo que copiar.
+
+**Decisión.** Cuatro columnas más, en la misma tabla, después del total de
+gastos: `Mes | 8 rubros de gasto | Gastos | 4 rubros de ingreso | Ingresos |
+Saldo`. Cada bloque termina en su propio total, que es lo que deja verificar de
+un vistazo que la fila cierra.
+
+**Alternativa descartada:** una segunda tabla para los ingresos. Se pierde
+justamente lo que el usuario quiere ver: el mes como una fila, con lo que entró
+y lo que salió al lado. Dos tablas obligan a leer un mes en dos lugares.
+
+**El problema real no fue el ancho, fue que `otros` está en las dos listas.**
+Son cosas distintas (RN-02) y encima comparten el gris —la paleta viene de la
+planilla del usuario, donde los dos son grises—, así que ni el nombre ni el
+color los distinguen. Tres consecuencias, y las tres importan:
+
+1. **Un rótulo arriba de cada bloque** —"Rubros de gasto" / "Rubros de
+   ingreso"—, en la pantalla y en la hoja del `.xlsx`. Va **alineado a la
+   izquierda**: centrado sobre ocho columnas, cae en el medio de un bloque que
+   no entra en la pantalla de un teléfono y no se ve nunca.
+2. **La celda lleva su tipo**, no solo su rubro. Sin eso, tocar "Otros" de
+   ingreso mostraba los otros **gastos**: la peor forma de fallar, porque el
+   resultado parece correcto.
+3. **El cartel del filtro lo dice**: "Mostrando solo Otros (ingresos)".
+
+**Darles dos grises distintos** hubiera sido peor: rompe la correspondencia
+entre el color y el rubro en todas las demás pantallas, que es para lo que la
+paleta existe (ADR-029).
+
+**La hoja del `.xlsx` cambia igual, y no es opcional.** Las dos leen
+`matrizMesRubro()` precisamente para no poder contar cosas distintas; si la
+pantalla creciera sola, la planilla pasaría a ser otra tabla con el mismo
+nombre.

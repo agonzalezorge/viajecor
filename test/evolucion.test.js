@@ -12,6 +12,7 @@ import {
   dibujarEvolucion,
   dibujarEncabezadoMatriz,
   dibujarFilaMes,
+  dibujarPieMatriz,
   dibujarNotaDelPromedio,
   dibujarSinHistorial,
 } from '../src/ui/pantallas/evolucion.js';
@@ -46,15 +47,68 @@ const TRES_MESES = estadoCon([
 
 // ── La tabla ─────────────────────────────────────────────────────────────────
 
-test('están las once columnas: los ocho rubros, gastos, ingresos y saldo', () => {
+test('están las dieciséis columnas: los rubros de gasto, los de ingreso y las cuentas', () => {
+  // Los rubros de ingreso los pidió el usuario el 2026-08-29. Antes la tabla
+  // decía cuánto entró, pero no de dónde: el Excel tampoco lo decía.
   const matriz = matrizMesRubro(TRES_MESES, '2026-05');
-  const html = dibujarEncabezadoMatriz(matriz.rubros);
+  const html = dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso);
   const columnas = [...html.matchAll(/<th scope="col"[^>]*>([\s\S]*?)<\/th>/g)]
     .map((m) => m[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim());
 
-  assert.equal(columnas.length, 12, 'el mes, los ocho rubros y las tres cuentas');
+  assert.equal(columnas.length, 16, 'el mes, ocho rubros de gasto, cuatro de ingreso y las tres cuentas');
   assert.equal(columnas[0], 'Mes');
-  assert.deepEqual(columnas.slice(-3), ['Gastos', 'Ingresos', 'Saldo']);
+  assert.deepEqual(columnas.slice(1, 9), matriz.rubros.map((r) => r[0].toUpperCase() + r.slice(1)));
+  assert.equal(columnas[9], 'Gastos');
+  assert.deepEqual(columnas.slice(10, 14), ['Trabajo', 'Inversiones', 'Regalos', 'Otros']);
+  assert.deepEqual(columnas.slice(-2), ['Ingresos', 'Saldo']);
+});
+
+test('una banda arriba dice cuáles son de gasto y cuáles de ingreso', () => {
+  // No es decoración: `otros` está en las dos listas y son cosas distintas
+  // (RN-02). Además la paleta les da el mismo gris a los dos —viene de la
+  // planilla—, así que el color tampoco alcanza para separarlos.
+  const matriz = matrizMesRubro(TRES_MESES, '2026-05');
+  const html = dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso);
+
+  assert.match(html, /colspan="8" class="banda">Rubros de gasto/);
+  assert.match(html, /colspan="4" class="banda separada">Rubros de ingreso/);
+  assert.equal((html.match(/Otros/g) ?? []).length, 2, 'los dos "Otros" están, y por eso hace falta la banda');
+});
+
+test('el bloque de ingresos abre con una línea que lo separa del de gastos', () => {
+  // Sin esa línea, "Otros" de gasto y "Otros" de ingreso quedan pegados: dos
+  // columnas grises con el mismo nombre y nada en el medio.
+  const matriz = matrizMesRubro(TRES_MESES, '2026-05');
+  const html = dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso);
+  const cabeceras = [...html.matchAll(/<th scope="col"([^>]*)>([\s\S]*?)<\/th>/g)]
+    .map((m) => ({ clases: m[1], texto: m[2].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() }));
+
+  const trabajo = cabeceras.find((c) => c.texto === 'Trabajo');
+  const inversiones = cabeceras.find((c) => c.texto === 'Inversiones');
+
+  assert.match(trabajo.clases, /separada/, 'Trabajo abre el bloque y lleva la línea');
+  assert.doesNotMatch(inversiones.clases, /separada/, 'y los de adentro del bloque no');
+});
+
+test('el pie desglosa los ingresos igual que las filas de mes', () => {
+  // El pie se dibuja aparte de las filas, así que puede quedarse atrás sin que
+  // nada se rompa: la tabla saldría con dieciséis columnas arriba y doce abajo.
+  const matriz = matrizMesRubro(TRES_MESES, '2026-05');
+  const pie = dibujarPieMatriz(matriz);
+  const celdasPorFila = pie.split('<tr>').slice(1)
+    .map((f) => (f.match(/<td/g) ?? []).length);
+
+  assert.deepEqual(celdasPorFila, [15, 15], 'total y promedio, con las mismas celdas que un mes');
+  assert.match(pie, />900,00</, 'los 900 € de trabajo están en el total');
+});
+
+test('cada rubro de ingreso lleva su color, y no el que le tocaría por posición', () => {
+  const matriz = matrizMesRubro(TRES_MESES, '2026-05');
+  const html = dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso);
+
+  for (const rubro of ['trabajo', 'inversiones', 'regalos']) {
+    assert.ok(html.includes(`punto-rubro ${claseDeRubro(TIPO_INGRESO, rubro)}`), rubro);
+  }
 });
 
 test('cada columna de rubro lleva el color que ese rubro tiene en el resumen', () => {
@@ -105,12 +159,44 @@ test('el cero se escribe, no se deja la celda en blanco', () => {
   // Es una matriz: una celda vacía se lee como "no sé", y sí se sabe: es cero.
   const fila = dibujarFilaMes({
     mes: '2026-01', rubros: [0, 0, 0, 10000, 0, 0, 0, 0],
+    rubrosIngreso: [0, 0, 0, 0],
     gastos: 10000, ingresos: 0, saldo: -10000, incompleto: false,
   });
   const celdas = [...fila.matchAll(/<td[^>]*>([^<]*)<\/td>/g)].map((m) => m[1].trim());
 
-  assert.equal(celdas.length, 11);
+  assert.equal(celdas.length, 15);
   assert.equal(celdas.filter((c) => c === '').length, 0, 'hay celdas vacías');
+});
+
+test('la fila trae los rubros de ingreso, cada uno en su columna', () => {
+  const matriz = matrizMesRubro(TRES_MESES, '2026-05');
+  const febrero = matriz.filas.find((f) => f.mes === '2026-02');
+
+  assert.deepEqual(febrero.rubrosIngreso, [90000, 0, 0, 0], 'los 900 € entraron por trabajo');
+  assert.equal(febrero.ingresos, 90000, 'y la suma del bloque es el total de ingresos');
+
+  const html = dibujarFilaMes(febrero, matriz.rubros, matriz.rubrosIngreso);
+  assert.match(html, /data-tipo="I"\s+data-rubro="trabajo"/);
+});
+
+test('tocar una celda de ingreso filtra por INGRESO, no por gasto', () => {
+  // `otros` está en las dos listas: sin el tipo, tocar "Otros" de ingreso
+  // mostraría los otros gastos, que es la peor forma de fallar — con datos.
+  const matriz = matrizMesRubro(TRES_MESES, '2026-05');
+  const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-05');
+
+  assert.match(html, /data-mes="2026-02" data-tipo="I"\s+data-rubro="trabajo"/);
+  assert.match(html, /data-tipo="G"\s+data-rubro="viajes"/);
+  assert.equal(matriz.rubrosIngreso.length, 4);
+});
+
+test('el total y el promedio también desglosan los ingresos', () => {
+  const matriz = matrizMesRubro(TRES_MESES, '2026-03');
+
+  assert.deepEqual(matriz.total.rubrosIngreso, [90000, 0, 0, 0]);
+  // Marzo está en curso, así que el promedio es sobre enero y febrero.
+  assert.equal(matriz.mesesDelPromedio, 2);
+  assert.deepEqual(matriz.promedio.rubrosIngreso, [45000, 0, 0, 0]);
 });
 
 test('los importes no repiten el símbolo del euro noventa y nueve veces', () => {
@@ -211,4 +297,30 @@ test('la tabla no tiene ningún tope de meses (L-001)', () => {
 
   assert.equal(filas.length, 60);
   assert.ok(html.includes('ene 21') && html.includes('dic 25'));
+});
+
+
+// ── El CSS que hace legible la tabla ancha (L-026: la clase sin la regla que la
+//    hace algo es una clase que no hace nada) ─────────────────────────────────
+
+test('la caja de la tabla ancha recorta con borde, no con padding', async () => {
+  // `overflow` recorta en el borde INTERNO de la caja: con `padding`, las
+  // columnas que ya pasaron se siguen dibujando en ese centímetro y asoman por
+  // detrás de la columna del mes. Se vio en el navegador, no en un test.
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../src/estilos.css', import.meta.url), 'utf8');
+  const caja = css.slice(css.indexOf('.tabla-ancha {'), css.indexOf('.matriz {'));
+
+  assert.match(caja, /border-left: 1rem solid transparent/);
+  assert.doesNotMatch(caja, /padding: 0 1rem/);
+});
+
+test('la banda de cada bloque va alineada a la izquierda', async () => {
+  // Centrada, el rótulo de ocho columnas cae en el medio de un bloque que no
+  // entra en la pantalla de un teléfono: está y no se ve nunca.
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../src/estilos.css', import.meta.url), 'utf8');
+  const banda = css.slice(css.indexOf('.matriz thead .banda {'));
+
+  assert.match(banda.slice(0, banda.indexOf('}')), /text-align: left/);
 });

@@ -1357,8 +1357,13 @@ export function iniciar(documento, almacen) {
     } else if (accion === 'ver-celda') {
       // Una celda de la matriz: además del filtro, hay que MOVER el mes, porque
       // la celda es de un mes que no es necesariamente el que se está mirando.
+      //
+      // El tipo viene de la celda desde que la tabla tiene también los rubros de
+      // ingreso: `otros` está en las dos listas y son cosas distintas (RN-02).
+      // Darlo por sentado mostraría los otros GASTOS al tocar los otros
+      // ingresos, que es la peor forma de fallar — con datos que parecen bien.
       vista = { ...vista, pantalla: 'movimientos', mes: boton.dataset.mes, error: null,
-        filtro: { tipo: TIPO_GASTO, rubro: boton.dataset.rubro } };
+        filtro: { tipo: boton.dataset.tipo ?? TIPO_GASTO, rubro: boton.dataset.rubro } };
     } else if (accion === 'ver-mes') {
       vista = { ...vista, pantalla: 'movimientos', mes: boton.dataset.mes, error: null, filtro: null };
     } else if (accion === 'quitar-filtro') {
