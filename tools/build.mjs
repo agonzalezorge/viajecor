@@ -12,6 +12,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buscarFugas } from './privacidad.mjs';
+import { buscarErrorDeSintaxis } from './sintaxis.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -142,6 +143,11 @@ async function construir() {
     `globalThis.__VIAJECOR_VERSION__ = ${JSON.stringify(version)};`,
     ...partes,
   ].join('\n\n');
+
+  // Que el guión al menos se pueda leer. La guardia vive en tools/sintaxis.mjs
+  // y el test usa la misma función, igual que la de privacidad. Ver L-028.
+  const roto = buscarErrorDeSintaxis(guion);
+  if (roto) throw new Error(roto);
 
   const html = plantilla
     .replace('/*{{ESTILOS}}*/', () => estilos.trim())

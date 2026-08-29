@@ -157,18 +157,36 @@ cargar y sus movimientos siguen contando.
 
 ---
 
-## 6. Lo que todavía no está
+## 6. Arreglar un comentario mal escrito
+
+**Datos → Comentarios y detalles.**
+
+Es la pantalla que arregla el problema más caro de este tipo de registro: si un
+mes escribiste `Barcelona26` y otro `barcelona 26`, **son dos viajes distintos en
+las cuentas** y ninguna pantalla te lo va a decir sola. Acá cada comentario dice
+cuántos movimientos usa y **cuántas formas de escribirlo hay** — eso último es lo
+que delata el typo.
+
+- **Renombrar** uno con el nombre de otro **los une**, y sus totales pasan a
+  sumar juntos. La app te avisa antes de hacerlo.
+- **Borrar** una etiqueta le saca ese texto a sus movimientos. **No borra ningún
+  movimiento**: siguen ahí con su fecha, su rubro y su importe.
+
+También sirve para juntar `Perú` y `Peru`, que la app deja separados a propósito:
+sacar tildes automáticamente juntaría palabras que quisiste separar, así que la
+decisión de unirlos es tuya.
+
+---
+
+## 7. Lo que todavía no está
 
 - **Gasto por viaje** (T-023).
-- **Ver y limpiar las etiquetas** que ya usaste, para renombrarlas o borrarlas
-  (T-025). Hoy el comentario y el detalle son texto libre en cada movimiento: no
-  hay ninguna lista donde editarlos de una vez.
 
 Lo que se hace después está en [`PLAN.md`](PLAN.md), que es el archivo que manda.
 
 ---
 
-## 7. Si algo no anda
+## 8. Si algo no anda
 
 **"No puedo compartir"** — compartir desde un archivo abierto con `file://` está
 bloqueado por el navegador; no es un error de la app. Usá **Descargar**, que

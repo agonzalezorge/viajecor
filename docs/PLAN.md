@@ -91,7 +91,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-041 | Pantalla de ahorros conjuntos | Pendiente | T-040, T-010 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
-| T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | En curso (claude, 2026-08-28) | T-015 |
+| T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
 | T-026 | Tocar un grupo y ver los movimientos que contiene | **Hecha** | T-015 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
@@ -868,8 +868,37 @@ el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
 construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
 cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
 
-### T-025 · Ver, renombrar y borrar los comentarios y detalles que ya existen
-**Estado:** Lista · **Depende de:** T-015 · **Pedida por el usuario (2026-08-28)**
+### T-025 · Ver, renombrar y borrar los comentarios y detalles que ya existen — **Hecha** (2026-08-28)
+**Depende de:** T-015 · **Pedida por el usuario (2026-08-28)** · **Tocó:**
+`core/etiquetas.js` (nuevo), `ui/pantallas/etiquetas.js` (nuevo), `app.js`,
+`datos.js`, `tools/sintaxis.mjs` (nuevo)
+
+**Lo que quedó hecho, comprobado:**
+
+- Las dos secciones, comentarios y detalles, con cuántos movimientos usa cada
+  etiqueta y **cuántas formas de escribirla hay** —el dato que delata el typo—.
+- **Renombrar une**, con el aviso de "se van a unir" antes de aplicar. Ver
+  ADR-035.
+- **Borrar saca la etiqueta y no el movimiento**, y la confirmación lo dice con
+  todas las letras.
+- **Decisión resuelta:** se hicieron los dos campos, no solo el comentario. La
+  pantalla explica la diferencia en vez de esconderla.
+- 30 tests nuevos. Diez mutaciones a propósito: las diez fallan.
+- Recorrido por el navegador terminando con recarga: dos escrituras de
+  `Barcelona26` se unieron, el total del viaje pasó de estar partido en 100 y 50
+  a **150,00 € en un solo grupo**, y borrar el detalle `cena` dejó **los tres
+  movimientos con sus importes intactos**. 0 peticiones de red, 0 errores.
+
+**Dos lecciones que salieron de acá, y ninguna era de la tarea:**
+
+- **L-027** — el script de mutaciones respaldaba por `basename`, y este proyecto
+  tiene dos `etiquetas.js` a propósito. El segundo respaldo pisó al primero y
+  restaurar **destruyó el archivo del núcleo**. Lo único que avisó fue la corrida
+  de control al final. Quedó escrito en `AGENTES.md` §4.
+- **L-028** — un error de sintaxis generaba un `dist/viajecor.html` del tamaño
+  esperado con la construcción **en verde**, que abriría en blanco en el celular.
+  Ahora el constructor comprueba que el guión se pueda leer, con la guardia en
+  `tools/sintaxis.mjs` y su test usando la misma función.
 
 Pidió poder "editar las categorías de detalles existentes" y borrar alguna.
 

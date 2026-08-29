@@ -1126,3 +1126,58 @@ a ningún lado**: un botón que abre una lista vacía es peor que una celda quie
 **Un filtro sin resultados no dice "no hay movimientos en este mes"**, que sería
 mentira —los hay, ninguno entra en el filtro—, ni ofrece cargar uno nuevo, que
 sería el consejo equivocado. Dice lo que pasa y deja la salida a la vista.
+
+---
+
+## ADR-035 · Renombrar une, y borrar una etiqueta no borra ningún movimiento
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-025
+
+**Lo que el usuario pidió:** *"dónde puedo editar las categorías de detalles
+existentes? puede que quiera borrar alguna"*.
+
+**Lo primero es que no son categorías.** Los rubros sí son un catálogo cerrado de
+ocho; el comentario y el detalle son **texto libre escrito en cada movimiento**.
+No hay ninguna lista guardada: `etiquetasUsadas()` la deduce recorriendo los
+movimientos. Eso cambia la tarea entera:
+
+- **Borrar una etiqueta no es borrar un registro**: es vaciar ese texto en los N
+  movimientos que lo tienen.
+- **Renombrarla es reescribirlo en los N.**
+
+Son operaciones en lote sobre datos ya cargados, así que les toca la regla de
+ADR-019 y ADR-033: **decir cuántos movimientos tocan antes de tocarlos**.
+
+**Renombrar con el nombre de otra etiqueta LAS UNE, y esa es la función.** Un
+typo parte un total en dos sin avisar (L-002): `Barcelona26` y `barcelona 26` son
+dos viajes distintos en las cuentas. Renombrar uno con el nombre del otro los
+junta. Por eso el aviso previo no dice solo "se reescribe en N": cuando el nombre
+nuevo ya existe, dice **"se van a unir"**, con cuántos quedan.
+
+Es también la salida a la pregunta que ADR-013 dejó abierta: `Perú` y `Peru` son
+dos claves distintas **a propósito** —sacar tildes automáticamente juntaría
+palabras que el usuario quiso separar—, y ahora se pueden juntar a mano las que
+él decida que son la misma. La decisión sigue siendo suya; lo que cambió es que
+tiene con qué ejecutarla.
+
+**Cada etiqueta muestra cuántas escrituras distintas tiene.** Es el dato que
+delata el typo: sin él, `Luz` y `luz` se ven como dos filas cualesquiera y nadie
+va a ir a arreglarlas. "Barcelona26 · 2 formas de escribirlo" es exactamente lo
+que hay que abrir.
+
+**Borrar dice con todas las letras que los movimientos no se borran.** "Borrar
+Luz" y "borrar los gastos de luz" se confunden con una lectura rápida, y una de
+las dos no se puede deshacer. La confirmación lo dice, y para un comentario
+agrega que esos movimientos van a dejar de contarse en los totales agrupados.
+
+**El texto nuevo se guarda normalizado**, igual que al cargarlo a mano. Si acá se
+guardara crudo, esta pantalla sería la única forma de meter en los datos un texto
+con dos espacios o sin normalizar en NFC — justo lo que esa normalización existe
+para impedir (L-003).
+
+**Se ofrece también para el detalle**, porque el usuario lo pidió, pero la
+pantalla aclara la diferencia: el comentario **agrupa** y limpiarlo arregla
+números; el detalle es una nota y limpiarlo es orden.
+
+**Un paso a la vez.** Renombrar y borrar no se muestran juntos, ni con la lista
+de acciones detrás: dos cosas delicadas a la vez son dos decisiones simultáneas.

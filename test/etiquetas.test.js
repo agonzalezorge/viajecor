@@ -246,11 +246,16 @@ test('la fila avisa cuando una etiqueta tiene varias escrituras', () => {
 });
 
 test('solo el comentario ofrece "Ver": el detalle no filtra nada', () => {
+  // Y el del detalle no se dibuja escondido: no se dibuja. Un botón con `hidden`
+  // sigue estando en la página, sale en el texto y hay que acordarse de él.
   const conVer = dibujarEtiqueta('comentario', { texto: 'Roma', clave: 'roma', cuantos: 1, escrituras: 1 });
   const sinVer = dibujarEtiqueta('detalle', { texto: 'cena', clave: 'cena', cuantos: 1, escrituras: 1 });
 
-  assert.equal(conVer.includes('hidden'), false);
-  assert.ok(sinVer.includes('hidden'));
+  assert.ok(conVer.includes('data-accion="ver-comentario"'));
+  assert.equal(sinVer.includes('ver-comentario'), false);
+  assert.equal(sinVer.includes('hidden'), false);
+  // Renombrar y borrar sí están en los dos.
+  assert.ok(sinVer.includes('renombrar-etiqueta') && sinVer.includes('borrar-etiqueta'));
 });
 
 test('renombrar y borrar no se muestran juntos ni con la lista', () => {

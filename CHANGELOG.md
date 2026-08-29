@@ -6,6 +6,20 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Agregado
+- **Ver, renombrar y borrar los comentarios y detalles ya escritos**, en Datos →
+  *Comentarios y detalles*. Lo pidió el usuario, y lo que resuelve de verdad es
+  el typo que parte un total en dos: `Barcelona26` y `barcelona 26` son dos
+  viajes distintos en las cuentas, y **renombrar uno con el nombre del otro los
+  une**. La app avisa antes de unirlos y dice cuántos movimientos toca.
+
+  Cada etiqueta muestra **cuántas formas de escribirla hay**, que es el dato que
+  delata el typo. Y borrar una etiqueta **no borra ningún movimiento** —los deja
+  sin ese texto—, cosa que la confirmación dice con todas las letras.
+
+### Cambiado
+- **El constructor ahora comprueba que el guión se pueda leer.** Un error de
+  sintaxis generaba un `dist/viajecor.html` del tamaño esperado, con la
+  construcción en verde, que **abría en blanco** en el celular. Ver L-028.
 - **Tocar un total y ver de qué se compone.** La fila de un rubro en el resumen,
   un gasto fijo, una celda de la matriz o un mes entero: todos llevan ahora a la
   lista de movimientos filtrada. Antes cada número era un callejón sin salida.

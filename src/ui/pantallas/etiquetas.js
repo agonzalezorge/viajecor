@@ -60,9 +60,13 @@ export function dibujarEtiqueta(campo, etiqueta) {
       <div class="rubro-pie suave">
         <span>${aviso}</span>
         <span class="acciones-etiqueta">
+          ${campo === 'comentario' ? `
+          <!-- Solo el comentario ofrece "Ver": la lista se puede filtrar por
+               comentario, no por detalle. Un botón escondido con el atributo
+               hidden sigue estando en la página; el que no hace falta
+               directamente no se dibuja. -->
           <button type="button" class="secundario chico" data-accion="ver-comentario"
-                  data-comentario="${escapar(etiqueta.texto)}"
-                  ${campo === 'comentario' ? '' : 'hidden'}>Ver</button>
+                  data-comentario="${escapar(etiqueta.texto)}">Ver</button>` : ''}
           <button type="button" class="secundario chico" data-accion="renombrar-etiqueta"
                   data-campo="${escapar(campo)}" data-clave="${escapar(etiqueta.clave)}">Renombrar</button>
           <button type="button" class="secundario chico" data-accion="borrar-etiqueta"

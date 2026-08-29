@@ -939,3 +939,33 @@ habría commiteado.
 
 Se recuperó porque el archivo estaba entero unos minutos antes en esta misma
 sesión. Si hubiera pasado un día, se habría reescrito de memoria.
+
+---
+
+## L-028 · La construcción decía OK con un error de sintaxis adentro
+
+**Cuándo:** 2026-08-28, escribiendo la pantalla de etiquetas (T-025).
+
+Un comentario HTML adentro de una plantilla de JavaScript llevaba la palabra
+`hidden` entre acentos graves. Esos acentos **cerraron la plantilla**, y el
+archivo dejó de ser JavaScript válido.
+
+`node tools/build.mjs` **no dijo nada**: generó `dist/viajecor.html`, con el
+tamaño esperado, y salió con éxito. Lo que avisó fue `node --test`, y avisó feo:
+quince archivos de test en rojo, ninguno relacionado con lo que se estaba
+haciendo, porque el módulo roto rompía la importación de media app.
+
+**Lo que habría pasado sin los tests:** el archivo se sube, el usuario lo baja, y
+la app **abre en blanco**. El navegador no ejecuta nada de un guión que no puede
+leer, y no lo dice en ningún lado que el usuario mire. Es exactamente la forma de
+falla de L-017 —construcción en verde, app rota en el celular— por otro camino.
+
+**Qué se hizo:** el constructor ahora compila el guión con `new Function` antes
+de escribir el archivo. Compila y tira si no parsea, **sin ejecutar nada**. No
+prueba que la app funcione —para eso están los tests y el recorrido—, pero sí que
+no esté rota de la forma más tonta y más cara. Se comprobó rompiendo un módulo a
+propósito, y hay un test que lo hace en cada corrida.
+
+**El patrón, otra vez:** *lo que se puede comprobar no se recuerda*. Y su
+corolario: **un paso que puede fallar en silencio necesita una guardia, no
+cuidado.**

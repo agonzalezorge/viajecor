@@ -268,6 +268,7 @@ qué existe.
 | CU-13 | Importar el historial del Excel | **Hecho** (T-030, T-031, T-032) |
 | CU-14 | Llevar los ahorros conjuntos | Pendiente |
 | CU-15 | Agregar una moneda | **Hecho** (T-008, T-024) |
+| CU-16 | Limpiar los comentarios y detalles ya escritos | **Hecho** (T-025) |
 
 ---
 
@@ -571,6 +572,27 @@ personas (ALE / IRE) en tres monedas sin convertir entre sí.
 a euros, porque un plazo fijo en pesos uruguayos es un plazo fijo en pesos
 uruguayos. Se construye como módulo aparte, no metiendo los ahorros en el
 registro de gastos.
+
+---
+
+### CU-16 — Limpiar los comentarios y detalles ya escritos
+
+**Para qué:** el comentario es lo que **agrupa** los gastos de un viaje o de un
+gasto fijo, y una escritura distinta parte un total en dos sin avisar (RN-03,
+L-002). Esta pantalla es donde eso se arregla.
+
+**Muestra:** los comentarios y los detalles que existen, con cuántos movimientos
+usa cada uno y **cuántas formas de escribirlo hay** — el dato que delata el typo.
+
+**Permite:**
+- **Renombrar.** Si el nombre nuevo ya existe, **las dos etiquetas se unen** y
+  sus totales pasan a sumar juntos. La app lo avisa antes de aplicarlo.
+- **Borrar la etiqueta.** Le saca ese texto a sus movimientos. **No borra ningún
+  movimiento**, y la confirmación lo dice con todas las letras.
+
+**Lo que hay que entender:** no hay ningún catálogo de comentarios ni de
+detalles. Son texto libre en cada movimiento, así que las dos operaciones son en
+lote sobre datos ya cargados y por eso avisan cuántos tocan (ADR-035).
 
 ---
 
