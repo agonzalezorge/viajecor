@@ -91,7 +91,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-041 | Pantalla de ahorros conjuntos | Pendiente | T-040, T-010 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
-| T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Lista** | T-015 |
+| T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | En curso (claude, 2026-08-28) | T-015 |
 | T-026 | Tocar un grupo y ver los movimientos que contiene | **Hecha** | T-015 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
