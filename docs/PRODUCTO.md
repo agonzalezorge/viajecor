@@ -263,7 +263,7 @@ qué existe.
 | CU-08 | Importar un respaldo | **Hecho** (T-017) |
 | CU-09 | Usar la app sin conexión | **Hecho** — verificado en un Android real (T-019) |
 | CU-10 | Ver la evolución mes a mes | **Hecho** (T-021) |
-| CU-11 | Ver cuánto costó un viaje | Pendiente |
+| CU-11 | Ver cuánto costó un viaje | **Hecho** (T-023) |
 | CU-12 | Ver el promedio de un gasto fijo | **Hecho** (T-022) |
 | CU-13 | Importar el historial del Excel | **Hecho** (T-030, T-031, T-032) |
 | CU-14 | Llevar los ahorros conjuntos | Pendiente |
@@ -498,7 +498,17 @@ total de ingresos y el saldo; más una fila de **total** y una de **promedio**.
 **Para qué:** reemplaza el bloque `GASTOS POR VIAJE`, que es el motivo por el que
 la planilla se llama "Viaje Coruña".
 
-**Muestra:** por cada viaje, el gasto total y el gasto por día.
+**Muestra:** por cada viaje, el gasto total, cuántos gastos, entre qué fechas se
+gastó y el gasto por día.
+
+**Qué es un viaje:** un comentario con al menos un gasto del rubro `viajes`. Su
+total suma **todos** sus rubros —comidas, transporte, supermercado—, no solo los
+del rubro `viajes`.
+
+**El gasto por día solo aparece si los días están escritos.** No se deducen de la
+primera y la última fecha: un viaje puede empezar antes del primer gasto anotado
+o terminar después del último, y deducirlo daría un número más alto de lo real
+con cara de exacto (ADR-036).
 
 **Decidido por el usuario (2026-08-28):**
 - **El viaje se escribe a mano**, como en el Excel, **pero se tiene que poder

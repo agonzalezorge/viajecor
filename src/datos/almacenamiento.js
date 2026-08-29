@@ -40,6 +40,11 @@ export function estadoInicial({ monedas = [], versionApp } = {}) {
     movimientos: [],
     tipos_cambio: [],
     monedas: [...monedas],
+    // Cuántos días duró cada viaje, por clave de comentario (T-023). **No es un
+    // catálogo de viajes**: la lista de viajes sale de los comentarios. Es un
+    // dato suelto sobre uno de ellos, y el único que hay que guardar porque no
+    // se puede deducir de los movimientos.
+    dias_de_viaje: [],
     preferencias: { moneda_predeterminada: 'EUR' },
   };
 }
@@ -209,6 +214,20 @@ export function migrarEstado(guardado, incidencias = []) {
   //
   // Se leen una por una igual, en vez de copiar el objeto entero, porque un
   // respaldo editado a mano puede traer cualquier cosa ahí adentro.
+  // Los días de cada viaje. Un registro roto se descarta solo, sin llevarse los
+  // demás: perder cuántos días duró un viaje es molesto; perder los otros
+  // veinte por culpa de ese, no.
+  estado.dias_de_viaje = leerLista(guardado.dias_de_viaje, 'días de viaje', incidencias, (v) => {
+    if (v === null || typeof v !== 'object') throw new Error('no es un viaje');
+    if (typeof v.clave !== 'string' || v.clave.trim() === '') {
+      throw new Error('no dice de qué viaje son los días');
+    }
+    if (!Number.isInteger(v.dias) || v.dias < 1) {
+      throw new Error('los días no son un número entero de 1 para arriba');
+    }
+    return { clave: v.clave.trim().toLowerCase(), dias: v.dias };
+  });
+
   const preferencias = guardado.preferencias;
   if (preferencias !== null && typeof preferencias === 'object' && !Array.isArray(preferencias)) {
     const moneda = preferencias.moneda_predeterminada;

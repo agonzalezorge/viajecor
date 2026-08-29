@@ -169,6 +169,22 @@ export function dibujarDatos(vista) {
       </button>
     </section>
 
+    <!-- Las pantallas de historial también se ofrecen acá, y no solo desde el
+         resumen del mes. Ahí los botones están al final del desglose, así que un
+         mes sin movimientos —el 1 de cada mes, o un mes que todavía no cargaste—
+         los hacía desaparecer: la evolución y los viajes quedaban inalcanzables
+         hasta cargar un gasto. Lo encontró el recorrido en el navegador. -->
+    <section class="tarjeta">
+      <h2>Mirar el historial</h2>
+      <p class="suave">No dependen del mes que estés viendo.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="evolucion">
+        Evolución mes a mes y gastos fijos
+      </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
+        Gasto por viaje
+      </button>
+    </section>
+
     <section class="tarjeta">
       <h2>Comentarios y detalles</h2>
       <p class="suave">Ver los que ya escribiste, renombrarlos —renombrar uno con

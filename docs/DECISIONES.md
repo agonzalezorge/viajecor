@@ -1181,3 +1181,54 @@ números; el detalle es una nota y limpiarlo es orden.
 
 **Un paso a la vez.** Renombrar y borrar no se muestran juntos, ni con la lista
 de acciones detrás: dos cosas delicadas a la vez son dos decisiones simultáneas.
+
+---
+
+## ADR-036 · Un viaje no es un registro, y sus días no se deducen
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-023
+
+**Qué es un viaje.** Un comentario con **al menos un gasto del rubro `viajes`**.
+La regla sale de los datos, no de una lista aparte: dos lugares que digan cuáles
+son los viajes son dos lugares que se desincronizan. `Luz` nunca va a tener un
+gasto de rubro `viajes`, así que nunca va a aparecer en esta pantalla.
+
+**Pero el total suma todos los rubros del viaje**, no solo `viajes`: en un viaje
+se come, se toma transporte y se compra en el supermercado, y todo eso es plata
+del viaje. Es lo mismo que hace la planilla, que suma por comentario sin mirar
+el rubro.
+
+**El viaje se sigue escribiendo a mano** (decisión del usuario, 2026-08-28), con
+la condición de poder corregirlo en un solo lugar y que el cambio llegue a todos
+sus movimientos — eso es T-025, y por eso T-023 dependía de ella. Sin renombrar
+en lote, escribir a mano vuelve a ser lo que parte un total en dos sin avisar.
+
+**Los días se escriben, no se deducen** (decisión del usuario). Un viaje puede
+empezar antes del primer gasto registrado o terminar después del último:
+deducirlos de la primera y la última fecha daría un gasto por día **más alto de
+lo real**, con cara de exacto y sin avisar.
+
+**La consecuencia importante: sin días escritos NO hay gasto por día.** No se
+muestra un número aproximado ni un "≈": en su lugar va el botón para escribirlos.
+Un promedio calculado sobre un supuesto que nadie confirmó es exactamente el
+número que el usuario vino a buscar, y estaría mal.
+
+**Dónde viven los días.** En `estado.dias_de_viaje`, una lista de
+`{ clave, dias }`. **Se llama así y no `viajes` a propósito**: no es un catálogo
+de viajes —la lista de viajes sigue saliendo de los comentarios— sino un dato
+suelto sobre uno de ellos. Es el único dato de un viaje que hay que guardar,
+justamente porque es el único que no se puede deducir de los movimientos.
+
+Entra en el respaldo como todo lo demás, y un registro roto se descarta solo sin
+llevarse a los otros: perder cuántos días duró un viaje es molesto; perder los
+otros veinte por culpa de ese, no.
+
+**"No sé cuántos días fue" es una respuesta válida** y borra los días. Es
+distinta de "cero días", que no significa nada y haría que el gasto por día
+fuera infinito.
+
+**Los vuelos y el alojamiento pagados aparte no tienen función propia**, por
+decisión del usuario: eran dos excepciones del comienzo del registro
+(`=96+SUMIFS(...)` en París, `=850+...` en Costa Rica) y no va a haber más. Si se
+los quiere incluir, se cargan como lo que son: un gasto con su fecha, su rubro y
+el comentario del viaje.

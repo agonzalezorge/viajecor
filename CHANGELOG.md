@@ -6,6 +6,20 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Agregado
+- **Gasto por viaje**, que es el bloque que le dio el nombre a la planilla. Un
+  viaje es un comentario con al menos un gasto del rubro «viajes», y su total
+  suma **todos** sus rubros: comidas, transporte, supermercado.
+
+  **Los días del viaje se escriben, no se deducen** de la primera y la última
+  fecha con gastos: podés haber salido antes de anotar el primero o vuelto
+  después del último, y deducirlo daría un gasto por día más alto de lo real con
+  cara de exacto. Mientras no estén escritos **no se muestra ningún gasto por
+  día**, y "no sé cuántos días fue" es una respuesta válida. Ver ADR-036.
+
+### Corregido
+- **A la evolución y al gasto por viaje se llega también desde Datos.** Los
+  botones vivían solo al final del desglose del mes, así que un mes sin
+  movimientos —el 1 de cada mes— dejaba esas pantallas inalcanzables.
 - **Ver, renombrar y borrar los comentarios y detalles ya escritos**, en Datos →
   *Comentarios y detalles*. Lo pidió el usuario, y lo que resuelve de verdad es
   el typo que parte un total en dos: `Barcelona26` y `barcelona 26` son dos

@@ -184,7 +184,7 @@ test('la pestaña actual se marca, y solo una', () => {
 test('están las secciones previstas, la carga y los tipos de cambio', () => {
   assert.deepEqual(
     pantallasRegistradas().map((p) => p.nombre),
-    ['mes', 'movimientos', 'datos', 'evolucion', 'etiquetas', 'monedas', 'cambios', 'nuevo']
+    ['mes', 'movimientos', 'datos', 'evolucion', 'viajes', 'etiquetas', 'monedas', 'cambios', 'nuevo']
   );
 });
 
@@ -234,6 +234,19 @@ test('ninguna pantalla dice ya "todavía no está construida"', () => {
     assert.equal(html.includes('Todavía no está construida'), false, `la pantalla ${p.nombre}`);
     assert.equal(/— T-0\d\d\./.test(html), false, `la pantalla ${p.nombre} promete una tarea`);
   }
+});
+
+test('a las pantallas de historial se llega aunque el mes esté vacío', () => {
+  // Los botones vivían solo al final del desglose del mes, así que un mes sin
+  // movimientos —el 1 de cada mes, o uno que todavía no cargaste— dejaba la
+  // evolución y los viajes inalcanzables. Lo encontró el recorrido en el
+  // navegador (2026-08-28), con los tests en verde.
+  const vacio = dibujarApp({ ...VISTA, pantalla: 'mes' });
+  assert.equal(vacio.includes('data-pantalla="evolucion"'), false, 'el mes vacío no los ofrece…');
+
+  const datos = dibujarApp({ ...VISTA, pantalla: 'datos' });
+  assert.ok(datos.includes('data-pantalla="evolucion"'), '…así que Datos tiene que ofrecerlos');
+  assert.ok(datos.includes('data-pantalla="viajes"'));
 });
 
 test('una pantalla que no existe cae en la del mes, sin romperse', () => {

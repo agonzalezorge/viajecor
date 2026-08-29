@@ -2982,6 +2982,11 @@ function estadoInicial({ monedas = [], versionApp } = {}) {
     movimientos: [],
     tipos_cambio: [],
     monedas: [...monedas],
+    // Cuántos días duró cada viaje, por clave de comentario (T-023). **No es un
+    // catálogo de viajes**: la lista de viajes sale de los comentarios. Es un
+    // dato suelto sobre uno de ellos, y el único que hay que guardar porque no
+    // se puede deducir de los movimientos.
+    dias_de_viaje: [],
     preferencias: { moneda_predeterminada: 'EUR' },
   };
 }
@@ -3151,6 +3156,20 @@ function migrarEstado(guardado, incidencias = []) {
   //
   // Se leen una por una igual, en vez de copiar el objeto entero, porque un
   // respaldo editado a mano puede traer cualquier cosa ahí adentro.
+  // Los días de cada viaje. Un registro roto se descarta solo, sin llevarse los
+  // demás: perder cuántos días duró un viaje es molesto; perder los otros
+  // veinte por culpa de ese, no.
+  estado.dias_de_viaje = leerLista(guardado.dias_de_viaje, 'días de viaje', incidencias, (v) => {
+    if (v === null || typeof v !== 'object') throw new Error('no es un viaje');
+    if (typeof v.clave !== 'string' || v.clave.trim() === '') {
+      throw new Error('no dice de qué viaje son los días');
+    }
+    if (!Number.isInteger(v.dias) || v.dias < 1) {
+      throw new Error('los días no son un número entero de 1 para arriba');
+    }
+    return { clave: v.clave.trim().toLowerCase(), dias: v.dias };
+  });
+
   const preferencias = guardado.preferencias;
   if (preferencias !== null && typeof preferencias === 'object' && !Array.isArray(preferencias)) {
     const moneda = preferencias.moneda_predeterminada;
@@ -6419,6 +6438,9 @@ function dibujarIrAEvolucion() {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="evolucion">
         Ver la evolución y los gastos fijos
       </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
+        Ver el gasto por viaje
+      </button>
     </section>
   `;
 }
@@ -6591,6 +6613,153 @@ function borrarEtiqueta(movimientos, campo, clave) {
   return (movimientos ?? []).map((m) =>
     normalizarClave(String(m?.[campo] ?? '')) === buscada ? { ...m, [campo]: '' } : m,
   );
+}
+
+// ── src/core/viajes.js ──────────────────────────────────────────
+// El gasto por viaje — CU-11, T-023. Reemplaza el bloque `GASTOS POR VIAJE`,
+// que es el motivo por el que la planilla se llama "Viaje Coruña".
+//
+// ── Qué es un viaje, y por qué no es un registro ────────────────────────────
+//
+// **Un viaje no existe como cosa guardada.** Es un comentario repetido en varios
+// movimientos, igual que un gasto fijo. El usuario decidió (2026-08-28) que se
+// siga escribiendo a mano, con la condición de poder corregirlo en un solo lugar
+// y que el cambio llegue a todos los registros — eso es T-025.
+//
+// **Cuál de todos los comentarios es un viaje:** el que tenga al menos un gasto
+// del rubro `viajes`. Es una regla que sale de los datos y no de una lista
+// aparte, así que no hay dos lugares que se puedan desincronizar. `Luz` nunca va
+// a tener un gasto de rubro `viajes`, así que nunca va a aparecer acá.
+//
+// **Pero el total del viaje suma TODOS sus rubros**, no solo el de `viajes`: en
+// un viaje se come, se toma transporte y se compra en el supermercado, y todo
+// eso es plata del viaje. Es lo mismo que hace la planilla, que suma por
+// comentario sin mirar el rubro.
+//
+// ── Los días se escriben ────────────────────────────────────────────────────
+//
+// Decidido por el usuario: la duración **no se deduce** de la primera y la
+// última fecha con gastos. Un viaje puede empezar antes de que se registre el
+// primer gasto o terminar después del último, y deducirlo daría un gasto por día
+// más alto de lo real, sin avisar.
+//
+// Por eso son el único dato de un viaje que hay que guardar, y viven en
+// `estado.dias_de_viaje`: una lista de `{ clave, dias }`. **Se llama así y no
+// `viajes` a propósito**: no es un catálogo de viajes —la lista de viajes sigue
+// saliendo de los comentarios— sino un dato suelto sobre uno de ellos.
+//
+// Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
+
+
+
+
+/** El rubro que marca a un comentario como viaje. */
+const RUBRO_VIAJE = 'viajes';
+
+/** Los días guardados de un viaje, o `null` si no se escribieron. */
+function diasDeViaje(estado, clave) {
+  const buscada = normalizarClave(String(clave ?? ''));
+  const guardado = (estado?.dias_de_viaje ?? []).find(
+    (v) => normalizarClave(String(v?.clave ?? '')) === buscada,
+  );
+  return guardado ? guardado.dias : null;
+}
+
+/**
+ * Escribe los días de un viaje. Devuelve un estado nuevo.
+ *
+ * `null` o `0` los borra: es la forma de decir "no sé cuántos días fue", y es
+ * distinta de decir "cero días", que no significa nada.
+ */
+function fijarDiasDeViaje(estado, clave, dias) {
+  const buscada = normalizarClave(String(clave ?? ''));
+  if (buscada === '') throw new Error('Hace falta saber de qué viaje son los días.');
+
+  const otros = (estado.dias_de_viaje ?? []).filter(
+    (v) => normalizarClave(String(v?.clave ?? '')) !== buscada,
+  );
+
+  if (dias === null || dias === undefined || dias === '') {
+    return { ...estado, dias_de_viaje: otros };
+  }
+
+  const numero = Number(dias);
+  if (!Number.isInteger(numero) || numero < 1) {
+    throw new Error('Los días del viaje son un número entero de 1 para arriba.');
+  }
+  if (numero > 3650) {
+    throw new Error('Diez años de viaje son muchos: revisá el número.');
+  }
+
+  return { ...estado, dias_de_viaje: [...otros, { clave: buscada, dias: numero }] };
+}
+
+/**
+ * Los viajes, de más caro a más barato.
+ *
+ * Cada uno trae su total, cuántos movimientos, entre qué fechas se gastó, los
+ * días escritos (o `null`) y el gasto por día **solo si los días están**. Sin
+ * días no se inventa un promedio: sería el número que el usuario vino a buscar,
+ * calculado sobre un supuesto que nadie confirmó.
+ */
+function viajes(estado) {
+  const todos = estado?.movimientos ?? [];
+  const { convertibles, sinConvertir } = separarConvertibles(todos, estado?.tipos_cambio);
+
+  // Primero, qué comentarios son viajes: los que tienen algún gasto de `viajes`.
+  const esViaje = new Set();
+  for (const m of todos) {
+    if (m.tipo === TIPO_GASTO
+      && normalizarClave(String(m.rubro ?? '')) === RUBRO_VIAJE
+      && String(m.comentario ?? '') !== '') {
+      esViaje.add(normalizarClave(m.comentario));
+    }
+  }
+  if (esViaje.size === 0) return [];
+
+  const acumulado = new Map();
+  for (const m of convertibles) {
+    if (m.tipo !== TIPO_GASTO) continue;
+    const comentario = String(m.comentario ?? '');
+    if (comentario === '') continue;
+    const clave = normalizarClave(comentario);
+    if (!esViaje.has(clave)) continue;
+
+    const euros = movimientoEnEuros(m, estado.tipos_cambio, estado.monedas);
+    const antes = acumulado.get(clave);
+    if (!antes) {
+      acumulado.set(clave, {
+        clave, comentario, total: euros, cuantos: 1,
+        desde: m.fecha, hasta: m.fecha,
+      });
+    } else {
+      antes.total += euros;
+      antes.cuantos += 1;
+      if (m.fecha < antes.desde) antes.desde = m.fecha;
+      if (m.fecha > antes.hasta) antes.hasta = m.fecha;
+    }
+  }
+
+  // Los que no se pudieron convertir se cuentan aparte, por viaje: un total al
+  // que le falta un gasto y que no lo dice es peor que no mostrar ningún total.
+  const incompletos = new Set();
+  for (const m of sinConvertir) {
+    const clave = normalizarClave(String(m.comentario ?? ''));
+    if (esViaje.has(clave)) incompletos.add(clave);
+  }
+
+  return [...acumulado.values()]
+    .map((v) => {
+      const dias = diasDeViaje(estado, v.clave);
+      return {
+        ...v,
+        mes: mesDe(v.desde),
+        dias,
+        porDia: dias === null ? null : redondear(v.total / dias),
+        incompleto: incompletos.has(v.clave),
+      };
+    })
+    .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
 }
 
 // ── src/ui/pantallas/etiquetas.js ───────────────────────────────
@@ -6812,6 +6981,165 @@ function intentarBorrarEtiqueta(estado, campo, clave) {
     ...estado,
     movimientos: borrarEtiqueta(estado.movimientos, campo, clave),
   }));
+}
+
+// ── src/ui/pantallas/viajes.js ──────────────────────────────────
+// Gasto por viaje — CU-11, T-023. Reemplaza el bloque `GASTOS POR VIAJE` de la
+// planilla, que es de donde salió el nombre "Viaje Coruña".
+//
+// ── Lo que esta pantalla no hace, y por qué ─────────────────────────────────
+//
+// **No deduce los días.** El usuario decidió (2026-08-28) que se escriben. Un
+// viaje puede empezar antes del primer gasto registrado o terminar después del
+// último, y deducirlo daría un gasto por día más bajo de lo real sin avisar.
+// Por eso, mientras los días no estén escritos, **no hay gasto por día**: no se
+// muestra un número aproximado, se muestra el pedido de escribirlos.
+//
+// **No tiene una lista de viajes propia.** Un viaje es un comentario con al
+// menos un gasto del rubro `viajes` (ver `core/viajes.js`). Se escribe a mano al
+// cargar, y se corrige en Datos → Comentarios y detalles, donde renombrar une
+// dos escrituras del mismo viaje.
+//
+// Igual que el resto de la interfaz (ADR-022), las funciones de dibujo son puras.
+
+
+
+
+/** Entre qué fechas se gastó. Es contexto para escribir los días, no el dato. */
+function dibujarFechas(viaje) {
+  if (viaje.desde === viaje.hasta) return formatearFecha(viaje.desde);
+  return `${formatearFecha(viaje.desde)} → ${formatearFecha(viaje.hasta)}`;
+}
+
+/**
+ * Un viaje.
+ *
+ * **El número grande es el total**, que es lo que la planilla contestaba. El
+ * gasto por día va debajo y **solo si los días están escritos**: sin ellos, en
+ * su lugar va el botón para escribirlos, que es la acción que falta.
+ */
+function dibujarViaje(viaje) {
+  const cuantos = viaje.cuantos === 1 ? '1 gasto' : `${viaje.cuantos} gastos`;
+
+  const porDia = viaje.dias === null
+    ? `<button type="button" class="secundario chico" data-accion="dias-viaje"
+               data-clave="${escapar(viaje.clave)}">¿Cuántos días fue?</button>`
+    : `<span><strong>${escapar(formatearEuros(viaje.porDia))}</strong> por día
+         en ${viaje.dias} ${viaje.dias === 1 ? 'día' : 'días'}
+         <button type="button" class="enlace" data-accion="dias-viaje"
+                 data-clave="${escapar(viaje.clave)}">cambiar</button></span>`;
+
+  const aviso = viaje.incompleto
+    ? `<p class="suave">A este viaje le falta un tipo de cambio: el total está incompleto.</p>`
+    : '';
+
+  return `
+    <li class="fila-rubro">
+      <button type="button" class="fila-toque" data-accion="ver-comentario"
+              data-comentario="${escapar(viaje.comentario)}">
+        <span class="rubro-cabeza">
+          <span class="nombre">${escapar(viaje.comentario)}</span>
+          <span class="importe">${escapar(formatearEuros(viaje.total))}</span>
+        </span>
+      </button>
+      <div class="rubro-pie suave">
+        <span>${escapar(cuantos)} · ${escapar(dibujarFechas(viaje))}</span>
+      </div>
+      <div class="rubro-pie suave">${porDia}</div>
+      ${aviso}
+    </li>
+  `;
+}
+
+/** El formulario para escribir los días. */
+function dibujarDiasDeViaje(vista) {
+  const clave = vista.viajeEditado;
+  const viaje = viajes(vista.estado).find((v) => v.clave === clave);
+  if (viaje === undefined) return '';
+
+  return `
+    <form class="tarjeta" data-formulario="dias-viaje">
+      <h2>¿Cuántos días fue ${escapar(viaje.comentario)}?</h2>
+      <p class="suave">Se gastó entre el ${escapar(dibujarFechas(viaje))}. Los días
+      del viaje pueden ser más: podés haber salido antes del primer gasto que
+      anotaste, o vuelto después del último. Por eso se escriben y no se deducen.</p>
+
+      <label class="campo">
+        <span>Días</span>
+        <input name="dias" type="text" inputmode="numeric" autocomplete="off"
+               enterkeyhint="done" placeholder="7"
+               value="${escapar(vista.borradorDias ?? (viaje.dias ?? ''))}">
+      </label>
+
+      ${dibujarError(vista.error)}
+
+      <input type="hidden" name="clave" value="${escapar(clave)}">
+      <button type="submit" class="principal" data-accion="guardar-dias-viaje">Guardar</button>
+      <button type="button" class="secundario" data-accion="borrar-dias-viaje"
+              data-clave="${escapar(clave)}">No sé cuántos días fue</button>
+      <button type="button" class="secundario" data-accion="cancelar-dias-viaje">Ahora no</button>
+    </form>
+  `;
+}
+
+function dibujarViajes(vista) {
+  if (vista.viajeEditado) return dibujarDiasDeViaje(vista);
+
+  const lista = viajes(vista.estado);
+  if (lista.length === 0) {
+    return `
+      <section class="tarjeta">
+        <h2>Gasto por viaje</h2>
+        <p class="suave">Todavía no hay ninguno. Un viaje es un comentario con al
+        menos un gasto del rubro <strong>viajes</strong>: cargá el pasaje o el
+        hotel con el rubro «viajes» y el nombre del viaje en el comentario, y
+        todo lo que lleve ese comentario —comidas, transporte, supermercado— se
+        suma acá.</p>
+      </section>
+    `;
+  }
+
+  return `
+    ${dibujarError(vista.error)}
+    <section class="tarjeta">
+      <h2>Gasto por viaje</h2>
+      <p class="suave nota">El total incluye <strong>todos</strong> los rubros de
+      ese viaje, no solo los del rubro «viajes». Tocá uno para ver sus gastos.</p>
+      <ul class="rubros">${lista.map(dibujarViaje).join('')}</ul>
+    </section>
+  `;
+}
+
+
+// ── Los cambios de estado ────────────────────────────────────────────────────
+
+/**
+ * Toma lo escrito y lo guarda, o devuelve el error para mostrarlo.
+ *
+ * **La regla de qué es un número de días válido está en `core/viajes.js` y no
+ * acá.** La primera versión la repetía —una expresión regular de dígitos— y una
+ * mutación la delató: sacarla no ponía ni un test en rojo, porque el núcleo ya
+ * rechazaba todo lo que ella rechazaba. Dos copias de la misma regla son dos
+ * reglas que tarde o temprano dicen cosas distintas, y la que se queda atrás es
+ * siempre la de más afuera.
+ *
+ * `Number('')` da 0 y `Number('7 días')` da NaN: los dos caen en el "entero de 1
+ * para arriba" del núcleo.
+ */
+function intentarFijarDias(estado, clave, dias) {
+  try {
+    return { estado: fijarDiasDeViaje(estado, clave, Number(String(dias ?? '').trim())) };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+function intentarBorrarDias(estado, clave) {
+  try {
+    return { estado: fijarDiasDeViaje(estado, clave, null) };
+  } catch (error) {
+    return { error: error.message };
+  }
 }
 
 // ── src/ui/pantallas/monedas.js ─────────────────────────────────
@@ -7807,6 +8135,22 @@ function dibujarDatos(vista) {
       </button>
     </section>
 
+    <!-- Las pantallas de historial también se ofrecen acá, y no solo desde el
+         resumen del mes. Ahí los botones están al final del desglose, así que un
+         mes sin movimientos —el 1 de cada mes, o un mes que todavía no cargaste—
+         los hacía desaparecer: la evolución y los viajes quedaban inalcanzables
+         hasta cargar un gasto. Lo encontró el recorrido en el navegador. -->
+    <section class="tarjeta">
+      <h2>Mirar el historial</h2>
+      <p class="suave">No dependen del mes que estés viendo.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="evolucion">
+        Evolución mes a mes y gastos fijos
+      </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
+        Gasto por viaje
+      </button>
+    </section>
+
     <section class="tarjeta">
       <h2>Comentarios y detalles</h2>
       <p class="suave">Ver los que ya escribiste, renombrarlos —renombrar uno con
@@ -8529,6 +8873,7 @@ function dibujarNuevo(vista) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -8617,6 +8962,14 @@ registrarPantalla('evolucion', {
 
 // Fuera de la barra, como monedas y cambios: se llega desde Datos. No es algo
 // que se haga todos los días, es algo que se hace cuando un total no cuadra.
+registrarPantalla('viajes', {
+  etiqueta: 'Gasto por viaje',
+  icono: '✈',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarViajes,
+});
+
 registrarPantalla('etiquetas', {
   etiqueta: 'Comentarios y detalles',
   icono: '🏷',
@@ -9610,6 +9963,48 @@ function iniciar(documento, almacen) {
     ));
   }
 
+  /** Los días de un viaje — T-023. Toca datos, así que guarda antes de pintar. */
+  function guardarLosDias() {
+    const formulario = raiz.querySelector('[data-formulario="dias-viaje"]');
+    if (!formulario) return;
+    const clave = formulario.elements.clave?.value ?? '';
+    const escrito = formulario.elements.dias?.value ?? '';
+
+    const resultado = intentarFijarDias(vista.estado, clave, escrito);
+    if (resultado.error) {
+      vista = { ...vista, borradorDias: escrito, error: resultado.error };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorDias: escrito, error: error.message };
+      pintar();
+      return;
+    }
+    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorDias: undefined };
+    pintar();
+  }
+
+  function olvidarLosDias(clave) {
+    const resultado = intentarBorrarDias(vista.estado, clave);
+    if (resultado.error) {
+      vista = { ...vista, error: resultado.error };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, error: error.message };
+      pintar();
+      return;
+    }
+    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorDias: undefined };
+    pintar();
+  }
+
   function guardarTipoDeCambio() {
     const formulario = raiz.querySelector('[data-formulario="cambio"]');
     if (!formulario) return;
@@ -9708,6 +10103,17 @@ function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
+    } else if (accion === 'dias-viaje') {
+      vista = { ...vista, viajeEditado: boton.dataset.clave, borradorDias: undefined, error: null };
+    } else if (accion === 'cancelar-dias-viaje') {
+      vista = { ...vista, viajeEditado: null, borradorDias: undefined, error: null };
+    } else if (accion === 'guardar-dias-viaje') {
+      evento.preventDefault();
+      guardarLosDias();
+      return;
+    } else if (accion === 'borrar-dias-viaje') {
+      olvidarLosDias(boton.dataset.clave);
+      return;
     } else if (accion === 'renombrar-etiqueta') {
       vista = { ...vista, etiquetaEditada: { campo: boton.dataset.campo, clave: boton.dataset.clave },
         borradorEtiqueta: undefined, error: null, avisoEtiqueta: null };

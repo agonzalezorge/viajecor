@@ -210,6 +210,9 @@ export function dibujarIrAEvolucion() {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="evolucion">
         Ver la evolución y los gastos fijos
       </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
+        Ver el gasto por viaje
+      </button>
     </section>
   `;
 }

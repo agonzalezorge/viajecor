@@ -26,6 +26,7 @@ import { dibujarEvolucion } from './pantallas/evolucion.js';
 import { dibujarEtiquetas, dibujarAvisoRenombrar, intentarRenombrar,
   intentarBorrarEtiqueta } from './pantallas/etiquetas.js';
 import { efectoDeRenombrar } from '../core/etiquetas.js';
+import { dibujarViajes, intentarFijarDias, intentarBorrarDias } from './pantallas/viajes.js';
 import { dibujarMonedas, dibujarAvisoDecimales, efectoDeCambiarDecimales,
   intentarAgregarMoneda, intentarOcultarMoneda, intentarMostrarMoneda,
   intentarBorrarMoneda, intentarCambiarDecimales } from './pantallas/monedas.js';
@@ -128,6 +129,14 @@ registrarPantalla('evolucion', {
 
 // Fuera de la barra, como monedas y cambios: se llega desde Datos. No es algo
 // que se haga todos los días, es algo que se hace cuando un total no cuadra.
+registrarPantalla('viajes', {
+  etiqueta: 'Gasto por viaje',
+  icono: '✈',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarViajes,
+});
+
 registrarPantalla('etiquetas', {
   etiqueta: 'Comentarios y detalles',
   icono: '🏷',
@@ -1121,6 +1130,48 @@ export function iniciar(documento, almacen) {
     ));
   }
 
+  /** Los días de un viaje — T-023. Toca datos, así que guarda antes de pintar. */
+  function guardarLosDias() {
+    const formulario = raiz.querySelector('[data-formulario="dias-viaje"]');
+    if (!formulario) return;
+    const clave = formulario.elements.clave?.value ?? '';
+    const escrito = formulario.elements.dias?.value ?? '';
+
+    const resultado = intentarFijarDias(vista.estado, clave, escrito);
+    if (resultado.error) {
+      vista = { ...vista, borradorDias: escrito, error: resultado.error };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorDias: escrito, error: error.message };
+      pintar();
+      return;
+    }
+    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorDias: undefined };
+    pintar();
+  }
+
+  function olvidarLosDias(clave) {
+    const resultado = intentarBorrarDias(vista.estado, clave);
+    if (resultado.error) {
+      vista = { ...vista, error: resultado.error };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, error: error.message };
+      pintar();
+      return;
+    }
+    vista = { ...vista, estado: resultado.estado, error: null, viajeEditado: null, borradorDias: undefined };
+    pintar();
+  }
+
   function guardarTipoDeCambio() {
     const formulario = raiz.querySelector('[data-formulario="cambio"]');
     if (!formulario) return;
@@ -1219,6 +1270,17 @@ export function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
+    } else if (accion === 'dias-viaje') {
+      vista = { ...vista, viajeEditado: boton.dataset.clave, borradorDias: undefined, error: null };
+    } else if (accion === 'cancelar-dias-viaje') {
+      vista = { ...vista, viajeEditado: null, borradorDias: undefined, error: null };
+    } else if (accion === 'guardar-dias-viaje') {
+      evento.preventDefault();
+      guardarLosDias();
+      return;
+    } else if (accion === 'borrar-dias-viaje') {
+      olvidarLosDias(boton.dataset.clave);
+      return;
     } else if (accion === 'renombrar-etiqueta') {
       vista = { ...vista, etiquetaEditada: { campo: boton.dataset.campo, clave: boton.dataset.clave },
         borradorEtiqueta: undefined, error: null, avisoEtiqueta: null };

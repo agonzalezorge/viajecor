@@ -80,7 +80,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-020 | ~~Gasto día por día del mes~~ | **Descartada** (usuario, 2026-08-28) | — |
 | T-021 | Evolución mes a mes | **Hecha** | T-013 |
 | T-022 | Promedio de gastos fijos | **Hecha** | T-013 |
-| T-023 | Gasto por viaje | En curso (claude, 2026-08-28) | T-013, T-025 |
+| T-023 | Gasto por viaje | **Hecha** | T-013, T-025 |
 | T-024 | Pantalla de monedas | **Hecha** | T-008, T-010 |
 | **Etapa 3 — Traer el historial del Excel** ||||
 | T-030 | Definir el mapeo Excel → modelo | **Hecha** | T-003, T-009 |
@@ -981,8 +981,31 @@ se lee como datos perdidos.
 
 ---
 
-### T-023 · Gasto por viaje — CU-11
-**Estado:** Lista · **Depende de:** T-013, **T-025**
+### T-023 · Gasto por viaje — CU-11 — **Hecha** (2026-08-28)
+**Depende de:** T-013, T-025 · **Tocó:** `core/viajes.js` (nuevo),
+`ui/pantallas/viajes.js` (nuevo), `almacenamiento.js`, `app.js`, `datos.js`,
+`resumen.js`
+
+**Lo que quedó hecho, comprobado:**
+
+- Un viaje es un comentario con al menos un gasto del rubro `viajes`, y su total
+  suma **todos** sus rubros. Ver ADR-036.
+- **Sin días escritos no hay gasto por día**: en su lugar va el botón para
+  escribirlos.
+- Los días viven en `estado.dias_de_viaje`, entran en el respaldo y se validan al
+  leer: uno roto se descarta sin llevarse a los demás.
+- 36 tests nuevos. Once mutaciones a propósito: las once fallan.
+- Recorrido por el navegador con recarga: Roma suma 450,00 € de tres rubros
+  distintos, Luz no aparece, el gasto sin comentario tampoco; con 10 días da
+  45,00 € por día y **sobrevive a recargar**; tocar el viaje lleva a sus tres
+  gastos por 450,00 € —**el mismo número**—; "no sé cuántos días fue" los borra.
+  0 peticiones de red, 0 errores de consola.
+
+**Un defecto que encontró el recorrido y que no era de esta tarea:** los botones
+a la evolución y a los viajes vivían **solo al final del desglose del mes**, así
+que un mes sin movimientos —el 1 de cada mes, o uno que todavía no cargaste— los
+hacía desaparecer y esas pantallas quedaban inalcanzables. Ahora también están en
+Datos, en una tarjeta que dice que no dependen del mes.
 
 **Las tres preguntas, respondidas por el usuario (2026-08-28):**
 
