@@ -95,6 +95,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-026 | Tocar un grupo y ver los movimientos que contiene | **Hecha** | T-015 |
 | T-940 | Los dos gráficos de `Analisis1`, y la tabla en el orden del usuario | **Hecha** | T-021, T-918 |
 | T-941 | Fechas del viaje, orden por fecha de fin, y «Etiqueta» en vez de «Comentario» | **Hecha** | T-023 |
+| T-942 | Los dos gráficos del historial, interactivos: zoom, más marcas y tocar un punto | En curso (claude, 2026-08-29) | T-940 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
