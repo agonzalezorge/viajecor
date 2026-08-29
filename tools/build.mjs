@@ -40,6 +40,7 @@ const MODULOS = [
   'src/ui/colores.js',
   'src/ui/compartir.js',
   'src/ui/pantallas/cambio.js',
+  'src/ui/pantallas/series.js',
   'src/ui/pantallas/graficos.js',
   'src/ui/pantallas/resumen.js',
   'src/core/etiquetas.js',
@@ -52,6 +53,7 @@ const MODULOS = [
   'src/ui/pantallas/lista.js',
   'src/ui/pantallas/datos.js',
   'src/ui/pantallas/movimiento.js',
+  'src/ui/series-interaccion.js',
   'src/ui/app.js',
 ];
 

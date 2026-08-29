@@ -6,6 +6,15 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Cambiado
+- **Los dos gráficos del historial ahora se pueden recorrer.** Acercar con los
+  botones `−` / `+` o **pellizcando**, arrastrar para moverse, `Ver todo` para
+  volver, y **tocar un punto para ver en qué momento estás y cuánto valía cada
+  línea ahí** — el día o el mes completo y los valores, debajo del gráfico.
+
+  El eje pasó a tener cinco marcas en vez de dos, y una marquita por punto
+  mientras entren. La escala vertical se recalcula sobre lo que estás viendo:
+  acercarse a tres meses y seguir con la escala del año dejaría las líneas
+  planas. Ver ADR-038.
 - **«Comentario» ahora se llama «Etiqueta (agrupar por)»** en toda la app. El
   nombre viejo venía de la planilla y sonaba a nota suelta, cuando es de lo que
   dependen los totales por viaje y por gasto fijo. Lo que cambia es lo que se

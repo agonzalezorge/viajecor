@@ -26,6 +26,7 @@ import { dibujarEvolucion } from './pantallas/evolucion.js';
 import { dibujarEtiquetas, dibujarAvisoRenombrar, intentarRenombrar,
   intentarBorrarEtiqueta } from './pantallas/etiquetas.js';
 import { efectoDeRenombrar } from '../core/etiquetas.js';
+import { conectarSeries } from './series-interaccion.js';
 import { dibujarViajes, intentarFijarFechas, intentarBorrarFechas,
   dibujarDuracion } from './pantallas/viajes.js';
 import { dibujarMonedas, dibujarAvisoDecimales, efectoDeCambiarDecimales,
@@ -446,6 +447,11 @@ export function iniciar(documento, almacen) {
 
   function pintar() {
     raiz.innerHTML = dibujarApp(vista);
+    // Los gráficos que se pueden recorrer necesitan sus escuchadores cada vez,
+    // porque `innerHTML` tira los elementos viejos y con ellos los de antes.
+    // El zoom se pierde en cada repintado, y está bien: es cómo estás mirando,
+    // no un dato tuyo (T-942).
+    conectarSeries(raiz);
   }
 
   /**

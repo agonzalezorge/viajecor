@@ -95,7 +95,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-026 | Tocar un grupo y ver los movimientos que contiene | **Hecha** | T-015 |
 | T-940 | Los dos gráficos de `Analisis1`, y la tabla en el orden del usuario | **Hecha** | T-021, T-918 |
 | T-941 | Fechas del viaje, orden por fecha de fin, y «Etiqueta» en vez de «Comentario» | **Hecha** | T-023 |
-| T-942 | Los dos gráficos del historial, interactivos: zoom, más marcas y tocar un punto | En curso (claude, 2026-08-29) | T-940 |
+| T-942 | Los dos gráficos del historial, interactivos: zoom, más marcas y tocar un punto | **Hecha** | T-940 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -870,6 +870,43 @@ sin construir; con esta tarea dejó de haber ninguna, así que se borró junto c
 el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
 construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
 cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
+
+### T-942 · Los dos gráficos del historial, recorribles — **Hecha** (2026-08-29)
+**Depende de:** T-940 · **Pedida por el usuario (2026-08-29)** · **Tocó:**
+`ui/pantallas/series.js` (nuevo), `ui/series-interaccion.js` (nuevo),
+`graficos.js`, `app.js`, `estilos.css`
+
+Zoom, más marcas en el eje, y tocar un punto para ver el momento y los valores.
+
+**La decisión que lo hace testeable: el dibujo recibe una ventana de índices** y
+sigue siendo puro. El zoom es cambiar la ventana. Ver ADR-038.
+
+**Lo que quedó hecho, comprobado:**
+
+- Zoom con `−`, `+`, `Ver todo` **y** pellizco; arrastre para moverse.
+- Cinco etiquetas en el eje, siempre la primera y la última, y una marquita por
+  punto mientras entren.
+- Tocar un punto muestra **cuándo es y cuánto valía cada línea**, debajo del
+  gráfico y con el color de cada una al lado.
+- 34 tests nuevos. Once mutaciones a propósito: las once fallan.
+- Recorrido en el navegador con once meses y 330 días: tocar da
+  "marzo de 2026 · Ingresos 2100,00 € · Gastos 360,00 € · Saldo 1740,00 €" con su
+  guía y sus tres puntos; acercar mantiene a la vista el punto elegido; arrastrar
+  mueve **sin** elegir un punto; el pellizco con dos dedos acerca; en el
+  histórico el toque da el **día completo**. 0 peticiones de red, 0 errores.
+
+**Dos cosas que encontró el trabajo y no eran del pedido:**
+
+- **Acercar se atascaba en tres puntos**: el 60 % de un ancho de dos redondea a
+  dos, y el botón dejaba de hacer nada sin decir por qué. Ahora cada toque
+  angosta al menos un punto.
+- **Casi reporto un defecto que era de mi recorrido.** Tocar el gráfico "no
+  hacía nada"… porque `mouse.click` usa coordenadas de la pantalla y **no
+  desplaza la página**: el gráfico estaba abajo del pliegue (su caja daba
+  `y = −130`) y el clic caía en el vacío. Un recorrido que no mira dónde está el
+  elemento inventa defectos igual que los esconde.
+
+---
 
 ### T-941 · Fechas del viaje, orden por fecha de fin, y «Etiqueta» — **Hecha** (2026-08-28)
 **Depende de:** T-023 · **Pedida por el usuario (2026-08-28)** · **Tocó:**

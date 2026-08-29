@@ -128,7 +128,18 @@ En **Datos → Mirar el historial → Evolución** está la matriz mes × rubro,
 debajo los dos gráficos de tu `Analisis1`: **mes a mes** (ingresos, gastos y
 saldo de cada mes) y **todo lo que llevás gastado y cobrado** (el acumulado día
 por día desde el primer movimiento — ahí lo que se mira no es la altura sino si
-las dos líneas se separan o se juntan). Al final está el
+las dos líneas se separan o se juntan).
+
+**Los dos gráficos se recorren:**
+- **Tocá un punto** y abajo te dice el momento exacto y cuánto valía cada línea
+  ahí.
+- **Acercá** con `+` o **pellizcando** con dos dedos; alejá con `−`.
+- **Arrastrá** con un dedo para moverte por el tiempo.
+- **Ver todo** vuelve al principio.
+
+Al acercarte, la escala de arriba se recalcula sobre lo que estás mirando: por
+eso el número del techo cambia. Y el zoom se pierde si cambiás de pantalla, a
+propósito: es cómo estás mirando, no un dato tuyo. Al final está el
 botón *"Ver la evolución y los gastos fijos"*, que lleva a la matriz mes × rubro
 y a cuánto sale cada gasto fijo.
 

@@ -522,6 +522,75 @@ body {
 .linea-acumulado .traza.saldo { stroke: var(--texto); stroke-dasharray: 5 3; }
 .linea-acumulado .rotulo-traza.saldo { fill: var(--texto); }
 
+/* ── Los gráficos que se pueden recorrer (T-942) ─────────────────────────── */
+
+.grafico .linea-acumulado {
+  /* Sin esto, arrastrar el dedo dentro del gráfico desplaza la PÁGINA y el
+     gesto nunca llega al gráfico. Es la línea que hace que el zoom exista. */
+  touch-action: none;
+  cursor: grab;
+  margin-top: 0.5rem;
+}
+
+.controles-grafico {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.controles-grafico button { min-width: 3rem; }
+
+/* La leyenda y la lectura comparten forma: un cuadradito del color y el nombre.
+   Así lo que se lee abajo se ata a la línea de arriba sin depender del color
+   solo, que es lo que pide la guía de visualización. */
+.leyenda,
+.lectura {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+}
+
+.lectura { margin-top: 0.75rem; }
+.lectura .cuando { flex-basis: 100%; }
+
+.valor-serie { display: flex; align-items: center; gap: 0.375rem; }
+
+.marca-serie {
+  width: 0.75rem;
+  height: 0.1875rem;
+  border-radius: 0.125rem;
+  background: var(--texto-suave);
+}
+
+.marca-serie.gasto { background: var(--gasto); }
+.marca-serie.ingreso { background: var(--ingreso); }
+.marca-serie.saldo { background: var(--texto); }
+
+/* Las marcas del eje: finitas, una por punto mientras entren. */
+.linea-acumulado .marca { stroke: var(--borde); stroke-width: 1; }
+
+.linea-acumulado .marca-eje.inicio { text-anchor: start; }
+.linea-acumulado .marca-eje.medio { text-anchor: middle; }
+.linea-acumulado .marca-eje.fin { text-anchor: end; }
+
+/* La guía del punto elegido y sus puntos. */
+.linea-acumulado .guia {
+  stroke: var(--texto-suave);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.linea-acumulado .punto {
+  stroke: var(--superficie);
+  stroke-width: 2;
+}
+
+.linea-acumulado .punto.gasto { fill: var(--gasto); }
+.linea-acumulado .punto.ingreso { fill: var(--ingreso); }
+.linea-acumulado .punto.saldo { fill: var(--texto); }
+
 /* La línea del cero: más marcada que el eje, porque cruzarla significa algo. */
 .linea-acumulado .cero {
   stroke: var(--texto-suave);

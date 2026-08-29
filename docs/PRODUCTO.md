@@ -481,7 +481,9 @@ desde el almacenamiento del dispositivo, todos los casos de uso funcionan igual.
 **Muestra:** una fila por mes con el gasto de cada rubro, el total de gastos, el
 total de ingresos y el saldo; más una fila de **total** y una de **promedio**.
 
-**Y los dos gráficos de `Analisis1`** (T-940):
+**Y los dos gráficos de `Analisis1`** (T-940), que **se pueden recorrer**
+(T-942): acercar con los botones o pellizcando, arrastrar para moverse, y tocar
+un punto para ver **en qué momento estás y cuánto valía cada línea ahí**.
 - **Mes a mes:** ingresos, gastos y saldo de cada mes, en un solo eje, con la
   línea del cero cuando algún saldo es negativo.
 - **Todo lo que llevás gastado y cobrado:** el acumulado día por día de todo el

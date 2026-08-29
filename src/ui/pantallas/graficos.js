@@ -31,7 +31,9 @@
 // pueden comprobar.
 
 import { escapar } from '../app.js';
-import { formatearEuros, formatearMesCorto, formatearRubro } from '../../core/formato.js';
+import { formatearEuros, formatearFecha, formatearFechaLarga, formatearMes,
+  formatearMesCorto, formatearRubro } from '../../core/formato.js';
+import { dibujarSerie } from './series.js';
 import { franjaDeRubro } from '../colores.js';
 
 /** El radio de la torta y el medio del lienzo, en unidades del `viewBox`. */
@@ -189,95 +191,56 @@ export function dibujarAcumulado(dias, opciones = {}) {
 }
 
 /**
- * El acumulado de TODO el historial — T-940, pedido por el usuario.
+ * El acumulado de TODO el historial — T-940, ahora recorrible (T-942).
  *
- * Es el mismo dibujo que el del mes, con otros datos y otras etiquetas: la línea
- * del mes contesta "¿cómo vengo este mes?", esta contesta **"¿la distancia entre
- * lo que entra y lo que sale se está abriendo o cerrando?"**, que es una
- * pregunta que ninguna otra pantalla contesta.
- *
- * Reusa `dibujarLinea` a propósito. Dos dibujos de líneas acumuladas escritos
- * por separado terminarían con escalas y criterios distintos, y el usuario no
- * tendría forma de compararlos.
+ * Contesta lo que ninguna otra pantalla contesta: **si la distancia entre lo que
+ * entra y lo que sale se está abriendo o cerrando**. Con el zoom se puede además
+ * mirar un tramo corto, que era imposible con trescientos días en 300 píxeles.
  */
 export function dibujarAcumuladoHistorico(dias) {
-  if (dias.length < 2) return '';
-  const desde = formatearMesCorto(dias[0].mes);
-  const hasta = formatearMesCorto(dias[dias.length - 1].mes);
-  const dibujo = dibujarLinea(dias, {
-    rotuloInicio: desde,
-    rotuloFin: hasta,
-    // Sin esto el dibujo se anunciaba como "Acumulado del mes", que es el texto
-    // del otro gráfico: quien no lo ve escuchaba una descripción equivocada.
-    queEs: `Acumulado de todo el historial, de ${desde} a ${hasta}`,
+  return dibujarSerie({
+    id: 'acumulado-historico',
+    titulo: 'Todo lo que llevás gastado y cobrado',
+    nota: `Día por día desde el primer movimiento. Lo que importa acá no es la
+      altura sino <strong>si las dos líneas se separan o se juntan</strong>.`,
+    series: [
+      { clase: 'ingreso', nombre: 'Ingresos' },
+      { clase: 'gasto', nombre: 'Gastos' },
+    ],
+    puntos: dias.map((d) => ({
+      etiqueta: formatearMesCorto(d.mes),
+      // Lo que se lee al tocar un punto lleva el día completo: la etiqueta del
+      // eje dice el mes porque no entra más, pero el punto es de un día.
+      cuando: formatearFechaLarga(d.fecha),
+      valores: [d.ingresoAcumulado, d.gastoAcumulado],
+    })),
   });
-  if (dibujo === '') return '';
-
-  return `
-    <section class="tarjeta">
-      <h2>Todo lo que llevás gastado y cobrado</h2>
-      <p class="suave nota">Día por día desde el primer movimiento. Lo que importa
-      acá no es la altura sino <strong>si las dos líneas se separan o se
-      juntan</strong>.</p>
-      ${dibujo}
-    </section>
-  `;
 }
 
 /**
- * Ingresos, gastos y saldo mes a mes — T-940, pedido por el usuario.
+ * Ingresos, gastos y saldo mes a mes — T-940, ahora recorrible (T-942).
  *
  * **Tres series en un solo eje.** Son la misma unidad, así que comparten
  * escala: dos escalas en un mismo dibujo es la forma más común de mentir con un
- * gráfico. Y cada línea dice cuál es donde termina, en vez de en una referencia
- * aparte que hay que ir a buscar.
- *
- * **El saldo puede ser negativo**, así que la escala baja hasta el mes más
- * negativo y se dibuja la línea del cero. Sin ella, un saldo de −200 y uno de
- * +200 se ven como dos puntos cualesquiera y no se sabe cuál es cuál.
+ * gráfico. El saldo va punteado y en color de texto porque es un resultado de
+ * los otros dos, no una cosa más, y cuando alguno es negativo se dibuja la línea
+ * del cero: sin ella, −200 y +200 se ven como dos puntos cualesquiera.
  */
 export function dibujarMesAMes(filas) {
-  if (filas.length < 2) return '';
-
-  const valores = filas.flatMap((f) => [f.gastos, f.ingresos, f.saldo]);
-  const techo = Math.max(...valores, 0);
-  const piso = Math.min(...valores, 0);
-  if (techo === piso) return '';
-
-  const ANCHO = 300;
-  const ALTO = 140;
-
-  const x = (i) => corto((i / (filas.length - 1)) * ANCHO);
-  const y = (valor) => corto(ALTO - ((valor - piso) / (techo - piso)) * ALTO);
-
-  const linea = (campo) => filas.map((f, i) => `${x(i)},${y(f[campo])}`).join(' ');
-  const ultima = filas[filas.length - 1];
-
-  // La línea del cero solo si hay algo abajo de cero: dibujarla pegada al piso
-  // cuando nunca hubo saldo negativo es una raya que no dice nada.
-  const cero = piso < 0
-    ? `<line class="cero" x1="0" y1="${y(0)}" x2="${ANCHO}" y2="${y(0)}" />
-       <text class="marca-eje" x="0" y="${y(0) - 4}">0</text>`
-    : '';
-
-  return `
-    <section class="tarjeta">
-      <h2>Mes a mes</h2>
-      <p class="suave nota">Lo que entró, lo que salió y lo que quedó, mes por mes.</p>
-      <svg class="linea-acumulado" viewBox="-4 -18 ${ANCHO + 62} ${ALTO + 40}" role="img"
-           aria-label="Ingresos, gastos y saldo de cada mes, de ${escapar(formatearMesCorto(filas[0].mes))} a ${escapar(formatearMesCorto(ultima.mes))}">
-        <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
-        ${cero}
-        <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo))}</text>
-        <polyline class="traza ingreso" points="${linea('ingresos')}" />
-        <polyline class="traza gasto" points="${linea('gastos')}" />
-        <polyline class="traza saldo" points="${linea('saldo')}" />
-        <text class="rotulo-traza ingreso" x="${x(filas.length - 1) + 6}" y="${y(ultima.ingresos) + 4}">Ingresos</text>
-        <text class="rotulo-traza gasto" x="${x(filas.length - 1) + 6}" y="${y(ultima.gastos) + 4}">Gastos</text>
-        <text class="rotulo-traza saldo" x="${x(filas.length - 1) + 6}" y="${y(ultima.saldo) + 4}">Saldo</text>
-        <text class="marca-eje" x="0" y="${ALTO + 16}">${escapar(formatearMesCorto(filas[0].mes))}</text>
-        <text class="marca-eje fin" x="${ANCHO}" y="${ALTO + 16}">${escapar(formatearMesCorto(ultima.mes))}</text>
-      </svg>
-    </section>
-  `;
+  return dibujarSerie({
+    id: 'mes-a-mes',
+    titulo: 'Mes a mes',
+    nota: 'Lo que entró, lo que salió y lo que quedó, mes por mes.',
+    series: [
+      { clase: 'ingreso', nombre: 'Ingresos' },
+      { clase: 'gasto', nombre: 'Gastos' },
+      { clase: 'saldo', nombre: 'Saldo' },
+    ],
+    puntos: filas.map((f) => ({
+      etiqueta: formatearMesCorto(f.mes),
+      cuando: formatearMes(f.mes),
+      valores: [f.ingresos, f.gastos, f.saldo],
+    })),
+  });
 }
+

@@ -1293,3 +1293,68 @@ Hay un test que recorre **todas** las pantallas y falla si alguna vuelve a decir
 **La única excepción es el `.xlsx` exportado**, donde la columna sigue diciendo
 `Comentarios`: esa hoja existe para parecerse a la planilla de siempre, y esa es
 la palabra que su planilla usa.
+
+---
+
+## ADR-038 · El zoom es una ventana de índices, y el dibujo sigue siendo puro
+
+**Fecha:** 2026-08-29 · **Estado:** aceptada · **Tarea:** T-942
+
+**Lo que pidió el usuario:** que los dos gráficos del historial se puedan
+acercar, que tengan más marcas en el eje de las x, y que tocando un punto diga en
+qué momento está y cuánto valía cada línea ahí.
+
+**El problema de diseño:** un gráfico interactivo parece incompatible con
+ADR-022 —el dibujo es una función pura que devuelve texto HTML—. No lo es, si se
+elige bien qué es el estado.
+
+**La decisión: el dibujo recibe una VENTANA.**
+
+    interiorDeSerie(serie, ventana, seleccion) → el SVG de esa parte
+
+El zoom, el desplazamiento y el punto elegido no son más que **cambiar la ventana
+y volver a llamar a esa función**. Así lo que decide qué se ve —que es donde
+puede mentir— se prueba con `node --test`, y lo único que toca el navegador es
+traducir un dedo en una ventana (`ui/series-interaccion.js`).
+
+**La ventana son índices, no fechas.** Los datos vienen ordenados y sin huecos
+—`acumuladoHistorico()` devuelve todos los días, también los vacíos—, así que el
+índice *es* el tiempo, y el zoom no depende de que los puntos estén parejos.
+
+**Todo lo que la mueve pasa por `acomodarVentana()`**, que la mete adentro de la
+serie, le garantiza dos puntos y la endereza si viene dada vuelta. Repartir esa
+comprobación entre el zoom, el arrastre y el dibujo serían tres reglas que se
+separan, y la primera que se olvide deja **el gráfico vacío, sin error y sin
+aviso**, justo mientras el usuario mueve el dedo.
+
+**La escala vertical se calcula sobre lo que se ve.** Es lo que hace que el zoom
+sirva de algo: acercarse a tres meses de un año y seguir viendo la escala del año
+deja las tres líneas pegadas y planas.
+
+**Cinco etiquetas en el eje, siempre la primera y la última.** El pedido era "más
+coordenadas", pero once fechas en 300 píxeles se pisan y no se lee ninguna. Cinco
+repartidas parejo, y una marquita por punto mientras entren. Sin la primera y la
+última no se sabe **entre qué momentos** se está mirando, que es lo primero que
+hace falta después de acercar.
+
+**Lo que se lee al tocar va DEBAJO del gráfico, no flotando encima.** En un
+teléfono, un cartel flotante queda tapado por el dedo que lo pidió. Y lleva el
+color de cada línea al lado del nombre, para que se ate al dibujo sin depender
+solo del color.
+
+**Hay botones además del gesto.** El pellizco está y funciona, pero un gesto que
+el teléfono del usuario no interprete deja el gráfico sin salida — este proyecto
+ya pagó esa lección con el `<datalist>` que su Android no dibujaba (L-021). Los
+botones `−`, `+` y `Ver todo` siempre están, y se pueden probar.
+
+**Acercar angosta al menos un punto por toque.** Sin eso, con tres puntos a la
+vista el 60 % vuelve a redondear a tres y **el botón deja de hacer nada** sin
+decir por qué. Lo encontró un test que esperaba llegar al mínimo de dos.
+
+**El zoom se pierde al cambiar de pantalla, y está bien:** es cómo estás mirando,
+no un dato tuyo. Por eso vive en el elemento y no en el estado de la app
+(ADR-023), y no se guarda en ningún lado.
+
+**`touch-action: none` en el SVG** es la línea que hace que el zoom exista: sin
+ella, arrastrar el dedo adentro del gráfico desplaza la **página** y el gesto
+nunca llega.

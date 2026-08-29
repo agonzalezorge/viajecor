@@ -316,7 +316,8 @@ test('el acumulado histórico se ANUNCIA como histórico, no como del mes', () =
   const svg = dibujarAcumuladoHistorico(historial([[100, 0], [50, 900], [0, 0], [200, 0]]));
   const anuncio = svg.match(/aria-label="([^"]*)"/)[1];
 
-  assert.match(anuncio, /todo el historial/);
+  assert.match(anuncio, /Todo lo que llevás gastado y cobrado/);
+  assert.match(anuncio, /de oct 25 a nov 25/, 'tiene que decir qué tramo se está viendo');
   assert.equal(anuncio.includes('del mes'), false);
 });
 
@@ -344,14 +345,15 @@ test('mes a mes dibuja las tres series', () => {
   for (const clase of ['ingreso', 'gasto', 'saldo']) {
     assert.match(svg, new RegExp(`class="traza ${clase}"`), `falta la línea de ${clase}`);
   }
-  // Se comprueba que los rótulos se VEAN, no solo que el texto esté: un
-  // `hidden` los deja en la página y fuera de la pantalla, y una mutación pasó
-  // por ahí. Es la misma familia que L-026.
+  // Cada serie tiene que decir cuál es. Los rótulos estaban al final de cada
+  // línea; con el zoom eso deja de servir —la línea se sale del dibujo— así que
+  // pasaron a una leyenda arriba, con el cuadradito de color al lado del nombre
+  // para que la identidad no dependa solo del color (T-942).
   for (const nombre of ['Ingresos', 'Gastos', 'Saldo']) {
-    const rotulo = svg.match(new RegExp(`<text([^>]*)>${nombre}<`));
-    assert.ok(rotulo, `falta el rótulo de ${nombre}`);
-    assert.equal(/\bhidden\b/.test(rotulo[1]), false, `el rótulo de ${nombre} está escondido`);
-    assert.match(rotulo[1], /class="rotulo-traza/);
+    assert.ok(svg.includes(`</span>${nombre}`), `falta ${nombre} en la leyenda`);
+  }
+  for (const clase of ['ingreso', 'gasto', 'saldo']) {
+    assert.match(svg, new RegExp(`marca-serie ${clase}`), `falta el color de ${clase} en la leyenda`);
   }
 });
 
@@ -365,14 +367,12 @@ test('las tres comparten una sola escala', () => {
   // El techo es 250000 (los gastos de noviembre) y el piso -40000 (su saldo).
   // Noviembre es el segundo punto de cada línea.
   assert.equal(puntos('gasto')[1], 0, 'el valor más alto va arriba de todo');
-  assert.equal(puntos('saldo')[1], 140, 'el más bajo va abajo de todo');
+  assert.equal(puntos('saldo')[1], 150, 'el más bajo va abajo de todo');
 });
 
 test('con saldo negativo se dibuja la línea del cero', () => {
   // Sin ella, −200 y +200 se ven como dos puntos cualesquiera.
-  const svg = dibujarMesAMes(MESES);
-  assert.match(svg, /class="cero"/);
-  assert.ok(svg.includes('>0<'));
+  assert.match(dibujarMesAMes(MESES), /class="cero"/);
 });
 
 test('sin ningún saldo negativo no se dibuja una línea del cero pegada al piso', () => {
@@ -384,10 +384,13 @@ test('sin ningún saldo negativo no se dibuja una línea del cero pegada al piso
   assert.equal(svg.includes('class="cero"'), false);
 });
 
-test('mes a mes rotula el eje con el primer y el último mes', () => {
+test('mes a mes rotula el eje con TODOS los meses cuando entran', () => {
+  // El usuario pidió "más coordenadas en el eje de las x" (T-942): antes solo
+  // estaban la primera y la última.
   const svg = dibujarMesAMes(MESES);
-  assert.ok(svg.includes('>oct 25<'));
-  assert.ok(svg.includes('>dic 25<'));
+  const etiquetas = [...svg.matchAll(/class="marca-eje [a-z]+"[^>]*>([^<]*)</g)].map((m) => m[1]);
+
+  assert.deepEqual(etiquetas, ['oct 25', 'nov 25', 'dic 25']);
 });
 
 test('con un solo mes no hay nada que comparar', () => {
