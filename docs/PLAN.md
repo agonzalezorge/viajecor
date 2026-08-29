@@ -99,6 +99,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-943 | Buscar texto en todos los movimientos | **Hecha** | T-015 |
 | T-944 | Eje Y con marcas cada tanto, no solo el máximo | **Hecha** | T-942 |
 | T-945 | Dentro de cada día, lo último cargado arriba | **Hecha** | T-015 |
+| T-946 | Otros grupos de gastos: las etiquetas que no son ni gasto fijo ni viaje | En curso (claude, 2026-08-29) | T-022, T-023 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
