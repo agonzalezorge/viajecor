@@ -532,6 +532,55 @@ body {
 
 .linea-acumulado .marca-eje.fin { text-anchor: end; }
 
+/* ── Tocar un total y ver qué contiene (T-026) ───────────────────────────────
+   La fila entera es un botón, pero no tiene que PARECER un botón: es la misma
+   fila de siempre y lo único que cambia es que se puede tocar. Un botón con
+   borde y fondo por cada rubro convertiría el desglose en una botonera. */
+.fila-toque {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* El área de toque llega al borde de la tarjeta, no solo al texto. */
+  margin: 0;
+}
+
+.fila-toque > .rubro-cabeza { display: flex; }
+.fila-toque:active { opacity: 0.6; }
+
+/* La celda de la matriz: el número es el botón, y ocupa toda la celda para que
+   se pueda acertar con el pulgar. */
+.celda-toque {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--borde);
+}
+
+.celda-toque:active { opacity: 0.6; }
+
+/* El cartel de que la lista está filtrada. Va arriba de todo y con el botón de
+   salida al lado: una lista filtrada sin salida visible es una trampa. */
+.tarjeta.filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-left: 4px solid var(--acento, var(--ingreso));
+}
+
+.tarjeta.filtro p { margin: 0; }
+
 /* ── La matriz mes × rubro (T-021) ───────────────────────────────────────────
    Once meses por ocho rubros no entran a lo ancho de un teléfono. La tabla se
    desliza DENTRO de su caja —la página no se mueve— y la columna del mes queda

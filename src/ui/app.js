@@ -12,7 +12,7 @@
 // uno de "cómo se engancha un clic" solo se ve abriendo la app. Cuanto más de lo
 // primero y menos de lo segundo, más barato es equivocarse.
 
-import { hoy, mesDe, mesAnterior, mesSiguiente } from '../core/modelo.js';
+import { hoy, mesDe, mesAnterior, mesSiguiente, TIPO_GASTO } from '../core/modelo.js';
 import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado, riesgoDeGuardado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
@@ -356,8 +356,14 @@ export function irA(vista, nombre) {
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
   // media hora después y vería un error que ya no significa nada.
+  //
+  // **El filtro de la lista es de un momento por el mismo motivo** (T-026), y
+  // peor: una lista filtrada a la que se vuelve media hora después no se lee
+  // como filtrada, se lee como datos que faltan. Se llega a la lista filtrada
+  // tocando un total; se llega a la lista entera tocando la pestaña.
   const limpia = {
     ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null,
+    filtro: null,
     avisoRespaldo: null, mostrarRespaldo: false,
     importacion: null, errorImportar: null, avisoImportar: null,
     errorPlanilla: null, avisoPlanilla: null,
@@ -1129,6 +1135,26 @@ export function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
+    } else if (accion === 'ver-rubro') {
+      // Tocar una fila del desglose lleva a los movimientos que la componen,
+      // en el mes que se está mirando (T-026).
+      vista = { ...vista, pantalla: 'movimientos', error: null,
+        filtro: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro } };
+    } else if (accion === 'ver-comentario') {
+      // El comentario mira TODOS los meses: la tarjeta de gastos fijos habla de
+      // todo el historial, y mostrar solo el mes en curso sería una parte del
+      // número que se acaba de tocar.
+      vista = { ...vista, pantalla: 'movimientos', error: null,
+        filtro: { comentario: boton.dataset.comentario, todosLosMeses: true } };
+    } else if (accion === 'ver-celda') {
+      // Una celda de la matriz: además del filtro, hay que MOVER el mes, porque
+      // la celda es de un mes que no es necesariamente el que se está mirando.
+      vista = { ...vista, pantalla: 'movimientos', mes: boton.dataset.mes, error: null,
+        filtro: { tipo: TIPO_GASTO, rubro: boton.dataset.rubro } };
+    } else if (accion === 'ver-mes') {
+      vista = { ...vista, pantalla: 'movimientos', mes: boton.dataset.mes, error: null, filtro: null };
+    } else if (accion === 'quitar-filtro') {
+      vista = { ...vista, filtro: null };
     } else if (accion === 'agregar-moneda') {
       evento.preventDefault();
       agregarUnaMoneda();

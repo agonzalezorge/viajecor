@@ -118,13 +118,24 @@ export function dibujarDesglose(estado, mes, tipo) {
   const cuerpo = filas
     .map((fila) => `
       <li class="fila-rubro">
-        <div class="rubro-cabeza">
-          <span class="nombre">
-            <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
-            ${escapar(formatearRubro(fila.rubro))}
+        <!-- La fila entera es un botón: tocarla lleva a los movimientos que
+             componen ese número (T-026). Antes cada total era un callejón sin
+             salida: decía "Supermercado 410,00 €" y para saber de qué se
+             componía había que ir a la lista y leer el mes entero.
+
+             Se toca la FILA y no la porción de la torta: una porción del 1 % en
+             un teléfono son dos milímetros, y la fila está siempre, tenga el
+             tamaño que tenga. -->
+        <button type="button" class="fila-toque" data-accion="ver-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(fila.rubro)}">
+          <span class="rubro-cabeza">
+            <span class="nombre">
+              <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
+              ${escapar(formatearRubro(fila.rubro))}
+            </span>
+            <span class="importe">${escapar(formatearEuros(fila.total))}</span>
           </span>
-          <span class="importe">${escapar(formatearEuros(fila.total))}</span>
-        </div>
+        </button>
         <div class="rubro-pie suave">
           <span>${hayComparacion ? escapar(porcentaje(fila.porcentaje)) : ''}</span>
           <span>${fila.cuantos === 1 ? '1 movimiento' : `${fila.cuantos} movimientos`}</span>

@@ -40,10 +40,16 @@ export function dibujarCadencia(grupo) {
 export function dibujarGastoFijo(grupo) {
   return `
     <li class="fila-rubro">
-      <div class="rubro-cabeza">
-        <span class="nombre">${escapar(grupo.comentario)}</span>
-        <span class="importe">${escapar(formatearEuros(grupo.promedio))}</span>
-      </div>
+      <!-- Lleva a los pagos que componen ese promedio, en TODOS los meses: esta
+           tarjeta habla de todo el historial, así que mostrar solo el mes en
+           curso sería una parte del número que se acaba de tocar (T-026). -->
+      <button type="button" class="fila-toque" data-accion="ver-comentario"
+              data-comentario="${escapar(grupo.comentario)}">
+        <span class="rubro-cabeza">
+          <span class="nombre">${escapar(grupo.comentario)}</span>
+          <span class="importe">${escapar(formatearEuros(grupo.promedio))}</span>
+        </span>
+      </button>
       <div class="rubro-pie suave">
         <span>${escapar(dibujarCadencia(grupo))}</span>
         <span>${escapar(formatearEuros(grupo.total))} en total</span>

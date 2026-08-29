@@ -6,6 +6,15 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Agregado
+- **Tocar un total y ver de qué se compone.** La fila de un rubro en el resumen,
+  un gasto fijo, una celda de la matriz o un mes entero: todos llevan ahora a la
+  lista de movimientos filtrada. Antes cada número era un callejón sin salida.
+
+  La lista **dice en qué está filtrada, muestra el total de lo filtrado y trae la
+  salida al lado** — siete movimientos de doscientos sin decir por qué no se leen
+  como "filtrado" sino como datos perdidos. El filtro se limpia al cambiar de
+  pestaña: se llega filtrado tocando un total, se llega entero tocando la
+  pestaña. Ver ADR-034.
 - **`docs/USO.md`: la guía de uso**, escrita para quien usa la app y no para
   quien la programa. Empieza por cómo conseguir la versión correcta —la lección
   más cara de este proyecto—, sigue por dónde guardar el archivo en Android para

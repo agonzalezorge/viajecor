@@ -276,6 +276,46 @@ export function matrizMesRubro(estado, mesActual) {
 }
 
 /**
+ * Los movimientos que entran en un filtro — T-026.
+ *
+ * Existe para que tocar un agrupamiento lleve a **los movimientos que lo
+ * componen**. Hasta ahora cada total era un callejón sin salida: el resumen
+ * decía "Supermercado 410,00 €" y para saber de qué se componía había que ir a
+ * la lista y leer el mes entero.
+ *
+ * El filtro es un objeto con las claves que se quieran combinar:
+ *
+ *   - `tipo` y `rubro` — el desglose del mes y las celdas de la matriz.
+ *   - `comentario` — un gasto fijo o un viaje.
+ *   - `todosLosMeses` — mira todo el historial en vez de un mes. Lo necesita el
+ *     comentario: la tarjeta de gastos fijos habla de todos los meses, así que
+ *     tocarla y ver solo el mes en curso mostraría una parte del número que se
+ *     acaba de tocar, que es peor que no mostrar nada.
+ *
+ * Compara por la **clave normalizada** (RN-03): tocar `Luz` tiene que traer
+ * también los que se escribieron `luz`, porque son los mismos que se sumaron.
+ */
+export function movimientosFiltrados(estado, mes, filtro = {}) {
+  const todos = estado.movimientos ?? [];
+  const base = filtro.todosLosMeses ? todos : movimientosDelMes(todos, mes);
+
+  const igual = (a, b) => normalizarClave(String(a ?? '')) === normalizarClave(String(b ?? ''));
+
+  return base.filter((m) => {
+    if (filtro.tipo !== undefined && m.tipo !== filtro.tipo) return false;
+    if (filtro.rubro !== undefined && !igual(m.rubro, filtro.rubro)) return false;
+    if (filtro.comentario !== undefined && !igual(m.comentario, filtro.comentario)) return false;
+    return true;
+  });
+}
+
+/** Si un filtro no filtra nada, no es un filtro: es un objeto vacío. */
+export function hayFiltro(filtro) {
+  return filtro !== null && filtro !== undefined
+    && (filtro.tipo !== undefined || filtro.rubro !== undefined || filtro.comentario !== undefined);
+}
+
+/**
  * El promedio de gasto por día del mes.
  *
  * **Divide por los días transcurridos, no por los del mes**, cuando el mes es el

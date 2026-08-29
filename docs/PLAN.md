@@ -92,7 +92,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Lista** | T-015 |
-| T-026 | Tocar un grupo y ver los movimientos que contiene | En curso (claude, 2026-08-28) | T-015 |
+| T-026 | Tocar un grupo y ver los movimientos que contiene | **Hecha** | T-015 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -907,8 +907,30 @@ primero.
 
 ---
 
-### T-026 · Tocar un grupo y ver los movimientos que contiene
-**Estado:** Lista · **Depende de:** T-015 · **Pedida por el usuario (2026-08-28)**
+### T-026 · Tocar un grupo y ver los movimientos que contiene — **Hecha** (2026-08-28)
+**Depende de:** T-015 · **Pedida por el usuario (2026-08-28)** · **Tocó:**
+`core/calculos.js`, `lista.js`, `resumen.js`, `fijos.js`, `evolucion.js`,
+`app.js`, `estilos.css`
+
+**Lo que quedó hecho, comprobado:**
+
+- `movimientosFiltrados()` en `core/`, que compara por clave normalizada (RN-03):
+  tocar `Luz` trae también los que se escribieron `luz`, porque son los mismos
+  que se sumaron.
+- Las cuatro puertas: fila del desglose, fila de gasto fijo, celda de la matriz
+  y mes de la matriz. Las cuatro llevan a la lista filtrada.
+- **La lista dice en qué está filtrada, muestra el total de lo filtrado y trae
+  la salida al lado.** Ver ADR-034.
+- El filtro se limpia al cambiar de pestaña.
+- 17 tests nuevos. Nueve mutaciones a propósito: las nueve fallan.
+- Recorrido por el navegador: el desglose decía 61,40 € y la lista filtrada dice
+  **61,40 € y cuatro movimientos**; el gasto fijo decía 11,30 € de promedio y la
+  lista trae **seis pagos por 67,80 €** en todos los meses; una celda de la
+  matriz decía 63,90 y la lista **movió el mes a junio** y dice 63,90 €. 0
+  peticiones de red, 0 errores de consola.
+- **Una mutación sobrevivió a la primera vuelta**: vaciar el mes de la celda. El
+  test buscaba `data-mes` en toda la página y lo encontraba en el botón del mes.
+  Es L-024 otra vez; el test ahora mira dentro del botón de la celda.
 
 Hoy los agrupamientos son **callejones sin salida**: el resumen dice
 "Supermercado 410,00 €" y no hay forma de ver de qué se compone. Para saberlo hay

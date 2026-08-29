@@ -42,9 +42,19 @@ import { TIPO_GASTO, hoy, mesDe } from '../../core/modelo.js';
  * una vez. El cero se dibuja apagado: está —es una matriz, no puede faltar— pero
  * no compite con los números que sí dicen algo.
  */
-function celdaDeImporte(importe, extra = '') {
+function celdaDeImporte(importe, extra = '', toque = null) {
   const clase = importe === 0 ? 'importe vacio' : 'importe';
-  return `<td class="${clase}${extra}">${escapar(formatearNumero(importe, DECIMALES_EURO))}</td>`;
+  const numero = escapar(formatearNumero(importe, DECIMALES_EURO));
+
+  // Una celda con plata adentro lleva a los movimientos que la componen (T-026).
+  // La de cero no: no hay nada que mostrar, y un botón que abre una lista vacía
+  // es peor que una celda quieta.
+  const contenido = toque === null || importe === 0
+    ? numero
+    : `<button type="button" class="celda-toque" data-accion="ver-celda"
+               data-mes="${escapar(toque.mes)}" data-rubro="${escapar(toque.rubro)}">${numero}</button>`;
+
+  return `<td class="${clase}${extra}">${contenido}</td>`;
 }
 
 /**
@@ -72,15 +82,20 @@ export function dibujarEncabezadoMatriz(rubros) {
 }
 
 /** Una fila de mes. */
-export function dibujarFilaMes(fila) {
+export function dibujarFilaMes(fila, rubros = []) {
   const marca = fila.incompleto
     ? ' <abbr title="A este mes le falta un tipo de cambio: el total está incompleto">·</abbr>'
     : '';
 
   return `
     <tr>
-      <th scope="row" class="columna-mes">${escapar(formatearMesCorto(fila.mes))}${marca}</th>
-      ${fila.rubros.map((importe) => celdaDeImporte(importe)).join('')}
+      <th scope="row" class="columna-mes">
+        <!-- El mes lleva a todos los movimientos de ese mes. -->
+        <button type="button" class="celda-toque" data-accion="ver-mes"
+                data-mes="${escapar(fila.mes)}">${escapar(formatearMesCorto(fila.mes))}</button>${marca}
+      </th>
+      ${fila.rubros.map((importe, i) => celdaDeImporte(importe, '',
+        rubros[i] === undefined ? null : { mes: fila.mes, rubro: rubros[i] })).join('')}
       ${celdaDeImporte(fila.gastos, ' separada')}
       ${celdaDeImporte(fila.ingresos)}
       <td class="importe ${fila.saldo < 0 ? 'gasto' : 'ingreso'}">${escapar(formatearNumero(fila.saldo, DECIMALES_EURO))}</td>
@@ -160,7 +175,7 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
 
   // Del más nuevo al más viejo: lo que se mira primero es el mes pasado, no
   // octubre de hace un año.
-  const filas = [...matriz.filas].reverse().map(dibujarFilaMes).join('');
+  const filas = [...matriz.filas].reverse().map((f) => dibujarFilaMes(f, matriz.rubros)).join('');
 
   return `
     <section class="tarjeta">
@@ -172,7 +187,8 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
           <tfoot>${dibujarPieMatriz(matriz)}</tfoot>
         </table>
       </div>
-      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros. Los importes están en euros.</p>
+      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros. Los
+      importes están en euros, y tocando uno se ven los movimientos que lo componen.</p>
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>

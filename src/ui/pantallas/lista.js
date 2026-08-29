@@ -16,11 +16,13 @@
 // segunda frena los arrepentimientos, que son más frecuentes.
 
 import { escapar } from '../app.js';
+import { sumar } from '../../core/dinero.js';
 import { claseDeRubro } from '../colores.js';
-import { movimientosDelMes } from '../../core/calculos.js';
+import { movimientosDelMes, movimientosFiltrados, hayFiltro,
+  separarConvertibles } from '../../core/calculos.js';
 import { movimientoEnEuros, faltaCambioPara } from '../../core/cambio.js';
 import { decimalesDe } from '../../core/monedas.js';
-import { TIPO_GASTO } from '../../core/modelo.js';
+import { TIPO_GASTO, TIPO_INGRESO } from '../../core/modelo.js';
 import {
   formatearMonto,
   formatearEuros,
@@ -78,6 +80,19 @@ function importeDe(estado, movimiento) {
     // el usuario tiene que poder verlo para poder corregirlo o borrarlo.
     return { propio: `${movimiento.monto} ${movimiento.moneda}`, enEuros: null };
   }
+}
+
+/**
+ * El total de una lista de movimientos, en euros.
+ *
+ * **No cuenta como cero lo que no se puede convertir**: lo aparta, igual que
+ * `totalesDelMes()`. Si contara los sin cambio como cero, el total de la lista
+ * filtrada no cerraría con el número que el usuario acaba de tocar, y no habría
+ * forma de saber cuál de los dos creer.
+ */
+function totalDe(estado, movimientos) {
+  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio);
+  return sumar(convertibles.map((m) => movimientoEnEuros(m, estado.tipos_cambio, estado.monedas)));
 }
 
 function dibujarMovimiento(estado, movimiento, vista) {
@@ -150,11 +165,53 @@ export function dibujarDeshacer(vista) {
  * que se cargó: tenerlo arriba evita desplazarse por un mes entero para arreglar
  * un dedazo de hace dos minutos.
  */
+/**
+ * El cartel de que la lista está filtrada — T-026.
+ *
+ * **Es obligatorio y no decorativo.** Una lista que muestra siete movimientos de
+ * doscientos, sin decir por qué, no se lee como "filtrada": se lee como datos
+ * perdidos. Así que dice **en qué está filtrada** y trae la salida al lado.
+ */
+export function dibujarFiltro(vista) {
+  const filtro = vista.filtro;
+  if (!hayFiltro(filtro)) return '';
+
+  const partes = [];
+  if (filtro.rubro !== undefined) partes.push(formatearRubro(filtro.rubro));
+  if (filtro.comentario !== undefined) partes.push(filtro.comentario);
+  if (filtro.rubro === undefined && filtro.comentario === undefined && filtro.tipo !== undefined) {
+    partes.push(filtro.tipo === TIPO_GASTO ? 'gastos' : 'ingresos');
+  }
+  const cuando = filtro.todosLosMeses ? 'en todos los meses' : `en ${formatearMes(vista.mes)}`;
+
+  return `
+    <section class="tarjeta filtro" role="status">
+      <p>Mostrando solo <strong>${escapar(partes.join(' · '))}</strong> ${escapar(cuando)}.</p>
+      <button type="button" class="secundario" data-accion="quitar-filtro">Ver todo</button>
+    </section>
+  `;
+}
+
 export function dibujarLista(vista) {
   const { estado, mes } = vista;
-  const delMes = movimientosDelMes(estado.movimientos, mes);
+  const filtrada = hayFiltro(vista.filtro);
+  const delMes = filtrada
+    ? movimientosFiltrados(estado, mes, vista.filtro)
+    : movimientosDelMes(estado.movimientos, mes);
 
   if (delMes.length === 0) {
+    // Con un filtro puesto, "no hay movimientos en este mes" sería mentira: los
+    // hay, pero ninguno entra en el filtro. Y el botón de cargar uno nuevo sería
+    // el consejo equivocado: lo que hace falta es sacar el filtro.
+    if (filtrada) {
+      return `
+        ${dibujarDeshacer(vista)}
+        ${dibujarFiltro(vista)}
+        <section class="tarjeta">
+          <p class="suave">Ningún movimiento entra en este filtro.</p>
+        </section>
+      `;
+    }
     return `
       ${dibujarDeshacer(vista)}
       <section class="tarjeta">
@@ -186,10 +243,19 @@ export function dibujarLista(vista) {
     .join('');
 
   const cuantos = delMes.length === 1 ? '1 movimiento' : `${delMes.length} movimientos`;
+  const total = filtrada ? totalDe(estado, delMes) : null;
+
+  // Con filtro se muestra el total de lo filtrado: es el número que se venía a
+  // desarmar, y verlo repetido acá es la confirmación de que la lista de abajo
+  // es de verdad lo que compone ese total.
+  const encabezado = filtrada
+    ? `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total))}</strong></p>`
+    : `<p class="cuantos suave">${cuantos} en ${escapar(formatearMes(mes))}.</p>`;
 
   return `
     ${dibujarDeshacer(vista)}
-    <p class="cuantos suave">${cuantos} en ${escapar(formatearMes(mes))}.</p>
+    ${dibujarFiltro(vista)}
+    ${encabezado}
     ${cuerpo}
   `;
 }

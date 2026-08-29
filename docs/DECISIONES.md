@@ -1079,3 +1079,50 @@ moneda en la que se expresan todos los totales.
 Las tres son la misma lección de siempre en tres formas distintas: **un test que
 busca un pedazo no ve el conjunto**, y por eso el recorrido por el navegador es
 obligatorio y no opcional.
+
+---
+
+## ADR-034 · Un total que no se puede desarmar es un callejón sin salida
+
+**Fecha:** 2026-08-28 · **Estado:** aceptada · **Tarea:** T-026
+
+**El problema, dicho por el usuario:** *"quisiera poder hacerles click y ver
+todos los items que contiene cada una"*. Hasta ahora el resumen decía
+"Supermercado 410,00 €" y para saber de qué se componía había que ir a
+Movimientos y leer el mes entero. Cada agrupamiento de la app era un número que
+no se podía abrir.
+
+**Una sola solución para los cuatro lugares donde la app agrupa** —una fila del
+desglose, una fila de gastos fijos, una celda de la matriz y un mes de la
+matriz—: todos llevan a **la lista de movimientos, filtrada**. No son cuatro
+pantallas nuevas; es un filtro en la lista y cuatro puertas hacia él.
+
+**La lista filtrada TIENE que decir que lo está.** Es la parte obligatoria y no
+la decorativa: siete movimientos de doscientos, sin decir por qué, no se leen
+como "filtrado" sino como **datos perdidos**. Así que hay un cartel arriba de
+todo que dice en qué está filtrada y trae la salida al lado.
+
+**Y muestra el total de lo filtrado**, que es el número que se venía a desarmar.
+Verlo repetido arriba de la lista es la confirmación de que lo de abajo es de
+verdad lo que lo compone. Se comprobó en el navegador: el desglose decía
+61,40 €, la lista filtrada dice 61,40 € y cuatro movimientos.
+
+**El filtro es de un momento, no del estado**, y se limpia al cambiar de
+pestaña. Es el mismo razonamiento que ya estaba escrito para el aviso de
+"guardado" y el error de validación: una lista filtrada a la que se vuelve media
+hora después no se lee como filtrada. **Se llega filtrado tocando un total; se
+llega entero tocando la pestaña.**
+
+**El comentario mira todos los meses; el rubro, no.** La tarjeta de gastos fijos
+habla de todo el historial, así que tocarla y ver solo el mes en curso mostraría
+una parte del número que se acaba de tocar. El desglose del mes habla de un mes.
+Cada puerta hereda el alcance de lo que se tocó.
+
+**Se toca la fila, no la porción de la torta.** Una porción del 1 % en un
+teléfono son dos milímetros; la fila está siempre y tiene el mismo tamaño para
+todos los rubros. Por el mismo motivo, **una celda de la matriz en cero no lleva
+a ningún lado**: un botón que abre una lista vacía es peor que una celda quieta.
+
+**Un filtro sin resultados no dice "no hay movimientos en este mes"**, que sería
+mentira —los hay, ninguno entra en el filtro—, ni ofrece cargar uno nuevo, que
+sería el consejo equivocado. Dice lo que pasa y deja la salida a la vista.

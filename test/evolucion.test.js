@@ -70,7 +70,7 @@ test('cada columna de rubro lleva el color que ese rubro tiene en el resumen', (
 test('los meses van del más nuevo al más viejo', () => {
   // Lo primero que se mira es el mes pasado, no octubre del año anterior.
   const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-03');
-  const meses = [...html.matchAll(/scope="row" class="columna-mes">([a-z]{3} \d{2})/g)].map((m) => m[1]);
+  const meses = [...html.matchAll(/data-accion="ver-mes"[^>]*>([a-z]{3} \d{2})</g)].map((m) => m[1]);
 
   assert.deepEqual(meses, ['mar 26', 'feb 26', 'ene 26']);
 });
@@ -110,10 +110,11 @@ test('los importes no repiten el símbolo del euro noventa y nueve veces', () =>
   // Son once meses por nueve columnas de plata: el símbolo repetido en cada
   // celda se come una columna entera de rubro en un teléfono. Lo dice el pie.
   const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-03');
-  const celdas = [...html.matchAll(/<td[^>]*>([^<]*)<\/td>/g)].map((m) => m[1]);
+  const celdas = [...html.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)]
+    .map((m) => m[1].replace(/<[^>]*>/g, '').trim());
 
   assert.equal(celdas.filter((c) => c.includes('€')).length, 0);
-  assert.ok(html.includes('Los importes están en euros'), 'y entonces hay que decirlo');
+  assert.match(html.replace(/\s+/g, ' '), /Los importes están en euros/, 'y entonces hay que decirlo');
 });
 
 test('los importes van con cifras de ancho fijo', () => {
@@ -199,7 +200,7 @@ test('la tabla no tiene ningún tope de meses (L-001)', () => {
     }
   }
   const html = dibujarEvolucion({ estado: estadoCon(movimientos) }, '2026-03');
-  const filas = [...html.matchAll(/scope="row" class="columna-mes">[a-z]{3} \d{2}/g)];
+  const filas = [...html.matchAll(/data-accion="ver-mes"[^>]*>[a-z]{3} \d{2}</g)];
 
   assert.equal(filas.length, 60);
   assert.ok(html.includes('ene 21') && html.includes('dic 25'));

@@ -125,6 +125,12 @@ rubro con su lista al lado, y la línea del acumulado del mes. Al final está el
 botón *"Ver la evolución y los gastos fijos"*, que lleva a la matriz mes × rubro
 y a cuánto sale cada gasto fijo.
 
+**Cualquier total se puede tocar y ver de qué se compone.** Una fila del
+desglose, un gasto fijo, una celda de la matriz o un mes entero: te llevan a la
+lista con solo esos movimientos, con el total repetido arriba para que veas que
+cierra. La lista te dice en qué está filtrada y tiene *"Ver todo"* al lado.
+Tocando la pestaña **Movimientos** volvés a la lista entera.
+
 **Movimientos** es la lista, donde se corrige y se borra.
 
 **Datos** tiene los respaldos, la importación, los tipos de cambio y las monedas.
@@ -153,10 +159,10 @@ cargar y sus movimientos siguen contando.
 
 ## 6. Lo que todavía no está
 
-- **Gasto por viaje.** Falta decidir tres cosas primero (T-023).
+- **Gasto por viaje** (T-023).
 - **Ver y limpiar las etiquetas** que ya usaste, para renombrarlas o borrarlas
-  (T-025).
-- **Tocar un rubro y ver los movimientos que tiene adentro** (T-026).
+  (T-025). Hoy el comentario y el detalle son texto libre en cada movimiento: no
+  hay ninguna lista donde editarlos de una vez.
 
 Lo que se hace después está en [`PLAN.md`](PLAN.md), que es el archivo que manda.
 

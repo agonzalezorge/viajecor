@@ -537,6 +537,55 @@ body {
 
 .linea-acumulado .marca-eje.fin { text-anchor: end; }
 
+/* ── Tocar un total y ver qué contiene (T-026) ───────────────────────────────
+   La fila entera es un botón, pero no tiene que PARECER un botón: es la misma
+   fila de siempre y lo único que cambia es que se puede tocar. Un botón con
+   borde y fondo por cada rubro convertiría el desglose en una botonera. */
+.fila-toque {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* El área de toque llega al borde de la tarjeta, no solo al texto. */
+  margin: 0;
+}
+
+.fila-toque > .rubro-cabeza { display: flex; }
+.fila-toque:active { opacity: 0.6; }
+
+/* La celda de la matriz: el número es el botón, y ocupa toda la celda para que
+   se pueda acertar con el pulgar. */
+.celda-toque {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--borde);
+}
+
+.celda-toque:active { opacity: 0.6; }
+
+/* El cartel de que la lista está filtrada. Va arriba de todo y con el botón de
+   salida al lado: una lista filtrada sin salida visible es una trampa. */
+.tarjeta.filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-left: 4px solid var(--acento, var(--ingreso));
+}
+
+.tarjeta.filtro p { margin: 0; }
+
 /* ── La matriz mes × rubro (T-021) ───────────────────────────────────────────
    Once meses por ocho rubros no entran a lo ancho de un teléfono. La tabla se
    desliza DENTRO de su caja —la página no se mueve— y la columna del mes queda
@@ -2286,6 +2335,46 @@ function matrizMesRubro(estado, mesActual) {
     mesesDelPromedio: paraPromediar.length,
     dejaAfuera: enCurso.length > 0 && terminados.length > 0 ? mesActual : null,
   };
+}
+
+/**
+ * Los movimientos que entran en un filtro — T-026.
+ *
+ * Existe para que tocar un agrupamiento lleve a **los movimientos que lo
+ * componen**. Hasta ahora cada total era un callejón sin salida: el resumen
+ * decía "Supermercado 410,00 €" y para saber de qué se componía había que ir a
+ * la lista y leer el mes entero.
+ *
+ * El filtro es un objeto con las claves que se quieran combinar:
+ *
+ *   - `tipo` y `rubro` — el desglose del mes y las celdas de la matriz.
+ *   - `comentario` — un gasto fijo o un viaje.
+ *   - `todosLosMeses` — mira todo el historial en vez de un mes. Lo necesita el
+ *     comentario: la tarjeta de gastos fijos habla de todos los meses, así que
+ *     tocarla y ver solo el mes en curso mostraría una parte del número que se
+ *     acaba de tocar, que es peor que no mostrar nada.
+ *
+ * Compara por la **clave normalizada** (RN-03): tocar `Luz` tiene que traer
+ * también los que se escribieron `luz`, porque son los mismos que se sumaron.
+ */
+function movimientosFiltrados(estado, mes, filtro = {}) {
+  const todos = estado.movimientos ?? [];
+  const base = filtro.todosLosMeses ? todos : movimientosDelMes(todos, mes);
+
+  const igual = (a, b) => normalizarClave(String(a ?? '')) === normalizarClave(String(b ?? ''));
+
+  return base.filter((m) => {
+    if (filtro.tipo !== undefined && m.tipo !== filtro.tipo) return false;
+    if (filtro.rubro !== undefined && !igual(m.rubro, filtro.rubro)) return false;
+    if (filtro.comentario !== undefined && !igual(m.comentario, filtro.comentario)) return false;
+    return true;
+  });
+}
+
+/** Si un filtro no filtra nada, no es un filtro: es un objeto vacío. */
+function hayFiltro(filtro) {
+  return filtro !== null && filtro !== undefined
+    && (filtro.tipo !== undefined || filtro.rubro !== undefined || filtro.comentario !== undefined);
 }
 
 /**
@@ -6238,13 +6327,24 @@ function dibujarDesglose(estado, mes, tipo) {
   const cuerpo = filas
     .map((fila) => `
       <li class="fila-rubro">
-        <div class="rubro-cabeza">
-          <span class="nombre">
-            <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
-            ${escapar(formatearRubro(fila.rubro))}
+        <!-- La fila entera es un botón: tocarla lleva a los movimientos que
+             componen ese número (T-026). Antes cada total era un callejón sin
+             salida: decía "Supermercado 410,00 €" y para saber de qué se
+             componía había que ir a la lista y leer el mes entero.
+
+             Se toca la FILA y no la porción de la torta: una porción del 1 % en
+             un teléfono son dos milímetros, y la fila está siempre, tenga el
+             tamaño que tenga. -->
+        <button type="button" class="fila-toque" data-accion="ver-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(fila.rubro)}">
+          <span class="rubro-cabeza">
+            <span class="nombre">
+              <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
+              ${escapar(formatearRubro(fila.rubro))}
+            </span>
+            <span class="importe">${escapar(formatearEuros(fila.total))}</span>
           </span>
-          <span class="importe">${escapar(formatearEuros(fila.total))}</span>
-        </div>
+        </button>
         <div class="rubro-pie suave">
           <span>${hayComparacion ? escapar(porcentaje(fila.porcentaje)) : ''}</span>
           <span>${fila.cuantos === 1 ? '1 movimiento' : `${fila.cuantos} movimientos`}</span>
@@ -6649,10 +6749,16 @@ function dibujarCadencia(grupo) {
 function dibujarGastoFijo(grupo) {
   return `
     <li class="fila-rubro">
-      <div class="rubro-cabeza">
-        <span class="nombre">${escapar(grupo.comentario)}</span>
-        <span class="importe">${escapar(formatearEuros(grupo.promedio))}</span>
-      </div>
+      <!-- Lleva a los pagos que componen ese promedio, en TODOS los meses: esta
+           tarjeta habla de todo el historial, así que mostrar solo el mes en
+           curso sería una parte del número que se acaba de tocar (T-026). -->
+      <button type="button" class="fila-toque" data-accion="ver-comentario"
+              data-comentario="${escapar(grupo.comentario)}">
+        <span class="rubro-cabeza">
+          <span class="nombre">${escapar(grupo.comentario)}</span>
+          <span class="importe">${escapar(formatearEuros(grupo.promedio))}</span>
+        </span>
+      </button>
       <div class="rubro-pie suave">
         <span>${escapar(dibujarCadencia(grupo))}</span>
         <span>${escapar(formatearEuros(grupo.total))} en total</span>
@@ -6750,9 +6856,19 @@ function dibujarGastosFijos(estado) {
  * una vez. El cero se dibuja apagado: está —es una matriz, no puede faltar— pero
  * no compite con los números que sí dicen algo.
  */
-function celdaDeImporte(importe, extra = '') {
+function celdaDeImporte(importe, extra = '', toque = null) {
   const clase = importe === 0 ? 'importe vacio' : 'importe';
-  return `<td class="${clase}${extra}">${escapar(formatearNumero(importe, DECIMALES_EURO))}</td>`;
+  const numero = escapar(formatearNumero(importe, DECIMALES_EURO));
+
+  // Una celda con plata adentro lleva a los movimientos que la componen (T-026).
+  // La de cero no: no hay nada que mostrar, y un botón que abre una lista vacía
+  // es peor que una celda quieta.
+  const contenido = toque === null || importe === 0
+    ? numero
+    : `<button type="button" class="celda-toque" data-accion="ver-celda"
+               data-mes="${escapar(toque.mes)}" data-rubro="${escapar(toque.rubro)}">${numero}</button>`;
+
+  return `<td class="${clase}${extra}">${contenido}</td>`;
 }
 
 /**
@@ -6780,15 +6896,20 @@ function dibujarEncabezadoMatriz(rubros) {
 }
 
 /** Una fila de mes. */
-function dibujarFilaMes(fila) {
+function dibujarFilaMes(fila, rubros = []) {
   const marca = fila.incompleto
     ? ' <abbr title="A este mes le falta un tipo de cambio: el total está incompleto">·</abbr>'
     : '';
 
   return `
     <tr>
-      <th scope="row" class="columna-mes">${escapar(formatearMesCorto(fila.mes))}${marca}</th>
-      ${fila.rubros.map((importe) => celdaDeImporte(importe)).join('')}
+      <th scope="row" class="columna-mes">
+        <!-- El mes lleva a todos los movimientos de ese mes. -->
+        <button type="button" class="celda-toque" data-accion="ver-mes"
+                data-mes="${escapar(fila.mes)}">${escapar(formatearMesCorto(fila.mes))}</button>${marca}
+      </th>
+      ${fila.rubros.map((importe, i) => celdaDeImporte(importe, '',
+        rubros[i] === undefined ? null : { mes: fila.mes, rubro: rubros[i] })).join('')}
       ${celdaDeImporte(fila.gastos, ' separada')}
       ${celdaDeImporte(fila.ingresos)}
       <td class="importe ${fila.saldo < 0 ? 'gasto' : 'ingreso'}">${escapar(formatearNumero(fila.saldo, DECIMALES_EURO))}</td>
@@ -6868,7 +6989,7 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
 
   // Del más nuevo al más viejo: lo que se mira primero es el mes pasado, no
   // octubre de hace un año.
-  const filas = [...matriz.filas].reverse().map(dibujarFilaMes).join('');
+  const filas = [...matriz.filas].reverse().map((f) => dibujarFilaMes(f, matriz.rubros)).join('');
 
   return `
     <section class="tarjeta">
@@ -6880,7 +7001,8 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
           <tfoot>${dibujarPieMatriz(matriz)}</tfoot>
         </table>
       </div>
-      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros. Los importes están en euros.</p>
+      <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros. Los
+      importes están en euros, y tocando uno se ven los movimientos que lo componen.</p>
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
@@ -6905,6 +7027,7 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
 //
 // La segunda es la que de verdad sirve. La primera frena los accidentes; la
 // segunda frena los arrepentimientos, que son más frecuentes.
+
 
 
 
@@ -6960,6 +7083,19 @@ function importeDe(estado, movimiento) {
     // el usuario tiene que poder verlo para poder corregirlo o borrarlo.
     return { propio: `${movimiento.monto} ${movimiento.moneda}`, enEuros: null };
   }
+}
+
+/**
+ * El total de una lista de movimientos, en euros.
+ *
+ * **No cuenta como cero lo que no se puede convertir**: lo aparta, igual que
+ * `totalesDelMes()`. Si contara los sin cambio como cero, el total de la lista
+ * filtrada no cerraría con el número que el usuario acaba de tocar, y no habría
+ * forma de saber cuál de los dos creer.
+ */
+function totalDe(estado, movimientos) {
+  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio);
+  return sumar(convertibles.map((m) => movimientoEnEuros(m, estado.tipos_cambio, estado.monedas)));
 }
 
 function dibujarMovimiento(estado, movimiento, vista) {
@@ -7032,11 +7168,53 @@ function dibujarDeshacer(vista) {
  * que se cargó: tenerlo arriba evita desplazarse por un mes entero para arreglar
  * un dedazo de hace dos minutos.
  */
+/**
+ * El cartel de que la lista está filtrada — T-026.
+ *
+ * **Es obligatorio y no decorativo.** Una lista que muestra siete movimientos de
+ * doscientos, sin decir por qué, no se lee como "filtrada": se lee como datos
+ * perdidos. Así que dice **en qué está filtrada** y trae la salida al lado.
+ */
+function dibujarFiltro(vista) {
+  const filtro = vista.filtro;
+  if (!hayFiltro(filtro)) return '';
+
+  const partes = [];
+  if (filtro.rubro !== undefined) partes.push(formatearRubro(filtro.rubro));
+  if (filtro.comentario !== undefined) partes.push(filtro.comentario);
+  if (filtro.rubro === undefined && filtro.comentario === undefined && filtro.tipo !== undefined) {
+    partes.push(filtro.tipo === TIPO_GASTO ? 'gastos' : 'ingresos');
+  }
+  const cuando = filtro.todosLosMeses ? 'en todos los meses' : `en ${formatearMes(vista.mes)}`;
+
+  return `
+    <section class="tarjeta filtro" role="status">
+      <p>Mostrando solo <strong>${escapar(partes.join(' · '))}</strong> ${escapar(cuando)}.</p>
+      <button type="button" class="secundario" data-accion="quitar-filtro">Ver todo</button>
+    </section>
+  `;
+}
+
 function dibujarLista(vista) {
   const { estado, mes } = vista;
-  const delMes = movimientosDelMes(estado.movimientos, mes);
+  const filtrada = hayFiltro(vista.filtro);
+  const delMes = filtrada
+    ? movimientosFiltrados(estado, mes, vista.filtro)
+    : movimientosDelMes(estado.movimientos, mes);
 
   if (delMes.length === 0) {
+    // Con un filtro puesto, "no hay movimientos en este mes" sería mentira: los
+    // hay, pero ninguno entra en el filtro. Y el botón de cargar uno nuevo sería
+    // el consejo equivocado: lo que hace falta es sacar el filtro.
+    if (filtrada) {
+      return `
+        ${dibujarDeshacer(vista)}
+        ${dibujarFiltro(vista)}
+        <section class="tarjeta">
+          <p class="suave">Ningún movimiento entra en este filtro.</p>
+        </section>
+      `;
+    }
     return `
       ${dibujarDeshacer(vista)}
       <section class="tarjeta">
@@ -7068,10 +7246,19 @@ function dibujarLista(vista) {
     .join('');
 
   const cuantos = delMes.length === 1 ? '1 movimiento' : `${delMes.length} movimientos`;
+  const total = filtrada ? totalDe(estado, delMes) : null;
+
+  // Con filtro se muestra el total de lo filtrado: es el número que se venía a
+  // desarmar, y verlo repetido acá es la confirmación de que la lista de abajo
+  // es de verdad lo que compone ese total.
+  const encabezado = filtrada
+    ? `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total))}</strong></p>`
+    : `<p class="cuantos suave">${cuantos} en ${escapar(formatearMes(mes))}.</p>`;
 
   return `
     ${dibujarDeshacer(vista)}
-    <p class="cuantos suave">${cuantos} en ${escapar(formatearMes(mes))}.</p>
+    ${dibujarFiltro(vista)}
+    ${encabezado}
     ${cuerpo}
   `;
 }
@@ -8276,8 +8463,14 @@ function irA(vista, nombre) {
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga
   // media hora después y vería un error que ya no significa nada.
+  //
+  // **El filtro de la lista es de un momento por el mismo motivo** (T-026), y
+  // peor: una lista filtrada a la que se vuelve media hora después no se lee
+  // como filtrada, se lee como datos que faltan. Se llega a la lista filtrada
+  // tocando un total; se llega a la lista entera tocando la pestaña.
   const limpia = {
     ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null,
+    filtro: null,
     avisoRespaldo: null, mostrarRespaldo: false,
     importacion: null, errorImportar: null, avisoImportar: null,
     errorPlanilla: null, avisoPlanilla: null,
@@ -9049,6 +9242,26 @@ function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
+    } else if (accion === 'ver-rubro') {
+      // Tocar una fila del desglose lleva a los movimientos que la componen,
+      // en el mes que se está mirando (T-026).
+      vista = { ...vista, pantalla: 'movimientos', error: null,
+        filtro: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro } };
+    } else if (accion === 'ver-comentario') {
+      // El comentario mira TODOS los meses: la tarjeta de gastos fijos habla de
+      // todo el historial, y mostrar solo el mes en curso sería una parte del
+      // número que se acaba de tocar.
+      vista = { ...vista, pantalla: 'movimientos', error: null,
+        filtro: { comentario: boton.dataset.comentario, todosLosMeses: true } };
+    } else if (accion === 'ver-celda') {
+      // Una celda de la matriz: además del filtro, hay que MOVER el mes, porque
+      // la celda es de un mes que no es necesariamente el que se está mirando.
+      vista = { ...vista, pantalla: 'movimientos', mes: boton.dataset.mes, error: null,
+        filtro: { tipo: TIPO_GASTO, rubro: boton.dataset.rubro } };
+    } else if (accion === 'ver-mes') {
+      vista = { ...vista, pantalla: 'movimientos', mes: boton.dataset.mes, error: null, filtro: null };
+    } else if (accion === 'quitar-filtro') {
+      vista = { ...vista, filtro: null };
     } else if (accion === 'agregar-moneda') {
       evento.preventDefault();
       agregarUnaMoneda();
