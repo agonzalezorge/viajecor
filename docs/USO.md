@@ -178,15 +178,36 @@ decisión de unirlos es tuya.
 
 ---
 
-## 7. Lo que todavía no está
+## 7. Cuánto costó un viaje
 
-- **Gasto por viaje** (T-023).
+**Datos → Mirar el historial → Gasto por viaje**, o desde el final del resumen
+del mes.
+
+**Un viaje es un comentario con al menos un gasto del rubro «viajes».** O sea:
+cargá el pasaje o el hotel con rubro *viajes* y el nombre del viaje en el
+comentario, y desde ahí **todo lo que lleve ese comentario se suma al viaje** —
+las comidas, el transporte, el supermercado—, no solo lo del rubro «viajes».
+
+**Los días los escribís vos.** La app no los deduce de la primera y la última
+fecha con gastos: podés haber salido dos días antes de anotar el primero, y ese
+número saldría más alto de lo real sin avisarte. Mientras no los escribas **no
+hay gasto por día**, y *"No sé cuántos días fue"* es una respuesta válida.
+
+**Ojo con dos viajes viejos.** En tu planilla, París y Costa Rica sumaban a mano
+el vuelo y el alojamiento adentro de la fórmula (`=96+SUMIFS(...)`,
+`=850+...`). Esos importes **nunca fueron un movimiento**, así que acá esos dos
+viajes van a dar 96 € y 850 € más bajos. Si querés que cierren, cargalos como lo
+que son: un gasto con su fecha, su rubro y el comentario del viaje.
+
+---
+
+## 8. Lo que todavía no está
 
 Lo que se hace después está en [`PLAN.md`](PLAN.md), que es el archivo que manda.
 
 ---
 
-## 8. Si algo no anda
+## 9. Si algo no anda
 
 **"No puedo compartir"** — compartir desde un archivo abierto con `file://` está
 bloqueado por el navegador; no es un error de la app. Usá **Descargar**, que
