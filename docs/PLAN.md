@@ -97,7 +97,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-941 | Fechas del viaje, orden por fecha de fin, y «Etiqueta» en vez de «Comentario» | **Hecha** | T-023 |
 | T-942 | Los dos gráficos del historial, interactivos: zoom, más marcas y tocar un punto | **Hecha** | T-940 |
 | T-943 | Buscar texto en todos los movimientos | **Hecha** | T-015 |
-| T-944 | Eje Y con marcas cada tanto, no solo el máximo | **Lista** | T-942 |
+| T-944 | Eje Y con marcas cada tanto, no solo el máximo | En curso (claude, 2026-08-29) | T-942 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
