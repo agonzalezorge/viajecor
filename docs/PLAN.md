@@ -100,7 +100,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
 | T-906 | Exportar a `.xlsx` con la forma de la planilla | **Hecha** (falta abrirlo en Excel de verdad: T-019) | T-016, T-018 |
-| T-910 | Hoja de análisis mes × rubro dentro del `.xlsx` | En curso (claude, 2026-08-28) | T-906, T-021 |
+| T-910 | Hoja de análisis mes × rubro dentro del `.xlsx` | **Hecha** | T-906, T-021 |
 | **T-950** | **Avisar cuando el navegador no puede guardar** | **Hecha** | T-004 |
 | T-911 | La barra del desglose mide el porcentaje real | **Hecha** | T-014 |
 | T-912 | Orden de campos y autocompletado del comentario | **Hecha** | T-011 |
@@ -1213,7 +1213,8 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   **Lo que queda para otra tarea:** la hoja de análisis con la matriz mes ×
   rubro. Los bloques por mes —`GASTOS POR TIPO`, `INGRESOS POR TIPO`, `TOTALES`
   y `GASTO POR DÍA`— están hechos. → T-910.
-- **T-910 · Hoja de análisis mes × rubro dentro del `.xlsx`** — una segunda hoja
+- **T-910 · Hoja de análisis mes × rubro dentro del `.xlsx`** — **Hecha**
+  (2026-08-28). Una segunda hoja
   en el archivo exportado, con la matriz mes × rubro y sus filas de total y de
   promedio, como la hoja `Analisis1` de la planilla original.
 
@@ -1221,10 +1222,27 @@ Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
   propia en vez de dejarla en una frase: **lo que no tiene tarea se pierde**, y
   este plan es el único lugar donde el proyecto se acuerda de las cosas.
 
-  Depende de T-021 no por el código sino por la decisión: la matriz en pantalla
-  y la matriz en el Excel tienen que contar lo mismo, y conviene decidir una vez
-  cómo se arma —qué va en las filas, qué en las columnas, cómo se muestran los
-  meses sin movimientos— y no dos veces distinto. *(Depende de T-906, T-021.)*
+  Dependía de T-021 no por el código sino por la decisión: la matriz en pantalla
+  y la matriz en el Excel tienen que contar lo mismo. Se resolvió de la única
+  forma que no se puede separar sola: **las dos leen `matrizMesRubro()`**. Dos
+  cálculos para la misma tabla terminan diciendo cosas distintas, y el usuario no
+  tendría a cuál creerle.
+
+  **Lo que quedó hecho, comprobado:**
+
+  - Segunda hoja `Evolución` en el `.xlsx`, con la matriz, el total y el
+    promedio. Los meses van del más viejo al más nuevo, como `Analisis1`; en la
+    pantalla van al revés, y a propósito.
+  - **La regla del promedio va escrita en la propia hoja**, debajo de la tabla.
+    Es toda la diferencia con `Analisis1` (L-006, ADR-031): una planilla que se
+    abre dentro de un año tiene que poder explicarse sola.
+  - Los encabezados llevan el color de cada rubro, el mismo de la app.
+  - 13 tests nuevos. Ocho mutaciones a propósito: las ocho fallan.
+  - **Comprobado con openpyxl**, que es otro programa: 138 celdas leídas del
+    archivo coinciden una por una con lo que la app calcula, incluida la
+    comprobación de que los ocho rubros de cada fila sumen su columna de gastos.
+  - Y **bajado desde la app en un navegador real** con once meses adentro: el
+    archivo trae las dos hojas y cierra. 0 peticiones de red, 0 errores.
 
 ---
 

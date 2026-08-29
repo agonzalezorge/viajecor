@@ -10,7 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  crearPlanilla, hojaDeMovimientos, fechaDeExcel, nombreDeLaPlanilla, TIPO_XLSX,
+  crearPlanilla, hojaDeMovimientos, hojaDeAnalisis, fechaDeExcel, nombreDeLaPlanilla, TIPO_XLSX,
 } from '../src/datos/xlsx.js';
 import { crearMovimiento, TIPO_GASTO } from '../src/core/modelo.js';
 import { franjaDeRubro } from '../src/core/paleta.js';
@@ -35,7 +35,7 @@ const mov = (fecha, rubro, monto, tipo = 'G', moneda = 'EUR', extra = {}) =>
 
 /** Saca un archivo de adentro del .xlsx, que es un ZIP. */
 async function leerDelZip(bytes, nombre) {
-  const { writeFile, readFile, mkdtemp } = await import('node:fs/promises');
+  const { writeFile, mkdtemp } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
   const { execFileSync } = await import('node:child_process');
@@ -43,8 +43,12 @@ async function leerDelZip(bytes, nombre) {
   const carpeta = await mkdtemp(join(tmpdir(), 'viajecor-'));
   const archivo = join(carpeta, 'planilla.xlsx');
   await writeFile(archivo, bytes);
-  execFileSync('unzip', ['-o', '-q', archivo, nombre, '-d', carpeta]);
-  return readFile(join(carpeta, nombre), 'utf8');
+  // `-p` escupe el contenido por la salida en vez de extraerlo a un archivo.
+  // Extraerlo obligaba a leerlo después por su nombre, y el nombre puede llevar
+  // corchetes —`[Content_Types].xml`— que `unzip` interpreta como comodín: hay
+  // que escribirlo `[[]Content_Types].xml` para buscarlo y `[Content_Types].xml`
+  // para leerlo. Con `-p` no hay dos nombres.
+  return execFileSync('unzip', ['-p', archivo, nombre], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 }
 
 /** El número de fila de una referencia. `AN17` es la fila 17, no `NaN`. */
@@ -60,9 +64,13 @@ function filaDe_(enJ, nombre) {
   return encontrado[0].slice(1);
 }
 
-/** Las celdas de la hoja, como `{ A6: '54.3' }`, para poder afirmar sobre ellas. */
+/** Las celdas de la hoja de movimientos, como `{ A6: '54.3' }`. */
 function celdasDe(estado) {
-  const { xml } = hojaDeMovimientos(estado);
+  return celdasDelXml(hojaDeMovimientos(estado).xml);
+}
+
+/** Lo mismo para el XML de cualquier hoja: lo usa también la de análisis. */
+function celdasDelXml(xml) {
   const celdas = {};
   // Dos formas de celda: con contenido (`<c …>…</c>`) y vacía con formato
   // (`<c … />`). Un regex que solo entiende la primera no falla: se desalinea y
@@ -500,4 +508,155 @@ test('un importe que no es número se rechaza en vez de valer 0', () => {
   roto.movimientos[0].monto = 'diez';
 
   assert.throws(() => hojaDeMovimientos(roto));
+});
+
+
+// ── La hoja de análisis: la matriz mes × rubro (T-910) ───────────────────────
+//
+// Es la hoja `Analisis1` de la planilla original. Lo que se prueba acá es que
+// cuente **lo mismo que la pantalla** —las dos leen `matrizMesRubro()`, así que
+// lo que puede separarse es cómo se escribe— y que la regla del promedio quede
+// escrita en la propia hoja, que es lo único que `Analisis1` no hacía.
+
+const TRES_MESES = () => estadoCon([
+  mov('2026-01-10', 'viajes', '100'),
+  mov('2026-01-11', 'salud', '40'),
+  mov('2026-02-10', 'viajes', '200'),
+  mov('2026-02-01', 'trabajo', '900', 'I'),
+  mov('2026-03-10', 'viajes', '300'),
+]);
+
+test('la hoja de análisis tiene una fila por mes y una columna por rubro', () => {
+  const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
+
+  // Fila 2: el mes, ocho rubros, gastos, ingresos, saldo. De B a M.
+  assert.equal(celdas.B2, 'MES');
+  assert.equal(celdas.C2, 'GASTOS FIJOS');
+  assert.equal(celdas.J2, 'OTROS');
+  assert.equal(celdas.K2, 'GASTOS');
+  assert.equal(celdas.M2, 'SALDO');
+});
+
+test('los meses van del más viejo al más nuevo, como en Analisis1', () => {
+  // Al revés que en la pantalla, y a propósito: una planilla se lee de arriba
+  // abajo como una línea de tiempo; en la app lo primero que se mira es el mes
+  // pasado.
+  const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
+
+  assert.equal(celdas.B3, 'ene 26');
+  assert.equal(celdas.B4, 'feb 26');
+  assert.equal(celdas.B5, 'mar 26');
+});
+
+test('cada gasto cae en su celda de mes y rubro', () => {
+  const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
+
+  // Viajes es la columna F (cuarto rubro), salud la I (séptimo).
+  assert.equal(Number(celdas.F3), 100);
+  assert.equal(Number(celdas.I3), 40);
+  assert.equal(Number(celdas.F4), 200);
+  assert.equal(Number(celdas.I4), 0, 'el cero tiene que estar escrito');
+});
+
+test('los ocho rubros están aunque el mes no tenga ninguno', () => {
+  const celdas = celdasDelXml(hojaDeAnalisis(estadoCon([mov('2026-01-10', 'viajes', '100')]), '2026-09').xml);
+  const fila = ['C3', 'D3', 'E3', 'F3', 'G3', 'H3', 'I3', 'J3'].map((r) => celdas[r]);
+
+  assert.equal(fila.filter((v) => v !== undefined).length, 8);
+});
+
+test('los rubros de cada fila suman su columna de gastos', () => {
+  // Es la comprobación que hace que la hoja no pueda esconder plata.
+  const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
+
+  for (const fila of [3, 4, 5]) {
+    const rubros = ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+      .reduce((t, col) => t + Number(celdas[`${col}${fila}`] ?? 0), 0);
+    assert.equal(Math.round(rubros * 100), Math.round(Number(celdas[`K${fila}`]) * 100),
+      `la fila ${fila} no cierra`);
+  }
+});
+
+test('están el total y el promedio, y son distintos', () => {
+  const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-09').xml);
+
+  assert.equal(celdas.B6, 'TOTAL');
+  assert.equal(celdas.B7, 'PROMEDIO');
+  assert.equal(Number(celdas.K6), 640);
+  // 640 / 3 son 213,3333…: la hoja escribe dos decimales, como los euros.
+  assert.equal(Number(celdas.K7), 213.33);
+});
+
+test('el promedio deja afuera el mes en curso, igual que la pantalla', () => {
+  const celdas = celdasDelXml(hojaDeAnalisis(TRES_MESES(), '2026-03').xml);
+
+  assert.equal(Number(celdas.K6), 640, 'el total sí incluye marzo');
+  assert.equal(Number(celdas.K7), 170, 'el promedio son 340 sobre dos meses');
+});
+
+test('LA REGLA DEL PROMEDIO VA ESCRITA EN LA HOJA', () => {
+  // Es toda la diferencia con `Analisis1`, donde el total sumaba once meses y el
+  // promedio promediaba diez sin que en ningún lado dijera si era a propósito
+  // (L-006). Una planilla que se abre dentro de un año tiene que explicarse sola.
+  const xml = hojaDeAnalisis(TRES_MESES(), '2026-03').xml;
+
+  assert.ok(xml.includes('2 meses terminados'));
+  assert.ok(xml.includes('mar 26'));
+  assert.ok(xml.includes('El total sí lo incluye'));
+});
+
+test('sin un mes en curso que dejar afuera, la nota no lo inventa', () => {
+  const xml = hojaDeAnalisis(TRES_MESES(), '2026-09').xml;
+
+  assert.ok(xml.includes('sobre 3 meses'));
+  assert.equal(xml.includes('deja afuera'), false);
+});
+
+test('sin movimientos la hoja no se rompe ni miente', () => {
+  const { xml, filas } = hojaDeAnalisis(estadoCon([]), '2026-03');
+
+  assert.equal(filas, 0);
+  assert.ok(xml.includes('EVOLUCIÓN MES A MES'), 'la hoja existe igual');
+  assert.equal(xml.includes('PROMEDIO'), false, 'no dibuja un promedio de la nada');
+});
+
+test('los encabezados de rubro llevan el color de su rubro', () => {
+  // El mismo que ese rubro tiene en la app y en los bloques de la otra hoja.
+  const xml = hojaDeAnalisis(TRES_MESES(), '2026-09').xml;
+  const estilos = [...xml.matchAll(/<c r="([C-J])2" s="(\d+)"/g)].map((m) => Number(m[2]));
+
+  assert.equal(estilos.length, 8);
+  assert.equal(new Set(estilos).size, 8, 'dos rubros comparten el mismo estilo');
+});
+
+test('el .xlsx trae las dos hojas, y Excel las encuentra', async () => {
+  // Un ZIP con la hoja adentro pero sin declararla en el libro o en los tipos de
+  // contenido abre igual… sin la hoja. No da error: falta y ya.
+  const { bytes, filasDeAnalisis } = crearPlanilla(TRES_MESES(), { fecha: '2026-08-28' });
+
+  const libro = await leerDelZip(bytes, 'xl/workbook.xml');
+  const relaciones = await leerDelZip(bytes, 'xl/_rels/workbook.xml.rels');
+  // `unzip` trata los corchetes como comodines: sin escaparlos no encuentra el
+  // archivo y dice "filename not matched" en vez de fallar por lo que importa.
+  const tipos = await leerDelZip(bytes, '[[]Content_Types].xml');
+  const hoja2 = await leerDelZip(bytes, 'xl/worksheets/sheet2.xml');
+
+  assert.ok(libro.includes('name="Evolución"'));
+  assert.match(libro, /<sheet name="Evolución" sheetId="2" r:id="(rId\d+)"\/>/);
+  const id = libro.match(/<sheet name="Evolución" sheetId="2" r:id="(rId\d+)"\/>/)[1];
+  assert.ok(relaciones.includes(`Id="${id}"`), `el libro apunta a ${id} y las relaciones no lo tienen`);
+  assert.ok(relaciones.includes('Target="worksheets/sheet2.xml"'));
+  assert.ok(tipos.includes('/xl/worksheets/sheet2.xml'), 'la hoja no está en los tipos de contenido');
+  assert.ok(hoja2.includes('EVOLUCIÓN MES A MES'));
+  assert.equal(filasDeAnalisis, 3);
+});
+
+test('la hoja de análisis no cambia la de movimientos', () => {
+  // Las dos escriben en su propia rejilla. Si compartieran una, la segunda
+  // pisaría celdas de la primera y nadie se enteraría hasta abrir el archivo.
+  const estado = TRES_MESES();
+  const antes = hojaDeMovimientos(estado).xml;
+  hojaDeAnalisis(estado, '2026-09');
+
+  assert.equal(hojaDeMovimientos(estado).xml, antes);
 });

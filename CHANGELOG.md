@@ -6,6 +6,12 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Agregado
+- **La planilla exportada trae una segunda hoja, `Evolución`**: la matriz mes ×
+  rubro con su total y su promedio, que es la hoja `Analisis1` de la planilla
+  original. Cuenta exactamente lo mismo que la pantalla porque las dos leen el
+  mismo cálculo. Y **la regla del promedio va escrita en la propia hoja** —sobre
+  cuántos meses es y cuál dejó afuera—, que es lo único que la planilla vieja no
+  hacía y por lo que su total y su promedio parecían no cuadrar.
 - **La pantalla de monedas**: ver las que hay, agregar una nueva, ocultar las que
   ya no usás y borrar las que nunca usaste. Se llega desde Datos y desde el
   propio formulario de carga, con "¿Falta una moneda?" — que es donde aparece el

@@ -34,10 +34,11 @@
 // la construcción cuando estaban escritas acá, que es justo lo que se le pide.)
 
 import { crearZip } from './zip.js';
-import { mesesConMovimientos, movimientosDelMes, porRubro, porDia, totalesDelMes } from '../core/calculos.js';
+import { mesesConMovimientos, movimientosDelMes, porRubro, porDia, totalesDelMes,
+  matrizMesRubro } from '../core/calculos.js';
 import { movimientoEnEuros, faltaCambioPara } from '../core/cambio.js';
 import { TIPO_GASTO, TIPO_INGRESO, mesDe, hoy, rubrosDe } from '../core/modelo.js';
-import { formatearMes, formatearRubro } from '../core/formato.js';
+import { formatearMes, formatearMesCorto, formatearRubro } from '../core/formato.js';
 import { FONDOS_RUBRO, franjaDeRubro } from '../core/paleta.js';
 
 const NS_HOJA = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -428,6 +429,86 @@ export function hojaDeMovimientos(estado) {
 }
 
 /**
+ * La hoja de análisis: la matriz mes × rubro — T-910. Es la hoja `Analisis1` de
+ * la planilla original.
+ *
+ * **Cuenta exactamente lo mismo que la pantalla de evolución** (T-021): los
+ * mismos meses, los mismos ocho rubros siempre, el mismo criterio para el total
+ * y el promedio. No es una casualidad: las dos leen `matrizMesRubro()`. Dos
+ * cálculos separados para la misma tabla terminan diciendo cosas distintas, y el
+ * usuario no tendría forma de saber a cuál creerle.
+ *
+ * **La regla del promedio va escrita en la propia hoja**, debajo de la tabla.
+ * Es toda la diferencia con `Analisis1`: ahí el total sumaba once meses y el
+ * promedio promediaba diez, y no estaba dicho en ningún lado (L-006, ADR-031).
+ * Una planilla que se abre dentro de un año tiene que poder explicarse sola.
+ */
+export function hojaDeAnalisis(estado, mesActual = mesDe(hoy())) {
+  const rejilla = nuevaRejilla();
+  const matriz = matrizMesRubro(estado, mesActual);
+  const ancho = matriz.rubros.length + 3;  // los rubros más gastos, ingresos y saldo
+
+  // La banda de título, como los bloques de la otra hoja.
+  for (let i = 0; i <= ancho; i += 1) {
+    rejilla.poner(1, 1 + i, i === 0 ? 'EVOLUCIÓN MES A MES' : null, BANDA);
+  }
+  rejilla.combinar(1, 1, 1, 1 + ancho);
+
+  // Los encabezados: el mes, los ocho rubros con su color, y las tres cuentas.
+  rejilla.poner(2, 1, 'MES', ENCABEZADO);
+  for (const [i, rubro] of matriz.rubros.entries()) {
+    rejilla.poner(2, 2 + i, formatearRubro(rubro).toUpperCase(),
+      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_GASTO, rubro));
+  }
+  for (const [i, etiqueta] of ['GASTOS', 'INGRESOS', 'SALDO'].entries()) {
+    rejilla.poner(2, 2 + matriz.rubros.length + i, etiqueta, ENCABEZADO);
+  }
+
+  // Una fila por mes, del más viejo al más nuevo — como `Analisis1`. En la
+  // pantalla van al revés porque ahí lo primero que se mira es el mes pasado;
+  // en una planilla se lee de arriba abajo como una línea de tiempo.
+  let n = 3;
+  const filaDeValores = (etiqueta, valores, estilo) => {
+    rejilla.poner(n, 1, etiqueta, MES_CORTO);
+    for (const [i, valor] of valores.rubros.entries()) {
+      rejilla.poner(n, 2 + i, aDosDecimales(aEuros(valor)), estilo);
+    }
+    for (const [i, valor] of [valores.gastos, valores.ingresos, valores.saldo].entries()) {
+      rejilla.poner(n, 2 + valores.rubros.length + i, aDosDecimales(aEuros(valor)), EUROS_TOTAL);
+    }
+    n += 1;
+  };
+
+  for (const fila of matriz.filas) {
+    filaDeValores(formatearMesCorto(fila.mes), fila, EUROS);
+  }
+
+  if (matriz.total !== null) {
+    filaDeValores('TOTAL', matriz.total, EUROS_TOTAL);
+    filaDeValores('PROMEDIO', matriz.promedio, EUROS_TOTAL);
+
+    const meses = matriz.mesesDelPromedio === 1 ? '1 mes' : `${matriz.mesesDelPromedio} meses`;
+    rejilla.poner(n + 1, 1, matriz.dejaAfuera === null
+      ? `El promedio es sobre ${meses}.`
+      : `El promedio es sobre los ${meses} terminados: deja afuera ${formatearMesCorto(matriz.dejaAfuera)}, que todavía va por la mitad. El total sí lo incluye.`);
+  }
+
+  return {
+    xml: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="${NS_HOJA}"><cols>
+<col min="1" max="1" width="12"/><col min="2" max="${1 + ancho}" width="14"/>
+</cols><sheetData>${rejilla.aXml()}</sheetData>${
+  rejilla.combinadas().length > 0
+    ? `<mergeCells count="${rejilla.combinadas().length}">${
+        rejilla.combinadas().map((r) => `<mergeCell ref="${r}"/>`).join('')
+      }</mergeCells>`
+    : ''
+}</worksheet>`,
+    filas: matriz.filas.length,
+  };
+}
+
+/**
  * Los estilos de la planilla.
  *
  * Excel necesita este archivo aunque no se use ninguno: sin él, no abre. Y su
@@ -514,6 +595,7 @@ const FORMATOS = [
  */
 export function crearPlanilla(estado, { fecha = hoy() } = {}) {
   const hoja = hojaDeMovimientos(estado);
+  const analisis = hojaDeAnalisis(estado);
 
   const partes = [
     {
@@ -524,6 +606,7 @@ export function crearPlanilla(estado, { fecha = hoy() } = {}) {
 <Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
 <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
 <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
 </Types>`,
     },
@@ -538,7 +621,7 @@ export function crearPlanilla(estado, { fecha = hoy() } = {}) {
       nombre: 'xl/workbook.xml',
       contenido: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="${NS_HOJA}" xmlns:r="${NS_RELACIONES}">
-<sheets><sheet name="Ingresos y gastos" sheetId="1" r:id="rId1"/></sheets>
+<sheets><sheet name="Ingresos y gastos" sheetId="1" r:id="rId1"/><sheet name="Evolución" sheetId="2" r:id="rId3"/></sheets>
 </workbook>`,
     },
     {
@@ -547,10 +630,12 @@ export function crearPlanilla(estado, { fecha = hoy() } = {}) {
 <Relationships xmlns="${NS_PAQUETE}">
 <Relationship Id="rId1" Type="${NS_RELACIONES}/worksheet" Target="worksheets/sheet1.xml"/>
 <Relationship Id="rId2" Type="${NS_RELACIONES}/styles" Target="styles.xml"/>
+<Relationship Id="rId3" Type="${NS_RELACIONES}/worksheet" Target="worksheets/sheet2.xml"/>
 </Relationships>`,
     },
     { nombre: 'xl/styles.xml', contenido: estilos() },
     { nombre: 'xl/worksheets/sheet1.xml', contenido: hoja.xml },
+    { nombre: 'xl/worksheets/sheet2.xml', contenido: analisis.xml },
   ];
 
   return {
@@ -559,6 +644,7 @@ export function crearPlanilla(estado, { fecha = hoy() } = {}) {
     tipo: TIPO_XLSX,
     sinConvertir: hoja.sinConvertir,
     meses: hoja.meses,
+    filasDeAnalisis: analisis.filas,
     cuantos: (estado.movimientos ?? []).length,
   };
 }
