@@ -906,3 +906,36 @@ error invisible y los textos corridos— pasaron los tests y las encontró **mir
 la captura**. Un test busca un pedazo; el ojo ve el conjunto. Por eso el
 recorrido por el navegador está en `AGENTES.md` §4 como obligatorio y no como
 "si da el tiempo".
+
+---
+
+## L-027 · Dos archivos con el mismo nombre y un respaldo por nombre: uno se pierde
+
+**Cuándo:** 2026-08-28, probando las mutaciones de T-025.
+
+El proyecto prueba cada módulo rompiéndolo a propósito: se hace una copia, se
+muta el archivo, se corren los tests y se restaura. El script guardaba la copia
+en `/tmp/$(basename $archivo)`.
+
+T-025 tocaba **dos** archivos: `src/core/etiquetas.js` y
+`src/ui/pantallas/etiquetas.js`. Los dos se llaman `etiquetas.js`. El segundo
+`cp` pisó la copia del primero, y al restaurar **los dos quedaron con el
+contenido del de la interfaz**: el archivo del núcleo se perdió, con todo su
+código y sus comentarios.
+
+No dio ningún error. Lo que avisó fue que **la corrida de control terminó con
+quince tests rojos** en vez de cero. Sin ese control al final —que existe para
+comprobar que la restauración dejó todo como estaba— el archivo destruido se
+habría commiteado.
+
+**La regla, en dos partes:**
+
+1. **Respaldar por ruta completa, no por nombre.** `basename` es una función de
+   pérdida de información, y este proyecto tiene a propósito archivos con el
+   mismo nombre en capas distintas (`colores.js`, `cambio.js`, `etiquetas.js`):
+   es su convención, no un descuido.
+2. **Correr el control al final, siempre.** Una tanda de mutaciones sin una
+   corrida limpia al final no prueba que el código quedó como estaba.
+
+Se recuperó porque el archivo estaba entero unos minutos antes en esta misma
+sesión. Si hubiera pasado un día, se habría reescrito de memoria.

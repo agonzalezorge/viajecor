@@ -6440,6 +6440,376 @@ function dibujarResumen(vista) {
   `;
 }
 
+// ── src/core/etiquetas.js ───────────────────────────────────────
+// Las etiquetas que el usuario ya escribió — CU-16, T-025.
+//
+// ── Lo primero que hay que entender, porque cambia todo lo demás ────────────
+//
+// **No existe ningún catálogo de comentarios ni de detalles.** Los rubros sí son
+// una lista cerrada de ocho; el comentario y el detalle son **texto libre
+// escrito en cada movimiento**. Este archivo no lee un catálogo: lo *deduce*
+// recorriendo los movimientos.
+//
+// Por eso "borrar una etiqueta" no es borrar un registro: es **vaciar ese texto
+// en los N movimientos que lo tienen**, y "renombrarla" es reescribirlo en los
+// N. Son operaciones en lote sobre datos ya cargados, así que les corresponde la
+// regla de siempre (ADR-019, ADR-033): **decir cuántos movimientos tocan antes
+// de tocarlos**. Por eso cada operación viene con su `efectoDe…`.
+//
+// ── Para qué sirve de verdad ────────────────────────────────────────────────
+//
+// El comentario es lo que AGRUPA: los totales por viaje y por gasto fijo salen
+// de él. `Barcelona26` y `barcelona 26` son dos grupos distintos, y un typo
+// parte un total en dos sin avisar (L-002). Renombrar uno con el nombre del otro
+// **los une**, y esa es la razón principal de esta pantalla.
+//
+// Es también la salida a la pregunta que ADR-013 dejó abierta: `Perú` y `Peru`
+// son dos claves distintas a propósito —sacar tildes automáticamente juntaría
+// palabras que el usuario quiso separar—, y acá se pueden juntar a mano las que
+// él decida que son la misma.
+//
+// El detalle no agrupa nada: limpiarlo es orden, no arreglar un total. Se ofrece
+// igual porque el usuario lo pidió, pero la pantalla lo dice.
+//
+// Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
+
+/** Los campos de texto libre que se pueden limpiar. */
+const CAMPOS = Object.freeze(['comentario', 'detalle']);
+
+function exigirCampo(campo) {
+  if (!CAMPOS.includes(campo)) {
+    throw new Error(`No se puede limpiar el campo ${JSON.stringify(campo)}: solo ${CAMPOS.join(' y ')}.`);
+  }
+}
+
+/**
+ * Las etiquetas que existen en un campo, con cuántos movimientos usa cada una.
+ *
+ * Agrupa por la **clave** (RN-03) y muestra **la primera escritura que
+ * apareció**, igual que `porComentario()` y que las sugerencias: tres criterios
+ * distintos para elegir cómo se escribe un grupo terminarían mostrando tres
+ * nombres para la misma cosa.
+ *
+ * Devuelve también cuántas **escrituras distintas** tiene cada etiqueta. Es el
+ * dato que delata un typo: "Barcelona26 · 2 formas de escribirlo" es exactamente
+ * lo que hay que ir a arreglar.
+ *
+ * Sin ningún tope de filas (L-001).
+ */
+function etiquetasUsadas(movimientos, campo) {
+  exigirCampo(campo);
+  if (!Array.isArray(movimientos)) return [];
+
+  const porClave = new Map();
+
+  for (const movimiento of movimientos) {
+    const texto = normalizarTextoVisible(String(movimiento?.[campo] ?? ''));
+    if (texto === '') continue;
+
+    const clave = normalizarClave(texto);
+    const visto = porClave.get(clave);
+    if (!visto) {
+      porClave.set(clave, { clave, texto, cuantos: 1, escrituras: new Set([texto]) });
+    } else {
+      visto.cuantos += 1;
+      visto.escrituras.add(texto);
+    }
+  }
+
+  return [...porClave.values()]
+    .map(({ escrituras, ...resto }) => ({ ...resto, escrituras: escrituras.size }))
+    // De más usada a menos, y por texto para desempatar: el orden no puede
+    // depender de en qué orden se cargaron dos etiquetas con el mismo uso.
+    .sort((a, b) => b.cuantos - a.cuantos || a.texto.localeCompare(b.texto));
+}
+
+/** Los movimientos que tienen esa etiqueta en ese campo. */
+function movimientosCon(movimientos, campo, clave) {
+  exigirCampo(campo);
+  const buscada = normalizarClave(String(clave ?? ''));
+  return (movimientos ?? []).filter(
+    (m) => normalizarClave(String(m?.[campo] ?? '')) === buscada,
+  );
+}
+
+/**
+ * Qué pasaría al renombrar. **Lo importante es `seUneCon`**: si el texto nuevo
+ * ya existe, los dos grupos pasan a ser uno solo, y eso cambia totales. Es la
+ * razón de ser de la pantalla y, si no se dice antes, es una sorpresa.
+ */
+function efectoDeRenombrar(movimientos, campo, clave, nuevoTexto) {
+  exigirCampo(campo);
+  const texto = normalizarTextoVisible(String(nuevoTexto ?? ''));
+  const claveVieja = normalizarClave(String(clave ?? ''));
+  const claveNueva = texto === '' ? '' : normalizarClave(texto);
+
+  const afectados = movimientosCon(movimientos, campo, claveVieja).length;
+  const otra = claveNueva !== '' && claveNueva !== claveVieja
+    ? etiquetasUsadas(movimientos, campo).find((e) => e.clave === claveNueva)
+    : undefined;
+
+  return {
+    afectados,
+    // Cambiar solo mayúsculas o espacios NO une nada: es la misma clave. Se
+    // informa igual, porque para el usuario el texto sí cambió.
+    seUneCon: otra ? { texto: otra.texto, cuantos: otra.cuantos } : null,
+    quedan: afectados + (otra?.cuantos ?? 0),
+  };
+}
+
+/**
+ * Renombra una etiqueta en todos los movimientos que la tienen.
+ *
+ * Devuelve una lista nueva; no modifica la que recibe. El texto se guarda
+ * **normalizado igual que al cargarlo** (`normalizarTextoVisible`): si acá se
+ * guardara crudo, esta pantalla sería la única forma de meter en los datos un
+ * texto con dos espacios o sin normalizar en NFC, que es justo lo que esa
+ * función existe para impedir (L-003).
+ */
+function renombrarEtiqueta(movimientos, campo, clave, nuevoTexto) {
+  exigirCampo(campo);
+  const texto = normalizarTextoVisible(String(nuevoTexto ?? ''));
+  if (texto === '') {
+    throw new Error('Para dejar la etiqueta vacía, usá borrar: así queda claro que se saca de todos sus movimientos.');
+  }
+
+  const buscada = normalizarClave(String(clave ?? ''));
+  return (movimientos ?? []).map((m) =>
+    normalizarClave(String(m?.[campo] ?? '')) === buscada ? { ...m, [campo]: texto } : m,
+  );
+}
+
+/**
+ * Saca una etiqueta de todos sus movimientos. **No borra ningún movimiento**:
+ * les deja ese campo vacío. La pantalla tiene que decirlo con todas las letras
+ * —"borrar la etiqueta" y "borrar los gastos" se confunden fácil, y uno de los
+ * dos no se puede deshacer.
+ */
+function borrarEtiqueta(movimientos, campo, clave) {
+  exigirCampo(campo);
+  const buscada = normalizarClave(String(clave ?? ''));
+  return (movimientos ?? []).map((m) =>
+    normalizarClave(String(m?.[campo] ?? '')) === buscada ? { ...m, [campo]: '' } : m,
+  );
+}
+
+// ── src/ui/pantallas/etiquetas.js ───────────────────────────────
+// Ver, renombrar y borrar las etiquetas ya escritas — CU-16, T-025.
+//
+// Pedida por el usuario (2026-08-28): quería poder editar y borrar "las
+// categorías" que ya usó. La respuesta honesta es que **no son categorías**: son
+// texto libre escrito en cada movimiento (ver `core/etiquetas.js`). Así que esta
+// pantalla no edita un catálogo, edita **todos los movimientos que comparten un
+// texto**, y eso obliga a dos cosas:
+//
+//   1. **Decir cuántos toca antes de tocarlos.** Es la misma regla del cambio de
+//      decimales (ADR-033) y de la corrección de un tipo de cambio (ADR-019).
+//   2. **Decir que borrar la etiqueta NO borra los movimientos.** "Borrar Luz" y
+//      "borrar los gastos de luz" se confunden con una lectura rápida, y uno de
+//      los dos no se puede deshacer.
+//
+// Igual que el resto de la interfaz (ADR-022), las funciones de dibujo son puras
+// y las de cambio devuelven un estado nuevo sin guardarlo.
+
+
+
+const TITULOS = {
+  comentario: 'Comentarios',
+  detalle: 'Detalles',
+};
+
+const EXPLICACIONES = {
+  comentario: `El comentario es lo que <strong>agrupa</strong>: de él salen los
+    totales por viaje y por gasto fijo. Dos escrituras distintas son dos totales
+    distintos, así que renombrar una con el nombre de la otra las une.`,
+  detalle: `El detalle es una nota para acordarte: <strong>no agrupa nada</strong>.
+    Limpiarlo es orden, no arreglar un número.`,
+};
+
+/** Cuántos movimientos usan una etiqueta, en palabras. */
+function enCuantos(cuantos) {
+  return cuantos === 1 ? '1 movimiento' : `${cuantos} movimientos`;
+}
+
+/**
+ * Una etiqueta de la lista.
+ *
+ * Si tiene **más de una escritura**, se dice: es exactamente el dato que delata
+ * un typo, y es lo que hay que ir a arreglar. Sin eso, `Barcelona26` y
+ * `barcelona 26` se ven como dos filas cualesquiera.
+ */
+function dibujarEtiqueta(campo, etiqueta) {
+  const aviso = etiqueta.escrituras > 1
+    ? `<span class="suave">· ${etiqueta.escrituras} formas de escribirlo</span>`
+    : '';
+
+  return `
+    <li class="fila-rubro">
+      <div class="rubro-cabeza">
+        <span class="nombre">${escapar(etiqueta.texto)}</span>
+        <span class="importe">${escapar(enCuantos(etiqueta.cuantos))}</span>
+      </div>
+      <div class="rubro-pie suave">
+        <span>${aviso}</span>
+        <span class="acciones-etiqueta">
+          <button type="button" class="secundario chico" data-accion="ver-comentario"
+                  data-comentario="${escapar(etiqueta.texto)}"
+                  ${campo === 'comentario' ? '' : 'hidden'}>Ver</button>
+          <button type="button" class="secundario chico" data-accion="renombrar-etiqueta"
+                  data-campo="${escapar(campo)}" data-clave="${escapar(etiqueta.clave)}">Renombrar</button>
+          <button type="button" class="secundario chico" data-accion="borrar-etiqueta"
+                  data-campo="${escapar(campo)}" data-clave="${escapar(etiqueta.clave)}">Borrar</button>
+        </span>
+      </div>
+    </li>
+  `;
+}
+
+/** El aviso de qué va a pasar al renombrar. */
+function dibujarAvisoRenombrar(efecto) {
+  if (efecto === null) return '';
+
+  const cuantos = enCuantos(efecto.afectados);
+  if (efecto.seUneCon === null) {
+    return `<p class="confirmacion" role="status">Se reescribe en ${escapar(cuantos)}.</p>`;
+  }
+
+  return `
+    <p class="confirmacion importante" role="status">
+      <strong>Se van a unir.</strong> Ya existe
+      <strong>${escapar(efecto.seUneCon.texto)}</strong> con
+      ${escapar(enCuantos(efecto.seUneCon.cuantos))}: al renombrar,
+      los ${escapar(String(efecto.quedan))} quedan en un solo grupo y sus totales
+      pasan a sumar juntos.
+    </p>
+  `;
+}
+
+/** El paso aparte para renombrar. */
+function dibujarRenombrar(vista) {
+  const { campo, clave } = vista.etiquetaEditada;
+  const etiqueta = etiquetasUsadas(vista.estado.movimientos, campo).find((e) => e.clave === clave);
+  if (etiqueta === undefined) return '';
+
+  const escrito = vista.borradorEtiqueta ?? etiqueta.texto;
+  const efecto = efectoDeRenombrar(vista.estado.movimientos, campo, clave, escrito);
+
+  return `
+    <form class="tarjeta" data-formulario="etiqueta">
+      <h2>Renombrar «${escapar(etiqueta.texto)}»</h2>
+      <p class="suave">Está en ${escapar(enCuantos(etiqueta.cuantos))}.</p>
+
+      <label class="campo">
+        <span>Nuevo nombre</span>
+        <input name="texto" type="text" autocomplete="off"
+               data-accion-entrada="renombrar" value="${escapar(escrito)}">
+      </label>
+
+      <div data-aviso-etiqueta>${dibujarAvisoRenombrar(efecto)}</div>
+
+      <input type="hidden" name="campo" value="${escapar(campo)}">
+      <input type="hidden" name="clave" value="${escapar(clave)}">
+      <button type="submit" class="principal" data-accion="guardar-etiqueta">Renombrar</button>
+      <button type="button" class="secundario" data-accion="cancelar-etiqueta">Ahora no</button>
+    </form>
+  `;
+}
+
+/**
+ * La confirmación antes de borrar.
+ *
+ * Dice **con todas las letras** que los movimientos no se tocan. Es la frase más
+ * importante de la pantalla: sin ella, "borrar Luz" se lee como "borrar los
+ * gastos de luz", y esa confusión no se puede deshacer.
+ */
+function dibujarBorrarEtiqueta(vista) {
+  const { campo, clave } = vista.etiquetaBorrando;
+  const etiqueta = etiquetasUsadas(vista.estado.movimientos, campo).find((e) => e.clave === clave);
+  if (etiqueta === undefined) return '';
+
+  return `
+    <section class="tarjeta aviso importante" role="alert">
+      <h2>¿Sacar «${escapar(etiqueta.texto)}»?</h2>
+      <p>Se le saca el ${escapar(campo)} a ${escapar(enCuantos(etiqueta.cuantos))}.</p>
+      <p><strong>Los movimientos no se borran</strong>: siguen ahí, con su fecha,
+      su rubro y su importe. Lo único que se va es la etiqueta.</p>
+      ${campo === 'comentario' ? `<p class="suave">Van a dejar de contarse en
+        cualquier total agrupado por ese comentario.</p>` : ''}
+      <button type="button" class="principal" data-accion="confirmar-borrar-etiqueta"
+              data-campo="${escapar(campo)}" data-clave="${escapar(clave)}">
+        Sí, sacarla
+      </button>
+      <button type="button" class="secundario" data-accion="cancelar-borrar-etiqueta">No</button>
+    </section>
+  `;
+}
+
+function dibujarSeccion(estado, campo) {
+  const etiquetas = etiquetasUsadas(estado.movimientos, campo);
+  if (etiquetas.length === 0) {
+    return `
+      <section class="tarjeta">
+        <h2>${TITULOS[campo]}</h2>
+        <p class="suave">Todavía no escribiste ninguno.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="tarjeta">
+      <h2>${TITULOS[campo]}</h2>
+      <p class="suave nota">${EXPLICACIONES[campo]}</p>
+      <ul class="rubros">${etiquetas.map((e) => dibujarEtiqueta(campo, e)).join('')}</ul>
+    </section>
+  `;
+}
+
+function dibujarEtiquetas(vista) {
+  const estado = vista.estado;
+
+  // Un paso a la vez: renombrar y borrar no se muestran juntos, y ninguno de los
+  // dos convive con la lista de acciones. Dos cosas delicadas a la vez son dos
+  // decisiones simultáneas.
+  if (vista.etiquetaBorrando) return dibujarBorrarEtiqueta(vista);
+  if (vista.etiquetaEditada) return dibujarRenombrar(vista);
+
+  const confirmacion = vista.avisoEtiqueta
+    ? `<p class="confirmacion" role="status">${escapar(vista.avisoEtiqueta)}</p>`
+    : '';
+
+  return `
+    ${dibujarError(vista.error)}
+    ${confirmacion}
+    ${dibujarSeccion(estado, 'comentario')}
+    ${dibujarSeccion(estado, 'detalle')}
+  `;
+}
+
+
+// ── Los cambios de estado ────────────────────────────────────────────────────
+
+function intentarEtiqueta(hacer) {
+  try {
+    return { estado: hacer() };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+function intentarRenombrar(estado, campo, clave, texto) {
+  return intentarEtiqueta(() => ({
+    ...estado,
+    movimientos: renombrarEtiqueta(estado.movimientos, campo, clave, texto),
+  }));
+}
+
+function intentarBorrarEtiqueta(estado, campo, clave) {
+  return intentarEtiqueta(() => ({
+    ...estado,
+    movimientos: borrarEtiqueta(estado.movimientos, campo, clave),
+  }));
+}
+
 // ── src/ui/pantallas/monedas.js ─────────────────────────────────
 // La pantalla de monedas — CU-15, T-024.
 //
@@ -7434,6 +7804,15 @@ function dibujarDatos(vista) {
     </section>
 
     <section class="tarjeta">
+      <h2>Comentarios y detalles</h2>
+      <p class="suave">Ver los que ya escribiste, renombrarlos —renombrar uno con
+      el nombre de otro los une— o sacarlos. Los movimientos no se tocan.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="etiquetas">
+        Ver comentarios y detalles
+      </button>
+    </section>
+
+    <section class="tarjeta">
       <h2>Monedas</h2>
       <p class="suave">Ver las que hay, agregar una nueva u ocultar las que ya no usás.</p>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="monedas">
@@ -8144,6 +8523,8 @@ function dibujarNuevo(vista) {
 
 
 
+
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -8228,6 +8609,16 @@ registrarPantalla('evolucion', {
   conMes: false,
   enBarra: false,
   dibujar: dibujarEvolucion,
+});
+
+// Fuera de la barra, como monedas y cambios: se llega desde Datos. No es algo
+// que se haga todos los días, es algo que se hace cuando un total no cuadra.
+registrarPantalla('etiquetas', {
+  etiqueta: 'Comentarios y detalles',
+  icono: '🏷',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarEtiquetas,
 });
 
 registrarPantalla('monedas', {
@@ -9026,6 +9417,11 @@ function iniciar(documento, almacen) {
   });
 
   raiz.addEventListener('input', (evento) => {
+    if (evento.target.matches('[data-accion-entrada="renombrar"]')) {
+      refrescarAvisoEtiqueta(evento.target.value);
+      return;
+    }
+
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
       if (etiqueta) etiqueta.textContent = fechaEnPalabras(evento.target.value);
@@ -9144,6 +9540,72 @@ function iniciar(documento, almacen) {
     donde.innerHTML = dibujarAvisoDecimales(efectoDeCambiarDecimales(vista.estado, codigo, decimales));
   }
 
+  /**
+   * Renombrar una etiqueta — T-025. Toca los movimientos, así que guarda antes
+   * de mover la pantalla, como todo lo que cambia datos en esta app.
+   */
+  function guardarLaEtiqueta() {
+    const formulario = raiz.querySelector('[data-formulario="etiqueta"]');
+    if (!formulario) return;
+    const campo = formulario.elements.campo?.value ?? '';
+    const clave = formulario.elements.clave?.value ?? '';
+    const texto = formulario.elements.texto?.value ?? '';
+
+    const resultado = intentarRenombrar(vista.estado, campo, clave, texto);
+    if (resultado.error) {
+      vista = { ...vista, borradorEtiqueta: texto, error: resultado.error };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorEtiqueta: texto, error: error.message };
+      pintar();
+      return;
+    }
+    vista = {
+      ...vista, estado: resultado.estado, error: null,
+      etiquetaEditada: null, borradorEtiqueta: undefined,
+      avisoEtiqueta: `Ahora se llama ${texto.trim()}.`,
+    };
+    pintar();
+  }
+
+  function sacarLaEtiqueta(campo, clave) {
+    const resultado = intentarBorrarEtiqueta(vista.estado, campo, clave);
+    if (resultado.error) {
+      vista = { ...vista, error: resultado.error, etiquetaBorrando: null };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, error: error.message, etiquetaBorrando: null };
+      pintar();
+      return;
+    }
+    vista = {
+      ...vista, estado: resultado.estado, error: null, etiquetaBorrando: null,
+      avisoEtiqueta: 'La etiqueta se sacó. Los movimientos siguen ahí.',
+    };
+    pintar();
+  }
+
+  /** El aviso de "se van a unir" tiene que moverse con lo que se escribe. */
+  function refrescarAvisoEtiqueta(texto) {
+    const donde = raiz.querySelector('[data-aviso-etiqueta]');
+    const formulario = raiz.querySelector('[data-formulario="etiqueta"]');
+    if (!donde || !formulario) return;
+    donde.innerHTML = dibujarAvisoRenombrar(efectoDeRenombrar(
+      vista.estado.movimientos,
+      formulario.elements.campo.value,
+      formulario.elements.clave.value,
+      texto,
+    ));
+  }
+
   function guardarTipoDeCambio() {
     const formulario = raiz.querySelector('[data-formulario="cambio"]');
     if (!formulario) return;
@@ -9242,6 +9704,23 @@ function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
+    } else if (accion === 'renombrar-etiqueta') {
+      vista = { ...vista, etiquetaEditada: { campo: boton.dataset.campo, clave: boton.dataset.clave },
+        borradorEtiqueta: undefined, error: null, avisoEtiqueta: null };
+    } else if (accion === 'cancelar-etiqueta') {
+      vista = { ...vista, etiquetaEditada: null, borradorEtiqueta: undefined, error: null };
+    } else if (accion === 'guardar-etiqueta') {
+      evento.preventDefault();
+      guardarLaEtiqueta();
+      return;
+    } else if (accion === 'borrar-etiqueta') {
+      vista = { ...vista, etiquetaBorrando: { campo: boton.dataset.campo, clave: boton.dataset.clave },
+        error: null, avisoEtiqueta: null };
+    } else if (accion === 'cancelar-borrar-etiqueta') {
+      vista = { ...vista, etiquetaBorrando: null };
+    } else if (accion === 'confirmar-borrar-etiqueta') {
+      sacarLaEtiqueta(boton.dataset.campo, boton.dataset.clave);
+      return;
     } else if (accion === 'ver-rubro') {
       // Tocar una fila del desglose lleva a los movimientos que la componen,
       // en el mes que se está mirando (T-026).

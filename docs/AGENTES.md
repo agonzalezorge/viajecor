@@ -86,6 +86,20 @@ Una tarea se marca `Hecha` cuando **todas** estas cosas son ciertas:
       trampa descubierta en `LECCIONES.md`.
 - [ ] El estado en `docs/PLAN.md` dice `Hecha`.
 
+**Y las mutaciones.** Después de cada módulo se lo rompe a propósito entre tres
+y diez veces y se comprueba que **cada rotura ponga algún test en rojo**. Un test
+que no falla cuando rompés el código no está probando nada, y así se
+encontraron L-018, L-024 y la torta girada de T-918.
+
+Dos reglas del propio script de mutaciones, que costaron un archivo (L-027):
+
+- **Respaldar por ruta completa, nunca por `basename`.** Este proyecto tiene a
+  propósito archivos con el mismo nombre en capas distintas —`colores.js`,
+  `cambio.js`, `etiquetas.js`—, y un respaldo por nombre hace que el segundo
+  pise al primero y que restaurar destruya uno de los dos.
+- **Correr una tanda de control al final, con todo restaurado.** Si no da cero,
+  la restauración falló y hay un archivo roto esperando a que lo commitees.
+
 **No se marca `Hecha` una tarea con los tests rojos, a medio hacer, o cuyo
 criterio no se pudo comprobar.** En ese caso se deja `En curso` y se anota qué
 falta.

@@ -23,6 +23,9 @@ import { decimalesDe } from '../core/monedas.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
 import { dibujarResumen } from './pantallas/resumen.js';
 import { dibujarEvolucion } from './pantallas/evolucion.js';
+import { dibujarEtiquetas, dibujarAvisoRenombrar, intentarRenombrar,
+  intentarBorrarEtiqueta } from './pantallas/etiquetas.js';
+import { efectoDeRenombrar } from '../core/etiquetas.js';
 import { dibujarMonedas, dibujarAvisoDecimales, efectoDeCambiarDecimales,
   intentarAgregarMoneda, intentarOcultarMoneda, intentarMostrarMoneda,
   intentarBorrarMoneda, intentarCambiarDecimales } from './pantallas/monedas.js';
@@ -121,6 +124,16 @@ registrarPantalla('evolucion', {
   conMes: false,
   enBarra: false,
   dibujar: dibujarEvolucion,
+});
+
+// Fuera de la barra, como monedas y cambios: se llega desde Datos. No es algo
+// que se haga todos los días, es algo que se hace cuando un total no cuadra.
+registrarPantalla('etiquetas', {
+  etiqueta: 'Comentarios y detalles',
+  icono: '🏷',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarEtiquetas,
 });
 
 registrarPantalla('monedas', {
@@ -919,6 +932,11 @@ export function iniciar(documento, almacen) {
   });
 
   raiz.addEventListener('input', (evento) => {
+    if (evento.target.matches('[data-accion-entrada="renombrar"]')) {
+      refrescarAvisoEtiqueta(evento.target.value);
+      return;
+    }
+
     if (evento.target.matches('input[name="fecha"]')) {
       const etiqueta = raiz.querySelector('[data-fecha-legible]');
       if (etiqueta) etiqueta.textContent = fechaEnPalabras(evento.target.value);
@@ -1037,6 +1055,72 @@ export function iniciar(documento, almacen) {
     donde.innerHTML = dibujarAvisoDecimales(efectoDeCambiarDecimales(vista.estado, codigo, decimales));
   }
 
+  /**
+   * Renombrar una etiqueta — T-025. Toca los movimientos, así que guarda antes
+   * de mover la pantalla, como todo lo que cambia datos en esta app.
+   */
+  function guardarLaEtiqueta() {
+    const formulario = raiz.querySelector('[data-formulario="etiqueta"]');
+    if (!formulario) return;
+    const campo = formulario.elements.campo?.value ?? '';
+    const clave = formulario.elements.clave?.value ?? '';
+    const texto = formulario.elements.texto?.value ?? '';
+
+    const resultado = intentarRenombrar(vista.estado, campo, clave, texto);
+    if (resultado.error) {
+      vista = { ...vista, borradorEtiqueta: texto, error: resultado.error };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorEtiqueta: texto, error: error.message };
+      pintar();
+      return;
+    }
+    vista = {
+      ...vista, estado: resultado.estado, error: null,
+      etiquetaEditada: null, borradorEtiqueta: undefined,
+      avisoEtiqueta: `Ahora se llama ${texto.trim()}.`,
+    };
+    pintar();
+  }
+
+  function sacarLaEtiqueta(campo, clave) {
+    const resultado = intentarBorrarEtiqueta(vista.estado, campo, clave);
+    if (resultado.error) {
+      vista = { ...vista, error: resultado.error, etiquetaBorrando: null };
+      pintar();
+      return;
+    }
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, error: error.message, etiquetaBorrando: null };
+      pintar();
+      return;
+    }
+    vista = {
+      ...vista, estado: resultado.estado, error: null, etiquetaBorrando: null,
+      avisoEtiqueta: 'La etiqueta se sacó. Los movimientos siguen ahí.',
+    };
+    pintar();
+  }
+
+  /** El aviso de "se van a unir" tiene que moverse con lo que se escribe. */
+  function refrescarAvisoEtiqueta(texto) {
+    const donde = raiz.querySelector('[data-aviso-etiqueta]');
+    const formulario = raiz.querySelector('[data-formulario="etiqueta"]');
+    if (!donde || !formulario) return;
+    donde.innerHTML = dibujarAvisoRenombrar(efectoDeRenombrar(
+      vista.estado.movimientos,
+      formulario.elements.campo.value,
+      formulario.elements.clave.value,
+      texto,
+    ));
+  }
+
   function guardarTipoDeCambio() {
     const formulario = raiz.querySelector('[data-formulario="cambio"]');
     if (!formulario) return;
@@ -1135,6 +1219,23 @@ export function iniciar(documento, almacen) {
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento
       // quedaría fuera de todos los totales (RN-04).
       vista = { ...vista, faltaCambio: null, borradorCambio: '', error: null };
+    } else if (accion === 'renombrar-etiqueta') {
+      vista = { ...vista, etiquetaEditada: { campo: boton.dataset.campo, clave: boton.dataset.clave },
+        borradorEtiqueta: undefined, error: null, avisoEtiqueta: null };
+    } else if (accion === 'cancelar-etiqueta') {
+      vista = { ...vista, etiquetaEditada: null, borradorEtiqueta: undefined, error: null };
+    } else if (accion === 'guardar-etiqueta') {
+      evento.preventDefault();
+      guardarLaEtiqueta();
+      return;
+    } else if (accion === 'borrar-etiqueta') {
+      vista = { ...vista, etiquetaBorrando: { campo: boton.dataset.campo, clave: boton.dataset.clave },
+        error: null, avisoEtiqueta: null };
+    } else if (accion === 'cancelar-borrar-etiqueta') {
+      vista = { ...vista, etiquetaBorrando: null };
+    } else if (accion === 'confirmar-borrar-etiqueta') {
+      sacarLaEtiqueta(boton.dataset.campo, boton.dataset.clave);
+      return;
     } else if (accion === 'ver-rubro') {
       // Tocar una fila del desglose lleva a los movimientos que la componen,
       // en el mes que se está mirando (T-026).
