@@ -6,6 +6,9 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Cambiado
+- **En la lista de movimientos, lo último que cargaste aparece primero dentro de
+  su día.** Antes quedaba abajo de todo el día, que es justo lo contrario de para
+  lo que se abre esa pantalla: arreglar el gasto que acabás de anotar.
 - **El eje de importes de los dos gráficos del historial ahora tiene marcas cada
   tanto**, con su línea de referencia, en vez de solo el valor máximo. Los pasos
   son números redondos —500, 1000, 5000— y no el rango dividido en cinco:

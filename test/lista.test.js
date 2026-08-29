@@ -49,6 +49,63 @@ function cargar(estado, campos = {}) {
 
 // ── La lista ─────────────────────────────────────────────────────────────────
 
+test('adentro de un día, lo último cargado va PRIMERO', () => {
+  // Pedido del usuario (2026-08-29). Los días ya iban del más nuevo al más
+  // viejo, pero adentro de cada día quedaban en el orden en que se cargaron, así
+  // que lo que acababas de anotar aparecía abajo de todo. Y esta pantalla se
+  // abre casi siempre por lo mismo: arreglar el dedazo de hace dos minutos.
+  let estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '10', detalle: 'primero' });
+  estado = cargar(estado, { fecha: '2026-03-14', monto: '20', detalle: 'segundo' });
+  estado = cargar(estado, { fecha: '2026-03-14', monto: '30', detalle: 'tercero' });
+
+  const html = dibujarLista({ estado, mes: MES });
+  const orden = ['primero', 'segundo', 'tercero'].map((d) => html.indexOf(d));
+
+  assert.deepEqual([...orden].sort((a, b) => a - b), [orden[2], orden[1], orden[0]],
+    'el último cargado tiene que estar más arriba');
+});
+
+test('el orden de los días no cambia: el más nuevo arriba', () => {
+  // Lo que se invirtió es adentro del día, no los días entre sí.
+  let estado = cargar(estadoLimpio(), { fecha: '2026-03-05', monto: '10' });
+  estado = cargar(estado, { fecha: '2026-03-20', monto: '20' });
+
+  const html = dibujarLista({ estado, mes: MES });
+  assert.ok(html.indexOf('20 de marzo') < html.indexOf('5 de marzo'));
+});
+
+test('lo que ordena es la POSICIÓN en la lista, no `creado` ni el `id`', () => {
+  // `creado` es una fecha sin hora, así que todo lo cargado el mismo día empata,
+  // y el `id` es un número al azar. Lo único que sabe el orden de carga es dónde
+  // quedó cada uno en la lista, que es donde se van agregando.
+  const base = estadoLimpio();
+  const igualitos = [
+    { id: 'mov_zzz', fecha: '2026-03-14', creado: '2026-03-14', tipo: 'G', rubro: 'viajes',
+      monto: 1000, moneda: 'EUR', comentario: '', detalle: 'cargado antes' },
+    { id: 'mov_aaa', fecha: '2026-03-14', creado: '2026-03-14', tipo: 'G', rubro: 'viajes',
+      monto: 2000, moneda: 'EUR', comentario: '', detalle: 'cargado después' },
+  ];
+  const html = dibujarLista({ estado: { ...base, movimientos: igualitos }, mes: MES });
+
+  assert.ok(html.indexOf('cargado después') < html.indexOf('cargado antes'),
+    'el id más chico va primero: no puede estar ordenando por id');
+});
+
+test('un día de carga posterior manda sobre la posición', () => {
+  // Editar un movimiento viejo no lo mueve, pero cargar hoy un gasto con fecha
+  // de anteayer sí lo pone arriba de los de anteayer: es lo último que hiciste.
+  const base = estadoLimpio();
+  const movimientos = [
+    { id: 'mov_1', fecha: '2026-03-14', creado: '2026-08-29', tipo: 'G', rubro: 'viajes',
+      monto: 1000, moneda: 'EUR', comentario: '', detalle: 'cargado hoy' },
+    { id: 'mov_2', fecha: '2026-03-14', creado: '2026-03-14', tipo: 'G', rubro: 'viajes',
+      monto: 2000, moneda: 'EUR', comentario: '', detalle: 'cargado en marzo' },
+  ];
+  const html = dibujarLista({ estado: { ...base, movimientos }, mes: MES });
+
+  assert.ok(html.indexOf('cargado hoy') < html.indexOf('cargado en marzo'));
+});
+
 test('muestra los movimientos del mes, agrupados por día', () => {
   let estado = cargar(estadoLimpio(), { fecha: '2026-03-05', monto: '10' });
   estado = cargar(estado, { fecha: '2026-03-20', monto: '20', rubro: 'viajes' });

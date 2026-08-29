@@ -84,6 +84,37 @@ function importeDe(estado, movimiento) {
 }
 
 /**
+ * Los de un mismo día, del último cargado al primero — T-945.
+ *
+ * Los días ya van del más nuevo al más viejo, pero **adentro de cada día**
+ * quedaban en el orden en que se habían cargado, así que lo último que anotaste
+ * aparecía abajo de todo el día. Y esta pantalla se abre casi siempre por lo
+ * mismo: arreglar el dedazo de hace dos minutos.
+ *
+ * ── Qué se usa para ordenar, y por qué NO es lo obvio ───────────────────────
+ *
+ * Lo obvio sería ordenar por `creado`. No alcanza: **`creado` es una fecha, no
+ * un instante** —`2026-08-29`, sin hora—, así que todo lo cargado el mismo día
+ * empata. Y el `id` tampoco sirve: es un número al azar, no uno que crece.
+ *
+ * Lo único que sabe el orden de carga es **la posición en la lista**, que es
+ * donde se van agregando. Así que se da vuelta la lista y recién después se
+ * ordena por `creado`, con un orden **estable**: los que empatan —los del mismo
+ * día— se quedan como quedaron, o sea al revés de como se cargaron, que es lo
+ * que se buscaba.
+ *
+ * Se probó primero con `creado` y con el `id`, y los tests lo desmintieron: los
+ * tres movimientos de prueba salían en el orden original porque los tres
+ * empataban en todo.
+ */
+function ultimoPrimero(movimientos) {
+  return movimientos
+    .slice()
+    .reverse()
+    .sort((a, b) => String(b.creado ?? '').localeCompare(String(a.creado ?? '')));
+}
+
+/**
  * El total de una lista de movimientos, en euros.
  *
  * **No cuenta como cero lo que no se puede convertir**: lo aparta, igual que
@@ -321,7 +352,7 @@ export function dibujarLista(vista) {
       <section class="tarjeta dia">
         <h2>${escapar(formatearFechaLarga(fecha))}</h2>
         <ul class="movimientos">
-          ${porFecha.get(fecha).map((m) => dibujarMovimiento(estado, m, vista)).join('')}
+          ${ultimoPrimero(porFecha.get(fecha)).map((m) => dibujarMovimiento(estado, m, vista)).join('')}
         </ul>
       </section>`)
     .join('');

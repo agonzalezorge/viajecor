@@ -98,6 +98,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-942 | Los dos gráficos del historial, interactivos: zoom, más marcas y tocar un punto | **Hecha** | T-940 |
 | T-943 | Buscar texto en todos los movimientos | **Hecha** | T-015 |
 | T-944 | Eje Y con marcas cada tanto, no solo el máximo | **Hecha** | T-942 |
+| T-945 | Dentro de cada día, lo último cargado arriba | **Hecha** | T-015 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -872,6 +873,36 @@ sin construir; con esta tarea dejó de haber ninguna, así que se borró junto c
 el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
 construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
 cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
+
+### T-945 · Dentro de cada día, lo último cargado arriba — **Hecha** (2026-08-29)
+**Depende de:** T-015 · **Pedida por el usuario (2026-08-29)** · **Tocó:**
+`ui/pantallas/lista.js`
+
+Los días ya iban del más nuevo al más viejo, pero **adentro de cada día** los
+movimientos quedaban en el orden en que se habían cargado: lo que acababas de
+anotar aparecía abajo de todo. Y la lista se abre casi siempre por lo mismo,
+arreglar el dedazo de hace dos minutos.
+
+**Lo interesante fue qué se usa para ordenar, porque lo obvio no funciona:**
+
+- **`creado` no alcanza:** es una **fecha, no un instante** —`2026-08-29`, sin
+  hora—, así que todo lo cargado el mismo día empata.
+- **El `id` tampoco:** es un número al azar, no uno que crece.
+- **Lo único que sabe el orden de carga es la posición en la lista**, que es
+  donde se van agregando.
+
+Así que se da vuelta la lista y **después** se ordena por `creado` con un orden
+estable: los que empatan se quedan al revés de como se cargaron, que es lo que se
+buscaba, y un movimiento cargado hoy con fecha vieja sí sube.
+
+La primera versión usaba `creado` y el `id`, y **los tests la desmintieron**: los
+tres movimientos de prueba salían en el orden original porque empataban en todo.
+
+**Comprobado:** 4 tests nuevos, cinco mutaciones a propósito y las cinco fallan.
+Recorrido en el navegador cargando por la app: dentro del 10 de agosto salen
+`tres · dos · uno`, y sobrevive a recargar. 0 peticiones de red, 0 errores.
+
+---
 
 ### T-944 · El eje de importes, con marcas redondas — **Hecha** (2026-08-29)
 **Depende de:** T-942 · **Pedida por el usuario (2026-08-29)** · **Tocó:**
