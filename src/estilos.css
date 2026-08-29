@@ -522,6 +522,39 @@ body {
 .linea-acumulado .traza.saldo { stroke: var(--texto); stroke-dasharray: 5 3; }
 .linea-acumulado .rotulo-traza.saldo { fill: var(--texto); }
 
+/* ── La lupa y los resultados (T-943) ─────────────────────────────────────── */
+
+.tarjeta.buscador { padding: 0.75rem 1rem; }
+
+/* La lupa va ADENTRO del campo, a la izquierda del texto: es lo que hace que se
+   lea como una búsqueda antes de tocarla. El relleno del input le deja lugar. */
+.campo.con-lupa { position: relative; }
+
+.campo.con-lupa .lupa {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.campo.con-lupa input { padding-left: 2.5rem; }
+
+.resultados { list-style: none; margin: 0; padding: 0; }
+
+.resultado + .resultado { margin-top: 0.75rem; }
+
+/* Cada resultado dice de qué día es: la búsqueda cruza once meses, y una lista
+   de gastos sin fecha no se puede leer. */
+.cuando-resultado {
+  display: block;
+  font-size: 0.8125rem;
+  margin-bottom: 0.25rem;
+}
+
+.resultado .movimientos { list-style: none; margin: 0; padding: 0; }
+
 /* ── Los gráficos que se pueden recorrer (T-942) ─────────────────────────── */
 
 .grafico .linea-acumulado {

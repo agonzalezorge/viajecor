@@ -269,6 +269,7 @@ qué existe.
 | CU-14 | Llevar los ahorros conjuntos | Pendiente |
 | CU-15 | Agregar una moneda | **Hecho** (T-008, T-024) |
 | CU-16 | Limpiar los comentarios y detalles ya escritos | **Hecho** (T-025) |
+| CU-17 | Buscar un movimiento en todo el historial | **Hecho** (T-943) |
 
 ---
 
@@ -597,6 +598,23 @@ personas (ALE / IRE) en tres monedas sin convertir entre sí.
 a euros, porque un plazo fijo en pesos uruguayos es un plazo fijo en pesos
 uruguayos. Se construye como módulo aparte, no metiendo los ahorros en el
 registro de gastos.
+
+---
+
+### CU-17 — Buscar un movimiento en todo el historial
+
+**Para qué:** encontrar un gasto sin acordarse de en qué mes fue. Si uno supiera
+el mes, no necesitaría buscar.
+
+**Muestra:** una lupa arriba de la lista de movimientos. Busca en **todos los
+movimientos cargados** y en **todos sus campos** —etiqueta, detalle, rubro,
+importe, moneda, fecha y tipo—, sin distinguir mayúsculas ni tildes. Con varias
+palabras, tienen que estar todas.
+
+Cada resultado lleva **su fecha completa** y se puede corregir o borrar desde
+ahí. Arriba dice cuántos son y cuánto suman.
+
+**La ñ no es una n:** buscar `ano` no encuentra `año` (ADR-039).
 
 ---
 

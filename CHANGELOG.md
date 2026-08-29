@@ -5,6 +5,16 @@ La versión publicada vive en el archivo `VERSION`.
 
 ## Sin publicar
 
+### Agregado
+- **Una lupa en la pestaña de movimientos** que busca en **todo el historial** y
+  en **todos los campos**: la etiqueta, el detalle, el rubro, el importe, la
+  moneda, la fecha y si es gasto o ingreso. Sin distinguir mayúsculas ni tildes
+  —`peru` encuentra `Perú`—, pero **la ñ es una letra**: `ano` no encuentra
+  `año`. Con varias palabras tienen que estar todas.
+
+  Cada resultado lleva su fecha completa y se puede corregir o borrar desde ahí.
+  Ver ADR-039.
+
 ### Cambiado
 - **Los dos gráficos del historial ahora se pueden recorrer.** Acercar con los
   botones `−` / `+` o **pellizcando**, arrastrar para moverse, `Ver todo` para

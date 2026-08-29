@@ -96,7 +96,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-940 | Los dos gráficos de `Analisis1`, y la tabla en el orden del usuario | **Hecha** | T-021, T-918 |
 | T-941 | Fechas del viaje, orden por fecha de fin, y «Etiqueta» en vez de «Comentario» | **Hecha** | T-023 |
 | T-942 | Los dos gráficos del historial, interactivos: zoom, más marcas y tocar un punto | **Hecha** | T-940 |
-| T-943 | Buscar texto en todos los movimientos | En curso (claude, 2026-08-29) | T-015 |
+| T-943 | Buscar texto en todos los movimientos | **Hecha** | T-015 |
+| T-944 | Eje Y con marcas cada tanto, no solo el máximo | **Lista** | T-942 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -871,6 +872,27 @@ sin construir; con esta tarea dejó de haber ninguna, así que se borró junto c
 el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
 construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
 cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
+
+### T-943 · Buscar texto en todos los movimientos — **Hecha** (2026-08-29)
+**Depende de:** T-015 · **Pedida por el usuario (2026-08-29)** · **Tocó:**
+`core/busqueda.js` (nuevo), `lista.js`, `app.js`, `estilos.css`
+
+Una lupa arriba de la pestaña de movimientos que busca en **todo el historial** y
+en **todos los campos**: etiqueta, detalle, rubro, importe, moneda, fecha y tipo.
+
+**Lo que quedó hecho, comprobado:**
+
+- Cada campo entra **en las dos formas**, como se guarda y como se muestra: `1250`
+  y `12,50` encuentran el mismo gasto. Ver ADR-039.
+- Sin tildes ni mayúsculas, **pero la ñ se respeta**: `ano` no encuentra `año`.
+- Con varias palabras, tienen que estar todas.
+- Cada resultado lleva su fecha completa, y se puede corregir y borrar desde ahí.
+- 29 tests nuevos. Trece mutaciones a propósito: las trece fallan.
+- Recorrido en el navegador escribiendo **letra por letra**: el foco queda en el
+  campo y el cursor no se mueve; borrar desde los resultados **no pierde la
+  búsqueda**; cambiar de pestaña sí la limpia. 0 peticiones de red, 0 errores.
+
+---
 
 ### T-942 · Los dos gráficos del historial, recorribles — **Hecha** (2026-08-29)
 **Depende de:** T-940 · **Pedida por el usuario (2026-08-29)** · **Tocó:**

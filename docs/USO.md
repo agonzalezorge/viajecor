@@ -149,7 +149,12 @@ lista con solo esos movimientos, con el total repetido arriba para que veas que
 cierra. La lista te dice en qué está filtrada y tiene *"Ver todo"* al lado.
 Tocando la pestaña **Movimientos** volvés a la lista entera.
 
-**Movimientos** es la lista, donde se corrige y se borra.
+**Movimientos** es la lista, donde se corrige y se borra. Arriba tiene una
+**lupa** que busca en **todos** los movimientos, no solo en el mes que estás
+viendo, y mira **todos los campos**: la etiqueta, el detalle, el rubro, el
+importe, la moneda y la fecha. No distingue mayúsculas ni tildes —`peru`
+encuentra `Perú`—, pero la ñ sí cuenta: `ano` no encuentra `año`. Si escribís
+varias palabras, tienen que estar todas.
 
 **Datos** tiene los respaldos, la importación, los tipos de cambio y las monedas.
 

@@ -1358,3 +1358,59 @@ no un dato tuyo. Por eso vive en el elemento y no en el estado de la app
 **`touch-action: none` en el SVG** es la línea que hace que el zoom exista: sin
 ella, arrastrar el dedo adentro del gráfico desplaza la **página** y el gesto
 nunca llega.
+
+---
+
+## ADR-039 · Buscar saca las tildes; agrupar no. Y la ñ no se toca
+
+**Fecha:** 2026-08-29 · **Estado:** aceptada · **Tarea:** T-943
+
+**Lo que pidió el usuario:** una lupa en la pestaña de movimientos que busque en
+**todos los movimientos cargados** y **en todos sus campos**.
+
+**Buscar es generoso donde agrupar es estricto.** Parece contradecir ADR-013, que
+decidió a propósito que `Perú` y `Peru` fueran dos etiquetas distintas. No lo es,
+y la diferencia es la que importa:
+
+- **Agrupar junta plata.** Sacar tildes automáticamente uniría totales que el
+  usuario quiso separar, y eso **no se ve**: el número sale mal y listo.
+- **Buscar solo muestra.** Si encuentra de más, se ve y se descarta. Si encuentra
+  de menos, el usuario cree que el gasto no existe **y lo vuelve a cargar**.
+
+Equivocarse siendo generoso es barato y visible; equivocarse siendo estricto
+esconde datos. Por eso `peru` encuentra `Perú`, y en los totales siguen siendo
+dos etiquetas.
+
+**La ñ se salva a mano.** Para Unicode es una `n` con tilde y `NFD` la parte
+igual que a la `á`; para el español es **otra letra**. Sin cuidarla, buscar `ano`
+encontraría todos los `año`. La `ü` sí se saca: `pinguino` tiene que encontrar
+`pingüino`.
+
+**Cada campo entra en las dos formas: como se guarda y como se muestra.** El
+usuario busca por lo que ve en la pantalla, no por lo que hay en el archivo, así
+que `12,50` y `1250` encuentran el mismo gasto, y `14/03/2026` y `2026-03-14`
+también.
+
+**Varias palabras: tienen que estar todas.** `roma cena` trae los movimientos que
+dicen las dos cosas. Buscar dos palabras es acordarse de dos cosas del **mismo**
+gasto, no de dos gastos distintos.
+
+**Busca en todo el historial, no en el mes que se está viendo.** Quien busca
+"psicóloga" no sabe en qué mes fue —si lo supiera no buscaría—, y limitarlo al
+mes en curso daría "no hay nada" sobre datos que sí están. Por eso cada resultado
+lleva **su fecha completa**: una lista de gastos de once meses distintos sin fecha
+no se puede leer.
+
+**Sin resultados se explica dónde se buscó.** "No hay nada" sobre datos que sí
+están se lee como que la app perdió algo.
+
+**Lo buscado se guarda en la vista, pero solo se redibuja el trozo de los
+resultados.** Es la parte fina: repintar la pantalla entera en cada tecla le
+sacaría el foco al campo y movería el cursor (ADR-023). Guardarlo hace falta
+igual, porque borrar un movimiento desde los resultados sí repinta todo, y sin
+eso la búsqueda se perdería justo al usarla. Se comprobó en el navegador
+escribiendo letra por letra: el foco queda y el cursor no se mueve.
+
+**La búsqueda no sobrevive a cambiar de pestaña**, igual que el filtro
+(ADR-034): una lista incompleta a la que se vuelve media hora después se lee
+como datos que faltan.

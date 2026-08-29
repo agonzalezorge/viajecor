@@ -32,7 +32,8 @@ import { dibujarViajes, intentarFijarFechas, intentarBorrarFechas,
 import { dibujarMonedas, dibujarAvisoDecimales, efectoDeCambiarDecimales,
   intentarAgregarMoneda, intentarOcultarMoneda, intentarMostrarMoneda,
   intentarBorrarMoneda, intentarCambiarDecimales } from './pantallas/monedas.js';
-import { dibujarLista, borrarMovimiento, restaurarMovimiento, buscarMovimiento } from './pantallas/lista.js';
+import { dibujarLista, dibujarResultados, borrarMovimiento, restaurarMovimiento,
+  buscarMovimiento } from './pantallas/lista.js';
 import { dibujarDatos } from './pantallas/datos.js';
 import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
 import { leerRespaldo, previsualizar, aplicarImportacion } from '../datos/importar.js';
@@ -387,7 +388,7 @@ export function irA(vista, nombre) {
   // tocando un total; se llega a la lista entera tocando la pestaña.
   const limpia = {
     ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null,
-    filtro: null,
+    filtro: null, busqueda: '',
     avisoRespaldo: null, mostrarRespaldo: false,
     importacion: null, errorImportar: null, avisoImportar: null,
     errorPlanilla: null, avisoPlanilla: null,
@@ -948,6 +949,16 @@ export function iniciar(documento, almacen) {
   });
 
   raiz.addEventListener('input', (evento) => {
+    if (evento.target.matches('[data-accion-entrada="buscar"]')) {
+      // Se guarda lo buscado en la vista —para que sobreviva a borrar un
+      // movimiento desde los resultados— pero **se redibuja solo el trozo de
+      // los resultados**: repintar la pantalla entera en cada tecla le sacaría
+      // el foco al campo y movería el cursor (ADR-023, T-943).
+      vista = { ...vista, busqueda: evento.target.value };
+      const donde = raiz.querySelector('[data-resultados]');
+      if (donde) donde.innerHTML = dibujarResultados(vista);
+      return;
+    }
     if (evento.target.matches('[data-accion-entrada="fechas-viaje"]')) {
       refrescarDuracion();
       return;

@@ -20,6 +20,7 @@ import { sumar } from '../../core/dinero.js';
 import { claseDeRubro } from '../colores.js';
 import { movimientosDelMes, movimientosFiltrados, hayFiltro,
   separarConvertibles } from '../../core/calculos.js';
+import { buscar, palabrasDe } from '../../core/busqueda.js';
 import { movimientoEnEuros, faltaCambioPara } from '../../core/cambio.js';
 import { decimalesDe } from '../../core/monedas.js';
 import { TIPO_GASTO, TIPO_INGRESO } from '../../core/modelo.js';
@@ -192,8 +193,85 @@ export function dibujarFiltro(vista) {
   `;
 }
 
+/**
+ * La lupa — T-943.
+ *
+ * Va **arriba de todo** en la pestaña de movimientos, que es donde uno la busca
+ * cuando no se acuerda en qué mes fue algo.
+ *
+ * El campo es `type="search"`: en un teléfono el teclado trae la tecla "buscar"
+ * en vez de "enter", y el navegador agrega solo la crucecita para vaciarlo.
+ */
+export function dibujarBuscador(vista) {
+  return `
+    <section class="tarjeta buscador">
+      <label class="campo con-lupa">
+        <span class="lupa" aria-hidden="true">🔍</span>
+        <input name="busqueda" type="search" autocomplete="off" enterkeyhint="search"
+               data-accion-entrada="buscar" aria-label="Buscar en todos los movimientos"
+               placeholder="Buscar en todos los movimientos"
+               value="${escapar(vista.busqueda ?? '')}">
+      </label>
+    </section>
+  `;
+}
+
+/**
+ * Los resultados de la búsqueda.
+ *
+ * Se dibuja aparte del resto porque es lo único que se redibuja mientras se
+ * escribe: tocar el formulario entero en cada tecla le sacaría el foco al campo
+ * y movería el cursor (ADR-023).
+ *
+ * **Mira todo el historial**, así que cada resultado dice de qué día es: sin la
+ * fecha, una lista de gastos de once meses distintos no se puede leer.
+ */
+export function dibujarResultados(vista) {
+  const palabras = palabrasDe(vista.busqueda);
+  if (palabras.length === 0) return '';
+
+  const encontrados = buscar(vista.estado, vista.busqueda);
+  if (encontrados.length === 0) {
+    return `
+      <section class="tarjeta">
+        <p class="suave">Ningún movimiento dice
+        <strong>${escapar(String(vista.busqueda).trim())}</strong>.</p>
+        <p class="suave">Se busca en la etiqueta, el detalle, el rubro, el importe,
+        la moneda y la fecha, sin distinguir mayúsculas ni tildes. Con varias
+        palabras, tienen que estar todas.</p>
+      </section>
+    `;
+  }
+
+  const cuantos = encontrados.length === 1 ? '1 movimiento' : `${encontrados.length} movimientos`;
+  const total = totalDe(vista.estado, encontrados);
+
+  const cuerpo = encontrados.map((m) => `
+    <li class="resultado">
+      <span class="cuando-resultado suave">${escapar(formatearFechaLarga(m.fecha))}</span>
+      <ul class="movimientos">${dibujarMovimiento(vista.estado, m, vista)}</ul>
+    </li>`).join('');
+
+  return `
+    <p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total))}</strong>
+    en total, en todos los meses.</p>
+    <ul class="resultados">${cuerpo}</ul>
+  `;
+}
+
 export function dibujarLista(vista) {
   const { estado, mes } = vista;
+
+  // Buscando, la lista del mes no se dibuja: serían dos listas de movimientos
+  // una abajo de la otra, y la de abajo se leería como parte de los resultados.
+  if (palabrasDe(vista.busqueda).length > 0) {
+    return `
+      ${dibujarDeshacer(vista)}
+      ${dibujarBuscador(vista)}
+      <div data-resultados>${dibujarResultados(vista)}</div>
+    `;
+  }
+
   const filtrada = hayFiltro(vista.filtro);
   const delMes = filtrada
     ? movimientosFiltrados(estado, mes, vista.filtro)
@@ -206,14 +284,20 @@ export function dibujarLista(vista) {
     if (filtrada) {
       return `
         ${dibujarDeshacer(vista)}
+        ${dibujarBuscador(vista)}
+        <div data-resultados></div>
         ${dibujarFiltro(vista)}
         <section class="tarjeta">
           <p class="suave">Ningún movimiento entra en este filtro.</p>
         </section>
       `;
     }
+    // La lupa se dibuja igual: que este mes esté vacío es justamente cuando más
+    // falta hace buscar en los otros.
     return `
       ${dibujarDeshacer(vista)}
+      ${dibujarBuscador(vista)}
+      <div data-resultados></div>
       <section class="tarjeta">
         <h2>${escapar(formatearMes(mes))}</h2>
         <p class="suave">No hay movimientos en este mes.</p>
@@ -254,6 +338,8 @@ export function dibujarLista(vista) {
 
   return `
     ${dibujarDeshacer(vista)}
+    ${dibujarBuscador(vista)}
+    <div data-resultados></div>
     ${dibujarFiltro(vista)}
     ${encabezado}
     ${cuerpo}

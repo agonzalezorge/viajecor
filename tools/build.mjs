@@ -43,6 +43,7 @@ const MODULOS = [
   'src/ui/pantallas/series.js',
   'src/ui/pantallas/graficos.js',
   'src/ui/pantallas/resumen.js',
+  'src/core/busqueda.js',
   'src/core/etiquetas.js',
   'src/core/viajes.js',
   'src/ui/pantallas/etiquetas.js',
