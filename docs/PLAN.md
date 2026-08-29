@@ -100,7 +100,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-907 | Decimales sugeridos por moneda (ISO 4217) | Lista | T-008 |
 | T-908 | Reescalar los montos al corregir los decimales | Lista | T-008 |
 | T-906 | Exportar a `.xlsx` con la forma de la planilla | **Hecha** (falta abrirlo en Excel de verdad: T-019) | T-016, T-018 |
-| T-910 | Hoja de análisis mes × rubro dentro del `.xlsx` | Lista | T-906, T-021 |
+| T-910 | Hoja de análisis mes × rubro dentro del `.xlsx` | En curso (claude, 2026-08-28) | T-906, T-021 |
 | **T-950** | **Avisar cuando el navegador no puede guardar** | **Hecha** | T-004 |
 | T-911 | La barra del desglose mide el porcentaje real | **Hecha** | T-014 |
 | T-912 | Orden de campos y autocompletado del comentario | **Hecha** | T-011 |
