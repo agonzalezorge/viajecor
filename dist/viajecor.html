@@ -2183,6 +2183,116 @@ function movimientosAfectadosPor(movimientos, moneda, mes) {
   return movimientos.filter((m) => m && mismoCodigo(m.moneda, codigo) && mesDe(m.fecha) === mes).length;
 }
 
+// ── src/core/agrupamientos.js ───────────────────────────────────
+// Las etiquetas que no son ni un gasto fijo ni un viaje — CU-18, T-946.
+//
+// Pedido del usuario (2026-08-29): la etiqueta sirve para agrupar cualquier
+// cosa, no solo viajes y gastos fijos. Una mudanza, unos regalos, un arreglo del
+// auto: agrupan igual y hasta ahora no aparecían en ningún lado.
+//
+// ── Cómo se decide en qué pantalla va cada etiqueta ─────────────────────────
+//
+// En cascada, mirando **los gastos que llevan esa etiqueta**:
+//
+//   1. Si **todos** son del rubro `gastos fijos` → es un gasto fijo.
+//   2. Si **alguno** es del rubro `viajes` → es un viaje.
+//   3. Si no → va acá, en los otros grupos.
+//
+// ── Por qué el paso 2 no usa el 75 % que propuso el usuario ─────────────────
+//
+// Su idea era "si más del 75 % es del rubro viajes, es un viaje". **Con esa
+// regla sus propios viajes dejarían de serlo**, y el número lo dice solo: en un
+// viaje se paga el pasaje y el hotel con rubro `viajes`, pero también se come,
+// se toma transporte y se compra en el supermercado. El viaje de prueba de
+// T-023 —300 € de `viajes` y 150 € de comida y transporte— es **66 %**, así que
+// se caería de la pantalla de viajes justo el caso que esa pantalla existe para
+// mostrar.
+//
+// Por eso el paso 2 sigue siendo la regla de ADR-036 —al menos un gasto del
+// rubro `viajes`—, que además es lo que ya venía funcionando. El umbral está
+// igual como una constante con nombre: cambiarlo es una línea, y la decisión es
+// del usuario.
+//
+// ── Las tres pantallas no se reparten la plata, se reparten las PREGUNTAS ───
+//
+// Un gasto puede contarse en dos de ellas, y está bien: la de gastos fijos
+// responde "¿cuánto me sale la luz?" mirando **el rubro**, y esta responde
+// "¿cuánto me salió la mudanza?" mirando **la etiqueta**, con todos sus rubros
+// adentro. Cada una lo dice en su pantalla. Lo que no puede pasar —y por eso la
+// cascada— es que **la misma etiqueta** aparezca en dos listas con dos totales
+// distintos.
+//
+// Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
+
+
+
+
+/** El rubro cuyos gastos, solos, hacen que una etiqueta sea un gasto fijo. */
+const RUBRO_FIJO = 'gastos fijos';
+
+/**
+ * Cuánto del gasto de una etiqueta tiene que ser del rubro `viajes` para que
+ * cuente como viaje.
+ *
+ * **Cero: alcanza con un gasto.** Es la regla de ADR-036. El usuario propuso
+ * 0,75 y con ese número sus propios viajes dejarían de serlo (ver arriba). Queda
+ * como constante para que cambiarlo sea una línea si él decide que sí.
+ */
+const PARTE_DE_VIAJE = 0;
+
+/**
+ * En qué pantalla va una etiqueta: `'fijo'`, `'viaje'` u `'otro'`.
+ *
+ * Se decide con **los gastos**, no con los ingresos: una etiqueta que además
+ * tiene un ingreso —una devolución, un regalo que ayudó a pagar el viaje— sigue
+ * siendo el mismo grupo de gastos.
+ */
+function categoriaDeEtiqueta(movimientos) {
+  const gastos = movimientos.filter((m) => m.tipo === TIPO_GASTO);
+  if (gastos.length === 0) return 'otro';
+
+  if (gastos.every((m) => normalizarClave(m.rubro) === RUBRO_FIJO)) return 'fijo';
+
+  const deViaje = gastos.filter((m) => normalizarClave(m.rubro) === RUBRO_VIAJE).length;
+  if (deViaje > 0 && deViaje / gastos.length > PARTE_DE_VIAJE) return 'viaje';
+
+  return 'otro';
+}
+
+/**
+ * Los otros grupos de gastos, de más caro a más barato.
+ *
+ * Cada uno trae su total —**con todos sus rubros adentro**, igual que un
+ * viaje—, cuántos gastos, entre qué fechas y en cuántos meses distintos
+ * aparece. Lo último es lo que distingue una mudanza de algo que se repite
+ * todos los meses sin ser un gasto fijo del rubro.
+ */
+function otrosGrupos(estado) {
+  const grupos = [];
+
+  for (const [clave, movimientos] of porEtiquetaDeGasto(estado)) {
+    if (categoriaDeEtiqueta(movimientos) !== 'otro') continue;
+    const etiqueta = movimientos[0].comentario;
+
+    const total = movimientos.reduce(
+      (suma, m) => suma + movimientoEnEuros(m, estado.tipos_cambio, estado.monedas), 0,
+    );
+    const fechas = movimientos.map((m) => m.fecha).sort();
+
+    grupos.push({
+      clave,
+      etiqueta,
+      total,
+      cuantos: movimientos.length,
+      desde: fechas[0],
+      hasta: fechas[fechas.length - 1],
+      meses: new Set(movimientos.map((m) => mesDe(m.fecha))).size,
+    });
+  }
+
+  return grupos.sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
+}
+
 // ── src/core/calculos.js ────────────────────────────────────────
 // Los cálculos del mes — CU-04, CU-05 y CU-10.
 //
@@ -2201,6 +2311,7 @@ function movimientosAfectadosPor(movimientos, moneda, mes) {
 // `core/formato.js`; decidir qué se muestra, de la pantalla.
 //
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
+
 
 
 
@@ -2577,13 +2688,20 @@ function promedioPorDia(estado, mes, hasta) {
  * comentario es lo que el usuario ya viene usando como etiqueta en su planilla
  * (MAPEO-EXCEL §3, columna B).
  *
- * ── Los que no tienen comentario salen aparte, no se tiran ──────────────────
+ * ── Los que no entran en la lista salen aparte, no se tiran ────────────────
  *
- * En la planilla del usuario hay filas de gastos fijos sin comentario. Sin
- * comentario no hay nada que promediar —no se sabe si son tres facturas de luz o
- * tres cosas distintas—, pero **descartarlas en silencio haría que la suma de la
- * pantalla no cerrara con el total del rubro**, y el usuario no tendría forma de
- * saber por qué. Se devuelven contadas y sumadas, para que la pantalla lo diga.
+ * Dos casos, y los dos se cuentan y se suman para que la pantalla los pueda
+ * decir. **Descartarlos en silencio haría que la suma de la lista no cerrara
+ * con el total del rubro**, y el usuario no tendría forma de saber por qué:
+ *
+ *  - **Sin etiqueta.** En la planilla del usuario hay filas de gastos fijos sin
+ *    comentario. Sin etiqueta no hay nada que promediar: no se sabe si son tres
+ *    facturas de luz o tres cosas distintas.
+ *  - **Con una etiqueta que no es de gastos fijos.** Una mudanza que además
+ *    pagó una factura lleva la etiqueta `Mudanza`, y esa etiqueta vive en los
+ *    otros grupos (T-946): promediarla acá como si fuera una factura mensual
+ *    diría cualquier cosa. La cascada de `core/agrupamientos.js` decide, y así
+ *    **ninguna etiqueta aparece en dos pantallas con dos totales distintos**.
  */
 function gastosFijos(estado) {
   const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
@@ -2591,13 +2709,24 @@ function gastosFijos(estado) {
     (m) => m.tipo === TIPO_GASTO && normalizarClave(m.rubro) === 'gastos fijos',
   );
 
+  // Qué etiquetas son de gastos fijos y cuáles viven en otra pantalla.
+  const deOtraPantalla = new Set();
+  for (const [clave, gastos] of porEtiquetaDeGasto(estado)) {
+    if (categoriaDeEtiqueta(gastos) !== 'fijo') deOtraPantalla.add(clave);
+  }
+
   const acumulado = new Map();
   let sinComentario = { cuantos: 0, total: 0 };
+  let enOtrosGrupos = { cuantos: 0, total: 0 };
 
   for (const movimiento of fijos) {
     const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
     if (!movimiento.comentario) {
       sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
+      continue;
+    }
+    if (deOtraPantalla.has(normalizarClave(movimiento.comentario))) {
+      enOtrosGrupos = { cuantos: enOtrosGrupos.cuantos + 1, total: enOtrosGrupos.total + euros };
       continue;
     }
 
@@ -2624,8 +2753,31 @@ function gastosFijos(estado) {
   return {
     grupos,
     sinComentario,
-    total: sumar([...grupos.map((g) => g.total), sinComentario.total]),
+    enOtrosGrupos,
+    total: sumar([...grupos.map((g) => g.total), sinComentario.total, enOtrosGrupos.total]),
   };
+}
+
+/**
+ * Los gastos con etiqueta, agrupados por clave. Lo usan `gastosFijos()` y
+ * `core/agrupamientos.js`, que tienen que estar de acuerdo sobre qué etiqueta es
+ * de qué tipo: dos versiones de esa cuenta serían dos pantallas peleándose por
+ * la misma etiqueta.
+ */
+function porEtiquetaDeGasto(estado) {
+  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
+  const porClave = new Map();
+
+  for (const movimiento of convertibles) {
+    if (movimiento.tipo !== TIPO_GASTO) continue;
+    const texto = String(movimiento.comentario ?? '');
+    if (texto === '') continue;
+
+    const clave = normalizarClave(texto);
+    if (!porClave.has(clave)) porClave.set(clave, []);
+    porClave.get(clave).push(movimiento);
+  }
+  return porClave;
 }
 
 /**
@@ -7009,6 +7161,9 @@ function dibujarIrAEvolucion() {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
         Ver el gasto por viaje
       </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
+        Ver los otros grupos de gastos
+      </button>
     </section>
   `;
 }
@@ -8182,6 +8337,80 @@ function intentarCambiarDecimales(estado, codigo, decimales) {
   }));
 }
 
+// ── src/ui/pantallas/grupos.js ──────────────────────────────────
+// Otros grupos de gastos — CU-18, T-946.
+//
+// La etiqueta sirve para agrupar cualquier cosa, no solo viajes y gastos fijos:
+// una mudanza, unos regalos, el arreglo del auto. Hasta ahora esos grupos no
+// aparecían en ninguna pantalla — existían en los datos y no se podían ver.
+//
+// **Qué llega acá lo decide `core/agrupamientos.js`**, en cascada: si todos sus
+// gastos son del rubro `gastos fijos` va a la pantalla de gastos fijos; si
+// alguno es del rubro `viajes` va a la de viajes; si no, viene acá. Así ninguna
+// etiqueta aparece en dos listas con dos totales distintos.
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras.
+
+
+
+/** Cuántos gastos, en cuántos meses y entre qué fechas. */
+function dibujarAlcance(grupo) {
+  const cuantos = grupo.cuantos === 1 ? '1 gasto' : `${grupo.cuantos} gastos`;
+  const cuando = grupo.desde === grupo.hasta
+    ? formatearFecha(grupo.desde)
+    : `${formatearFecha(grupo.desde)} → ${formatearFecha(grupo.hasta)}`;
+
+  // En cuántos meses distintos aparece: es lo que separa una mudanza —una vez,
+  // muchos gastos— de algo que se repite todos los meses sin ser del rubro
+  // `gastos fijos`, como el gimnasio.
+  const meses = grupo.meses === 1 ? 'en un mes' : `en ${grupo.meses} meses`;
+
+  return `${cuantos} · ${cuando} · ${meses}`;
+}
+
+function dibujarGrupo(grupo) {
+  return `
+    <li class="fila-rubro">
+      <button type="button" class="fila-toque" data-accion="ver-comentario"
+              data-comentario="${escapar(grupo.etiqueta)}">
+        <span class="rubro-cabeza">
+          <span class="nombre">${escapar(grupo.etiqueta)}</span>
+          <span class="importe">${escapar(formatearEuros(grupo.total))}</span>
+        </span>
+      </button>
+      <div class="rubro-pie suave">
+        <span>${escapar(dibujarAlcance(grupo))}</span>
+      </div>
+    </li>
+  `;
+}
+
+function dibujarGrupos(vista) {
+  const grupos = otrosGrupos(vista.estado);
+
+  if (grupos.length === 0) {
+    return `
+      <section class="tarjeta">
+        <h2>Otros grupos de gastos</h2>
+        <p class="suave">Todavía no hay ninguno. Acá aparecen las etiquetas que
+        no son ni un gasto fijo ni un viaje: una mudanza, unos regalos, el
+        arreglo del auto. Poniéndole la misma etiqueta a varios gastos, se juntan
+        solos.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="tarjeta">
+      <h2>Otros grupos de gastos</h2>
+      <p class="suave nota">Las etiquetas que no son ni un gasto fijo ni un viaje.
+      El total incluye <strong>todos</strong> los rubros de esa etiqueta. Tocá uno
+      para ver sus gastos.</p>
+      <ul class="rubros">${grupos.map(dibujarGrupo).join('')}</ul>
+    </section>
+  `;
+}
+
 // ── src/ui/pantallas/fijos.js ───────────────────────────────────
 // El promedio de los gastos fijos — CU-12, T-022. Reemplaza el bloque
 // `GASTOS FIJOS PROMEDIO` del Excel: responde "¿cuánto me sale la luz por mes?".
@@ -8265,9 +8494,37 @@ function dibujarSinComentario(sinComentario) {
   `;
 }
 
+/**
+ * Los pagos del rubro `gastos fijos` cuya etiqueta vive en otra pantalla — T-946.
+ *
+ * Pasa cuando una etiqueta junta cosas de varios rubros: una mudanza que además
+ * pagó una factura. Esa etiqueta entera va a los otros grupos, así que sus pagos
+ * no se promedian acá — promediar media etiqueta como si fuera una factura
+ * mensual diría cualquier cosa.
+ *
+ * **Pero se dicen**, porque si no la suma de esta lista no cerraría con el total
+ * del rubro y no habría forma de saber por qué.
+ */
+function dibujarEnOtrosGrupos(enOtrosGrupos) {
+  if (!enOtrosGrupos || enOtrosGrupos.cuantos === 0) return '';
+
+  const cuantos = enOtrosGrupos.cuantos === 1
+    ? 'Otro pago de gastos fijos está'
+    : `Otros ${enOtrosGrupos.cuantos} pagos de gastos fijos están`;
+
+  return `
+    <p class="suave nota">
+      ${cuantos} contado${enOtrosGrupos.cuantos === 1 ? '' : 's'} en
+      <strong>otros grupos de gastos</strong>, por
+      ${escapar(formatearEuros(enOtrosGrupos.total))}: su etiqueta junta también
+      gastos de otros rubros, así que el grupo entero se mira allá.
+    </p>
+  `;
+}
+
 function dibujarGastosFijos(estado) {
-  const { grupos, sinComentario, total } = gastosFijos(estado);
-  if (grupos.length === 0 && sinComentario.cuantos === 0) return '';
+  const { grupos, sinComentario, enOtrosGrupos, total } = gastosFijos(estado);
+  if (grupos.length === 0 && sinComentario.cuantos === 0 && enOtrosGrupos.cuantos === 0) return '';
 
   const cuerpo = grupos.map(dibujarGastoFijo).join('');
 
@@ -8283,6 +8540,7 @@ function dibujarGastosFijos(estado) {
       ${vacio}
       <ul class="rubros">${cuerpo}</ul>
       ${dibujarSinComentario(sinComentario)}
+      ${dibujarEnOtrosGrupos(enOtrosGrupos)}
     </section>
   `;
 }
@@ -9047,6 +9305,9 @@ function dibujarDatos(vista) {
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
         Gasto por viaje
+      </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
+        Otros grupos de gastos
       </button>
     </section>
 
@@ -9948,6 +10209,7 @@ function conectarUna(tarjeta) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -10036,6 +10298,14 @@ registrarPantalla('evolucion', {
 
 // Fuera de la barra, como monedas y cambios: se llega desde Datos. No es algo
 // que se haga todos los días, es algo que se hace cuando un total no cuadra.
+registrarPantalla('grupos', {
+  etiqueta: 'Otros grupos de gastos',
+  icono: '◇',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarGrupos,
+});
+
 registrarPantalla('viajes', {
   etiqueta: 'Gasto por viaje',
   icono: '✈',

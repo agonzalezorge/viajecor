@@ -16,6 +16,20 @@ La versión publicada vive en el archivo `VERSION`.
   recalculan solas. Ver ADR-040.
 
 ### Agregado
+- **Otros grupos de gastos**, una pantalla nueva junto a la evolución y los
+  viajes. La etiqueta agrupa cualquier cosa —una mudanza, unos regalos, el
+  arreglo del auto—, y hasta ahora esos grupos existían en los datos y no se
+  veían en ningún lado. Cada uno con su total **con todos los rubros adentro**,
+  cuántos gastos, entre qué fechas y en cuántos meses distintos aparece.
+  Tocando uno se abren sus gastos.
+
+  **Qué etiqueta va a qué pantalla se decide solo**, en cascada: si todos sus
+  gastos son del rubro `gastos fijos` va a gastos fijos; si alguno es del rubro
+  `viajes` va a viajes; si no, va acá. Así ninguna etiqueta aparece en dos
+  listas con dos totales distintos. Cuando una etiqueta con gastos fijos adentro
+  se va a otro grupo, **la tarjeta de gastos fijos lo dice, con su importe**,
+  para que su total siga cerrando contra el del rubro. Ver ADR-041.
+
 - **Una lupa en la pestaña de movimientos** que busca en **todo el historial** y
   en **todos los campos**: la etiqueta, el detalle, el rubro, el importe, la
   moneda, la fecha y si es gasto o ingreso. Sin distinguir mayúsculas ni tildes

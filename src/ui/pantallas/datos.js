@@ -183,6 +183,9 @@ export function dibujarDatos(vista) {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
         Gasto por viaje
       </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
+        Otros grupos de gastos
+      </button>
     </section>
 
     <section class="tarjeta">

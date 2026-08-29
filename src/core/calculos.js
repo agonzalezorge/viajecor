@@ -19,6 +19,7 @@
 import { sumar, redondear } from './dinero.js';
 import { mesDe, TIPO_GASTO, TIPO_INGRESO, rubrosDe, normalizarClave, normalizarTextoVisible, claveDeComentario } from './modelo.js';
 import { movimientoEnEuros, faltaCambioPara } from './cambio.js';
+import { categoriaDeEtiqueta } from './agrupamientos.js';
 
 /** Los movimientos de un mes. Recorre la lista entera, sin ningún tope (L-001). */
 export function movimientosDelMes(movimientos, mes) {
@@ -393,13 +394,20 @@ export function promedioPorDia(estado, mes, hasta) {
  * comentario es lo que el usuario ya viene usando como etiqueta en su planilla
  * (MAPEO-EXCEL §3, columna B).
  *
- * ── Los que no tienen comentario salen aparte, no se tiran ──────────────────
+ * ── Los que no entran en la lista salen aparte, no se tiran ────────────────
  *
- * En la planilla del usuario hay filas de gastos fijos sin comentario. Sin
- * comentario no hay nada que promediar —no se sabe si son tres facturas de luz o
- * tres cosas distintas—, pero **descartarlas en silencio haría que la suma de la
- * pantalla no cerrara con el total del rubro**, y el usuario no tendría forma de
- * saber por qué. Se devuelven contadas y sumadas, para que la pantalla lo diga.
+ * Dos casos, y los dos se cuentan y se suman para que la pantalla los pueda
+ * decir. **Descartarlos en silencio haría que la suma de la lista no cerrara
+ * con el total del rubro**, y el usuario no tendría forma de saber por qué:
+ *
+ *  - **Sin etiqueta.** En la planilla del usuario hay filas de gastos fijos sin
+ *    comentario. Sin etiqueta no hay nada que promediar: no se sabe si son tres
+ *    facturas de luz o tres cosas distintas.
+ *  - **Con una etiqueta que no es de gastos fijos.** Una mudanza que además
+ *    pagó una factura lleva la etiqueta `Mudanza`, y esa etiqueta vive en los
+ *    otros grupos (T-946): promediarla acá como si fuera una factura mensual
+ *    diría cualquier cosa. La cascada de `core/agrupamientos.js` decide, y así
+ *    **ninguna etiqueta aparece en dos pantallas con dos totales distintos**.
  */
 export function gastosFijos(estado) {
   const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
@@ -407,13 +415,24 @@ export function gastosFijos(estado) {
     (m) => m.tipo === TIPO_GASTO && normalizarClave(m.rubro) === 'gastos fijos',
   );
 
+  // Qué etiquetas son de gastos fijos y cuáles viven en otra pantalla.
+  const deOtraPantalla = new Set();
+  for (const [clave, gastos] of porEtiquetaDeGasto(estado)) {
+    if (categoriaDeEtiqueta(gastos) !== 'fijo') deOtraPantalla.add(clave);
+  }
+
   const acumulado = new Map();
   let sinComentario = { cuantos: 0, total: 0 };
+  let enOtrosGrupos = { cuantos: 0, total: 0 };
 
   for (const movimiento of fijos) {
     const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
     if (!movimiento.comentario) {
       sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
+      continue;
+    }
+    if (deOtraPantalla.has(normalizarClave(movimiento.comentario))) {
+      enOtrosGrupos = { cuantos: enOtrosGrupos.cuantos + 1, total: enOtrosGrupos.total + euros };
       continue;
     }
 
@@ -440,8 +459,31 @@ export function gastosFijos(estado) {
   return {
     grupos,
     sinComentario,
-    total: sumar([...grupos.map((g) => g.total), sinComentario.total]),
+    enOtrosGrupos,
+    total: sumar([...grupos.map((g) => g.total), sinComentario.total, enOtrosGrupos.total]),
   };
+}
+
+/**
+ * Los gastos con etiqueta, agrupados por clave. Lo usan `gastosFijos()` y
+ * `core/agrupamientos.js`, que tienen que estar de acuerdo sobre qué etiqueta es
+ * de qué tipo: dos versiones de esa cuenta serían dos pantallas peleándose por
+ * la misma etiqueta.
+ */
+export function porEtiquetaDeGasto(estado) {
+  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
+  const porClave = new Map();
+
+  for (const movimiento of convertibles) {
+    if (movimiento.tipo !== TIPO_GASTO) continue;
+    const texto = String(movimiento.comentario ?? '');
+    if (texto === '') continue;
+
+    const clave = normalizarClave(texto);
+    if (!porClave.has(clave)) porClave.set(clave, []);
+    porClave.get(clave).push(movimiento);
+  }
+  return porClave;
 }
 
 /**

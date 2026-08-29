@@ -227,6 +227,38 @@ que son: un gasto con su fecha, su rubro y el comentario del viaje.
 
 ---
 
+## 7b. Agrupar cualquier otra cosa: los otros grupos de gastos
+
+**Datos → Mirar el historial → Otros grupos de gastos**, o desde el final del
+resumen del mes.
+
+La etiqueta no sirve solo para viajes y gastos fijos: **poniéndole la misma
+etiqueta a varios gastos, se juntan solos**. Una mudanza, unos regalos, el
+arreglo del auto. Esos grupos aparecen acá, del más caro al más barato, con su
+total —**con todos los rubros adentro**, igual que un viaje—, cuántos gastos,
+entre qué fechas y **en cuántos meses distintos** aparecen. Ese último dato es
+el que separa una mudanza —una vez, muchos gastos— de algo que se repite todos
+los meses sin ser del rubro «gastos fijos», como el gimnasio. Tocando uno se
+abren sus gastos.
+
+**Cada etiqueta va a una sola de las tres pantallas, y lo decide la app:**
+
+1. Si **todo** lo que lleva esa etiqueta es del rubro «gastos fijos» → va a
+   *gastos fijos*.
+2. Si **algo** es del rubro «viajes» → va a *gasto por viaje*.
+3. Si no → va acá.
+
+Así una misma etiqueta nunca te aparece dos veces con dos totales distintos.
+
+**Si una etiqueta con gastos fijos adentro se muda acá, la tarjeta de gastos
+fijos te lo dice**, con el importe. Ejemplo: si etiquetás como «Casa» el
+alquiler (rubro *gastos fijos*) y también un arreglo (rubro *otros*), «Casa»
+deja de estar en gastos fijos y pasa a los otros grupos — pero abajo de esa
+tarjeta vas a leer cuánto dinero se miró en la otra pantalla, para que el total
+te siga cerrando.
+
+---
+
 ## 8. Lo que todavía no está
 
 Lo que se hace después está en [`PLAN.md`](PLAN.md), que es el archivo que manda.

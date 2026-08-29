@@ -270,6 +270,7 @@ qué existe.
 | CU-15 | Agregar una moneda | **Hecho** (T-008, T-024) |
 | CU-16 | Limpiar los comentarios y detalles ya escritos | **Hecho** (T-025) |
 | CU-17 | Buscar un movimiento en todo el historial | **Hecho** (T-943) |
+| CU-18 | Ver los otros grupos de gastos | **Hecho** (T-946) |
 
 ---
 
@@ -598,6 +599,40 @@ personas (ALE / IRE) en tres monedas sin convertir entre sí.
 a euros, porque un plazo fijo en pesos uruguayos es un plazo fijo en pesos
 uruguayos. Se construye como módulo aparte, no metiendo los ahorros en el
 registro de gastos.
+
+---
+
+### CU-18 — Ver los otros grupos de gastos
+
+**Para qué:** la etiqueta agrupa **cualquier cosa**, no solo viajes y gastos
+fijos. Una mudanza, unos regalos, el arreglo del auto: se juntan igual y hasta
+ahora no aparecían en ninguna pantalla. Existían en los datos y no se podían
+mirar.
+
+**Muestra:** la lista de esas etiquetas, de más cara a más barata. Cada una con
+su total —**con todos sus rubros adentro**, igual que un viaje—, cuántos gastos,
+entre qué fechas y **en cuántos meses distintos** aparece. Lo último es lo que
+separa una mudanza —una vez, muchos gastos— de algo que se repite todos los
+meses sin ser del rubro `gastos fijos`, como el gimnasio.
+
+Tocando una se abre la lista de sus gastos, filtrada por esa etiqueta.
+
+**Qué etiqueta va a qué pantalla** se decide en cascada, mirando sus gastos
+(ADR-041):
+
+1. Si **todos** son del rubro `gastos fijos` → gastos fijos.
+2. Si **alguno** es del rubro `viajes` → viajes.
+3. Si no → acá.
+
+Así **ninguna etiqueta aparece en dos listas con dos totales distintos**. Un
+*movimiento* sí puede contarse en dos pantallas, porque responden preguntas
+distintas —"¿cuánto me sale la luz?" mira el rubro, "¿cuánto me salió la
+mudanza?" mira la etiqueta—, y cada pantalla lo dice: cuando una etiqueta con
+gastos fijos adentro se va a otro grupo, la tarjeta de gastos fijos lo anuncia
+con su importe, para que el total del rubro siga cerrando.
+
+**Se llega desde** Datos → *Otros grupos de gastos*, o desde el final del
+resumen del mes.
 
 ---
 

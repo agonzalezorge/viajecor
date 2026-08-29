@@ -99,7 +99,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-943 | Buscar texto en todos los movimientos | **Hecha** | T-015 |
 | T-944 | Eje Y con marcas cada tanto, no solo el máximo | **Hecha** | T-942 |
 | T-945 | Dentro de cada día, lo último cargado arriba | **Hecha** | T-015 |
-| T-946 | Otros grupos de gastos: las etiquetas que no son ni gasto fijo ni viaje | En curso (claude, 2026-08-29) | T-022, T-023 |
+| T-946 | Otros grupos de gastos: las etiquetas que no son ni gasto fijo ni viaje | **Hecha** | T-022, T-023 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -2103,3 +2103,41 @@ ellas quedan `Necesita decisión`.
   montos inventados. → T-009.
 - ~~**Formato de importación.**~~ (2026-08-18) Se lee el `.xlsx` directo, sin
   convertir a CSV. → ADR-010.
+
+### T-946 · Otros grupos de gastos — **Hecha** (2026-08-29)
+**Depende de:** T-022, T-023 · **Pedida por el usuario (2026-08-29)** · **Tocó:**
+`core/agrupamientos.js` (nuevo), `core/calculos.js`, `ui/pantallas/grupos.js`
+(nuevo), `ui/pantallas/fijos.js`, `ui/pantallas/datos.js`,
+`ui/pantallas/resumen.js`, `ui/app.js`
+
+La etiqueta agrupa cualquier cosa, no solo viajes y gastos fijos. Una mudanza o
+el arreglo del auto **existían en los datos y no se veían en ninguna pantalla**.
+Ahora hay una tercera, al lado de las otras dos, en Datos y al final del resumen.
+
+**Lo difícil no fue sumar, fue repartir.** Con tres pantallas mirando las mismas
+etiquetas, el error caro es la misma etiqueta en dos listas con dos totales
+distintos. Se resolvió con una sola función en cascada —ADR-041— a la que
+preguntan las tres, y con `porEtiquetaDeGasto()` compartida para que no puedan
+agrupar distinto.
+
+**El 75 % que pidió el usuario no se aplicó, y el número lo explica solo:** su
+viaje de prueba es 300 € de rubro `viajes` contra 150 € de comida y transporte,
+o sea **66 %**, así que con ese umbral se caería de la pantalla de viajes. Quedó
+como la constante `PARTE_DE_VIAJE = 0`; cambiarla es una línea. Está avisado.
+
+**Lo que la cascada obliga a decir en voz alta:** "Casa" —alquiler más un
+arreglo— sale de la tarjeta de gastos fijos, y esa tarjeta tiene que seguir
+cerrando contra el total del rubro. Así que `gastosFijos()` devuelve un tercer
+balde y la tarjeta escribe cuánto se fue y adónde.
+
+**Mutaciones:** 16 sembradas, 16 muertas, control final en 0. Dos sobrevivieron
+en la primera vuelta: una era real —no filtrar por gastos no rompía ningún
+test— y se cubrió con el caso del ingreso adentro de un gasto fijo; la otra es
+equivalente (`normalizarClave` sobre un rubro que `crearMovimiento` ya guarda
+normalizado) y se dejó por simetría con `viajes.js`.
+
+**Recorrido en el navegador:** cargados una mudanza, un viaje, un gasto fijo
+puro y uno mezclado; la pantalla lista los dos grupos con sus totales completos,
+tocar uno abre sus gastos filtrados, Roma sigue en viajes, la tarjeta de fijos
+anuncia los 60 € que se fueron, y todo sobrevive a la recarga. Cero pedidos de
+red, cero errores de consola.

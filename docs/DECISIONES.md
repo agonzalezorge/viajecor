@@ -1454,3 +1454,60 @@ paso, así que ya estaba. **Una mutación demostró que esa línea era inalcanza
 —borrarla no ponía ningún test en rojo porque no hacía nada— y se fue. Lo que sí
 hace falta es el `+ 0` del arranque: `Math.ceil(-0.4) * 100000` da **−0**, que se
 formatea como `-0` y se lee como un error de la app.
+
+
+## ADR-041 · Una etiqueta va a una sola pantalla, y se decide en cascada
+
+**Contexto.** La etiqueta ya agrupaba dos cosas: los viajes (al menos un gasto
+del rubro `viajes`, ADR-036) y los gastos fijos (los del rubro `gastos fijos`
+con etiqueta). El usuario pidió poder agrupar **cualquier otra cosa** —una
+mudanza, unos regalos, el arreglo del auto— en una tercera pantalla.
+
+Con tres pantallas mirando las mismas etiquetas, el riesgo deja de ser un total
+mal sumado y pasa a ser un **reparto**: la misma etiqueta apareciendo en dos
+listas con dos totales distintos, o cayéndose de las tres.
+
+**Decisión.** Una sola función pura, `categoriaDeEtiqueta()`, decide en cascada
+mirando **los gastos** de esa etiqueta:
+
+1. Si **todos** son del rubro `gastos fijos` → `'fijo'`.
+2. Si **alguno** es del rubro `viajes` → `'viaje'`.
+3. Si no → `'otro'`.
+
+Las tres pantallas preguntan a esa misma función. `gastosFijos()` y
+`otrosGrupos()` además parten de la misma `porEtiquetaDeGasto()`, para que no
+puedan clasificar distinto.
+
+**Se decide con los gastos, no con los ingresos.** Una devolución con la misma
+etiqueta no cambia de qué es el grupo. Y hay un motivo más fuerte: el rubro de
+un ingreso **nunca** puede ser `gastos fijos` —esa lista es de gastos—, así que
+si los ingresos contaran, una factura con una devolución dejaría de ser un gasto
+fijo por tener adentro un movimiento que jamás podría cumplir la condición.
+
+**Por qué el paso 2 no usa el 75 % que propuso el usuario.** Su idea era "si más
+del 75 % de la etiqueta es del rubro viajes, es un viaje". **Con esa regla sus
+propios viajes dejarían de serlo:** en un viaje se paga el pasaje y el hotel con
+rubro `viajes`, pero también se come, se toma transporte y se compra en el
+supermercado. El viaje de prueba de T-023 —300 € de `viajes` contra 150 € de
+comida y transporte— es **66 %**, y se caería de la pantalla de viajes justo el
+caso que esa pantalla existe para mostrar. El umbral quedó igual como la
+constante `PARTE_DE_VIAJE = 0`: cambiarlo a `0.75` es una línea, y la decisión
+es del usuario.
+
+**Las tres pantallas no se reparten la plata, se reparten las preguntas.** Un
+*movimiento* sí puede contarse en dos: la de gastos fijos responde "¿cuánto me
+sale la luz?" mirando el **rubro**, y la de otros grupos responde "¿cuánto me
+salió la mudanza?" mirando la **etiqueta**, con todos sus rubros adentro. Lo que
+no puede pasar es que la **misma etiqueta** esté en dos listas.
+
+**Consecuencia visible, y por eso se anuncia.** Una etiqueta como "Casa", que
+junta el alquiler (`gastos fijos`) y un arreglo (`otros`), **sale** de la
+tarjeta de gastos fijos. Si se fuera en silencio, esa tarjeta dejaría de cerrar
+contra el total del rubro. Así que `gastosFijos()` devuelve un tercer balde,
+`enOtrosGrupos`, y la tarjeta escribe cuántos pagos y cuánto dinero se miran en
+la otra pantalla. Un total que baja sin explicación es un total en el que el
+usuario deja de confiar — y hace bien.
+
+**Alternativa descartada:** una lista aparte donde el usuario marque qué
+etiqueta es qué. Dos lugares que digan lo mismo son dos lugares que se
+desincronizan, y además obliga a mantener a mano algo que los datos ya saben.

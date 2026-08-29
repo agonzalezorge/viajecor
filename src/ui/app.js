@@ -29,6 +29,7 @@ import { efectoDeRenombrar } from '../core/etiquetas.js';
 import { conectarSeries } from './series-interaccion.js';
 import { dibujarViajes, intentarFijarFechas, intentarBorrarFechas,
   dibujarDuracion } from './pantallas/viajes.js';
+import { dibujarGrupos } from './pantallas/grupos.js';
 import { dibujarMonedas, dibujarAvisoDecimales, efectoDeCambiarDecimales,
   intentarAgregarMoneda, intentarOcultarMoneda, intentarMostrarMoneda,
   intentarBorrarMoneda, intentarCambiarDecimales } from './pantallas/monedas.js';
@@ -132,6 +133,14 @@ registrarPantalla('evolucion', {
 
 // Fuera de la barra, como monedas y cambios: se llega desde Datos. No es algo
 // que se haga todos los días, es algo que se hace cuando un total no cuadra.
+registrarPantalla('grupos', {
+  etiqueta: 'Otros grupos de gastos',
+  icono: '◇',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarGrupos,
+});
+
 registrarPantalla('viajes', {
   etiqueta: 'Gasto por viaje',
   icono: '✈',

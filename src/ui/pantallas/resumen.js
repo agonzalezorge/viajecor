@@ -213,6 +213,9 @@ export function dibujarIrAEvolucion() {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
         Ver el gasto por viaje
       </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
+        Ver los otros grupos de gastos
+      </button>
     </section>
   `;
 }

@@ -55,17 +55,37 @@ test('"Luz" y "luz" son la misma factura', () => {
   assert.equal(luz.comentario, 'Luz', 'se muestra la primera escritura que apareció');
 });
 
-test('solo cuenta los gastos del rubro "gastos fijos"', () => {
-  // Un "Luz" cargado en supermercado no es la factura de la luz.
+test('una etiqueta que NO es solo de gastos fijos se va a otra pantalla', () => {
+  // Hasta el 2026-08-29 esta etiqueta aparecía acá con la mitad de su plata: se
+  // contaban sus 40 € de rubro `gastos fijos` y se ignoraban los 99 de
+  // supermercado. Promediar eso como si fuera una factura mensual dice
+  // cualquier cosa.
+  //
+  // La regla nueva la manda entera a los otros grupos (T-946, ADR-041), y esta
+  // pantalla lo dice en vez de callarlo — si no, su suma no cerraría con el
+  // total del rubro y nadie sabría por qué.
   const estado = estadoCon([
     mov({ monto: '40', fecha: '2025-10-05', comentario: 'Luz' }),
     mov({ monto: '99', fecha: '2025-10-06', comentario: 'Luz', rubro: 'supermercado' }),
   ]);
-  const { grupos } = gastosFijos(estado);
+  const { grupos, enOtrosGrupos, total } = gastosFijos(estado);
+
+  assert.deepEqual(grupos, [], 'no puede quedar acá con una parte de su plata');
+  assert.equal(enOtrosGrupos.cuantos, 1);
+  assert.equal(enOtrosGrupos.total, 4000);
+  assert.equal(total, 4000, 'el total del rubro tiene que seguir cerrando');
+});
+
+test('una etiqueta que es SOLO de gastos fijos sí se queda', () => {
+  const estado = estadoCon([
+    mov({ monto: '40', fecha: '2025-10-05', comentario: 'Luz' }),
+    mov({ monto: '60', fecha: '2025-11-05', comentario: 'Luz' }),
+  ]);
+  const { grupos, enOtrosGrupos } = gastosFijos(estado);
 
   assert.equal(grupos.length, 1);
-  assert.equal(grupos[0].cuantos, 1);
-  assert.equal(grupos[0].total, 4000);
+  assert.equal(grupos[0].cuantos, 2);
+  assert.equal(enOtrosGrupos.cuantos, 0);
 });
 
 test('un ingreso con rubro de gasto no entra al promedio', () => {
