@@ -2125,12 +2125,17 @@ viaje de prueba es 300 € de rubro `viajes` contra 150 € de comida y transpor
 o sea **66 %**, así que con ese umbral se caería de la pantalla de viajes. Quedó
 como la constante `PARTE_DE_VIAJE = 0`; cambiarla es una línea. Está avisado.
 
-**Lo que la cascada obliga a decir en voz alta:** "Casa" —alquiler más un
-arreglo— sale de la tarjeta de gastos fijos, y esa tarjeta tiene que seguir
-cerrando contra el total del rubro. Así que `gastosFijos()` devuelve un tercer
-balde y la tarjeta escribe cuánto se fue y adónde.
+**Y una corrección del usuario, el mismo día, que mejoró el diseño.** La
+primera versión sacaba de la tarjeta de gastos fijos las etiquetas mixtas, para
+que ningún nombre apareciera dos veces. Él lo objetó: *"cómo yo etiquete algo no
+debería alterar en nada los totales de rubro, son cosas independientes"*. Tenía
+razón —esa tarjeta agrupa por etiqueta los gastos de **un rubro**—, así que la
+cascada pasó a decidir **dónde tiene su grupo propio** cada etiqueta, no qué
+pantalla puede nombrarla. "Casa" vuelve a gastos fijos con sus 60 € y está
+también en otros grupos con sus 70 €, y la fila explica la diferencia:
+`conGrupoPropio` es un rótulo, no un descuento.
 
-**Mutaciones:** 16 sembradas, 16 muertas, control final en 0. Dos sobrevivieron
+**Mutaciones:** 20 sembradas, 20 muertas, control final en 0. Dos sobrevivieron
 en la primera vuelta: una era real —no filtrar por gastos no rompía ningún
 test— y se cubrió con el caso del ingreso adentro de un gasto fijo; la otra es
 equivalente (`normalizarClave` sobre un rubro que `crearMovimiento` ya guarda

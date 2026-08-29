@@ -55,37 +55,49 @@ test('"Luz" y "luz" son la misma factura', () => {
   assert.equal(luz.comentario, 'Luz', 'se muestra la primera escritura que apareció');
 });
 
-test('una etiqueta que NO es solo de gastos fijos se va a otra pantalla', () => {
-  // Hasta el 2026-08-29 esta etiqueta aparecía acá con la mitad de su plata: se
-  // contaban sus 40 € de rubro `gastos fijos` y se ignoraban los 99 de
-  // supermercado. Promediar eso como si fuera una factura mensual dice
-  // cualquier cosa.
-  //
-  // La regla nueva la manda entera a los otros grupos (T-946, ADR-041), y esta
-  // pantalla lo dice en vez de callarlo — si no, su suma no cerraría con el
-  // total del rubro y nadie sabría por qué.
+test('una etiqueta mixta se queda acá con SU PARTE del rubro, y se avisa', () => {
+  // La decisión del usuario (2026-08-29): el rubro y la etiqueta son
+  // independientes, así que **cómo etiqueta no puede cambiar lo que ve de un
+  // rubro**. Esta lista agrupa por etiqueta los gastos del rubro `gastos
+  // fijos`, y suma solo esa parte; el total completo de la etiqueta está en los
+  // otros grupos. Dos preguntas distintas, y la fila dice cuál contesta.
   const estado = estadoCon([
     mov({ monto: '40', fecha: '2025-10-05', comentario: 'Luz' }),
     mov({ monto: '99', fecha: '2025-10-06', comentario: 'Luz', rubro: 'supermercado' }),
   ]);
-  const { grupos, enOtrosGrupos, total } = gastosFijos(estado);
+  const { grupos, total } = gastosFijos(estado);
 
-  assert.deepEqual(grupos, [], 'no puede quedar acá con una parte de su plata');
-  assert.equal(enOtrosGrupos.cuantos, 1);
-  assert.equal(enOtrosGrupos.total, 4000);
-  assert.equal(total, 4000, 'el total del rubro tiene que seguir cerrando');
+  assert.equal(grupos.length, 1);
+  assert.equal(grupos[0].total, 4000, 'solo la parte del rubro gastos fijos');
+  assert.equal(grupos[0].conGrupoPropio, true, 'y se avisa que hay más en otros grupos');
+  assert.equal(total, 4000, 'el total del rubro sigue cerrando');
 });
 
-test('una etiqueta que es SOLO de gastos fijos sí se queda', () => {
+test('una etiqueta que es SOLO de gastos fijos no lleva ningún aviso', () => {
   const estado = estadoCon([
     mov({ monto: '40', fecha: '2025-10-05', comentario: 'Luz' }),
     mov({ monto: '60', fecha: '2025-11-05', comentario: 'Luz' }),
   ]);
-  const { grupos, enOtrosGrupos } = gastosFijos(estado);
+  const { grupos } = gastosFijos(estado);
 
   assert.equal(grupos.length, 1);
   assert.equal(grupos[0].cuantos, 2);
-  assert.equal(enOtrosGrupos.cuantos, 0);
+  assert.equal(grupos[0].conGrupoPropio, false);
+});
+
+test('un viaje que pagó una factura tampoco arrastra a la etiqueta fuera de acá', () => {
+  // Un viaje tiene grupo propio en la pantalla de viajes, no en otros grupos:
+  // el aviso de la fila nombra "otros grupos de gastos", así que no puede
+  // aparecer acá. La parte del rubro se sigue viendo igual.
+  const estado = estadoCon([
+    mov({ monto: '40', fecha: '2025-10-05', comentario: 'Roma' }),
+    mov({ monto: '300', fecha: '2025-10-06', comentario: 'Roma', rubro: 'viajes' }),
+  ]);
+  const { grupos } = gastosFijos(estado);
+
+  assert.equal(grupos.length, 1);
+  assert.equal(grupos[0].total, 4000);
+  assert.equal(grupos[0].conGrupoPropio, false);
 });
 
 test('un ingreso con rubro de gasto no entra al promedio', () => {

@@ -2216,11 +2216,17 @@ function movimientosAfectadosPor(movimientos, moneda, mes) {
 // ── Las tres pantallas no se reparten la plata, se reparten las PREGUNTAS ───
 //
 // Un gasto puede contarse en dos de ellas, y está bien: la de gastos fijos
-// responde "¿cuánto me sale la luz?" mirando **el rubro**, y esta responde
-// "¿cuánto me salió la mudanza?" mirando **la etiqueta**, con todos sus rubros
-// adentro. Cada una lo dice en su pantalla. Lo que no puede pasar —y por eso la
-// cascada— es que **la misma etiqueta** aparezca en dos listas con dos totales
-// distintos.
+// responde "¿cuánto me sale la luz?" mirando **el rubro** —y suma solo la parte
+// de ese rubro—, y esta responde "¿cuánto me salió la mudanza?" mirando **la
+// etiqueta**, con todos sus rubros adentro. Cada una lo dice en su pantalla.
+//
+// Lo que decide la cascada es **dónde tiene su grupo propio cada etiqueta**, no
+// qué pantalla puede nombrarla. La primera versión hacía lo segundo: sacaba de
+// la tarjeta de gastos fijos las etiquetas mixtas. El usuario lo objetó, con
+// razón —"cómo yo etiquete algo no debería alterar en nada los totales de
+// rubro, son cosas independientes"—, y tenía razón: esa tarjeta agrupa por
+// etiqueta los gastos de un rubro, y el etiquetado no puede cambiar lo que se
+// ve de ese rubro. Ver ADR-041.
 //
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
@@ -2697,11 +2703,20 @@ function promedioPorDia(estado, mes, hasta) {
  *  - **Sin etiqueta.** En la planilla del usuario hay filas de gastos fijos sin
  *    comentario. Sin etiqueta no hay nada que promediar: no se sabe si son tres
  *    facturas de luz o tres cosas distintas.
- *  - **Con una etiqueta que no es de gastos fijos.** Una mudanza que además
- *    pagó una factura lleva la etiqueta `Mudanza`, y esa etiqueta vive en los
- *    otros grupos (T-946): promediarla acá como si fuera una factura mensual
- *    diría cualquier cosa. La cascada de `core/agrupamientos.js` decide, y así
- *    **ninguna etiqueta aparece en dos pantallas con dos totales distintos**.
+ *
+ * ── Lo que se suma acá es SOLO el rubro, y por eso no depende de la etiqueta ─
+ *
+ * Cada fila suma **los gastos del rubro `gastos fijos` que llevan esa
+ * etiqueta**, y nada más. Si "Casa" junta el alquiler (`gastos fijos`) y un
+ * arreglo (`otros`), acá se ven los 60 € del alquiler; los 70 € completos se
+ * ven en los otros grupos (T-946), que agrupan por etiqueta con todos los
+ * rubros adentro. **Son dos preguntas distintas y cada pantalla dice cuál
+ * contesta.**
+ *
+ * La primera versión de T-946 sacaba de esta lista las etiquetas mixtas para
+ * que ningún nombre apareciera dos veces. El usuario lo objetó con razón: el
+ * rubro y la etiqueta son independientes, y **cómo etiquetás no puede cambiar
+ * lo que ves de un rubro**. Ver ADR-041.
  */
 function gastosFijos(estado) {
   const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
@@ -2709,24 +2724,21 @@ function gastosFijos(estado) {
     (m) => m.tipo === TIPO_GASTO && normalizarClave(m.rubro) === 'gastos fijos',
   );
 
-  // Qué etiquetas son de gastos fijos y cuáles viven en otra pantalla.
-  const deOtraPantalla = new Set();
+  // Qué etiquetas, además de estar acá, tienen un grupo propio en los otros
+  // grupos. No cambia ningún total: la fila lo dice para que quien vea 60 € acá
+  // y 70 € allá sepa por qué son distintos.
+  const conGrupoPropio = new Set();
   for (const [clave, gastos] of porEtiquetaDeGasto(estado)) {
-    if (categoriaDeEtiqueta(gastos) !== 'fijo') deOtraPantalla.add(clave);
+    if (categoriaDeEtiqueta(gastos) === 'otro') conGrupoPropio.add(clave);
   }
 
   const acumulado = new Map();
   let sinComentario = { cuantos: 0, total: 0 };
-  let enOtrosGrupos = { cuantos: 0, total: 0 };
 
   for (const movimiento of fijos) {
     const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
     if (!movimiento.comentario) {
       sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
-      continue;
-    }
-    if (deOtraPantalla.has(normalizarClave(movimiento.comentario))) {
-      enOtrosGrupos = { cuantos: enOtrosGrupos.cuantos + 1, total: enOtrosGrupos.total + euros };
       continue;
     }
 
@@ -2747,14 +2759,17 @@ function gastosFijos(estado) {
   }
 
   const grupos = [...acumulado.values()]
-    .map((g) => ({ ...g, promedio: redondear(g.total / g.cuantos) }))
+    .map((g) => ({
+      ...g,
+      promedio: redondear(g.total / g.cuantos),
+      conGrupoPropio: conGrupoPropio.has(g.clave),
+    }))
     .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
 
   return {
     grupos,
     sinComentario,
-    enOtrosGrupos,
-    total: sumar([...grupos.map((g) => g.total), sinComentario.total, enOtrosGrupos.total]),
+    total: sumar([...grupos.map((g) => g.total), sinComentario.total]),
   };
 }
 
@@ -8345,9 +8360,13 @@ function intentarCambiarDecimales(estado, codigo, decimales) {
 // aparecían en ninguna pantalla — existían en los datos y no se podían ver.
 //
 // **Qué llega acá lo decide `core/agrupamientos.js`**, en cascada: si todos sus
-// gastos son del rubro `gastos fijos` va a la pantalla de gastos fijos; si
-// alguno es del rubro `viajes` va a la de viajes; si no, viene acá. Así ninguna
-// etiqueta aparece en dos listas con dos totales distintos.
+// gastos son del rubro `gastos fijos` su grupo vive en la pantalla de gastos
+// fijos; si alguno es del rubro `viajes`, en la de viajes; si no, acá. Así cada
+// etiqueta tiene **un** grupo propio, en **una** pantalla.
+//
+// Que una etiqueta de acá se nombre también en la tarjeta de gastos fijos no es
+// una contradicción: allá se suma solo la parte del rubro `gastos fijos` y acá
+// la etiqueta entera, y las dos pantallas lo dicen. Ver ADR-041.
 //
 // Igual que el resto de la interfaz (ADR-022), son funciones puras.
 
@@ -8404,8 +8423,9 @@ function dibujarGrupos(vista) {
     <section class="tarjeta">
       <h2>Otros grupos de gastos</h2>
       <p class="suave nota">Las etiquetas que no son ni un gasto fijo ni un viaje.
-      El total incluye <strong>todos</strong> los rubros de esa etiqueta. Tocá uno
-      para ver sus gastos.</p>
+      El total incluye <strong>todos</strong> los rubros de esa etiqueta, así que
+      puede ser mayor que lo que la misma etiqueta suma en la tarjeta de gastos
+      fijos, que mira un rubro solo. Tocá uno para ver sus gastos.</p>
       <ul class="rubros">${grupos.map(dibujarGrupo).join('')}</ul>
     </section>
   `;
@@ -8466,6 +8486,7 @@ function dibujarGastoFijo(grupo) {
         <span>${escapar(dibujarCadencia(grupo))}</span>
         <span>${escapar(formatearEuros(grupo.total))} en total</span>
       </div>
+      ${dibujarTambienEnOtrosGrupos(grupo)}
     </li>
   `;
 }
@@ -8495,36 +8516,29 @@ function dibujarSinComentario(sinComentario) {
 }
 
 /**
- * Los pagos del rubro `gastos fijos` cuya etiqueta vive en otra pantalla — T-946.
+ * El aviso de que esa etiqueta además tiene un grupo propio — T-946.
  *
- * Pasa cuando una etiqueta junta cosas de varios rubros: una mudanza que además
- * pagó una factura. Esa etiqueta entera va a los otros grupos, así que sus pagos
- * no se promedian acá — promediar media etiqueta como si fuera una factura
- * mensual diría cualquier cosa.
- *
- * **Pero se dicen**, porque si no la suma de esta lista no cerraría con el total
- * del rubro y no habría forma de saber por qué.
+ * **No cambia ningún total.** Está para que quien vea 60 € acá y 70 € en los
+ * otros grupos sepa por qué son distintos: acá se suma **solo la parte del
+ * rubro `gastos fijos`** de esa etiqueta, y allá la etiqueta entera, con todos
+ * sus rubros adentro. Un mismo nombre con dos números y sin explicación es la
+ * forma más rápida de que el usuario deje de creerle a los dos.
  */
-function dibujarEnOtrosGrupos(enOtrosGrupos) {
-  if (!enOtrosGrupos || enOtrosGrupos.cuantos === 0) return '';
-
-  const cuantos = enOtrosGrupos.cuantos === 1
-    ? 'Otro pago de gastos fijos está'
-    : `Otros ${enOtrosGrupos.cuantos} pagos de gastos fijos están`;
+function dibujarTambienEnOtrosGrupos(grupo) {
+  if (!grupo.conGrupoPropio) return '';
 
   return `
     <p class="suave nota">
-      ${cuantos} contado${enOtrosGrupos.cuantos === 1 ? '' : 's'} en
-      <strong>otros grupos de gastos</strong>, por
-      ${escapar(formatearEuros(enOtrosGrupos.total))}: su etiqueta junta también
-      gastos de otros rubros, así que el grupo entero se mira allá.
+      Acá se suma solo lo que "${escapar(grupo.comentario)}" gastó en el rubro
+      gastos fijos. Esa etiqueta junta también gastos de otros rubros: el total
+      completo está en <strong>otros grupos de gastos</strong>.
     </p>
   `;
 }
 
 function dibujarGastosFijos(estado) {
-  const { grupos, sinComentario, enOtrosGrupos, total } = gastosFijos(estado);
-  if (grupos.length === 0 && sinComentario.cuantos === 0 && enOtrosGrupos.cuantos === 0) return '';
+  const { grupos, sinComentario, total } = gastosFijos(estado);
+  if (grupos.length === 0 && sinComentario.cuantos === 0) return '';
 
   const cuerpo = grupos.map(dibujarGastoFijo).join('');
 
@@ -8540,7 +8554,6 @@ function dibujarGastosFijos(estado) {
       ${vacio}
       <ul class="rubros">${cuerpo}</ul>
       ${dibujarSinComentario(sinComentario)}
-      ${dibujarEnOtrosGrupos(enOtrosGrupos)}
     </section>
   `;
 }

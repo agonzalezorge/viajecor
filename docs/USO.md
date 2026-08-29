@@ -248,14 +248,15 @@ abren sus gastos.
 2. Si **algo** es del rubro «viajes» → va a *gasto por viaje*.
 3. Si no → va acá.
 
-Así una misma etiqueta nunca te aparece dos veces con dos totales distintos.
+Eso decide **dónde se agrupa entera** cada etiqueta. **Cómo etiquetás no cambia
+nada de los rubros:** la tarjeta de gastos fijos te sigue mostrando todas las
+etiquetas de ese rubro, sumando solo lo de ese rubro.
 
-**Si una etiqueta con gastos fijos adentro se muda acá, la tarjeta de gastos
-fijos te lo dice**, con el importe. Ejemplo: si etiquetás como «Casa» el
-alquiler (rubro *gastos fijos*) y también un arreglo (rubro *otros*), «Casa»
-deja de estar en gastos fijos y pasa a los otros grupos — pero abajo de esa
-tarjeta vas a leer cuánto dinero se miró en la otra pantalla, para que el total
-te siga cerrando.
+Ejemplo: si etiquetás como «Casa» el alquiler (rubro *gastos fijos*, 60 €) y
+también un arreglo (rubro *otros*, 10 €), vas a ver **«Casa» en las dos
+pantallas**: en gastos fijos con 60 € —lo que "Casa" gastó en ese rubro— y acá
+con 70 € —«Casa» entera—. No es un error ni se cuenta dos veces: son dos
+preguntas distintas, y **la fila de gastos fijos te lo aclara ahí mismo**.
 
 ---
 

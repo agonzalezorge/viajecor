@@ -30,11 +30,17 @@
 // ── Las tres pantallas no se reparten la plata, se reparten las PREGUNTAS ───
 //
 // Un gasto puede contarse en dos de ellas, y está bien: la de gastos fijos
-// responde "¿cuánto me sale la luz?" mirando **el rubro**, y esta responde
-// "¿cuánto me salió la mudanza?" mirando **la etiqueta**, con todos sus rubros
-// adentro. Cada una lo dice en su pantalla. Lo que no puede pasar —y por eso la
-// cascada— es que **la misma etiqueta** aparezca en dos listas con dos totales
-// distintos.
+// responde "¿cuánto me sale la luz?" mirando **el rubro** —y suma solo la parte
+// de ese rubro—, y esta responde "¿cuánto me salió la mudanza?" mirando **la
+// etiqueta**, con todos sus rubros adentro. Cada una lo dice en su pantalla.
+//
+// Lo que decide la cascada es **dónde tiene su grupo propio cada etiqueta**, no
+// qué pantalla puede nombrarla. La primera versión hacía lo segundo: sacaba de
+// la tarjeta de gastos fijos las etiquetas mixtas. El usuario lo objetó, con
+// razón —"cómo yo etiquete algo no debería alterar en nada los totales de
+// rubro, son cosas independientes"—, y tenía razón: esa tarjeta agrupa por
+// etiqueta los gastos de un rubro, y el etiquetado no puede cambiar lo que se
+// ve de ese rubro. Ver ADR-041.
 //
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 

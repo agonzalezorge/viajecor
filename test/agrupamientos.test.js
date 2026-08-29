@@ -13,6 +13,7 @@ import {
   categoriaDeEtiqueta, otrosGrupos, PARTE_DE_VIAJE, RUBRO_FIJO,
 } from '../src/core/agrupamientos.js';
 import { dibujarAlcance, dibujarGrupo, dibujarGrupos } from '../src/ui/pantallas/grupos.js';
+import { dibujarGastoFijo } from '../src/ui/pantallas/fijos.js';
 
 import { viajes } from '../src/core/viajes.js';
 import { gastosFijos } from '../src/core/calculos.js';
@@ -227,7 +228,7 @@ test('sin movimientos no hay grupos', () => {
 
 // ── El reparto entre las tres pantallas ─────────────────────────────────────
 
-test('ninguna etiqueta aparece en dos pantallas a la vez', () => {
+test('cada etiqueta tiene UN grupo propio en UNA sola pantalla', () => {
   const estado = estadoCon([
     ...MUDANZA(),
     mov({ monto: '300', rubro: 'viajes', fecha: '2026-07-03', comentario: 'Roma' }),
@@ -249,26 +250,48 @@ test('ninguna etiqueta aparece en dos pantallas a la vez', () => {
   assert.equal(new Set(todas).size, todas.length);
 });
 
-test('un gasto fijo con etiqueta mezclada sale de gastos fijos y se anuncia ahí', () => {
-  // La tarjeta de gastos fijos tiene que seguir cerrando contra el total del
-  // rubro: si una etiqueta se va a otra pantalla, lo que se llevó se dice, no
-  // se descuenta en silencio.
+test('una etiqueta mixta está en las dos pantallas, con dos números distintos', () => {
+  // Lo pidió el usuario y tiene razón: el rubro y la etiqueta son
+  // independientes. La tarjeta de gastos fijos sigue mostrando "Casa" con SU
+  // PARTE del rubro (40 €), y los otros grupos la muestran entera (50 €). Cada
+  // pantalla dice qué suma; lo que no puede pasar es que el mismo número
+  // aparezca dos veces sin explicación.
   const estado = estadoCon([
     mov({ monto: '40', rubro: 'gastos fijos', fecha: '2026-06-01', comentario: 'Casa' }),
     mov({ monto: '10', rubro: 'otros', fecha: '2026-06-02', comentario: 'Casa' }),
   ]);
 
   const fijos = gastosFijos(estado);
-  assert.deepEqual(fijos.grupos, []);
-  assert.equal(fijos.enOtrosGrupos.cuantos, 1);
-  assert.equal(fijos.enOtrosGrupos.total, 4000);
-  assert.equal(fijos.total, 4000);
+  assert.equal(fijos.grupos.length, 1);
+  assert.equal(fijos.grupos[0].total, 4000, 'solo el rubro gastos fijos');
+  assert.equal(fijos.grupos[0].conGrupoPropio, true);
+  assert.equal(fijos.total, 4000, 'el total del rubro no se movió');
 
-  assert.deepEqual(otrosGrupos(estado).map((g) => g.clave), ['casa']);
+  const [grupo] = otrosGrupos(estado);
+  assert.equal(grupo.clave, 'casa');
+  assert.equal(grupo.total, 5000, 'la etiqueta entera, con todos sus rubros');
+});
+
+test('la fila de gastos fijos avisa cuando la etiqueta tiene su grupo propio', () => {
+  const html = dibujarGastoFijo({
+    clave: 'casa', comentario: 'Casa', total: 4000, cuantos: 1, promedio: 4000,
+    desde: '2026-06', hasta: '2026-06', conGrupoPropio: true,
+  });
+  assert.match(html, /solo lo que "Casa" gastó en el rubro/);
+  assert.match(html, /otros grupos de gastos/);
+});
+
+test('sin grupo propio, la fila no dice nada de más', () => {
+  const html = dibujarGastoFijo({
+    clave: 'luz', comentario: 'Luz', total: 4000, cuantos: 1, promedio: 4000,
+    desde: '2026-06', hasta: '2026-06', conGrupoPropio: false,
+  });
+  assert.doesNotMatch(html, /otros grupos/);
 });
 
 
 // ── La pantalla ─────────────────────────────────────────────────────────────
+
 
 test('el alcance dice cuántos gastos, entre qué fechas y en cuántos meses', () => {
   const texto = dibujarAlcance({ cuantos: 3, desde: '2026-05-20', hasta: '2026-06-25', meses: 2 });

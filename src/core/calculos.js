@@ -403,11 +403,20 @@ export function promedioPorDia(estado, mes, hasta) {
  *  - **Sin etiqueta.** En la planilla del usuario hay filas de gastos fijos sin
  *    comentario. Sin etiqueta no hay nada que promediar: no se sabe si son tres
  *    facturas de luz o tres cosas distintas.
- *  - **Con una etiqueta que no es de gastos fijos.** Una mudanza que además
- *    pagó una factura lleva la etiqueta `Mudanza`, y esa etiqueta vive en los
- *    otros grupos (T-946): promediarla acá como si fuera una factura mensual
- *    diría cualquier cosa. La cascada de `core/agrupamientos.js` decide, y así
- *    **ninguna etiqueta aparece en dos pantallas con dos totales distintos**.
+ *
+ * ── Lo que se suma acá es SOLO el rubro, y por eso no depende de la etiqueta ─
+ *
+ * Cada fila suma **los gastos del rubro `gastos fijos` que llevan esa
+ * etiqueta**, y nada más. Si "Casa" junta el alquiler (`gastos fijos`) y un
+ * arreglo (`otros`), acá se ven los 60 € del alquiler; los 70 € completos se
+ * ven en los otros grupos (T-946), que agrupan por etiqueta con todos los
+ * rubros adentro. **Son dos preguntas distintas y cada pantalla dice cuál
+ * contesta.**
+ *
+ * La primera versión de T-946 sacaba de esta lista las etiquetas mixtas para
+ * que ningún nombre apareciera dos veces. El usuario lo objetó con razón: el
+ * rubro y la etiqueta son independientes, y **cómo etiquetás no puede cambiar
+ * lo que ves de un rubro**. Ver ADR-041.
  */
 export function gastosFijos(estado) {
   const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
@@ -415,24 +424,21 @@ export function gastosFijos(estado) {
     (m) => m.tipo === TIPO_GASTO && normalizarClave(m.rubro) === 'gastos fijos',
   );
 
-  // Qué etiquetas son de gastos fijos y cuáles viven en otra pantalla.
-  const deOtraPantalla = new Set();
+  // Qué etiquetas, además de estar acá, tienen un grupo propio en los otros
+  // grupos. No cambia ningún total: la fila lo dice para que quien vea 60 € acá
+  // y 70 € allá sepa por qué son distintos.
+  const conGrupoPropio = new Set();
   for (const [clave, gastos] of porEtiquetaDeGasto(estado)) {
-    if (categoriaDeEtiqueta(gastos) !== 'fijo') deOtraPantalla.add(clave);
+    if (categoriaDeEtiqueta(gastos) === 'otro') conGrupoPropio.add(clave);
   }
 
   const acumulado = new Map();
   let sinComentario = { cuantos: 0, total: 0 };
-  let enOtrosGrupos = { cuantos: 0, total: 0 };
 
   for (const movimiento of fijos) {
     const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
     if (!movimiento.comentario) {
       sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
-      continue;
-    }
-    if (deOtraPantalla.has(normalizarClave(movimiento.comentario))) {
-      enOtrosGrupos = { cuantos: enOtrosGrupos.cuantos + 1, total: enOtrosGrupos.total + euros };
       continue;
     }
 
@@ -453,14 +459,17 @@ export function gastosFijos(estado) {
   }
 
   const grupos = [...acumulado.values()]
-    .map((g) => ({ ...g, promedio: redondear(g.total / g.cuantos) }))
+    .map((g) => ({
+      ...g,
+      promedio: redondear(g.total / g.cuantos),
+      conGrupoPropio: conGrupoPropio.has(g.clave),
+    }))
     .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
 
   return {
     grupos,
     sinComentario,
-    enOtrosGrupos,
-    total: sumar([...grupos.map((g) => g.total), sinComentario.total, enOtrosGrupos.total]),
+    total: sumar([...grupos.map((g) => g.total), sinComentario.total]),
   };
 }
 

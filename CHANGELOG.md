@@ -23,12 +23,15 @@ La versión publicada vive en el archivo `VERSION`.
   cuántos gastos, entre qué fechas y en cuántos meses distintos aparece.
   Tocando uno se abren sus gastos.
 
-  **Qué etiqueta va a qué pantalla se decide solo**, en cascada: si todos sus
-  gastos son del rubro `gastos fijos` va a gastos fijos; si alguno es del rubro
-  `viajes` va a viajes; si no, va acá. Así ninguna etiqueta aparece en dos
-  listas con dos totales distintos. Cuando una etiqueta con gastos fijos adentro
-  se va a otro grupo, **la tarjeta de gastos fijos lo dice, con su importe**,
-  para que su total siga cerrando contra el del rubro. Ver ADR-041.
+  **Dónde se agrupa cada etiqueta se decide solo**, en cascada: si todos sus
+  gastos son del rubro `gastos fijos` su grupo vive en gastos fijos; si alguno
+  es del rubro `viajes`, en viajes; si no, acá.
+
+  **Cómo etiquetás no cambia nada de los rubros.** La tarjeta de gastos fijos
+  sigue mostrando todas las etiquetas de ese rubro, sumando solo esa parte. Una
+  etiqueta como "Casa" —alquiler más un arreglo— aparece en las dos pantallas
+  con dos números distintos (60 € el alquiler, 70 € "Casa" entera), y **la fila
+  de gastos fijos lo aclara ahí mismo**. Ver ADR-041.
 
 - **Una lupa en la pestaña de movimientos** que busca en **todo el historial** y
   en **todos los campos**: la etiqueta, el detalle, el rubro, el importe, la

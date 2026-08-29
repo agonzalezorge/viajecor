@@ -54,6 +54,7 @@ export function dibujarGastoFijo(grupo) {
         <span>${escapar(dibujarCadencia(grupo))}</span>
         <span>${escapar(formatearEuros(grupo.total))} en total</span>
       </div>
+      ${dibujarTambienEnOtrosGrupos(grupo)}
     </li>
   `;
 }
@@ -83,36 +84,29 @@ export function dibujarSinComentario(sinComentario) {
 }
 
 /**
- * Los pagos del rubro `gastos fijos` cuya etiqueta vive en otra pantalla — T-946.
+ * El aviso de que esa etiqueta además tiene un grupo propio — T-946.
  *
- * Pasa cuando una etiqueta junta cosas de varios rubros: una mudanza que además
- * pagó una factura. Esa etiqueta entera va a los otros grupos, así que sus pagos
- * no se promedian acá — promediar media etiqueta como si fuera una factura
- * mensual diría cualquier cosa.
- *
- * **Pero se dicen**, porque si no la suma de esta lista no cerraría con el total
- * del rubro y no habría forma de saber por qué.
+ * **No cambia ningún total.** Está para que quien vea 60 € acá y 70 € en los
+ * otros grupos sepa por qué son distintos: acá se suma **solo la parte del
+ * rubro `gastos fijos`** de esa etiqueta, y allá la etiqueta entera, con todos
+ * sus rubros adentro. Un mismo nombre con dos números y sin explicación es la
+ * forma más rápida de que el usuario deje de creerle a los dos.
  */
-export function dibujarEnOtrosGrupos(enOtrosGrupos) {
-  if (!enOtrosGrupos || enOtrosGrupos.cuantos === 0) return '';
-
-  const cuantos = enOtrosGrupos.cuantos === 1
-    ? 'Otro pago de gastos fijos está'
-    : `Otros ${enOtrosGrupos.cuantos} pagos de gastos fijos están`;
+export function dibujarTambienEnOtrosGrupos(grupo) {
+  if (!grupo.conGrupoPropio) return '';
 
   return `
     <p class="suave nota">
-      ${cuantos} contado${enOtrosGrupos.cuantos === 1 ? '' : 's'} en
-      <strong>otros grupos de gastos</strong>, por
-      ${escapar(formatearEuros(enOtrosGrupos.total))}: su etiqueta junta también
-      gastos de otros rubros, así que el grupo entero se mira allá.
+      Acá se suma solo lo que "${escapar(grupo.comentario)}" gastó en el rubro
+      gastos fijos. Esa etiqueta junta también gastos de otros rubros: el total
+      completo está en <strong>otros grupos de gastos</strong>.
     </p>
   `;
 }
 
 export function dibujarGastosFijos(estado) {
-  const { grupos, sinComentario, enOtrosGrupos, total } = gastosFijos(estado);
-  if (grupos.length === 0 && sinComentario.cuantos === 0 && enOtrosGrupos.cuantos === 0) return '';
+  const { grupos, sinComentario, total } = gastosFijos(estado);
+  if (grupos.length === 0 && sinComentario.cuantos === 0) return '';
 
   const cuerpo = grupos.map(dibujarGastoFijo).join('');
 
@@ -128,7 +122,6 @@ export function dibujarGastosFijos(estado) {
       ${vacio}
       <ul class="rubros">${cuerpo}</ul>
       ${dibujarSinComentario(sinComentario)}
-      ${dibujarEnOtrosGrupos(enOtrosGrupos)}
     </section>
   `;
 }

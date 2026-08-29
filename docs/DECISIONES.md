@@ -1494,19 +1494,28 @@ caso que esa pantalla existe para mostrar. El umbral quedó igual como la
 constante `PARTE_DE_VIAJE = 0`: cambiarlo a `0.75` es una línea, y la decisión
 es del usuario.
 
-**Las tres pantallas no se reparten la plata, se reparten las preguntas.** Un
-*movimiento* sí puede contarse en dos: la de gastos fijos responde "¿cuánto me
-sale la luz?" mirando el **rubro**, y la de otros grupos responde "¿cuánto me
-salió la mudanza?" mirando la **etiqueta**, con todos sus rubros adentro. Lo que
-no puede pasar es que la **misma etiqueta** esté en dos listas.
+**Las tres pantallas no se reparten la plata, se reparten las preguntas.** Lo
+que decide la cascada es **dónde tiene su grupo propio cada etiqueta**, no qué
+pantalla puede nombrarla. La tarjeta de gastos fijos responde "¿cuánto me sale
+la luz?" mirando el **rubro** —y suma **solo la parte de ese rubro**—; la de
+otros grupos responde "¿cuánto me salió la mudanza?" mirando la **etiqueta**,
+con todos sus rubros adentro.
 
-**Consecuencia visible, y por eso se anuncia.** Una etiqueta como "Casa", que
-junta el alquiler (`gastos fijos`) y un arreglo (`otros`), **sale** de la
-tarjeta de gastos fijos. Si se fuera en silencio, esa tarjeta dejaría de cerrar
-contra el total del rubro. Así que `gastosFijos()` devuelve un tercer balde,
-`enOtrosGrupos`, y la tarjeta escribe cuántos pagos y cuánto dinero se miran en
-la otra pantalla. Un total que baja sin explicación es un total en el que el
-usuario deja de confiar — y hace bien.
+**Corrección del mismo día, pedida por el usuario.** La primera versión sacaba
+de la tarjeta de gastos fijos las etiquetas mixtas, para que ningún nombre
+apareciera dos veces. Él lo objetó: *"cómo yo etiquete algo no debería alterar
+en nada los totales de rubro, son cosas independientes"*. Tiene razón, y el
+argumento es más fuerte que el mío: esa tarjeta **agrupa por etiqueta los gastos
+de un rubro**, así que etiquetar no puede cambiar lo que se ve de ese rubro. Se
+revirtió: "Casa" vuelve a aparecer en gastos fijos con sus 60 € de alquiler, y
+también en otros grupos con sus 70 € completos.
+
+**Y como son dos números distintos con el mismo nombre, la fila lo explica.** El
+grupo de gastos fijos trae un `conGrupoPropio`, y cuando está encendido la
+tarjeta escribe que ahí se suma solo la parte de ese rubro y que el total
+completo está en la otra pantalla. **No cambia ningún total**: un mismo nombre
+con dos importes y sin explicación es la forma más rápida de que el usuario deje
+de creerle a los dos.
 
 **Alternativa descartada:** una lista aparte donde el usuario marque qué
 etiqueta es qué. Dos lugares que digan lo mismo son dos lugares que se

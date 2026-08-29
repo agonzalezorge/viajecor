@@ -5,9 +5,13 @@
 // aparecían en ninguna pantalla — existían en los datos y no se podían ver.
 //
 // **Qué llega acá lo decide `core/agrupamientos.js`**, en cascada: si todos sus
-// gastos son del rubro `gastos fijos` va a la pantalla de gastos fijos; si
-// alguno es del rubro `viajes` va a la de viajes; si no, viene acá. Así ninguna
-// etiqueta aparece en dos listas con dos totales distintos.
+// gastos son del rubro `gastos fijos` su grupo vive en la pantalla de gastos
+// fijos; si alguno es del rubro `viajes`, en la de viajes; si no, acá. Así cada
+// etiqueta tiene **un** grupo propio, en **una** pantalla.
+//
+// Que una etiqueta de acá se nombre también en la tarjeta de gastos fijos no es
+// una contradicción: allá se suma solo la parte del rubro `gastos fijos` y acá
+// la etiqueta entera, y las dos pantallas lo dicen. Ver ADR-041.
 //
 // Igual que el resto de la interfaz (ADR-022), son funciones puras.
 
@@ -66,8 +70,9 @@ export function dibujarGrupos(vista) {
     <section class="tarjeta">
       <h2>Otros grupos de gastos</h2>
       <p class="suave nota">Las etiquetas que no son ni un gasto fijo ni un viaje.
-      El total incluye <strong>todos</strong> los rubros de esa etiqueta. Tocá uno
-      para ver sus gastos.</p>
+      El total incluye <strong>todos</strong> los rubros de esa etiqueta, así que
+      puede ser mayor que lo que la misma etiqueta suma en la tarjeta de gastos
+      fijos, que mira un rubro solo. Tocá uno para ver sus gastos.</p>
       <ul class="rubros">${grupos.map(dibujarGrupo).join('')}</ul>
     </section>
   `;

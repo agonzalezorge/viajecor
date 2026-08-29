@@ -624,12 +624,12 @@ Tocando una se abre la lista de sus gastos, filtrada por esa etiqueta.
 2. Si **alguno** es del rubro `viajes` → viajes.
 3. Si no → acá.
 
-Así **ninguna etiqueta aparece en dos listas con dos totales distintos**. Un
-*movimiento* sí puede contarse en dos pantallas, porque responden preguntas
-distintas —"¿cuánto me sale la luz?" mira el rubro, "¿cuánto me salió la
-mudanza?" mira la etiqueta—, y cada pantalla lo dice: cuando una etiqueta con
-gastos fijos adentro se va a otro grupo, la tarjeta de gastos fijos lo anuncia
-con su importe, para que el total del rubro siga cerrando.
+Eso decide **dónde tiene su grupo propio cada etiqueta**, no qué pantalla puede
+nombrarla. **El rubro y la etiqueta son independientes:** la tarjeta de gastos
+fijos sigue mostrando todas las etiquetas de ese rubro, sumando **solo la parte
+de ese rubro**. Así que "Casa" —alquiler más un arreglo— aparece ahí con sus
+60 € del alquiler y acá con sus 70 € completos, y **la fila de gastos fijos lo
+explica** para que dos números con el mismo nombre no se lean como un error.
 
 **Se llega desde** Datos → *Otros grupos de gastos*, o desde el final del
 resumen del mes.
