@@ -90,7 +90,9 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-040 | Modelo de ahorros multimoneda | Pendiente | T-004 |
 | T-041 | Pantalla de ahorros conjuntos | Pendiente | T-040, T-010 |
 | **Independientes** ||||
-| T-900 | README de uso | Lista | — |
+| T-900 | README de uso | En curso (claude, 2026-08-28) | — |
+| T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Lista** | T-015 |
+| T-026 | Tocar un grupo y ver los movimientos que contiene | **Lista** | T-015 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -865,6 +867,68 @@ sin construir; con esta tarea dejó de haber ninguna, así que se borró junto c
 el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
 construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
 cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
+
+### T-025 · Ver, renombrar y borrar los comentarios y detalles que ya existen
+**Estado:** Lista · **Depende de:** T-015 · **Pedida por el usuario (2026-08-28)**
+
+Pidió poder "editar las categorías de detalles existentes" y borrar alguna.
+
+**Lo primero que hay que entender, porque cambia la tarea entera: hoy no existe
+ningún catálogo de comentarios ni de detalles.** No son categorías: son **texto
+libre escrito en cada movimiento**. Los rubros sí son un catálogo cerrado de
+ocho; el comentario y el detalle son campos de texto. La app los junta para
+sugerirlos (`comentariosUsados()`) y para agrupar (`porComentario()`), pero no
+guarda una lista en ningún lado.
+
+Por eso "borrar una categoría" no es borrar un registro: es **vaciar ese texto en
+los N movimientos que lo tienen**, y "renombrarla" es **reescribirlo en los N**.
+Es una operación en lote sobre datos ya cargados, así que le corresponde la misma
+regla de siempre (ADR-019, ADR-033): **decir cuántos movimientos toca antes de
+tocarlos**, y no hacerlo en un toque.
+
+**Lo que hay que construir:**
+- Una lista de los comentarios y los detalles que existen, con cuántos
+  movimientos usa cada uno.
+- Renombrar uno: reescribe el texto en todos sus movimientos. Con el aviso.
+- Borrarlo: deja ese campo vacío en todos sus movimientos. Con el aviso. **No
+  borra ningún movimiento**, y eso hay que decirlo en la pantalla: "borrar la
+  etiqueta" y "borrar los gastos" se confunden fácil y uno de los dos no se puede
+  deshacer.
+- Unir dos: es el caso real. `Barcelona26` y `barcelona 26` son dos grupos
+  distintos en los totales (RN-03, L-002), y renombrar uno con el nombre del otro
+  los junta. Conviene que la pantalla lo ofrezca en vez de que haya que
+  descubrirlo.
+
+**Decisión abierta:** ¿los detalles también, o solo los comentarios? El
+comentario **agrupa** —de él dependen los totales por viaje y por gasto fijo—; el
+detalle es una nota y no agrupa nada. Limpiar los comentarios arregla totales
+equivocados; limpiar los detalles es orden. Se puede hacer solo el comentario
+primero.
+
+---
+
+### T-026 · Tocar un grupo y ver los movimientos que contiene
+**Estado:** Lista · **Depende de:** T-015 · **Pedida por el usuario (2026-08-28)**
+
+Hoy los agrupamientos son **callejones sin salida**: el resumen dice
+"Supermercado 410,00 €" y no hay forma de ver de qué se compone. Para saberlo hay
+que ir a Movimientos y leer el mes entero.
+
+**Dónde tiene que poder tocarse**, que son todos los lugares donde la app agrupa:
+- una fila del desglose del mes (rubro), y su porción de la torta;
+- una fila de los gastos fijos (comentario);
+- una celda de la matriz de evolución (mes × rubro);
+- un mes de la matriz.
+
+**Todos llevan al mismo lado:** la lista de movimientos, filtrada. Así que la
+tarea es sobre todo **darle un filtro a la lista** (T-015) y que los agrupamientos
+lo sepan invocar; no cuatro pantallas nuevas.
+
+**Lo que hay que cuidar:** que la lista filtrada **diga en qué está filtrada** y
+cómo salir. Una lista que muestra siete gastos de doscientos, sin decir por qué,
+se lee como datos perdidos.
+
+---
 
 ### T-023 · Gasto por viaje — CU-11
 **Estado:** Necesita decisión · **Depende de:** T-013
