@@ -94,6 +94,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
 | T-026 | Tocar un grupo y ver los movimientos que contiene | **Hecha** | T-015 |
 | T-940 | Los dos gráficos de `Analisis1`, y la tabla en el orden del usuario | **Hecha** | T-021, T-918 |
+| T-941 | Fechas del viaje, orden por fecha de fin, y «Etiqueta» en vez de «Comentario» | En curso (claude, 2026-08-28) | T-023 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
