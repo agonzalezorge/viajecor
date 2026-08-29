@@ -90,7 +90,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-040 | Modelo de ahorros multimoneda | Pendiente | T-004 |
 | T-041 | Pantalla de ahorros conjuntos | Pendiente | T-040, T-010 |
 | **Independientes** ||||
-| T-900 | README de uso | En curso (claude, 2026-08-28) | — |
+| T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Lista** | T-015 |
 | T-026 | Tocar un grupo y ver los movimientos que contiene | **Lista** | T-015 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
@@ -1113,8 +1113,26 @@ Total por moneda y total por persona y moneda.
 
 Se pueden tomar en cualquier momento, no bloquean ni son bloqueadas.
 
-- **T-900 · README de uso** — cómo descargar el HTML, guardarlo en el celular y
-  usarlo sin conexión. Escrito para el usuario, no para un programador.
+- **T-900 · README de uso** — **Hecha (2026-08-28).** `docs/USO.md`, escrito para
+  quien usa la app, más el `README.md` puesto al día: decía "esqueleto, todavía
+  no se pueden cargar gastos" cuando ya había once meses de datos adentro.
+
+  **La guía empieza por cómo conseguir la versión que se va a usar**, y no es un
+  trámite: es la lección de T-919, donde una ronda entera de pruebas se hizo
+  sobre el archivo viejo y los tres "no funciona" eran tres cosas que no existían
+  en esa copia.
+
+  **Comprobado abriendo la app, no leyendo el código:** un recorrido lee
+  `docs/USO.md`, abre la app en un navegador y verifica que **las once cosas que
+  la guía nombra estén de verdad en la pantalla**, con el mismo texto. La primera
+  versión de la guía nombraba tres botones que no existían con ese nombre
+  ("Exportar respaldo", "Traer mi planilla vieja"); el recorrido los encontró.
+  Un manual de algo que no existe es la misma falla que un test que pasa por el
+  motivo equivocado.
+
+  Queda pendiente de la verificación del usuario **cuál de las tres formas de
+  poner el ícono en la pantalla de inicio funciona en su Android**: están las
+  tres escritas, en orden de menos a más trabajo, y él va a probar.
 - **T-901 · Versionado y CHANGELOG** — el archivo `VERSION`, el `CHANGELOG.md` y
   la regla de `docs/PRODUCTO.md` §9 aplicada de verdad en cada publicación.
 - **T-902 · Uso cómodo en celular** — botones grandes, teclado numérico al cargar

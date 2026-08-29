@@ -6,6 +6,12 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Agregado
+- **`docs/USO.md`: la guía de uso**, escrita para quien usa la app y no para
+  quien la programa. Empieza por cómo conseguir la versión correcta —la lección
+  más cara de este proyecto—, sigue por dónde guardar el archivo en Android para
+  que los datos no se pierdan, y explica los respaldos, la importación de la
+  planilla vieja, el día a día y las monedas. El `README.md` quedó al día: decía
+  que la app era un esqueleto donde todavía no se podían cargar gastos.
 - **La planilla exportada trae una segunda hoja, `Evolución`**: la matriz mes ×
   rubro con su total y su promedio, que es la hoja `Analisis1` de la planilla
   original. Cuenta exactamente lo mismo que la pantalla porque las dos leen el

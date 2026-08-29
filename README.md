@@ -4,34 +4,44 @@ App de gastos personales que **funciona sin conexión** y guarda todo **en tu
 dispositivo**. Es un solo archivo HTML: lo guardás, lo abrís y listo. No hay
 servidor, no hay cuenta, no hay ninguna petición a internet.
 
-> 🚧 **Estado: v0.1.0 — esqueleto.** Todavía no se pueden cargar gastos. Lo que
-> funciona hoy es la base: el archivo se construye, abre desde el disco sin
-> conexión, y hay un test que verifica que no se le escapa ni un dato.
-> Lo que sigue está en [`docs/PLAN.md`](docs/PLAN.md).
+> **Estado: v0.1.0 — en uso.** Reemplaza a la planilla para cargar gastos, ver
+> cómo viene el mes, comparar los meses entre sí y sacar los datos. Se probó en
+> un Android real y con los once meses de historial importados desde el Excel.
+> Lo que falta está en [`docs/PLAN.md`](docs/PLAN.md).
 
-## Cómo usarla (cuando esté lista)
+## Cómo usarla
 
-1. Descargar `dist/viajecor.html`.
-2. Guardarlo en el celular o en la computadora.
-3. Abrirlo. Funciona con el modo avión activado.
-4. En el celular, desde el menú del navegador, *"Agregar a la pantalla de inicio"*
-   para tenerlo a mano como cualquier app.
+**La guía completa está en [`docs/USO.md`](docs/USO.md).** El resumen:
 
-**Importante:** los datos viven solo en el navegador donde cargaste la app. Si
-borrás los datos de navegación, se pierden. **Exportá seguido** — es tu única
-copia de seguridad.
+1. Descargar `dist/viajecor.html` y guardarlo en `Descargas`.
+2. **En Android, abrirlo escribiendo la dirección en Chrome**, no tocándolo desde
+   *Archivos*: `file:///sdcard/Download/viajecor.html`. Abierto desde *Archivos*,
+   Android le da al navegador un permiso temporal en vez de una ubicación, cada
+   apertura es un sitio distinto **y los datos no sobreviven a cerrar Chrome**.
+   La app se da cuenta y te avisa.
+3. Funciona con el modo avión activado.
+4. **Respaldar seguido.** Los datos viven solo en el navegador de tu dispositivo:
+   si borrás los datos de navegación, se pierden. La app te avisa sola cuando
+   hace más de una semana que no respaldás.
 
 ## Qué hace
 
 Reemplaza una planilla de Excel de gastos personales:
 
-- Registrar gastos e ingresos con fecha, rubro, monto y comentario.
+- Registrar gastos e ingresos con fecha, rubro, monto, detalle y comentario, y
+  corregirlos o borrarlos después.
 - **Multimoneda**: cargás en la moneda en que gastaste, y la app convierte todo a
-  euros con un tipo de cambio que definís por moneda y por mes.
-- Resumen del mes: total de gastos, de ingresos, saldo y desglose por rubro.
-- Gasto día por día, evolución mes a mes, gasto por viaje y promedio de los gastos
-  fijos.
-- **Exportar todo** cuando quieras, a JSON o a CSV.
+  euros con un tipo de cambio que definís por moneda y por mes. Podés agregar
+  monedas que no vienen de fábrica.
+- **Resumen del mes**: total de gastos, de ingresos, saldo, la torta del reparto
+  por rubro con su lista al lado, y la línea del acumulado día a día.
+- **Evolución mes a mes**: la matriz mes × rubro con su total y su promedio, y
+  cuánto sale cada gasto fijo.
+- **Traer el historial del Excel** de una vez, leyendo el `.xlsx` directamente.
+- **Exportar todo** cuando quieras: respaldo JSON, planilla `.xlsx` o CSV.
+
+Lo que todavía no está —gasto por viaje, limpiar las etiquetas ya usadas, tocar
+un rubro para ver qué contiene— está en [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Privacidad
 
@@ -60,6 +70,7 @@ node --test            # corre los tests
 
 | Documento | Para qué |
 |---|---|
+| [`docs/USO.md`](docs/USO.md) | **Cómo usarla.** Escrito para quien la usa, no para quien la programa. |
 | [`docs/PLAN.md`](docs/PLAN.md) | **Qué se hace después.** Tareas, dependencias y estado. |
 | [`docs/PRODUCTO.md`](docs/PRODUCTO.md) | Qué hace la app, casos de uso y reglas de negocio. |
 | [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) | Cómo está armada y cómo se guardan los datos. |
