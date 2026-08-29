@@ -316,6 +316,53 @@ export function hayFiltro(filtro) {
 }
 
 /**
+ * El acumulado día por día de **todo el historial** — T-940.
+ *
+ * Es el gráfico que el usuario tiene en `Analisis1`: cuánto lleva entrado y
+ * cuánto lleva salido desde que empezó a registrar, no desde que empezó el mes.
+ * Contesta una pregunta que ninguna otra pantalla contesta: *¿la distancia entre
+ * las dos líneas se está abriendo o cerrando?*
+ *
+ * **Devuelve todos los días entre el primer movimiento y el último**, incluidos
+ * los vacíos: es una línea de tiempo, y un día que falta en el medio la corre.
+ * Y **no tiene ningún tope**: recorre lo que haya (L-001).
+ */
+export function acumuladoHistorico(estado) {
+  const movimientos = estado?.movimientos ?? [];
+  const { convertibles } = separarConvertibles(movimientos, estado?.tipos_cambio);
+  if (convertibles.length === 0) return [];
+
+  const gastoPorFecha = new Map();
+  const ingresoPorFecha = new Map();
+  for (const movimiento of convertibles) {
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const donde = movimiento.tipo === TIPO_GASTO ? gastoPorFecha : ingresoPorFecha;
+    donde.set(movimiento.fecha, (donde.get(movimiento.fecha) ?? 0) + euros);
+  }
+
+  const fechas = convertibles.map((m) => m.fecha).sort();
+  const primera = fechas[0];
+  const ultima = fechas[fechas.length - 1];
+
+  const dias = [];
+  let gastoAcumulado = 0;
+  let ingresoAcumulado = 0;
+  let n = 0;
+
+  // Se avanza día por día con la aritmética de Date en UTC, que es la única que
+  // no se corre en marzo y en octubre por el horario de verano.
+  const fin = Date.parse(`${ultima}T12:00:00Z`);
+  for (let t = Date.parse(`${primera}T12:00:00Z`); t <= fin; t += 86400000) {
+    const fecha = new Date(t).toISOString().slice(0, 10);
+    n += 1;
+    gastoAcumulado += gastoPorFecha.get(fecha) ?? 0;
+    ingresoAcumulado += ingresoPorFecha.get(fecha) ?? 0;
+    dias.push({ dia: n, fecha, mes: mesDe(fecha), gastoAcumulado, ingresoAcumulado });
+  }
+  return dias;
+}
+
+/**
  * El promedio de gasto por día del mes.
  *
  * **Divide por los días transcurridos, no por los del mes**, cuando el mes es el

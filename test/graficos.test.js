@@ -10,7 +10,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { dibujarTorta, dibujarLinea, dibujarAcumulado, diasHasta } from '../src/ui/pantallas/graficos.js';
+import { dibujarTorta, dibujarLinea, dibujarAcumulado, dibujarAcumuladoHistorico,
+  dibujarMesAMes, diasHasta } from '../src/ui/pantallas/graficos.js';
 import { COLORES_RUBRO, COLORES_RUBRO_OSCURO } from '../src/core/paleta.js';
 import { claseDeRubro, franjaDeRubro } from '../src/ui/colores.js';
 import { TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
@@ -270,4 +271,144 @@ test('ningún gráfico pide nada a internet', () => {
 
   assert.equal(/https?:\/\//.test(torta + linea), false);
   assert.equal(/xlink:href|<image/.test(torta + linea), false);
+});
+
+
+// ── Los dos gráficos de Analisis1 — T-940 ───────────────────────────────────
+
+/** Días de historial, como los devuelve `acumuladoHistorico`. */
+function historial(pares) {
+  let g = 0;
+  let i = 0;
+  return pares.map(([gasto, ingreso], indice) => {
+    g += gasto;
+    i += ingreso;
+    const dia = indice + 1;
+    return {
+      dia,
+      fecha: `2025-10-${String(dia).padStart(2, '0')}`,
+      mes: indice < 3 ? '2025-10' : '2025-11',
+      gastoAcumulado: g,
+      ingresoAcumulado: i,
+    };
+  });
+}
+
+test('el acumulado histórico rotula el eje con MESES, no con días', () => {
+  // Es la diferencia con el del mes: acá el eje cruza meses, y "Día 1 → Día 300"
+  // no le dice nada a nadie.
+  const svg = dibujarAcumuladoHistorico(historial([[100, 0], [50, 900], [0, 0], [200, 0]]));
+
+  // Se miran las marcas del eje, no toda la página: el texto de la tarjeta dice
+  // "Día por día desde el primer movimiento", así que buscar "Día" suelto lo
+  // encuentra ahí y el test pasa sin haber mirado el eje. Es L-024 otra vez.
+  const marcas = [...svg.matchAll(/class="marca-eje[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1]);
+
+  assert.ok(marcas.includes('oct 25'), `las marcas eran ${JSON.stringify(marcas)}`);
+  assert.ok(marcas.includes('nov 25'));
+  assert.equal(marcas.some((m) => m.startsWith('Día')), false);
+});
+
+test('el acumulado histórico se ANUNCIA como histórico, no como del mes', () => {
+  // Los dos gráficos comparten el dibujo, así que compartían también el texto
+  // que lee un lector de pantalla: quien no ve el dibujo escuchaba "Acumulado
+  // del mes" sobre un gráfico de once meses.
+  const svg = dibujarAcumuladoHistorico(historial([[100, 0], [50, 900], [0, 0], [200, 0]]));
+  const anuncio = svg.match(/aria-label="([^"]*)"/)[1];
+
+  assert.match(anuncio, /todo el historial/);
+  assert.equal(anuncio.includes('del mes'), false);
+});
+
+test('el acumulado histórico dice qué mirar', () => {
+  // La altura de las líneas no dice nada por sí sola: lo que importa es si se
+  // separan o se juntan.
+  const svg = dibujarAcumuladoHistorico(historial([[100, 0], [50, 900]]));
+  assert.match(svg.replace(/\s+/g, ' '), /se separan o se juntan/);
+});
+
+test('con menos de dos días no hay acumulado histórico', () => {
+  assert.equal(dibujarAcumuladoHistorico(historial([[100, 0]])), '');
+  assert.equal(dibujarAcumuladoHistorico([]), '');
+});
+
+const MESES = [
+  { mes: '2025-10', gastos: 100000, ingresos: 210000, saldo: 110000 },
+  { mes: '2025-11', gastos: 250000, ingresos: 210000, saldo: -40000 },
+  { mes: '2025-12', gastos: 150000, ingresos: 210000, saldo: 60000 },
+];
+
+test('mes a mes dibuja las tres series', () => {
+  const svg = dibujarMesAMes(MESES);
+
+  for (const clase of ['ingreso', 'gasto', 'saldo']) {
+    assert.match(svg, new RegExp(`class="traza ${clase}"`), `falta la línea de ${clase}`);
+  }
+  // Se comprueba que los rótulos se VEAN, no solo que el texto esté: un
+  // `hidden` los deja en la página y fuera de la pantalla, y una mutación pasó
+  // por ahí. Es la misma familia que L-026.
+  for (const nombre of ['Ingresos', 'Gastos', 'Saldo']) {
+    const rotulo = svg.match(new RegExp(`<text([^>]*)>${nombre}<`));
+    assert.ok(rotulo, `falta el rótulo de ${nombre}`);
+    assert.equal(/\bhidden\b/.test(rotulo[1]), false, `el rótulo de ${nombre} está escondido`);
+    assert.match(rotulo[1], /class="rotulo-traza/);
+  }
+});
+
+test('las tres comparten una sola escala', () => {
+  // Dos escalas en un mismo dibujo hacen que la línea de abajo parezca alcanzar
+  // a la de arriba. Es la forma más común de mentir con un gráfico.
+  const svg = dibujarMesAMes(MESES);
+  const puntos = (clase) => svg.match(new RegExp(`class="traza ${clase}" points="([^"]*)"`))[1]
+    .split(' ').map((p) => Number(p.split(',')[1]));
+
+  // El techo es 250000 (los gastos de noviembre) y el piso -40000 (su saldo).
+  // Noviembre es el segundo punto de cada línea.
+  assert.equal(puntos('gasto')[1], 0, 'el valor más alto va arriba de todo');
+  assert.equal(puntos('saldo')[1], 140, 'el más bajo va abajo de todo');
+});
+
+test('con saldo negativo se dibuja la línea del cero', () => {
+  // Sin ella, −200 y +200 se ven como dos puntos cualesquiera.
+  const svg = dibujarMesAMes(MESES);
+  assert.match(svg, /class="cero"/);
+  assert.ok(svg.includes('>0<'));
+});
+
+test('sin ningún saldo negativo no se dibuja una línea del cero pegada al piso', () => {
+  const svg = dibujarMesAMes([
+    { mes: '2025-10', gastos: 100000, ingresos: 210000, saldo: 110000 },
+    { mes: '2025-11', gastos: 100000, ingresos: 210000, saldo: 110000 },
+  ]);
+
+  assert.equal(svg.includes('class="cero"'), false);
+});
+
+test('mes a mes rotula el eje con el primer y el último mes', () => {
+  const svg = dibujarMesAMes(MESES);
+  assert.ok(svg.includes('>oct 25<'));
+  assert.ok(svg.includes('>dic 25<'));
+});
+
+test('con un solo mes no hay nada que comparar', () => {
+  assert.equal(dibujarMesAMes([MESES[0]]), '');
+  assert.equal(dibujarMesAMes([]), '');
+});
+
+test('con todo en cero no se dibuja una línea plana sin sentido', () => {
+  const svg = dibujarMesAMes([
+    { mes: '2025-10', gastos: 0, ingresos: 0, saldo: 0 },
+    { mes: '2025-11', gastos: 0, ingresos: 0, saldo: 0 },
+  ]);
+  assert.equal(svg, '');
+});
+
+test('los dos gráficos nuevos se pueden leer sin verlos', () => {
+  assert.match(dibujarMesAMes(MESES), /role="img"[\s\S]*?aria-label="[^"]*oct 25[^"]*dic 25/);
+  assert.match(dibujarAcumuladoHistorico(historial([[100, 0], [50, 900]])), /role="img"/);
+});
+
+test('ninguno de los dos pide nada a internet', () => {
+  const todo = dibujarMesAMes(MESES) + dibujarAcumuladoHistorico(historial([[1, 1], [1, 1]]));
+  assert.equal(/https?:\/\//.test(todo), false);
 });

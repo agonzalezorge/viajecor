@@ -26,11 +26,12 @@
 // devuelven texto HTML.
 
 import { escapar } from '../app.js';
-import { matrizMesRubro } from '../../core/calculos.js';
+import { matrizMesRubro, acumuladoHistorico } from '../../core/calculos.js';
 import { DECIMALES_EURO } from '../../core/dinero.js';
 import { formatearMesCorto, formatearNumero, formatearRubro } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
 import { dibujarGastosFijos } from './fijos.js';
+import { dibujarAcumuladoHistorico, dibujarMesAMes } from './graficos.js';
 import { TIPO_GASTO, hoy, mesDe } from '../../core/modelo.js';
 
 /**
@@ -173,9 +174,16 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       porque les falta un tipo de cambio: su total está incompleto.
     </p>`;
 
-  // Del más nuevo al más viejo: lo que se mira primero es el mes pasado, no
-  // octubre de hace un año.
-  const filas = [...matriz.filas].reverse().map((f) => dibujarFilaMes(f, matriz.rubros)).join('');
+  // Del más viejo al más nuevo, y abajo el total y el promedio: es el orden de
+  // `Analisis1` y el que el usuario pidió explícitamente (2026-08-28).
+  //
+  // Estaba al revés, con este argumento: "lo primero que se mira es el mes
+  // pasado". El argumento no era malo y estaba equivocado igual — esta tabla no
+  // se lee para mirar un mes, se lee para seguir una línea de tiempo, y una
+  // línea de tiempo va para adelante. Además así **la pantalla y la hoja del
+  // .xlsx cuentan lo mismo en el mismo orden**, que es lo que tendría que haber
+  // pesado desde el principio.
+  const filas = matriz.filas.map((f) => dibujarFilaMes(f, matriz.rubros)).join('');
 
   return `
     <section class="tarjeta">
@@ -192,6 +200,8 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
+    ${dibujarMesAMes(matriz.filas)}
+    ${dibujarAcumuladoHistorico(acumuladoHistorico(vista.estado))}
     ${dibujarGastosFijos(vista.estado)}
   `;
 }

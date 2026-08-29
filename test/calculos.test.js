@@ -26,6 +26,7 @@ import {
   sugerenciasPara,
   mesesSeguidos,
   matrizMesRubro,
+  acumuladoHistorico,
 } from '../src/core/calculos.js';
 
 import { crearMovimiento, TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
@@ -638,4 +639,93 @@ test('la matriz no tiene ningún tope de meses ni de filas (L-001)', () => {
 
   assert.equal(matriz.filas.length, 60);
   assert.equal(matriz.total.gastos, 60000);
+});
+
+
+// ── El acumulado de todo el historial — T-940 ───────────────────────────────
+//
+// Es el gráfico de `Analisis1`. Lo que puede salir mal no es que el dibujo salga
+// feo: es que la línea diga otra cosa. Un acumulado que se reinicia, o que
+// saltea los días vacíos, se ve exactamente igual de bien y miente.
+
+test('el acumulado suma y NUNCA baja', () => {
+  // Es lo que lo distingue del gasto del día. Si se reiniciara, la línea bajaría
+  // y se leería como "gasté menos", cuando lo que pasó es que no gasté nada.
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-01-30' }),
+    mov({ monto: '50', fecha: '2026-02-03' }),
+  ], []);
+  const dias = acumuladoHistorico(estado);
+
+  assert.deepEqual(dias.map((d) => d.gastoAcumulado), [10000, 10000, 10000, 10000, 15000]);
+});
+
+test('están TODOS los días del medio, también los vacíos', () => {
+  // Saltearlos comprime el tiempo: dos gastos con cinco días de diferencia se
+  // verían pegados, y la pendiente de la línea —que es lo que se mira— mentiría.
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-01-30' }),
+    mov({ monto: '50', fecha: '2026-02-03' }),
+  ], []);
+  const dias = acumuladoHistorico(estado);
+
+  assert.equal(dias.length, 5, 'del 30 de enero al 3 de febrero hay cinco días');
+  assert.deepEqual(dias.map((d) => d.fecha),
+    ['2026-01-30', '2026-01-31', '2026-02-01', '2026-02-02', '2026-02-03']);
+});
+
+test('cruza el fin de mes y el fin de año sin corrimientos', () => {
+  const estado = estadoCon([
+    mov({ monto: '10', fecha: '2025-12-30' }),
+    mov({ monto: '10', fecha: '2026-01-02' }),
+  ], []);
+  const dias = acumuladoHistorico(estado);
+
+  assert.deepEqual(dias.map((d) => d.fecha),
+    ['2025-12-30', '2025-12-31', '2026-01-01', '2026-01-02']);
+  assert.deepEqual(dias.map((d) => d.mes), ['2025-12', '2025-12', '2026-01', '2026-01']);
+});
+
+test('los ingresos se acumulan aparte de los gastos', () => {
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-01-30' }),
+    mov({ monto: '900', fecha: '2026-01-31', tipo: TIPO_INGRESO, rubro: 'trabajo' }),
+  ], []);
+  const dias = acumuladoHistorico(estado);
+
+  assert.deepEqual(dias.map((d) => d.ingresoAcumulado), [0, 90000]);
+  assert.deepEqual(dias.map((d) => d.gastoAcumulado), [10000, 10000]);
+});
+
+test('varios movimientos del mismo día se suman en ese día', () => {
+  const estado = estadoCon([
+    mov({ monto: '10', fecha: '2026-01-30' }),
+    mov({ monto: '20', fecha: '2026-01-30' }),
+  ], []);
+
+  assert.deepEqual(acumuladoHistorico(estado).map((d) => d.gastoAcumulado), [3000]);
+});
+
+test('lo que no se puede convertir no se cuenta como cero', () => {
+  const estado = estadoCon([
+    mov({ monto: '100', fecha: '2026-03-01' }),
+    mov({ monto: '10000', fecha: '2026-03-02', moneda: 'CRC' }),
+  ], []);
+
+  assert.equal(acumuladoHistorico(estado).at(-1).gastoAcumulado, 10000);
+});
+
+test('sin movimientos no se rompe', () => {
+  assert.deepEqual(acumuladoHistorico(estadoCon([], [])), []);
+});
+
+test('no tiene ningún tope de días (L-001)', () => {
+  // Cinco años de historial: 1827 días, uno por uno.
+  const estado = estadoCon([
+    mov({ monto: '10', fecha: '2021-01-01' }),
+    mov({ monto: '10', fecha: '2025-12-31' }),
+  ], []);
+
+  assert.equal(acumuladoHistorico(estado).length, 1826);
+  assert.equal(acumuladoHistorico(estado).at(-1).gastoAcumulado, 2000);
 });

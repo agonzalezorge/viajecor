@@ -6,6 +6,17 @@ La versión publicada vive en el archivo `VERSION`.
 ## Sin publicar
 
 ### Agregado
+- **Los dos gráficos que faltaban de `Analisis1`**, abajo de la matriz:
+  **Mes a mes** (ingresos, gastos y saldo de cada mes, en un solo eje, con la
+  línea del cero cuando algún saldo es negativo) y **Todo lo que llevás gastado y
+  cobrado** (el acumulado día por día de todo el historial, no del mes: lo que se
+  mira ahí es si las dos líneas se separan o se juntan).
+
+### Corregido
+- **La tabla de evolución va del mes más viejo al más nuevo**, con el total y el
+  promedio abajo, como en la planilla. Estaba al revés: no es una tabla para
+  mirar un mes, es una línea de tiempo, y encima la hoja del `.xlsx` ya iba en el
+  orden correcto — dos vistas de lo mismo en órdenes distintos.
 - **Gasto por viaje**, que es el bloque que le dio el nombre a la planilla. Un
   viaje es un comentario con al menos un gasto del rubro «viajes», y su total
   suma **todos** sus rubros: comidas, transporte, supermercado.

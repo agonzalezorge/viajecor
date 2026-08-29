@@ -481,10 +481,19 @@ desde el almacenamiento del dispositivo, todos los casos de uso funcionan igual.
 **Muestra:** una fila por mes con el gasto de cada rubro, el total de gastos, el
 total de ingresos y el saldo; más una fila de **total** y una de **promedio**.
 
+**Y los dos gráficos de `Analisis1`** (T-940):
+- **Mes a mes:** ingresos, gastos y saldo de cada mes, en un solo eje, con la
+  línea del cero cuando algún saldo es negativo.
+- **Todo lo que llevás gastado y cobrado:** el acumulado día por día de todo el
+  historial. Lo que se mira ahí no es la altura sino si las dos líneas se
+  separan o se juntan.
+
 **Reglas, escritas porque en el Excel no lo estaban (L-006, ADR-031):**
 - Están **los ocho rubros siempre**, aunque un mes no tenga ninguno.
 - Los meses van **seguidos**: un mes sin movimientos aparece en cero, no se
   saltea.
+- Van **del más viejo al más nuevo**, con el total y el promedio abajo, como
+  `Analisis1` y como la hoja del `.xlsx` (decidido por el usuario, 2026-08-28).
 - El **total incluye** el mes en curso; el **promedio, no** —un mes empezado
   arrastra el promedio para abajo—. La pantalla dice sobre cuántos meses promedió
   y cuál dejó afuera.

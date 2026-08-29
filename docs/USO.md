@@ -121,7 +121,13 @@ parado en la caja del supermercado.
   existe es la forma más barata de que no se te parta un total en dos.
 
 **Mes** te responde "¿cómo vengo?": los tres números, la torta del reparto por
-rubro con su lista al lado, y la línea del acumulado del mes. Al final está el
+rubro con su lista al lado, y la línea del acumulado del mes.
+
+En **Datos → Mirar el historial → Evolución** está la matriz mes × rubro, y
+debajo los dos gráficos de tu `Analisis1`: **mes a mes** (ingresos, gastos y
+saldo de cada mes) y **todo lo que llevás gastado y cobrado** (el acumulado día
+por día desde el primer movimiento — ahí lo que se mira no es la altura sino si
+las dos líneas se separan o se juntan). Al final está el
 botón *"Ver la evolución y los gastos fijos"*, que lleva a la matriz mes × rubro
 y a cuánto sale cada gasto fijo.
 

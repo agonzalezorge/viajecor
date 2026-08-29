@@ -520,6 +520,20 @@ body {
 .linea-acumulado .traza.gasto { stroke: var(--gasto); }
 .linea-acumulado .traza.ingreso { stroke: var(--ingreso); }
 
+/* El saldo va en color de texto y no en un tercer color de serie: es un
+   resultado de los otros dos, no una cosa más. Y así la única forma de
+   confundirlo con un gasto o un ingreso sería no leer su rótulo, que está
+   escrito donde la línea termina. */
+.linea-acumulado .traza.saldo { stroke: var(--texto); stroke-dasharray: 5 3; }
+.linea-acumulado .rotulo-traza.saldo { fill: var(--texto); }
+
+/* La línea del cero: más marcada que el eje, porque cruzarla significa algo. */
+.linea-acumulado .cero {
+  stroke: var(--texto-suave);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
 /* Rótulo al final de cada línea: qué línea es no se pregunta a una referencia
    que está en otro lado, se lee donde termina. */
 .linea-acumulado .rotulo-traza {
@@ -2375,6 +2389,53 @@ function movimientosFiltrados(estado, mes, filtro = {}) {
 function hayFiltro(filtro) {
   return filtro !== null && filtro !== undefined
     && (filtro.tipo !== undefined || filtro.rubro !== undefined || filtro.comentario !== undefined);
+}
+
+/**
+ * El acumulado día por día de **todo el historial** — T-940.
+ *
+ * Es el gráfico que el usuario tiene en `Analisis1`: cuánto lleva entrado y
+ * cuánto lleva salido desde que empezó a registrar, no desde que empezó el mes.
+ * Contesta una pregunta que ninguna otra pantalla contesta: *¿la distancia entre
+ * las dos líneas se está abriendo o cerrando?*
+ *
+ * **Devuelve todos los días entre el primer movimiento y el último**, incluidos
+ * los vacíos: es una línea de tiempo, y un día que falta en el medio la corre.
+ * Y **no tiene ningún tope**: recorre lo que haya (L-001).
+ */
+function acumuladoHistorico(estado) {
+  const movimientos = estado?.movimientos ?? [];
+  const { convertibles } = separarConvertibles(movimientos, estado?.tipos_cambio);
+  if (convertibles.length === 0) return [];
+
+  const gastoPorFecha = new Map();
+  const ingresoPorFecha = new Map();
+  for (const movimiento of convertibles) {
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const donde = movimiento.tipo === TIPO_GASTO ? gastoPorFecha : ingresoPorFecha;
+    donde.set(movimiento.fecha, (donde.get(movimiento.fecha) ?? 0) + euros);
+  }
+
+  const fechas = convertibles.map((m) => m.fecha).sort();
+  const primera = fechas[0];
+  const ultima = fechas[fechas.length - 1];
+
+  const dias = [];
+  let gastoAcumulado = 0;
+  let ingresoAcumulado = 0;
+  let n = 0;
+
+  // Se avanza día por día con la aritmética de Date en UTC, que es la única que
+  // no se corre en marzo y en octubre por el horario de verano.
+  const fin = Date.parse(`${ultima}T12:00:00Z`);
+  for (let t = Date.parse(`${primera}T12:00:00Z`); t <= fin; t += 86400000) {
+    const fecha = new Date(t).toISOString().slice(0, 10);
+    n += 1;
+    gastoAcumulado += gastoPorFecha.get(fecha) ?? 0;
+    ingresoAcumulado += ingresoPorFecha.get(fecha) ?? 0;
+    dias.push({ dia: n, fecha, mes: mesDe(fecha), gastoAcumulado, ingresoAcumulado });
+  }
+  return dias;
 }
 
 /**
@@ -6201,15 +6262,22 @@ function dibujarLinea(dias, opciones = {}) {
 
   return `
     <svg class="linea-acumulado" viewBox="-4 -18 ${ANCHO + 60} ${ALTO + 40}" role="img"
-         aria-label="Acumulado del mes hasta el día ${ultimo.dia}: gastos ${escapar(formatearEuros(ultimo.gastoAcumulado))}, ingresos ${escapar(formatearEuros(ultimo.ingresoAcumulado))}">
+         aria-label="${escapar(opciones.queEs ?? `Acumulado del mes hasta el día ${ultimo.dia}`)}: gastos ${escapar(formatearEuros(ultimo.gastoAcumulado))}, ingresos ${escapar(formatearEuros(ultimo.ingresoAcumulado))}">
       <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
       <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo))}</text>
       <polyline class="traza ingreso" points="${linea('ingresoAcumulado')}" />
       <polyline class="traza gasto" points="${linea('gastoAcumulado')}" />
       <text class="rotulo-traza ingreso" x="${x(ultimo.dia) + 6}" y="${y(ultimo.ingresoAcumulado) + 4}">Ingresos</text>
       <text class="rotulo-traza gasto" x="${x(ultimo.dia) + 6}" y="${y(ultimo.gastoAcumulado) + 4}">Gastos</text>
-      <text class="marca-eje" x="0" y="${ALTO + 16}">Día 1</text>
-      <text class="marca-eje fin" x="${ANCHO}" y="${ALTO + 16}">Día ${ultimo.dia}</text>
+      <!-- Los rótulos del eje se llaman rotuloInicio y rotuloFin, y no
+           desde/hasta: "hasta" ya significa "hasta qué día dibujar" en esta
+           misma función, y usarlo para las dos cosas hizo que el rótulo del
+           final saliera "10" en vez de "Día 10". Lo agarró un test que ya
+           existía. Dos significados para un nombre es un error esperando.
+           (Y sin acentos graves adentro: acá estamos dentro de una plantilla, y
+           un acento grave la cierra — es L-028, que ya pasó una vez.) -->
+      <text class="marca-eje" x="0" y="${ALTO + 16}">${escapar(opciones.rotuloInicio ?? 'Día 1')}</text>
+      <text class="marca-eje fin" x="${ANCHO}" y="${ALTO + 16}">${escapar(opciones.rotuloFin ?? `Día ${ultimo.dia}`)}</text>
     </svg>
   `;
 }
@@ -6223,6 +6291,100 @@ function dibujarAcumulado(dias, opciones = {}) {
     <section class="tarjeta">
       <h2>Cómo se fue acumulando</h2>
       ${dibujo}
+    </section>
+  `;
+}
+
+/**
+ * El acumulado de TODO el historial — T-940, pedido por el usuario.
+ *
+ * Es el mismo dibujo que el del mes, con otros datos y otras etiquetas: la línea
+ * del mes contesta "¿cómo vengo este mes?", esta contesta **"¿la distancia entre
+ * lo que entra y lo que sale se está abriendo o cerrando?"**, que es una
+ * pregunta que ninguna otra pantalla contesta.
+ *
+ * Reusa `dibujarLinea` a propósito. Dos dibujos de líneas acumuladas escritos
+ * por separado terminarían con escalas y criterios distintos, y el usuario no
+ * tendría forma de compararlos.
+ */
+function dibujarAcumuladoHistorico(dias) {
+  if (dias.length < 2) return '';
+  const desde = formatearMesCorto(dias[0].mes);
+  const hasta = formatearMesCorto(dias[dias.length - 1].mes);
+  const dibujo = dibujarLinea(dias, {
+    rotuloInicio: desde,
+    rotuloFin: hasta,
+    // Sin esto el dibujo se anunciaba como "Acumulado del mes", que es el texto
+    // del otro gráfico: quien no lo ve escuchaba una descripción equivocada.
+    queEs: `Acumulado de todo el historial, de ${desde} a ${hasta}`,
+  });
+  if (dibujo === '') return '';
+
+  return `
+    <section class="tarjeta">
+      <h2>Todo lo que llevás gastado y cobrado</h2>
+      <p class="suave nota">Día por día desde el primer movimiento. Lo que importa
+      acá no es la altura sino <strong>si las dos líneas se separan o se
+      juntan</strong>.</p>
+      ${dibujo}
+    </section>
+  `;
+}
+
+/**
+ * Ingresos, gastos y saldo mes a mes — T-940, pedido por el usuario.
+ *
+ * **Tres series en un solo eje.** Son la misma unidad, así que comparten
+ * escala: dos escalas en un mismo dibujo es la forma más común de mentir con un
+ * gráfico. Y cada línea dice cuál es donde termina, en vez de en una referencia
+ * aparte que hay que ir a buscar.
+ *
+ * **El saldo puede ser negativo**, así que la escala baja hasta el mes más
+ * negativo y se dibuja la línea del cero. Sin ella, un saldo de −200 y uno de
+ * +200 se ven como dos puntos cualesquiera y no se sabe cuál es cuál.
+ */
+function dibujarMesAMes(filas) {
+  if (filas.length < 2) return '';
+
+  const valores = filas.flatMap((f) => [f.gastos, f.ingresos, f.saldo]);
+  const techo = Math.max(...valores, 0);
+  const piso = Math.min(...valores, 0);
+  if (techo === piso) return '';
+
+  const ANCHO = 300;
+  const ALTO = 140;
+
+  const x = (i) => corto((i / (filas.length - 1)) * ANCHO);
+  const y = (valor) => corto(ALTO - ((valor - piso) / (techo - piso)) * ALTO);
+
+  const linea = (campo) => filas.map((f, i) => `${x(i)},${y(f[campo])}`).join(' ');
+  const ultima = filas[filas.length - 1];
+
+  // La línea del cero solo si hay algo abajo de cero: dibujarla pegada al piso
+  // cuando nunca hubo saldo negativo es una raya que no dice nada.
+  const cero = piso < 0
+    ? `<line class="cero" x1="0" y1="${y(0)}" x2="${ANCHO}" y2="${y(0)}" />
+       <text class="marca-eje" x="0" y="${y(0) - 4}">0</text>`
+    : '';
+
+  return `
+    <section class="tarjeta">
+      <h2>Mes a mes</h2>
+      <p class="suave nota">Lo que entró, lo que salió y lo que quedó, mes por mes.</p>
+      <svg class="linea-acumulado" viewBox="-4 -18 ${ANCHO + 62} ${ALTO + 40}" role="img"
+           aria-label="Ingresos, gastos y saldo de cada mes, de ${escapar(formatearMesCorto(filas[0].mes))} a ${escapar(formatearMesCorto(ultima.mes))}">
+        <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
+        ${cero}
+        <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo))}</text>
+        <polyline class="traza ingreso" points="${linea('ingresos')}" />
+        <polyline class="traza gasto" points="${linea('gastos')}" />
+        <polyline class="traza saldo" points="${linea('saldo')}" />
+        <text class="rotulo-traza ingreso" x="${x(filas.length - 1) + 6}" y="${y(ultima.ingresos) + 4}">Ingresos</text>
+        <text class="rotulo-traza gasto" x="${x(filas.length - 1) + 6}" y="${y(ultima.gastos) + 4}">Gastos</text>
+        <text class="rotulo-traza saldo" x="${x(filas.length - 1) + 6}" y="${y(ultima.saldo) + 4}">Saldo</text>
+        <text class="marca-eje" x="0" y="${ALTO + 16}">${escapar(formatearMesCorto(filas[0].mes))}</text>
+        <text class="marca-eje fin" x="${ANCHO}" y="${ALTO + 16}">${escapar(formatearMesCorto(ultima.mes))}</text>
+      </svg>
     </section>
   `;
 }
@@ -7549,6 +7711,7 @@ function dibujarGastosFijos(estado) {
 
 
 
+
 /**
  * Un importe de celda.
  *
@@ -7689,9 +7852,16 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       porque les falta un tipo de cambio: su total está incompleto.
     </p>`;
 
-  // Del más nuevo al más viejo: lo que se mira primero es el mes pasado, no
-  // octubre de hace un año.
-  const filas = [...matriz.filas].reverse().map((f) => dibujarFilaMes(f, matriz.rubros)).join('');
+  // Del más viejo al más nuevo, y abajo el total y el promedio: es el orden de
+  // `Analisis1` y el que el usuario pidió explícitamente (2026-08-28).
+  //
+  // Estaba al revés, con este argumento: "lo primero que se mira es el mes
+  // pasado". El argumento no era malo y estaba equivocado igual — esta tabla no
+  // se lee para mirar un mes, se lee para seguir una línea de tiempo, y una
+  // línea de tiempo va para adelante. Además así **la pantalla y la hoja del
+  // .xlsx cuentan lo mismo en el mismo orden**, que es lo que tendría que haber
+  // pesado desde el principio.
+  const filas = matriz.filas.map((f) => dibujarFilaMes(f, matriz.rubros)).join('');
 
   return `
     <section class="tarjeta">
@@ -7708,6 +7878,8 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
+    ${dibujarMesAMes(matriz.filas)}
+    ${dibujarAcumuladoHistorico(acumuladoHistorico(vista.estado))}
     ${dibujarGastosFijos(vista.estado)}
   `;
 }

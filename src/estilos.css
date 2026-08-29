@@ -515,6 +515,20 @@ body {
 .linea-acumulado .traza.gasto { stroke: var(--gasto); }
 .linea-acumulado .traza.ingreso { stroke: var(--ingreso); }
 
+/* El saldo va en color de texto y no en un tercer color de serie: es un
+   resultado de los otros dos, no una cosa más. Y así la única forma de
+   confundirlo con un gasto o un ingreso sería no leer su rótulo, que está
+   escrito donde la línea termina. */
+.linea-acumulado .traza.saldo { stroke: var(--texto); stroke-dasharray: 5 3; }
+.linea-acumulado .rotulo-traza.saldo { fill: var(--texto); }
+
+/* La línea del cero: más marcada que el eje, porque cruzarla significa algo. */
+.linea-acumulado .cero {
+  stroke: var(--texto-suave);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
 /* Rótulo al final de cada línea: qué línea es no se pregunta a una referencia
    que está en otro lado, se lee donde termina. */
 .linea-acumulado .rotulo-traza {

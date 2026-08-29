@@ -93,6 +93,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
 | T-026 | Tocar un grupo y ver los movimientos que contiene | **Hecha** | T-015 |
+| T-940 | Los dos gráficos de `Analisis1`, y la tabla en el orden del usuario | **Hecha** | T-021, T-918 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -867,6 +868,53 @@ sin construir; con esta tarea dejó de haber ninguna, así que se borró junto c
 el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
 construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
 cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
+
+### T-940 · Los dos gráficos de `Analisis1`, y la tabla en su orden — **Hecha** (2026-08-28)
+**Depende de:** T-021, T-918 · **Pedida por el usuario (2026-08-28)** ·
+**Tocó:** `core/calculos.js`, `graficos.js`, `evolucion.js`, `estilos.css`
+
+**1. La tabla estaba en el orden equivocado, y era mi error.** La había puesto del
+mes más nuevo al más viejo con este argumento: "lo primero que se mira es el mes
+pasado". El usuario pidió lo contrario. El argumento no era malo y estaba mal
+igual: **esta tabla no se lee para mirar un mes, se lee para seguir una línea de
+tiempo**, y una línea de tiempo va para adelante. Además la hoja del `.xlsx` ya
+iba al revés que la pantalla — dos vistas de la misma tabla en órdenes distintos,
+que es lo que tendría que haber pesado desde el principio.
+
+**2. Los dos gráficos que faltaban**, los que él tiene en `Analisis1`:
+
+- **Mes a mes** — ingresos, gastos y saldo, tres series en **un solo eje**. Con
+  la línea del cero cuando algún saldo es negativo: sin ella, −200 y +200 se ven
+  como dos puntos cualesquiera. El saldo va en color de texto y punteado, no en
+  un tercer color de serie: es un resultado de los otros dos, no una cosa más.
+- **Todo lo que llevás gastado y cobrado** — el acumulado día por día de **todo
+  el historial**, no del mes. Contesta lo que ninguna otra pantalla contesta: si
+  la distancia entre las dos líneas se abre o se cierra. Reusa el mismo dibujo
+  que la línea del mes, a propósito: dos dibujos escritos por separado
+  terminarían con escalas distintas y no se podrían comparar.
+
+**Comprobado:** 21 tests nuevos, trece mutaciones a propósito y las trece fallan.
+Recorrido en el navegador con once meses, claro y oscuro: la tabla sale
+`oct 25 … ago 26` con Total y Promedio abajo, los dos gráficos aparecen con sus
+tres y dos líneas. 0 peticiones de red, 0 errores.
+
+**Tres cosas que encontraron los tests y las mutaciones, y ninguna era del
+pedido:**
+
+- `acumuladoHistorico()` **no tenía ni un test**: se probaba el dibujo y no el
+  cálculo, que es la parte que puede mentir en silencio. Ahora tiene ocho.
+- El gráfico histórico se **anunciaba** como "Acumulado del mes": los dos
+  comparten el dibujo y compartían también el texto que lee un lector de
+  pantalla.
+- Un nombre con dos significados: `hasta` era "hasta qué día dibujar" y lo reusé
+  para el rótulo del eje. El rótulo salió "10" en vez de "Día 10". Lo agarró un
+  test que ya existía.
+
+Y **la guardia de sintaxis de L-028 se ganó el sueldo el mismo día**: volví a
+poner acentos graves dentro de una plantilla, en un comentario, y frenó la
+construcción en vez de publicar un archivo que abriría en blanco.
+
+---
 
 ### T-025 · Ver, renombrar y borrar los comentarios y detalles que ya existen — **Hecha** (2026-08-28)
 **Depende de:** T-015 · **Pedida por el usuario (2026-08-28)** · **Tocó:**
