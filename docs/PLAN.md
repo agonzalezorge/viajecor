@@ -92,7 +92,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Lista** | T-015 |
-| T-026 | Tocar un grupo y ver los movimientos que contiene | **Lista** | T-015 |
+| T-026 | Tocar un grupo y ver los movimientos que contiene | En curso (claude, 2026-08-28) | T-015 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
