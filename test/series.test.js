@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import {
   acomodarVentana, acercar, correr, indicesConEtiqueta,
   interiorDeSerie, dibujarLectura, dibujarSerie, MINIMO_VISIBLE, ANCHO, ALTO,
+  pasoDeImporte, marcasDeImporte, etiquetaDeImporte,
 } from '../src/ui/pantallas/series.js';
 
 /** Una serie de `n` puntos, con dos líneas: una que sube y otra que baja. */
@@ -139,7 +140,10 @@ test('la primera y la última SIEMPRE llevan etiqueta', () => {
 
 test('las etiquetas del eje son las de los puntos de la ventana', () => {
   const svg = interiorDeSerie(serieDe(11), { desde: 4, hasta: 6 });
-  const etiquetas = [...svg.matchAll(/class="marca-eje [a-z]+"[^>]*>([^<]*)</g)].map((m) => m[1]);
+  // Solo las del eje del tiempo: las de importe llevan la clase `importe` y
+  // están en el mismo elemento, así que hay que distinguirlas.
+  const etiquetas = [...svg.matchAll(/class="marca-eje (?:inicio|medio|fin)"[^>]*>([^<]*)</g)]
+    .map((m) => m[1]);
 
   assert.deepEqual(etiquetas, ['p4', 'p5', 'p6']);
 });
@@ -173,9 +177,17 @@ test('la escala vertical se calcula sobre lo que se ve', () => {
   const conTodo = interiorDeSerie(serie, { desde: 0, hasta: 10 });
   const acercado = interiorDeSerie(serie, { desde: 8, hasta: 10 });
 
-  const techo = (svg) => svg.match(/class="marca-eje" x="0" y="-6">([^<]*)</)[1];
-  assert.notEqual(techo(conTodo), techo(acercado));
-  assert.ok(techo(acercado).includes('10,00'), `el techo era ${techo(acercado)}`);
+  // Se mide la GEOMETRÍA y no las etiquetas: con marcas redondas, dos ventanas
+  // distintas pueden dar los mismos números —0, 5, 10— y el test pasaría sin
+  // haber comprobado nada. Lo que no puede coincidir es dónde cae un mismo
+  // punto: si la escala fuera global, el punto 9 estaría a la misma altura en
+  // los dos dibujos.
+  const alturaDelUltimo = (svg) => Number(
+    svg.match(/class="traza ingreso" points="([^"]*)"/)[1].split(' ').at(-1).split(',')[1],
+  );
+
+  assert.notEqual(alturaDelUltimo(conTodo), alturaDelUltimo(acercado));
+  assert.equal(alturaDelUltimo(acercado), 0, 'acercado, el punto más alto va arriba de todo');
 });
 
 test('la ventana acercada dibuja solo sus puntos, de punta a punta', () => {
@@ -220,6 +232,96 @@ test('la línea del cero aparece solo si algo es negativo', () => {
   };
   assert.match(interiorDeSerie(conNegativos, { desde: 0, hasta: 2 }), /class="cero"/);
   assert.equal(interiorDeSerie(serieDe(11), { desde: 0, hasta: 10 }).includes('class="cero"'), false);
+});
+
+
+// ── El eje de los importes (T-944) ──────────────────────────────────────────
+
+test('el paso es un número redondo, no el rango dividido en cinco', () => {
+  // Un eje que dice `1.842,33 €` es exacto y no significa nada. Lo que sirve es
+  // que diga 1.000, 2.000.
+  assert.equal(pasoDeImporte(0, 230000), 50000, 'de 0 a 2300 €: cada 500 €');
+  assert.equal(pasoDeImporte(0, 4500), 1000, 'de 0 a 45 €: cada 10 €');
+  assert.equal(pasoDeImporte(0, 100), 50, 'de 0 a 1 €: cada 50 céntimos');
+});
+
+test('las marcas son los múltiplos del paso que caen adentro', () => {
+  assert.deepEqual(marcasDeImporte(0, 4500), [0, 1000, 2000, 3000, 4000]);
+  assert.deepEqual(marcasDeImporte(1000, 1200), [1000, 1050, 1100, 1150, 1200]);
+});
+
+test('ninguna marca se sale del dibujo', () => {
+  // Una marca fuera del rango se dibujaría arriba del borde o abajo del eje.
+  for (const [piso, techo] of [[0, 4500], [-40000, 250000], [333, 7777], [1000, 1200]]) {
+    for (const marca of marcasDeImporte(piso, techo)) {
+      assert.ok(marca >= piso && marca <= techo, `${marca} se sale de ${piso}..${techo}`);
+    }
+  }
+});
+
+test('el cero SIEMPRE lleva marca si el rango lo cruza', () => {
+  // Es la línea que dice si un mes cerró en más o en menos.
+  const marcas = marcasDeImporte(-40000, 250000);
+  assert.ok(marcas.includes(0), `no estaba el cero en ${JSON.stringify(marcas)}`);
+});
+
+test('el cero se escribe "0" y no "-0"', () => {
+  // `Math.ceil(-0.4) * 100000` da −0, que se formatea como "-0 €" y se lee como
+  // un error de la app.
+  for (const marca of marcasDeImporte(-40000, 250000)) {
+    assert.equal(Object.is(marca, -0), false, 'hay un cero negativo');
+  }
+  assert.equal(etiquetaDeImporte(0, 50000), '0');
+});
+
+test('las etiquetas del eje van sin decimales cuando el paso es de euros', () => {
+  // `2.100,00` ocupa el doble que `2100` en el margen de un teléfono y no dice
+  // nada más. Los céntimos se ven al tocar el punto, que es donde importan.
+  assert.equal(etiquetaDeImporte(210000, 50000), '2100');
+  assert.equal(etiquetaDeImporte(1050, 50), '10,50', 'con pasos chicos sí hacen falta');
+});
+
+test('con un rango de cero no se inventan marcas', () => {
+  assert.equal(pasoDeImporte(100, 100), null);
+  assert.deepEqual(marcasDeImporte(100, 100), []);
+});
+
+test('el dibujo pone una línea VISIBLE y un número por cada marca', () => {
+  // Visible, no solo presente: un `hidden` deja la línea en la página y fuera de
+  // la pantalla, y una mutación pasó por ahí. Es L-026 otra vez.
+  const svg = interiorDeSerie(serieDe(11), { desde: 0, hasta: 10 });
+  const lineas = [...svg.matchAll(/<line([^>]*)class="guia-importe"/g)];
+  const numeros = [...svg.matchAll(/class="marca-eje importe"/g)].length;
+
+  assert.ok(numeros >= 3, `solo había ${numeros} marcas de importe`);
+  assert.equal(lineas.length, numeros, 'cada número tiene que tener su línea');
+  for (const [, atributos] of lineas) {
+    assert.equal(/\bhidden\b/.test(atributos), false, 'hay una línea escondida');
+  }
+});
+
+test('la línea del cero se dibuja distinta, no como una raya más', () => {
+  const conNegativos = {
+    ...serieDe(3),
+    puntos: [
+      { etiqueta: 'a', valores: [100, -100] },
+      { etiqueta: 'b', valores: [200, -50] },
+      { etiqueta: 'c', valores: [300, 50] },
+    ],
+  };
+  const svg = interiorDeSerie(conNegativos, { desde: 0, hasta: 2 });
+
+  assert.match(svg, /class="cero"/);
+  assert.equal([...svg.matchAll(/class="cero"/g)].length, 1, 'el cero no se dibuja dos veces');
+});
+
+test('los números del eje entran en el dibujo', () => {
+  // Se dibujan a la izquierda del cero, así que el viewBox tiene que abrir ahí:
+  // sin ese margen se dibujan igual, fuera del recorte, y no se ven.
+  const html = dibujarSerie(serieDe(11));
+  const [x] = html.match(/viewBox="(-?\d+)/).slice(1).map(Number);
+
+  assert.ok(x <= -40, `el viewBox arranca en ${x} y los números van en x = −6`);
 });
 
 

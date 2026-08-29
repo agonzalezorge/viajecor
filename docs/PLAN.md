@@ -97,7 +97,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-941 | Fechas del viaje, orden por fecha de fin, y «Etiqueta» en vez de «Comentario» | **Hecha** | T-023 |
 | T-942 | Los dos gráficos del historial, interactivos: zoom, más marcas y tocar un punto | **Hecha** | T-940 |
 | T-943 | Buscar texto en todos los movimientos | **Hecha** | T-015 |
-| T-944 | Eje Y con marcas cada tanto, no solo el máximo | En curso (claude, 2026-08-29) | T-942 |
+| T-944 | Eje Y con marcas cada tanto, no solo el máximo | **Hecha** | T-942 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -872,6 +872,33 @@ sin construir; con esta tarea dejó de haber ninguna, así que se borró junto c
 el "Todavía no" de la pantalla de datos. El test que exigía que las partes sin
 construir se nombraran se dio vuelta: ahora exige que **no** haya quedado un
 cartel prometiendo una tarea ya hecha, que es la otra forma de mentir.
+
+### T-944 · El eje de importes, con marcas redondas — **Hecha** (2026-08-29)
+**Depende de:** T-942 · **Pedida por el usuario (2026-08-29)** · **Tocó:**
+`ui/pantallas/series.js`, `core/formato.js`, `estilos.css`
+
+Los dos gráficos del historial tenían **una sola marca** en el eje de importes:
+el máximo. Ahora tienen hasta cinco, con su línea de referencia.
+
+**Lo que decide todo es que los pasos sean redondos**, no el rango dividido en
+cinco: `1.390,47 €` es exacto y no significa nada. Ver ADR-040.
+
+**Lo que quedó hecho, comprobado:**
+
+- Pasos de la serie 1, 2, 5, 10, 20, 50… en euros; el más chico que no pase de
+  cinco marcas.
+- Sin decimales cuando el paso es de un euro o más.
+- Una línea muy apagada por marca; la del cero, distinta y sin repetirse.
+- 11 tests nuevos. Nueve mutaciones a propósito: las nueve fallan.
+- Recorrido en el navegador: el gráfico mensual sale con `0 500 1000 1500 2000` y
+  el diario con `0 5000 10.000 15.000 20.000`, y al acercarse las marcas se
+  recalculan solas. 0 peticiones de red, 0 errores.
+
+**Y las mutaciones encontraron código muerto**: la línea que metía el cero "por
+las dudas" era inalcanzable —si el rango cruza el cero, el cero es múltiplo de
+cualquier paso— y se fue.
+
+---
 
 ### T-943 · Buscar texto en todos los movimientos — **Hecha** (2026-08-29)
 **Depende de:** T-015 · **Pedida por el usuario (2026-08-29)** · **Tocó:**

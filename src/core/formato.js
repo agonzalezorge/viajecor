@@ -51,11 +51,16 @@ export function formatearEuros(centimos) {
 /**
  * Un monto sin el símbolo de la moneda, para las tablas donde la moneda ya está
  * en otra columna y repetirla en cada fila es ruido.
+ *
+ * `decimales` dice **cuántos tiene el número guardado** y `mostrar`, cuántos
+ * escribir. Son distintos en el eje de un gráfico: `2.100,00` ocupa el doble que
+ * `2.100` en el margen de un teléfono y no dice nada más. Por omisión son el
+ * mismo, que es el caso de siempre.
  */
-export function formatearNumero(minimas, decimales) {
+export function formatearNumero(minimas, decimales, mostrar = decimales) {
   return new Intl.NumberFormat(IDIOMA, {
-    minimumFractionDigits: decimales,
-    maximumFractionDigits: decimales,
+    minimumFractionDigits: mostrar,
+    maximumFractionDigits: mostrar,
   }).format(aNumero(minimas, decimales));
 }
 

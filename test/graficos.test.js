@@ -388,7 +388,8 @@ test('mes a mes rotula el eje con TODOS los meses cuando entran', () => {
   // El usuario pidió "más coordenadas en el eje de las x" (T-942): antes solo
   // estaban la primera y la última.
   const svg = dibujarMesAMes(MESES);
-  const etiquetas = [...svg.matchAll(/class="marca-eje [a-z]+"[^>]*>([^<]*)</g)].map((m) => m[1]);
+  const etiquetas = [...svg.matchAll(/class="marca-eje (?:inicio|medio|fin)"[^>]*>([^<]*)</g)]
+    .map((m) => m[1]);
 
   assert.deepEqual(etiquetas, ['oct 25', 'nov 25', 'dic 25']);
 });

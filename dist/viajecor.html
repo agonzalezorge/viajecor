@@ -609,6 +609,12 @@ body {
 /* Las marcas del eje: finitas, una por punto mientras entren. */
 .linea-acumulado .marca { stroke: var(--borde); stroke-width: 1; }
 
+/* Las líneas de importe cruzan el dibujo enteras y van MUY apagadas: son una
+   referencia para leer una altura, no un dato. Si compitieran con las series,
+   el gráfico pasaría a ser una grilla con líneas encima. */
+.linea-acumulado .guia-importe { stroke: var(--borde); stroke-width: 1; }
+.linea-acumulado .marca-eje.importe { text-anchor: end; }
+
 .linea-acumulado .marca-eje.inicio { text-anchor: start; }
 .linea-acumulado .marca-eje.medio { text-anchor: middle; }
 .linea-acumulado .marca-eje.fin { text-anchor: end; }
@@ -2801,11 +2807,16 @@ function formatearEuros(centimos) {
 /**
  * Un monto sin el símbolo de la moneda, para las tablas donde la moneda ya está
  * en otra columna y repetirla en cada fila es ruido.
+ *
+ * `decimales` dice **cuántos tiene el número guardado** y `mostrar`, cuántos
+ * escribir. Son distintos en el eje de un gráfico: `2.100,00` ocupa el doble que
+ * `2.100` en el margen de un teléfono y no dice nada más. Por omisión son el
+ * mismo, que es el caso de siempre.
  */
-function formatearNumero(minimas, decimales) {
+function formatearNumero(minimas, decimales, mostrar = decimales) {
   return new Intl.NumberFormat(IDIOMA, {
-    minimumFractionDigits: decimales,
-    maximumFractionDigits: decimales,
+    minimumFractionDigits: mostrar,
+    maximumFractionDigits: mostrar,
   }).format(aNumero(minimas, decimales));
 }
 
@@ -6248,6 +6259,76 @@ const MINIMO_VISIBLE = 2;
 /** Cuántas etiquetas del eje entran sin pisarse en la pantalla de un teléfono. */
 const MAXIMO_ETIQUETAS = 5;
 
+/** Cuántas marcas se apunta a poner en el eje de los importes. */
+const MARCAS_DE_IMPORTE = 5;
+
+/**
+ * Los pasos que dan números redondos, en céntimos: 1, 2, 5, 10, 20, 50, 100…
+ *
+ * Un eje que dice `1.842,33 €` es peor que no decir nada: el número es exacto y
+ * no significa nada. Lo que sirve es que diga `1.000 €`, `2.000 €`. Por eso los
+ * pasos salen de esta serie y no de dividir el alto entre cinco.
+ */
+function pasosRedondos() {
+  const pasos = [];
+  for (let potencia = 0; potencia <= 9; potencia += 1) {
+    for (const base of [1, 2, 5]) pasos.push(base * 10 ** potencia);
+  }
+  return pasos;
+}
+
+/**
+ * Cada cuánto poner una marca de importe, en céntimos.
+ *
+ * Elige el paso redondo más chico que no pase de `MARCAS_DE_IMPORTE` marcas: con
+ * un rango de 0 a 2.300 € da 500 €, con uno de 0 a 45 € da 10 €. Es lo que hace
+ * que las etiquetas sean números que uno diría en voz alta.
+ */
+function pasoDeImporte(piso, techo, maximo = MARCAS_DE_IMPORTE) {
+  const rango = techo - piso;
+  if (!(rango > 0)) return null;
+
+  for (const paso of pasosRedondos()) {
+    if (Math.floor(techo / paso) - Math.ceil(piso / paso) + 1 <= maximo) return paso;
+  }
+  return null;
+}
+
+/**
+ * Los importes que llevan marca: los múltiplos del paso que caen adentro.
+ *
+ * **El cero sale gratis**: si el rango lo cruza, es múltiplo de cualquier paso,
+ * así que siempre entra. La primera versión lo agregaba a mano por las dudas y
+ * una mutación demostró que esa línea era inalcanzable — borrarla no ponía
+ * ningún test en rojo porque no hacía nada.
+ */
+function marcasDeImporte(piso, techo, maximo = MARCAS_DE_IMPORTE) {
+  const paso = pasoDeImporte(piso, techo, maximo);
+  if (paso === null) return [];
+
+  const marcas = [];
+  // El `+ 0` no es adorno: `Math.ceil(-0.4) * 100000` da **−0**, que se formatea
+  // como "-0" y se lee como un error de la app.
+  for (let valor = Math.ceil(piso / paso) * paso + 0; valor <= techo; valor += paso) {
+    marcas.push(valor);
+  }
+  return marcas;
+}
+
+/**
+ * El importe como se escribe en el eje: **sin decimales** cuando el paso es de
+ * un euro o más.
+ *
+ * `2.100,00 €` en el margen de un gráfico de teléfono ocupa el doble que
+ * `2.100 €` y no dice nada más. Los céntimos se ven al tocar el punto, que es
+ * donde importan.
+ */
+function etiquetaDeImporte(centimos, paso) {
+  const enEuros = centimos / 100;
+  const decimales = paso !== null && paso >= 100 && Number.isInteger(enEuros) ? 0 : 2;
+  return formatearNumero(centimos, 2, decimales);
+}
+
 const cortoEnSerie = (n) => Math.round(n * 100) / 100;
 
 /**
@@ -6372,9 +6453,15 @@ function interiorDeSerie(serie, ventana = {}, seleccion = null) {
     return `<text class="marca-eje ${donde}" x="${x(i)}" y="${ALTO + 16}">${escapar(puntos[i].etiqueta)}</text>`;
   }).join('');
 
-  const cero = piso < 0
-    ? `<line class="cero" x1="0" y1="${y(0)}" x2="${ANCHO}" y2="${y(0)}" />`
-    : '';
+  // Las marcas de importe: una línea fina que cruza el dibujo y su número a la
+  // izquierda. La del cero se dibuja distinta —cruzarla significa algo— y por
+  // eso no se repite como una raya más.
+  const paso = pasoDeImporte(piso, techo);
+  const marcasDeY = marcasDeImporte(piso, techo).map((valor) => `
+    <line class="${valor === 0 && piso < 0 ? 'cero' : 'guia-importe'}"
+          x1="0" y1="${y(valor)}" x2="${ANCHO}" y2="${y(valor)}" />
+    <text class="marca-eje importe" x="-6" y="${y(valor) + 4}">${escapar(etiquetaDeImporte(valor, paso))}</text>`)
+    .join('');
 
   // La guía del punto elegido: una línea vertical y un punto por serie. El
   // número no va acá sino en el texto de abajo — en un teléfono, un cartel
@@ -6385,9 +6472,8 @@ function interiorDeSerie(serie, ventana = {}, seleccion = null) {
         cy="${y(puntos[seleccion].valores[n])}" r="4" />`).join('')}`;
 
   return `
+    ${marcasDeY}
     <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
-    ${cero}
-    <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo))}</text>
     ${marcas}
     ${lineas}
     ${elegido}
@@ -6444,7 +6530,9 @@ function dibujarSerie(serie) {
       <p class="suave nota">${serie.nota}</p>
       <p class="leyenda">${leyenda}</p>
 
-      <svg class="linea-acumulado" viewBox="-4 -18 ${ANCHO + 20} ${ALTO + 44}" role="img"
+      <!-- El viewBox abre 52 px a la izquierda: es donde van los importes del
+           eje. Sin ese margen se dibujan igual, fuera del recorte, y no se ven. -->
+      <svg class="linea-acumulado" viewBox="-52 -10 ${ANCHO + 72} ${ALTO + 36}" role="img"
            aria-label="${escapar(serie.titulo)}, de ${escapar(serie.puntos[0].etiqueta)} a ${escapar(serie.puntos.at(-1).etiqueta)}"
            data-dibujo>${interiorDeSerie(serie, ventana)}</svg>
 

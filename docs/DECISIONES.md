@@ -1414,3 +1414,43 @@ escribiendo letra por letra: el foco queda y el cursor no se mueve.
 **La búsqueda no sobrevive a cambiar de pestaña**, igual que el filtro
 (ADR-034): una lista incompleta a la que se vuelve media hora después se lee
 como datos que faltan.
+
+---
+
+## ADR-040 · El eje de importes se marca con números redondos, no dividiendo el rango
+
+**Fecha:** 2026-08-29 · **Estado:** aceptada · **Tarea:** T-944
+
+**Lo que pidió el usuario:** que el eje de las Y tenga más etiquetas, no solo el
+valor máximo — *"por ejemplo etiquetas de 1000 en 1000, más referencias"*.
+
+**La parte que importa es "de 1000 en 1000", no "más".** Lo fácil sería dividir
+el rango en cinco: con un techo de 2.317,45 € daría marcas en 463,49 · 926,98 ·
+1.390,47… Números exactos que **no significan nada** y que además cambian en
+cuanto se hace zoom. Un eje así es peor que uno con una sola marca, porque
+invita a leer con precisión una escala que no la tiene.
+
+**Los pasos salen de una serie de números redondos** —1, 2, 5, 10, 20, 50, 100…
+en euros— y se elige el más chico que no pase de cinco marcas. Con un rango de
+0 a 2.300 € da **500 €**; de 0 a 45 €, **10 €**; de 0 a 1 €, **50 céntimos**. Son
+números que uno diría en voz alta.
+
+**Las etiquetas van sin decimales cuando el paso es de un euro o más.**
+`2.100,00` ocupa el doble que `2100` en el margen de un teléfono y no dice nada
+más. Los céntimos se ven al tocar el punto, que es donde importan.
+
+**Cada marca lleva su línea, muy apagada.** Es una referencia para leer una
+altura, no un dato: si compitiera con las series, el gráfico pasaría a ser una
+grilla con líneas encima. La del cero se dibuja distinta —cruzarla significa
+algo— y no se repite como una raya más.
+
+**Ninguna marca se sale del dibujo.** Se generan solo los múltiplos que caen
+adentro del rango visible; una marca de más se dibujaría arriba del borde o
+abajo del eje.
+
+**El cero sale gratis y no hay que forzarlo.** La primera versión lo agregaba a
+mano "por las dudas": si el rango cruza el cero, el cero es múltiplo de cualquier
+paso, así que ya estaba. **Una mutación demostró que esa línea era inalcanzable**
+—borrarla no ponía ningún test en rojo porque no hacía nada— y se fue. Lo que sí
+hace falta es el `+ 0` del arranque: `Math.ceil(-0.4) * 100000` da **−0**, que se
+formatea como `-0` y se lee como un error de la app.

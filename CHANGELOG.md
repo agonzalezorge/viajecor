@@ -5,6 +5,13 @@ La versión publicada vive en el archivo `VERSION`.
 
 ## Sin publicar
 
+### Cambiado
+- **El eje de importes de los dos gráficos del historial ahora tiene marcas cada
+  tanto**, con su línea de referencia, en vez de solo el valor máximo. Los pasos
+  son números redondos —500, 1000, 5000— y no el rango dividido en cinco:
+  `1.390,47 €` es exacto y no significa nada. Al acercarse, las marcas se
+  recalculan solas. Ver ADR-040.
+
 ### Agregado
 - **Una lupa en la pestaña de movimientos** que busca en **todo el historial** y
   en **todos los campos**: la etiqueta, el detalle, el rubro, el importe, la

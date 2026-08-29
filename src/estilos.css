@@ -604,6 +604,12 @@ body {
 /* Las marcas del eje: finitas, una por punto mientras entren. */
 .linea-acumulado .marca { stroke: var(--borde); stroke-width: 1; }
 
+/* Las líneas de importe cruzan el dibujo enteras y van MUY apagadas: son una
+   referencia para leer una altura, no un dato. Si compitieran con las series,
+   el gráfico pasaría a ser una grilla con líneas encima. */
+.linea-acumulado .guia-importe { stroke: var(--borde); stroke-width: 1; }
+.linea-acumulado .marca-eje.importe { text-anchor: end; }
+
 .linea-acumulado .marca-eje.inicio { text-anchor: start; }
 .linea-acumulado .marca-eje.medio { text-anchor: middle; }
 .linea-acumulado .marca-eje.fin { text-anchor: end; }
