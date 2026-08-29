@@ -931,17 +931,37 @@ se lee como datos perdidos.
 ---
 
 ### T-023 · Gasto por viaje — CU-11
-**Estado:** Necesita decisión · **Depende de:** T-013
+**Estado:** Lista · **Depende de:** T-013, **T-025**
 
-**Preguntas abiertas para el usuario, antes de construir:**
-1. ¿El viaje se elige de una lista que la app mantiene, o se sigue escribiendo a
-   mano? Escribirlo a mano es lo que hoy hace que un typo saque gastos del total
-   sin avisar.
-2. ¿Cómo se cargan los vuelos y el alojamiento pagados antes del viaje? En el
-   Excel están sumados a mano dentro de la fórmula (`=96+SUMIFS(...)` en París,
-   `=850+...` en Costa Rica) y no hay registro de qué son.
-3. ¿La duración del viaje se escribe, o se deduce de la primera y la última fecha
-   con gastos de ese viaje?
+**Las tres preguntas, respondidas por el usuario (2026-08-28):**
+
+1. **El viaje se sigue escribiendo a mano**, pero **tiene que poder editarse en
+   un solo lugar y que el cambio llegue a todos los registros**. Eso es
+   exactamente T-025, así que T-023 pasa a depender de ella: sin renombrar en
+   lote, escribir a mano vuelve a ser lo que parte un total en dos sin avisar.
+
+2. **Los vuelos y el alojamiento pagados aparte NO llevan función propia.** Son
+   dos excepciones de cuando el registro recién empezaba (`=96+SUMIFS(...)` en
+   París, `=850+...` en Costa Rica) y no va a haber más casos así.
+
+   **Consecuencia que hay que decir en la pantalla, no esconder:** el total de
+   París y el de Costa Rica en la app van a ser **96 € y 850 € más bajos** que en
+   la planilla vieja. No es un error de la importación: esos importes nunca
+   fueron un registro, eran un número escrito adentro de una fórmula.
+
+   Y si el usuario quiere que cierren, **no hace falta código**: alcanza con
+   cargar un movimiento de 96 € con comentario `París` y otro de 850 € con
+   comentario `Costa Rica`. Son gastos reales que nunca se registraron; cargarlos
+   los convierte en un dato como cualquier otro, con su fecha y su rubro.
+
+3. **La duración se escribe**, no se deduce de la primera y la última fecha.
+
+**Lo que 3 obliga a decidir al construir:** si los días se escriben, hay que
+guardarlos en algún lado, y hoy un viaje **no es un registro**: es un texto
+repetido en varios movimientos. Hay dos salidas —un catálogo chico de viajes
+(nombre + días) o los días guardados en las preferencias por clave de
+comentario—. Se decide al empezar la tarea, no antes, y conviene mirar primero
+cómo quedó T-025: si termina habiendo una lista de comentarios, los días van ahí.
 
 ---
 

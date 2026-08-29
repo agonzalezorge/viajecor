@@ -499,16 +499,21 @@ la planilla se llama "Viaje Coruña".
 
 **Muestra:** por cada viaje, el gasto total y el gasto por día.
 
-**Decisiones que trae este caso de uso** (a resolver cuando se construya, no
-antes):
-- En el Excel, el viaje se identifica por el texto del comentario. Hay que decidir
-  si la app mantiene una lista de viajes elegible (evita los typos) o sigue con
-  texto libre.
-- En el Excel, la duración en días está escrita a mano y algunos viajes suman un
-  monto fijo dentro de la fórmula (`=96+SUMIFS(...)` en París, `=850+...` en Costa
-  Rica) para incluir vuelos y alojamiento pagados fuera del registro. Esos montos
-  no tienen ninguna explicación en la planilla. La app necesita una forma
-  explícita de registrarlos.
+**Decidido por el usuario (2026-08-28):**
+- **El viaje se escribe a mano**, como en el Excel, **pero se tiene que poder
+  renombrar en un solo lugar y que el cambio llegue a todos sus movimientos**
+  (T-025). Es lo que impide que un typo parta un viaje en dos totales.
+- **Los días del viaje se escriben**, no se deducen de la primera y la última
+  fecha con gastos.
+- **Los vuelos y el alojamiento pagados fuera del registro no llevan una función
+  propia.** En el Excel dos viajes suman un monto fijo dentro de la fórmula
+  (`=96+SUMIFS(...)` en París, `=850+...` en Costa Rica) sin ninguna explicación;
+  son excepciones del comienzo del registro y no va a haber más.
+
+  **Por eso el total de esos dos viajes en la app va a ser más bajo que en la
+  planilla**, y la app lo tiene que poder explicar en vez de que parezca un error
+  de importación. Si se los quiere incluir, se cargan como lo que son: un gasto,
+  con su fecha, su rubro y el comentario del viaje.
 
 ---
 
