@@ -23,8 +23,8 @@ La versión publicada vive en el archivo `VERSION`.
 - **La app se puede abrir desde la web**, en `https://viajecor.vercel.app` (hay
   que importar el proyecto en Vercel una vez; los pasos están en `USO.md §1b`). Es la
   única forma de usarla en un iPhone: Chrome en iOS no abre archivos locales. El
-  build ahora escribe la misma app dos veces, `dist/viajecor.html` para bajar e
-  `index.html` para publicar, y un test compara que sean idénticas. Ver ADR-043
+  build ahora escribe la misma app dos veces, `dist/viajecor.html` para bajar y
+  `public/index.html` para publicar, y un test compara que sean idénticas. Ver ADR-043
   y ADR-044.
 - **El sitio publicado va con una política que le prohíbe al navegador
   conectarse a internet** (`vercel.json`). La app ya no mandaba nada y la

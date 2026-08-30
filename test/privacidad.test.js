@@ -9,6 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -168,4 +169,16 @@ test('la CSP publicada prohíbe salir a internet y permite lo que la app necesit
   // Ninguna fuente externa colada por la puerta de atrás.
   assert.doesNotMatch(csp, /https?:/);
   assert.doesNotMatch(csp, /\*/);
+});
+
+test('la configuración de publicación apunta a lo que el build genera', () => {
+  // El primer despliegue falló por esto: Vercel corrió el build —bien— y
+  // después buscó una carpeta `public` que no existía. Un error de una línea
+  // que no rompe ningún test a menos que exista este.
+  const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+
+  assert.equal(config.outputDirectory, 'public');
+  assert.equal(config.buildCommand, 'node tools/build.mjs');
+  assert.match(readFileSync(new URL('../tools/build.mjs', import.meta.url), 'utf8'),
+    /'public\/index\.html'/, 'el build tiene que escribir ahí adentro');
 });

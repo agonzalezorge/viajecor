@@ -2256,6 +2256,16 @@ sobrevive a la recarga, dibuja la tabla con sus bandas y los dos gráficos, y
 `blob:` que una política mal escrita bloquea sin dar error. Un `fetch` a
 internet, probado a propósito, queda bloqueado. Cero errores de consola.
 
+**El primer despliegue falló, y valió la pena.** Vercel corrió el build —bien— y
+después buscó una carpeta `public` que no existía: `index.html` estaba en la
+raíz porque el plan anterior era GitHub Pages, que sirve desde ahí. Todo lo que
+se había probado era sobre **la app**; nada tocaba el **despliegue**, que es otro
+sistema con sus propias convenciones (L-030). Ahora el build escribe
+`public/index.html`, `vercel.json` lo dice explícito, hay un test que comprueba
+que la configuración apunte a donde el build escribe, y el despliegue se
+reprodujo en un clon limpio con `npm install` y `npm run build` antes de decir
+que andaba.
+
 **Lo que queda en manos del usuario:** importar el proyecto en Vercel. Los pasos
 están en `USO.md §1b`, con la advertencia que importa: **los datos no se mudan
 solos** entre el archivo y el sitio web, hay que exportar el `.json` e

@@ -170,21 +170,23 @@ async function construir() {
   await mkdir(join(RAIZ, 'dist'), { recursive: true });
   await writeFile(join(RAIZ, 'dist/viajecor.html'), html, 'utf8');
 
-  // La misma app, otra vez, en la raíz — T-948, ADR-043.
+  // La misma app, otra vez, en `public/` — T-948, ADR-043.
   //
-  // Es lo que GitHub Pages sirve como página del repositorio, y hace que la
-  // dirección sea `…github.io/viajecor/` en vez de
-  // `…github.io/viajecor/dist/viajecor.html`. En un iPhone eso importa más de
-  // lo que parece: es la única forma de entrar a la app —Chrome en iOS no abre
-  // archivos locales— y hay que poder escribirla en un teclado de teléfono.
+  // Es lo que se publica. La carpeta se llama así porque es la que Vercel busca
+  // sin que haya que configurar nada, y el archivo se llama `index.html` para
+  // que la dirección no tenga nombre de archivo: en un iPhone la app se abre por
+  // la web —Chrome en iOS no abre archivos locales— y hay que poder escribirla
+  // en un teclado de teléfono.
   //
   // **Es una copia byte a byte, escrita por el build**, nunca a mano: dos
   // archivos que se editan por separado son dos apps distintas con el mismo
-  // nombre, y el usuario no tendría forma de saber cuál está usando.
-  await writeFile(join(RAIZ, 'index.html'), html, 'utf8');
+  // nombre, y el usuario no tendría forma de saber cuál está usando. Por eso
+  // tampoco va al repositorio: la genera el mismo build que corre al publicar.
+  await mkdir(join(RAIZ, 'public'), { recursive: true });
+  await writeFile(join(RAIZ, 'public/index.html'), html, 'utf8');
 
   const kb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(1);
-  console.log(`dist/viajecor.html + index.html — v${version} — ${kb} kB — ${MODULOS.length} módulo(s)`);
+  console.log(`dist/viajecor.html + public/index.html — v${version} — ${kb} kB — ${MODULOS.length} módulo(s)`);
 }
 
 construir().catch((error) => {

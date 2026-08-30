@@ -92,28 +92,27 @@ test('el archivo construido pasa su propia guardia', async () => {
   assert.equal(buscarErrorDeSintaxis(guion), null);
 });
 
-test('el build deja la MISMA app en la raíz, byte a byte', async () => {
-  // `index.html` es lo que GitHub Pages sirve como página del repositorio, y
-  // por eso la dirección puede ser `…github.io/viajecor/` (T-948, ADR-043).
-  // Si se editara a mano, serían dos apps con el mismo nombre y el usuario no
-  // tendría cómo saber cuál está usando: por eso la escribe el build, y por eso
-  // este test compara el contenido y no la fecha.
+test('el build deja la MISMA app en public/, byte a byte', async () => {
+  // `public/index.html` es lo que se publica (T-948, ADR-043). Si se editara a
+  // mano, serían dos apps con el mismo nombre y el usuario no tendría cómo
+  // saber cuál está usando: por eso la escribe el build, y por eso este test
+  // compara el contenido y no la fecha.
   const { readFile } = await import('node:fs/promises');
   await promisify(execFile)('node', ['tools/build.mjs'], { cwd: RAIZ });
 
   const [enDist, enRaiz] = await Promise.all([
     readFile(join(RAIZ, 'dist/viajecor.html'), 'utf8'),
-    readFile(join(RAIZ, 'index.html'), 'utf8'),
+    readFile(join(RAIZ, 'public/index.html'), 'utf8'),
   ]);
 
   assert.equal(enRaiz, enDist);
 });
 
-test('la app de la raíz tampoco pide nada a internet', async () => {
+test('la app publicada tampoco pide nada a internet', async () => {
   // La guardia de privacidad corre sobre lo que el build genera, pero este es
   // el archivo que va a estar PUBLICADO: es el que cualquiera abre.
   const { readFile } = await import('node:fs/promises');
-  const html = await readFile(join(RAIZ, 'index.html'), 'utf8');
+  const html = await readFile(join(RAIZ, 'public/index.html'), 'utf8');
 
   assert.equal(buscarFugas(html), null);
 });
@@ -137,7 +136,7 @@ test('el archivo construido lleva el ícono adentro, también el de Apple', asyn
   // El de Apple es el que usa "Añadir a pantalla de inicio" en un iPhone. Sin
   // él, iOS pone una captura de la pantalla como ícono.
   const { readFile } = await import('node:fs/promises');
-  const html = await readFile(join(RAIZ, 'index.html'), 'utf8');
+  const html = await readFile(join(RAIZ, 'public/index.html'), 'utf8');
 
   assert.match(html, /<link rel="icon" href="data:image\/png;base64,[A-Za-z0-9+/=]+">/);
   assert.match(html, /<link rel="apple-touch-icon" href="data:image\/png;base64,[A-Za-z0-9+/=]+">/);

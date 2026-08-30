@@ -993,3 +993,30 @@ tabla se desliza— que ningún test iba a encontrar: los tests miran el HTML, y
 esto es geometría. **Lo encontró mirar la pantalla.** El recorrido en el
 navegador no está para confirmar que algo anda: está para ver lo que los tests
 no miran.
+
+
+## L-030 · Un servicio de publicación tiene convenciones propias, y no avisa antes
+
+**Dónde apareció.** El primer despliegue en Vercel (T-949) falló. El registro lo
+dijo entero: encontró el `package.json`, corrió `npm run build` —que funcionó, y
+hasta escribió el archivo— y después buscó una carpeta `public` que no existía.
+La app estaba construida y bien; lo que faltaba era **decirle dónde había
+quedado**.
+
+**Por qué pasó.** `index.html` estaba en la raíz porque el primer plan era GitHub
+Pages, que sirve desde la raíz del repositorio. Vercel, sin configuración, busca
+`public`. Dos servicios, dos convenciones, y el archivo estaba puesto para el
+otro.
+
+**La solución.** El build escribe `public/index.html`, y `vercel.json` lo dice
+explícito: `buildCommand` y `outputDirectory`. Explícito y no por convención,
+porque una convención implícita es exactamente lo que acababa de fallar.
+
+**Lo que hay que aprender de esto.** Todo lo que se había probado antes de
+publicar —la app servida por HTTP, las cabeceras, las descargas, el `fetch`
+bloqueado— era sobre **la app**, y estaba bien probado. Nada de eso tocaba el
+**despliegue**, que es otro sistema con sus propias reglas: se puede tener el
+programa perfectamente verificado y que igual no llegue a destino. Ahora lo
+cubren dos cosas: un test que comprueba que la configuración apunte a donde el
+build escribe, y **reproducir el despliegue en un clon limpio** —`npm install` y
+`npm run build`— antes de decir que anda.

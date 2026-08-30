@@ -1571,10 +1571,13 @@ dirección que escribir— y la vista previa de *Archivos* no guarda nada. El
 usuario lo pidió porque quiere usarla en su teléfono (2026-08-29).
 
 **Decisión.** El build escribe la misma app **dos veces**: `dist/viajecor.html`,
-que es el archivo que se baja, e `index.html` en la raíz, que es lo que el
-servicio de publicación sirve como página del sitio. La dirección queda corta,
-escribible en un teclado de teléfono y sin nombre de archivo que recordar. Qué
-servicio la sirve se decidió aparte, en ADR-044.
+que es el archivo que se baja, y `public/index.html`, que es lo que se publica.
+La dirección queda corta, escribible en un teclado de teléfono y sin nombre de
+archivo que recordar. Qué servicio la sirve se decidió aparte, en ADR-044.
+
+`public/` **no va al repositorio**: la genera el mismo build que corre al
+publicar. Guardar en el historial una copia byte a byte de `dist/viajecor.html`
+sería medio megabyte por commit para no decir nada nuevo.
 
 **Es una copia byte a byte hecha por el build, nunca a mano**, y hay un test que
 compara el contenido de los dos archivos. Dos copias que se editan por separado
@@ -1649,6 +1652,13 @@ tabla y los dos gráficos, y **baja el respaldo `.json` y la planilla `.xlsx`** 
 que era el riesgo concreto, porque las descargas salen de un `blob:` que una
 política mal escrita bloquea en silencio y sin error visible—. Y un `fetch` a
 internet, probado a propósito, **queda bloqueado por el navegador**.
+
+**El despliegue construye la app, no la copia.** `vercel.json` fija
+`buildCommand` y `outputDirectory` en vez de confiar en la convención de cada
+servicio —que es justo lo que hizo fallar el primer intento, L-030— y de paso
+gana algo: ese build revisa la sintaxis y la ausencia de direcciones de
+internet, así que **un error no llega a publicarse**; el despliegue falla y
+queda en pie la versión anterior.
 
 **Costo asumido:** un servicio más, con acceso de lectura al repositorio. Y que
 mudarse de origen es una mudanza de datos: hay que exportar el `.json` e

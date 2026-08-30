@@ -101,10 +101,9 @@ poner una captura de pantalla.
 2. **Add New… → Project.** Vercel te va a pedir permiso para ver tus
    repositorios: alcanza con darle acceso **solo a `viajecor`**.
 3. En la lista, al lado de `agonzalezorge/viajecor`, tocá **Import**.
-4. **No toques nada de la configuración.** *Framework Preset* queda en **Other**,
-   y *Build Command* y *Output Directory* **vacíos**: el proyecto no se compila
-   en Vercel, el `index.html` ya está hecho. Si te ofrece un comando de build,
-   borralo.
+4. **No toques nada de la configuración.** *Framework Preset* queda en **Other**;
+   el resto lo decide el archivo `vercel.json` que ya está en el repositorio, y
+   lo del archivo manda sobre lo que muestre la pantalla.
 5. **Deploy.** En menos de un minuto muestra la dirección.
 6. En **Settings → Domains** podés dejar el nombre en `viajecor.vercel.app` si
    está libre, o el que te haya asignado.
@@ -114,9 +113,17 @@ que volver a entrar a Vercel.
 
 ### Lo que Vercel agrega, y por qué está en el repositorio
 
-En la raíz hay un archivo `vercel.json` con una **política de seguridad de
-contenido**: le prohíbe al navegador conectarse a internet desde la página,
-enviar formularios y cargar imágenes o fuentes de afuera.
+En la raíz hay un archivo `vercel.json`, y dice dos cosas.
+
+La primera es **cómo se arma la app**: Vercel corre `node tools/build.mjs` en
+cada despliegue y publica lo que quedó en la carpeta `public`. Que la construya
+Vercel y no nosotros tiene una ventaja: ese build revisa que el código se pueda
+leer y que no haya ninguna dirección de internet adentro, así que **un error no
+llega a publicarse** — el despliegue falla y la versión anterior sigue en pie.
+
+La segunda es una **política de seguridad de contenido**: le prohíbe al navegador
+conectarse a internet desde la página, enviar formularios y cargar imágenes o
+fuentes de afuera.
 
 Es la diferencia entre *"la app promete que no manda nada"* y *"el navegador no
 la deja aunque quisiera"*. La promesa ya estaba comprobada en la construcción

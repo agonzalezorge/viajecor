@@ -19,3 +19,8 @@ viajecor-*.csv
 *.bundle
 
 .DS_Store
+
+# La app publicada la genera el build en cada despliegue (ADR-043). Es una
+# copia byte a byte de dist/viajecor.html: guardarla dos veces en el historial
+# sería duplicar medio megabyte por commit para no decir nada nuevo.
+public/
