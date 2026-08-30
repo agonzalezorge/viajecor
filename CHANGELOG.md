@@ -20,6 +20,15 @@ La versión publicada vive en el archivo `VERSION`.
   recalculan solas. Ver ADR-040.
 
 ### Agregado
+- **La app se puede abrir desde la web**, en `https://agonzalezorge.github.io/viajecor/`
+  (hay que prender GitHub Pages una vez; los pasos están en `USO.md §1b`). Es la
+  única forma de usarla en un iPhone: Chrome en iOS no abre archivos locales. El
+  build ahora escribe la misma app dos veces, `dist/viajecor.html` para bajar e
+  `index.html` para publicar, y un test compara que sean idénticas. Ver ADR-043.
+- **La app trae su propio ícono adentro**, como `data:`. Es lo que usa "Añadir a
+  pantalla de inicio" en un iPhone —sin él, iOS pone una captura de la pantalla—
+  y de paso saca el 404 de `/favicon.ico` que se cobraba en cada visita.
+
 - **Los rubros de ingreso en la tabla mes a mes.** Antes decía cuánto entró cada
   mes pero no de dónde: cuatro columnas nuevas —trabajo, inversiones, regalos,
   otros—, con su color, y el total y el promedio también las desglosan. La hoja

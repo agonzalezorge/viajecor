@@ -101,6 +101,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-945 | Dentro de cada día, lo último cargado arriba | **Hecha** | T-015 |
 | T-946 | Otros grupos de gastos: las etiquetas que no son ni gasto fijo ni viaje | **Hecha** | T-022, T-023 |
 | T-947 | Los rubros de ingreso en la tabla mes a mes | **Hecha** | T-021 |
+| T-948 | Publicar la app para poder usarla en un iPhone | **Hecha** | — |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -2196,3 +2197,39 @@ manejador de `ver-celda`, que vive dentro de `iniciar()` y por eso no lo alcanza
 **Verificación independiente:** el .xlsx exportado, abierto con `openpyxl`. La
 banda combinada está donde tiene que estar (C2:J2 y L2:O2) y cada fila cierra:
 900 + 0 + 50 + 25 = 975, que es la columna de ingresos.
+
+### T-948 · Publicar la app para poder usarla en un iPhone — **Hecha** (2026-08-30)
+**Pedida por el usuario (2026-08-30)** · **Tocó:** `tools/build.mjs`,
+`tools/icono.mjs` (nuevo), `tools/privacidad.mjs`, `src/plantilla.html`,
+`index.html` (generado)
+
+En un iPhone el archivo bajado **no se puede abrir**: Chrome en iOS no abre
+archivos locales y la vista previa de *Archivos* no guarda nada. No era un
+problema de instrucciones, era que no existía ningún camino.
+
+Ahora el build escribe la misma app dos veces: `dist/viajecor.html` para bajar e
+`index.html` en la raíz, que es lo que GitHub Pages sirve. La dirección queda
+`https://agonzalezorge.github.io/viajecor/`, corta y escribible en un teléfono.
+Un test compara los dos archivos byte a byte: **dos copias editables por
+separado serían dos apps con el mismo nombre** (ADR-043).
+
+**El ícono, que venía fallando desde T-9xx, se resolvió acá y por otro lado.**
+No era un problema de cómo crear el acceso directo: en iOS el ícono de "Añadir a
+pantalla de inicio" sale de `apple-touch-icon`, y la app no declaraba ninguno.
+Ahora lo lleva adentro, como `data:`, dibujado por `tools/icono.mjs` —el PNG se
+arma a mano porque no hay dependencias—. De paso desapareció el 404 de
+`/favicon.ico`, que se vio sirviendo la app por HTTP.
+
+**La guardia de privacidad creció con la puerta nueva:** un `<link rel="icon">`
+que no sea `data:` rompe la construcción, con su test.
+
+**Probado sirviendo la app por HTTP**, que es como va a estar en Pages y no es
+lo mismo que `file://`: se carga desde la dirección corta sin nombre de archivo,
+guarda un movimiento, sobrevive a la recarga, y una segunda pestaña del mismo
+origen ve los mismos datos. **Un solo pedido a la red —la propia página— y cero
+errores de consola.**
+
+**Lo que queda en manos del usuario:** prender Pages en Settings. Los pasos
+están en `USO.md §1b`, junto con las dos advertencias que importan: iOS borra lo
+guardado si el sitio no se abre en 7 días, y los datos de la app abierta como
+archivo no se mudan solos —hay que exportar el `.json` e importarlo—.

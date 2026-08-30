@@ -13,6 +13,10 @@ servidor, no hay cuenta, no hay ninguna petición a internet.
 
 **La guía completa está en [`docs/USO.md`](docs/USO.md).** El resumen:
 
+0. **En un iPhone, por la web:** `https://agonzalezorge.github.io/viajecor/`.
+   Chrome en iOS no abre archivos locales, así que bajar el archivo no sirve. El
+   ícono se agrega desde **Safari** → *Compartir → Añadir a pantalla de inicio*.
+   (Requiere GitHub Pages prendido; los pasos están en `docs/USO.md §1b`.)
 1. Descargar `dist/viajecor.html` y guardarlo en `Descargas`.
 2. **En Android, abrirlo escribiendo la dirección en Chrome**, no tocándolo desde
    *Archivos*: `file:///sdcard/Download/viajecor.html`. Abierto desde *Archivos*,
@@ -62,7 +66,7 @@ están en [`docs/PRODUCTO.md`](docs/PRODUCTO.md), sección 6.
 Sin dependencias. Solo hace falta Node instalado.
 
 ```bash
-node tools/build.mjs   # genera dist/viajecor.html
+node tools/build.mjs   # genera dist/viajecor.html e index.html
 node --test            # corre los tests
 ```
 

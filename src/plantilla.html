@@ -2,6 +2,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Viajecor</title>
+
+<!-- El ícono va adentro del archivo, como `data:`, porque la app no pide nada a
+     internet (RN-06). Lo dibuja tools/icono.mjs. El de Apple es el que usa
+     "Añadir a pantalla de inicio" en un iPhone: sin él, iOS pone una captura de
+     la pantalla, que en una app de gastos es una miniatura de números. -->
+<link rel="icon" href="/*{{ICONO}}*/">
+<link rel="apple-touch-icon" href="/*{{ICONO}}*/">
+<meta name="apple-mobile-web-app-title" content="Viajecor">
+<meta name="theme-color" content="#2f6f4e">
 <style>
 /*{{ESTILOS}}*/
 </style>

@@ -1560,3 +1560,54 @@ paleta existe (ADR-029).
 `matrizMesRubro()` precisamente para no poder contar cosas distintas; si la
 pantalla creciera sola, la planilla pasaría a ser otra tabla con el mismo
 nombre.
+
+
+## ADR-043 · La app también se publica, y el archivo suelto deja de ser el único camino
+
+**Contexto.** Viajecor es un archivo que se baja y se abre. En Android eso
+funciona escribiendo `file:///sdcard/Download/viajecor.html`. **En un iPhone no
+funciona de ninguna manera:** Chrome en iOS no abre archivos locales —no hay
+dirección que escribir— y la vista previa de *Archivos* no guarda nada. El
+usuario lo pidió porque quiere usarla en su teléfono (2026-08-29).
+
+**Decisión.** El build escribe la misma app **dos veces**: `dist/viajecor.html`,
+que es el archivo que se baja, e `index.html` en la raíz, que es lo que GitHub
+Pages sirve como página del repositorio. La dirección queda
+`https://agonzalezorge.github.io/viajecor/` — corta, escribible en un teclado de
+teléfono, y sin nombre de archivo que recordar.
+
+**Es una copia byte a byte hecha por el build, nunca a mano**, y hay un test que
+compara el contenido de los dos archivos. Dos copias que se editan por separado
+son dos apps distintas con el mismo nombre, y el usuario no tendría forma de
+saber cuál está usando.
+
+**Publicar no contradice la regla de cero red (RN-06).** Lo que la regla prohíbe
+es que **la app** pida algo a internet mientras se usa; eso no cambia. Servir el
+programa desde algún lado es inevitable en un teléfono —el archivo también se
+baja de GitHub—, y los datos siguen sin salir del dispositivo. Lo que se publica
+es el programa, que además ya era público.
+
+**Lo que sí cambia y hay que decirlo:** en la web los datos quedan atados al
+**origen** (`agonzalezorge.github.io`), no a un archivo. Dos consecuencias
+reales, las dos escritas en `USO.md`:
+
+  - **iOS borra lo guardado si el sitio no se abre en 7 días.** Es política de
+    Apple y la app no puede evitarla, así que el respaldo pasa de recomendable a
+    necesario.
+  - Los datos de la app vieja —abierta como archivo— **no se mudan solos**: hay
+    que exportar el `.json` y volver a importarlo. Es el mismo camino que ya
+    existe (CU-08), no hace falta nada nuevo.
+
+**El ícono va adentro del archivo, como `data:`.** Dos motivos: sin él, el
+navegador pide `/favicon.ico` y cobra un 404 en cada visita —se vio sirviendo la
+app por HTTP—, y sobre todo, **"Añadir a pantalla de inicio" en iOS usa
+`apple-touch-icon`**: sin eso iOS pone una captura de la pantalla, que en una app
+de gastos es una miniatura ilegible de una tabla de números. Lo dibuja
+`tools/icono.mjs` armando el PNG a mano, porque no hay dependencias (ADR-003) y
+porque un bloque de base64 pegado en la plantilla es algo que después nadie
+puede volver a tocar.
+
+**Y la guardia de privacidad creció con la puerta que eso abre:** un
+`<link rel="icon" href="…">` que no sea `data:` ahora rompe la construcción. Un
+ícono traído de un servidor le cuenta a ese servidor cada vez que abrís la app,
+que es exactamente lo que esta app promete que no pasa.

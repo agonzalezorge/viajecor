@@ -27,6 +27,11 @@ export const FORMAS_DE_SALIR = [
   ['un script traído de afuera', /<script[^>]*\bsrc\s*=/i],
   ['una hoja de estilos externa', /<link[^>]*\brel\s*=\s*["']?stylesheet/i],
   ['una imagen externa', /<img[^>]*\bsrc\s*=\s*["'](?!data:)/i],
+  // El ícono entró como `data:` (T-948). La puerta que abre eso —un `href` en
+  // un `<link rel="icon">`— tiene que quedar vigilada igual que las otras: un
+  // ícono traído de un servidor le cuenta a ese servidor cada vez que abrís la
+  // app, que es exactamente lo que esta app promete que no pasa.
+  ['un ícono traído de afuera', /<link[^>]*\brel\s*=\s*["']?(?:apple-touch-)?icon[^>]*\bhref\s*=\s*["'](?!data:)/i],
 ];
 
 // ── La excepción, y por qué existe ───────────────────────────────────────────

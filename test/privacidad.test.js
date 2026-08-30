@@ -136,3 +136,12 @@ test('con un dominio a medias, una dirección de verdad pasaría — y por eso s
 
   assert.notEqual(problema, null);
 });
+
+test('un ícono traído de un servidor no pasa', () => {
+  // Es la puerta que abrió T-948 al meter el ícono como `data:`. Un ícono
+  // externo le cuenta a ese servidor cada vez que abrís la app.
+  assert.match(String(buscarFugas('<link rel="icon" href="https://x.com/f.png">')), /ícono|dirección/i);
+  assert.match(String(buscarFugas('<link rel="apple-touch-icon" href="/icono.png">')), /ícono/i);
+  assert.equal(buscarFugas('<link rel="icon" href="data:image/png;base64,AAA">'), null);
+  assert.equal(buscarFugas('<link rel="apple-touch-icon" href="data:image/png;base64,AAA">'), null);
+});

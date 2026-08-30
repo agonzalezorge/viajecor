@@ -59,6 +59,50 @@ no cargues nada: cerrá y abrila por la dirección.
 
 ---
 
+## 1b. En un iPhone: por la web, no por el archivo
+
+**En un iPhone no hay forma de abrir el archivo bajado.** No es una configuración
+que falte: Chrome en iOS **no abre archivos locales**, no existe una dirección
+que puedas escribir para llegar a un `.html` que esté en *Archivos*. Y si lo
+tocás desde ahí, se abre una vista previa que no es un navegador: lo que cargues
+no se guarda. Estos dos enlaces **tampoco sirven**: `github.com/…/blob/…` es la
+página de código, y `raw.githubusercontent.com/…` se entrega como texto plano.
+
+**El camino que sí funciona es abrirla por la web**, desde GitHub Pages:
+
+```
+https://agonzalezorge.github.io/viajecor/
+```
+
+Publicar **no publica tus datos**: lo que se publica es el programa. Los
+movimientos siguen viviendo solo en tu teléfono, y la app no hace ni una
+petición a internet una vez abierta.
+
+**Para el ícono, usá Safari** —Chrome en iOS no lo ofrece—: *Compartir → Añadir a
+pantalla de inicio*. La app trae su propio ícono adentro, así que iOS no va a
+poner una captura de pantalla.
+
+> **El riesgo real, y hay que tomarlo en serio:** iOS borra lo que un sitio tiene
+> guardado si **no lo abrís durante 7 días**. Es una política de Apple, no algo
+> que la app pueda evitar. Usándola seguido no pasa nada, pero **el respaldo
+> deja de ser opcional**: bajá el `.json` cada tanto y guardalo fuera del
+> teléfono.
+
+### Cómo se prende GitHub Pages (una sola vez)
+
+1. Entrá a `https://github.com/agonzalezorge/viajecor` desde una computadora.
+2. Pestaña **Settings** (arriba a la derecha, el engranaje).
+3. En la columna de la izquierda, **Pages**.
+4. En *Build and deployment* → *Source*, elegí **Deploy from a branch**.
+5. Debajo, en *Branch*: **main** y carpeta **/ (root)**. **Save**.
+6. Esperá uno o dos minutos y recargá esa misma pantalla: arriba va a aparecer
+   *"Your site is live at…"* con la dirección.
+
+Si en vez de la app ves la documentación del proyecto, es que quedó eligiendo el
+`README`: revisá que la carpeta sea `/ (root)` y no `/docs`.
+
+---
+
 ## 2. Lo primero que hay que hacer: respaldar
 
 Tus datos existen **en un solo lugar**: el navegador de tu teléfono. Si borrás

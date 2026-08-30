@@ -13,6 +13,7 @@ import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buscarFugas } from './privacidad.mjs';
 import { buscarErrorDeSintaxis } from './sintaxis.mjs';
+import { iconoComoDataUri } from './icono.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -157,6 +158,7 @@ async function construir() {
   if (roto) throw new Error(roto);
 
   const html = plantilla
+    .replaceAll('/*{{ICONO}}*/', () => iconoComoDataUri())
     .replace('/*{{ESTILOS}}*/', () => estilos.trim())
     .replace('/*{{GUION}}*/', () => `(function () {\n${guion}\n})();`);
 
@@ -168,8 +170,21 @@ async function construir() {
   await mkdir(join(RAIZ, 'dist'), { recursive: true });
   await writeFile(join(RAIZ, 'dist/viajecor.html'), html, 'utf8');
 
+  // La misma app, otra vez, en la raíz — T-948, ADR-043.
+  //
+  // Es lo que GitHub Pages sirve como página del repositorio, y hace que la
+  // dirección sea `…github.io/viajecor/` en vez de
+  // `…github.io/viajecor/dist/viajecor.html`. En un iPhone eso importa más de
+  // lo que parece: es la única forma de entrar a la app —Chrome en iOS no abre
+  // archivos locales— y hay que poder escribirla en un teclado de teléfono.
+  //
+  // **Es una copia byte a byte, escrita por el build**, nunca a mano: dos
+  // archivos que se editan por separado son dos apps distintas con el mismo
+  // nombre, y el usuario no tendría forma de saber cuál está usando.
+  await writeFile(join(RAIZ, 'index.html'), html, 'utf8');
+
   const kb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(1);
-  console.log(`dist/viajecor.html — v${version} — ${kb} kB — ${MODULOS.length} módulo(s)`);
+  console.log(`dist/viajecor.html + index.html — v${version} — ${kb} kB — ${MODULOS.length} módulo(s)`);
 }
 
 construir().catch((error) => {
