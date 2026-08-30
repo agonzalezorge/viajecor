@@ -68,10 +68,11 @@ tocás desde ahí, se abre una vista previa que no es un navegador: lo que cargu
 no se guarda. Estos dos enlaces **tampoco sirven**: `github.com/…/blob/…` es la
 página de código, y `raw.githubusercontent.com/…` se entrega como texto plano.
 
-**El camino que sí funciona es abrirla por la web**, desde GitHub Pages:
+**El camino que sí funciona es abrirla por la web.** La app está publicada en
+Vercel, que sirve el `index.html` del repositorio:
 
 ```
-https://agonzalezorge.github.io/viajecor/
+https://viajecor.vercel.app
 ```
 
 Publicar **no publica tus datos**: lo que se publica es el programa. Los
@@ -88,20 +89,39 @@ poner una captura de pantalla.
 > deja de ser opcional**: bajá el `.json` cada tanto y guardalo fuera del
 > teléfono.
 
-### Cómo se prende GitHub Pages (una sola vez)
+> **Si ya venías usando la app como archivo, tus datos NO se mudan solos.** Para
+> el navegador, el archivo y el sitio web son dos lugares distintos. Antes de
+> empezar a usar la versión web: entrá donde tenés tus datos, **Datos → Respaldo
+> → descargar el `.json`**, y después importalo en la web. Si no, vas a ver la
+> app vacía —no perdiste nada, pero no cargues nada ahí—.
 
-1. Entrá a `https://github.com/agonzalezorge/viajecor` desde una computadora.
-2. Pestaña **Settings** (arriba a la derecha, el engranaje).
-3. En la columna de la izquierda, **Pages**.
-4. En *Build and deployment* → *Source*, elegí **Deploy from a branch**.
-5. Debajo, en *Branch*: **main** y carpeta **/ (root)**. **Save**.
-6. Esperá uno o dos minutos y recargá esa misma pantalla: arriba va a aparecer
-   *"Your site is live at…"* con la dirección.
+### Cómo se publica en Vercel (una sola vez)
 
-Si en vez de la app ves la documentación del proyecto, es que quedó eligiendo el
-`README`: revisá que la carpeta sea `/ (root)` y no `/docs`.
+1. Entrá a **https://vercel.com** y creá la cuenta con **Continue with GitHub**.
+2. **Add New… → Project.** Vercel te va a pedir permiso para ver tus
+   repositorios: alcanza con darle acceso **solo a `viajecor`**.
+3. En la lista, al lado de `agonzalezorge/viajecor`, tocá **Import**.
+4. **No toques nada de la configuración.** *Framework Preset* queda en **Other**,
+   y *Build Command* y *Output Directory* **vacíos**: el proyecto no se compila
+   en Vercel, el `index.html` ya está hecho. Si te ofrece un comando de build,
+   borralo.
+5. **Deploy.** En menos de un minuto muestra la dirección.
+6. En **Settings → Domains** podés dejar el nombre en `viajecor.vercel.app` si
+   está libre, o el que te haya asignado.
 
----
+Desde ahí, **cada vez que se suba un cambio a `main` se republica solo**. No hay
+que volver a entrar a Vercel.
+
+### Lo que Vercel agrega, y por qué está en el repositorio
+
+En la raíz hay un archivo `vercel.json` con una **política de seguridad de
+contenido**: le prohíbe al navegador conectarse a internet desde la página,
+enviar formularios y cargar imágenes o fuentes de afuera.
+
+Es la diferencia entre *"la app promete que no manda nada"* y *"el navegador no
+la deja aunque quisiera"*. La promesa ya estaba comprobada en la construcción
+(RN-06); esto la hace cumplir del otro lado. GitHub Pages no permite mandar
+cabeceras propias, así que esto solo se puede tener acá.
 
 ## 2. Lo primero que hay que hacer: respaldar
 

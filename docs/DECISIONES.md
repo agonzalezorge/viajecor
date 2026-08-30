@@ -1571,10 +1571,10 @@ dirección que escribir— y la vista previa de *Archivos* no guarda nada. El
 usuario lo pidió porque quiere usarla en su teléfono (2026-08-29).
 
 **Decisión.** El build escribe la misma app **dos veces**: `dist/viajecor.html`,
-que es el archivo que se baja, e `index.html` en la raíz, que es lo que GitHub
-Pages sirve como página del repositorio. La dirección queda
-`https://agonzalezorge.github.io/viajecor/` — corta, escribible en un teclado de
-teléfono, y sin nombre de archivo que recordar.
+que es el archivo que se baja, e `index.html` en la raíz, que es lo que el
+servicio de publicación sirve como página del sitio. La dirección queda corta,
+escribible en un teclado de teléfono y sin nombre de archivo que recordar. Qué
+servicio la sirve se decidió aparte, en ADR-044.
 
 **Es una copia byte a byte hecha por el build, nunca a mano**, y hay un test que
 compara el contenido de los dos archivos. Dos copias que se editan por separado
@@ -1611,3 +1611,46 @@ puede volver a tocar.
 `<link rel="icon" href="…">` que no sea `data:` ahora rompe la construcción. Un
 ícono traído de un servidor le cuenta a ese servidor cada vez que abrís la app,
 que es exactamente lo que esta app promete que no pasa.
+
+
+## ADR-044 · Se publica en Vercel, y la promesa de "cero red" pasa a ser una cabecera
+
+**Contexto.** ADR-043 dejó la app lista para publicarse; faltaba dónde. Los dos
+candidatos servían igual de bien un archivo estático: GitHub Pages, donde ya
+vive el código, y Vercel.
+
+**Decisión: Vercel**, elegido por el usuario (2026-08-30) sobre dos diferencias
+reales:
+
+  - **Un origen propio.** El navegador guarda los datos **por origen**, y en
+    GitHub Pages el origen es `agonzalezorge.github.io`, compartido con todo lo
+    que ese usuario publique. Hoy no hay nada más; el día que lo haya, comparten
+    el mismo cajón.
+  - **Una dirección más corta**, que en el teclado de un teléfono no es un
+    detalle estético.
+
+**Lo que apareció al elegirlo, y terminó siendo lo más valioso: `vercel.json`.**
+Vercel deja mandar cabeceras propias; GitHub Pages no. Así que el sitio va con
+una **política de seguridad de contenido** que le prohíbe al navegador
+conectarse a internet (`connect-src 'none'`), enviar formularios
+(`form-action 'none'`) y traer imágenes, fuentes o scripts de afuera
+(`default-src 'none'`, con `'unsafe-inline'` para el guión y los estilos, que
+van escritos adentro del archivo, y `data:` para el ícono).
+
+Es la diferencia entre *"la app promete que no manda nada"* y **"el navegador no
+la deja aunque quisiera"**. La guardia de la construcción (RN-06) mira el
+código; esta cabecera lo hace cumplir del otro lado, y cubre incluso el caso de
+que algún día alguien agregue una llamada sin darse cuenta. Tiene su test: si
+alguien aflojara la política para arreglar algo, se pone en rojo.
+
+**Lo que se comprobó antes de decir que anda**, sirviendo la app con exactamente
+esas cabeceras: carga, guarda un movimiento, sobrevive a la recarga, dibuja la
+tabla y los dos gráficos, y **baja el respaldo `.json` y la planilla `.xlsx`** —
+que era el riesgo concreto, porque las descargas salen de un `blob:` que una
+política mal escrita bloquea en silencio y sin error visible—. Y un `fetch` a
+internet, probado a propósito, **queda bloqueado por el navegador**.
+
+**Costo asumido:** un servicio más, con acceso de lectura al repositorio. Y que
+mudarse de origen es una mudanza de datos: hay que exportar el `.json` e
+importarlo. Escrito en `USO.md`, porque es lo que hace que alguien vea la app
+vacía y crea que perdió todo.

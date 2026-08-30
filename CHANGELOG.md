@@ -20,11 +20,16 @@ La versión publicada vive en el archivo `VERSION`.
   recalculan solas. Ver ADR-040.
 
 ### Agregado
-- **La app se puede abrir desde la web**, en `https://agonzalezorge.github.io/viajecor/`
-  (hay que prender GitHub Pages una vez; los pasos están en `USO.md §1b`). Es la
+- **La app se puede abrir desde la web**, en `https://viajecor.vercel.app` (hay
+  que importar el proyecto en Vercel una vez; los pasos están en `USO.md §1b`). Es la
   única forma de usarla en un iPhone: Chrome en iOS no abre archivos locales. El
   build ahora escribe la misma app dos veces, `dist/viajecor.html` para bajar e
-  `index.html` para publicar, y un test compara que sean idénticas. Ver ADR-043.
+  `index.html` para publicar, y un test compara que sean idénticas. Ver ADR-043
+  y ADR-044.
+- **El sitio publicado va con una política que le prohíbe al navegador
+  conectarse a internet** (`vercel.json`). La app ya no mandaba nada y la
+  construcción lo verificaba; ahora, además, **el navegador no la dejaría
+  aunque quisiera**.
 - **La app trae su propio ícono adentro**, como `data:`. Es lo que usa "Añadir a
   pantalla de inicio" en un iPhone —sin él, iOS pone una captura de la pantalla—
   y de paso saca el 404 de `/favicon.ico` que se cobraba en cada visita.

@@ -102,6 +102,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-946 | Otros grupos de gastos: las etiquetas que no son ni gasto fijo ni viaje | **Hecha** | T-022, T-023 |
 | T-947 | Los rubros de ingreso en la tabla mes a mes | **Hecha** | T-021 |
 | T-948 | Publicar la app para poder usarla en un iPhone | **Hecha** | — |
+| T-949 | Publicar en Vercel, con la CSP que hace cumplir el cero red | **Hecha** | T-948 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -2233,3 +2234,29 @@ errores de consola.**
 están en `USO.md §1b`, junto con las dos advertencias que importan: iOS borra lo
 guardado si el sitio no se abre en 7 días, y los datos de la app abierta como
 archivo no se mudan solos —hay que exportar el `.json` e importarlo—.
+
+### T-949 · Publicar en Vercel, con la CSP que hace cumplir el cero red — **Hecha** (2026-08-30)
+**Depende de:** T-948 · **Decidida por el usuario (2026-08-30)** · **Tocó:**
+`vercel.json` (nuevo), `docs/USO.md`, `README.md`
+
+El usuario eligió Vercel sobre GitHub Pages por dos razones reales: un **origen
+propio** —el navegador guarda los datos por origen, y `github.io` está
+compartido con todo lo que publique ese usuario— y una dirección más corta.
+
+**Lo mejor apareció después de elegir.** Vercel deja mandar cabeceras propias y
+Pages no, así que el sitio va con una **CSP** que le prohíbe al navegador
+conectarse a internet, enviar formularios y traer nada de afuera. La app ya
+prometía eso y la construcción lo verificaba; ahora **el navegador lo hace
+cumplir**, incluso si algún día alguien agregara una llamada sin darse cuenta.
+Con test: aflojar la política pone algo en rojo.
+
+**Probado con esas cabeceras puestas, no con la app suelta:** carga, guarda,
+sobrevive a la recarga, dibuja la tabla con sus bandas y los dos gráficos, y
+—lo que más riesgo corría— **baja el `.json` y el `.xlsx`**, que salen de un
+`blob:` que una política mal escrita bloquea sin dar error. Un `fetch` a
+internet, probado a propósito, queda bloqueado. Cero errores de consola.
+
+**Lo que queda en manos del usuario:** importar el proyecto en Vercel. Los pasos
+están en `USO.md §1b`, con la advertencia que importa: **los datos no se mudan
+solos** entre el archivo y el sitio web, hay que exportar el `.json` e
+importarlo.

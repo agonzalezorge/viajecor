@@ -145,3 +145,27 @@ test('un ícono traído de un servidor no pasa', () => {
   assert.equal(buscarFugas('<link rel="icon" href="data:image/png;base64,AAA">'), null);
   assert.equal(buscarFugas('<link rel="apple-touch-icon" href="data:image/png;base64,AAA">'), null);
 });
+
+test('la CSP publicada prohíbe salir a internet y permite lo que la app necesita', async () => {
+  // `vercel.json` es la única parte del proyecto que el navegador HACE CUMPLIR:
+  // la guardia de la construcción mira el código, la CSP le prohíbe al navegador
+  // conectarse aunque el código lo pidiera. Por eso se testea: si alguien la
+  // aflojara para arreglar algo, esto tiene que ponerse en rojo.
+  const { readFile } = await import('node:fs/promises');
+  const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  const csp = config.headers[0].headers.find((h) => h.key === 'Content-Security-Policy').value;
+
+  assert.match(csp, /default-src 'none'/, 'lo que no está permitido, no se permite');
+  assert.match(csp, /connect-src 'none'/, 'ni fetch, ni XHR, ni WebSocket');
+  assert.match(csp, /form-action 'none'/, 'ningún formulario se envía a ningún lado');
+
+  // Y lo que sí hace falta, porque la app es un archivo solo: el guión y los
+  // estilos van escritos adentro, y el ícono es un `data:`.
+  assert.match(csp, /script-src 'unsafe-inline'/);
+  assert.match(csp, /style-src 'unsafe-inline'/);
+  assert.match(csp, /img-src data:/);
+
+  // Ninguna fuente externa colada por la puerta de atrás.
+  assert.doesNotMatch(csp, /https?:/);
+  assert.doesNotMatch(csp, /\*/);
+});
