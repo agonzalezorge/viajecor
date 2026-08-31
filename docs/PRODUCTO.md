@@ -266,7 +266,7 @@ qué existe.
 | CU-11 | Ver cuánto costó un viaje | **Hecho** (T-023) |
 | CU-12 | Ver el promedio de un gasto fijo | **Hecho** (T-022) |
 | CU-13 | Importar el historial del Excel | **Hecho** (T-030, T-031, T-032) |
-| CU-14 | Llevar los ahorros conjuntos | Pendiente |
+| CU-14 | Llevar los ahorros conjuntos | **Hecho** (T-040, T-041, T-042) |
 | CU-15 | Agregar una moneda | **Hecho** (T-008, T-024) |
 | CU-16 | Limpiar los comentarios y detalles ya escritos | **Hecho** (T-025) |
 | CU-17 | Buscar un movimiento en todo el historial | **Hecho** (T-943) |
@@ -595,15 +595,35 @@ abrir su planilla y decidir. Y **importar dos veces no duplica**.
 
 ### CU-14 — Llevar los ahorros conjuntos
 
-**Para qué:** reemplaza la hoja `Ahorros conjuntos`, que registra ahorros de dos
-personas (ALE / IRE) en tres monedas sin convertir entre sí.
+**Para qué:** reemplaza la hoja `Ahorros conjuntos`, que registra los ahorros de
+dos personas (ALE / IRE) en tres monedas sin convertir entre sí.
 
-**Muestra:** total por moneda, y total por persona y moneda.
+**Es un historial, no una foto** (decidido por el usuario, 2026-08-31): se anotan
+movimientos —`I` es plata que entró al ahorro, `G` plata que salió— y la app
+suma. Así se puede ver cómo evolucionó, y no solo cuánto hay hoy.
 
-**Nota:** esta hoja tiene una lógica distinta al registro de gastos — no convierte
-a euros, porque un plazo fijo en pesos uruguayos es un plazo fijo en pesos
-uruguayos. Se construye como módulo aparte, no metiendo los ahorros en el
-registro de gastos.
+**Muestra:**
+- Cuánto hay **en cada moneda**, y dentro de cada una **cuánto puso cada uno**.
+  Las dos personas aparecen siempre, aunque una tenga cero: un cero dice "no
+  tiene" y una fila que falta no dice nada.
+- El **historial** de movimientos, del más nuevo al más viejo.
+
+**No hay ningún total que junte las monedas, y no es algo que falte.** Sumarlas
+exigiría convertirlas, y esa conversión inventa un número que no existe hasta
+que la plata se cambie de verdad —y que cambiaría solo, todos los días, sin que
+nadie toque nada—. La pantalla lo dice con todas las letras.
+
+**El detalle es texto libre y no agrupa nada.** Si ahí dice "plazo fijo", es
+información del usuario para leer, no una categoría que la app sume aparte (lo
+pidió explícitamente, 2026-08-31).
+
+**Se importa desde la misma planilla que los gastos**, en el mismo paso: el
+usuario elige un archivo, no una hoja. Cada fila que no entra se informa con su
+número de fila, y los totales por moneda se comparan contra el cuadro que traía
+la hoja (ver `docs/MAPEO-EXCEL.md` §12).
+
+**Los ahorros no entran en ningún total de gastos:** no van en el saldo del mes,
+ni en la evolución, ni en los rubros. Son un registro aparte.
 
 ---
 

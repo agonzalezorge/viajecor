@@ -20,6 +20,7 @@
 
 import { leerZip } from './zip.js';
 import { recorrerXml } from './xml.js';
+import { normalizarClave } from '../core/modelo.js';
 
 /** Los formatos de fecha que Excel trae de fábrica. */
 const FORMATOS_DE_FECHA = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 30, 36, 45, 46, 47, 50, 57]);
@@ -34,12 +35,21 @@ const FORMATOS_DE_FECHA = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 30, 3
  * `filas` es un `Map` de número de fila a `Map` de letra de columna a
  * `{ valor, esFecha }`.
  */
-export async function leerPlanilla(bytes) {
+export async function leerPlanilla(bytes, { hoja: buscada } = {}) {
   const zip = await leerZip(bytes);
   if (zip.error) return { error: zip.error };
 
-  const hoja = primeraHoja(zip.entradas);
+  const hoja = buscarHoja(zip.entradas, buscada);
   if (!hoja) {
+    if (buscada !== undefined && buscada !== null) {
+      const nombres = hojasDelLibro(zip.entradas).map((h) => h.nombre);
+      return {
+        error: `Este archivo no tiene ninguna hoja llamada "${buscada}". ` +
+          (nombres.length > 0
+            ? `Las que tiene son: ${nombres.join(', ')}.`
+            : 'No se pudo leer la lista de hojas.'),
+      };
+    }
     return {
       error: 'Este archivo no tiene ninguna hoja de cálculo adentro. ' +
         '¿Puede ser que sea un documento de Word, o un .xlsx dañado?',
@@ -53,17 +63,73 @@ export async function leerPlanilla(bytes) {
 }
 
 /**
- * La primera hoja del libro.
+ * Las hojas del libro, con su nombre y dónde está cada una.
  *
- * Se busca por el nombre de archivo y no siguiendo las relaciones del libro. Es
- * menos correcto —el orden real lo dan `workbook.xml` y sus relaciones— y es
- * suficiente: la planilla del usuario tiene una sola hoja, y en un `.xlsx` la
- * primera se llama `sheet1.xml` en la práctica totalidad de los casos. Si algún
- * día hace falta la segunda hoja, hay que hacerlo bien.
+ * **Ahora sí siguiendo las relaciones del libro**, que es lo correcto. La
+ * versión anterior agarraba `sheet1.xml` por su nombre de archivo y lo decía:
+ * "si algún día hace falta la segunda hoja, hay que hacerlo bien". Hizo falta
+ * —los ahorros conjuntos son la TERCERA hoja (T-042)— y el atajo no alcanzaba:
+ * el orden de los archivos `sheetN.xml` no tiene por qué ser el de las pestañas,
+ * y el nombre visible ("Ahorros conjuntos") solo está en `workbook.xml`.
+ *
+ * Son dos archivos y hay que cruzarlos: `workbook.xml` dice nombre → `r:id`, y
+ * `workbook.xml.rels` dice `r:id` → archivo.
  */
-function primeraHoja(entradas) {
-  if (entradas.has('xl/worksheets/sheet1.xml')) return entradas.get('xl/worksheets/sheet1.xml');
+export function hojasDelLibro(entradas) {
+  const libro = entradas.get('xl/workbook.xml');
+  const relaciones = entradas.get('xl/_rels/workbook.xml.rels');
+  if (!libro) return [];
 
+  const porId = new Map();
+  if (relaciones) {
+    recorrerXml(relaciones, {
+      alAbrir(nombre, atributos) {
+        if (nombre !== 'Relationship') return;
+        const destino = String(atributos.Target ?? '');
+        if (destino === '') return;
+        // El destino puede venir relativo (`worksheets/sheet1.xml`) o absoluto
+        // (`/xl/worksheets/sheet1.xml`): las dos formas son válidas y las
+        // escriben programas distintos.
+        const ruta = destino.startsWith('/')
+          ? destino.slice(1)
+          : `xl/${destino.replace(/^\.?\//, '')}`;
+        porId.set(atributos.Id, ruta);
+      },
+    });
+  }
+
+  const hojas = [];
+  recorrerXml(libro, {
+    alAbrir(nombre, atributos) {
+      if (nombre !== 'sheet') return;
+      const ruta = porId.get(atributos['r:id'] ?? atributos.id);
+      if (ruta) hojas.push({ nombre: String(atributos.name ?? ''), ruta });
+    },
+  });
+  return hojas;
+}
+
+/**
+ * La hoja pedida por nombre, o la primera si no se pide ninguna.
+ *
+ * El nombre se compara **normalizado** (RN-03): la pestaña puede llamarse
+ * "Ahorros conjuntos", "AHORROS CONJUNTOS" o traer un espacio de más, y las
+ * tres son la misma pestaña para quien la mira.
+ */
+function buscarHoja(entradas, buscada) {
+  const hojas = hojasDelLibro(entradas);
+
+  if (buscada !== undefined && buscada !== null) {
+    const clave = normalizarClave(String(buscada));
+    const encontrada = hojas.find((h) => normalizarClave(h.nombre) === clave);
+    return encontrada ? entradas.get(encontrada.ruta) ?? null : null;
+  }
+
+  if (hojas.length > 0 && entradas.has(hojas[0].ruta)) return entradas.get(hojas[0].ruta);
+
+  // Sin `workbook.xml` legible, el atajo de siempre: es mejor leer algo que
+  // negarse a abrir un archivo que quizá está bien.
+  if (entradas.has('xl/worksheets/sheet1.xml')) return entradas.get('xl/worksheets/sheet1.xml');
   const alguna = [...entradas.keys()].filter((n) => n.startsWith('xl/worksheets/') && n.endsWith('.xml')).sort();
   return alguna.length > 0 ? entradas.get(alguna[0]) : null;
 }

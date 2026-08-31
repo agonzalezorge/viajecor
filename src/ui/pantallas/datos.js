@@ -22,7 +22,8 @@ import { prepararRespaldo, diasSinRespaldar } from '../../datos/exportar.js';
 import { crearPlanilla } from '../../datos/xlsx.js';
 import { prepararCsv } from '../../datos/csv.js';
 import { MODO_REEMPLAZAR, MODO_AGREGAR } from '../../datos/importar.js';
-import { formatearEuros } from '../../core/formato.js';
+import { formatearEuros, formatearNumero } from '../../core/formato.js';
+import { DECIMALES_EURO } from '../../core/dinero.js';
 import { formatearFechaLarga } from '../../core/formato.js';
 import { hoy } from '../../core/modelo.js';
 
@@ -215,6 +216,9 @@ export function dibujarDatos(vista) {
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
         Otros grupos de gastos
+      </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
+        Ahorros conjuntos
       </button>
     </section>
 
@@ -431,23 +435,95 @@ export function dibujarPlanillaVieja(vista) {
 }
 
 /** Lo que se leyó, antes de tocar nada. */
-function dibujarPreviaDePlanilla({ movimientos, problemas, comprobaciones, yaEstan }) {
+/**
+ * Lo que la planilla trae de la hoja de ahorros conjuntos — T-042.
+ *
+ * Va aparte del bloque de movimientos porque **son otra cosa**: no entran en el
+ * saldo del mes ni se reparten por rubro. Y se cuenta igual que lo demás: lo que
+ * entra, lo que ya estaba y lo que no se pudo traer, con su número de fila.
+ */
+export function dibujarPreviaDeAhorros(planilla) {
+  const ahorros = planilla.ahorros ?? [];
+  const problemas = planilla.problemasDeAhorros ?? [];
+  if (ahorros.length === 0 && problemas.length === 0) return '';
+
+  const yaEstan = planilla.ahorrosQueEstan ?? 0;
+  const nuevos = ahorros.length - yaEstan;
+
+  return `
+    <p class="suave nota">La planilla también tiene la hoja de <strong>ahorros
+    conjuntos</strong>: se leyeron
+    ${ahorros.length === 1 ? '1 movimiento' : `${ahorros.length} movimientos`} de
+    ahorro${yaEstan > 0 ? `, de los que ${yaEstan === 1 ? '1 ya está' : `${yaEstan} ya están`}` : ''}.
+    ${nuevos > 0 ? `Entra${nuevos === 1 ? '' : 'n'} con el mismo botón.` : ''}</p>
+    ${dibujarComprobacionesDeAhorros(planilla.comprobacionesDeAhorros ?? [])}
+    ${dibujarProblemas(problemas)}
+  `;
+}
+
+/** Lo que suma la app contra el cuadro de totales de la hoja. */
+function dibujarComprobacionesDeAhorros(comprobaciones) {
+  if (comprobaciones.length === 0) return '';
+
+  const difieren = comprobaciones.filter((c) => !c.cuadra);
+  if (difieren.length === 0) {
+    return `<p class="suave">Los totales por moneda coinciden con los que
+      calculaba la planilla.</p>`;
+  }
+
+  // Una diferencia no dice necesariamente que la app se equivocó: la hoja suma
+  // tres rangos distintos ($E4:$E89, $E4:$E93, $E4:$E97). Pero dice que alguno
+  // de los dos está mal, y esta es la última oportunidad de mirarlo.
+  return `
+    <p class="suave">En ${difieren.length === 1 ? 'una moneda' : `${difieren.length} monedas`}
+    el total no coincide con el de la planilla. No significa que la app esté mal
+    —la hoja suma rangos de filas distintos en cada cuadro— pero conviene
+    mirarlo antes de archivarla.</p>
+    <ul class="filas-con-problema">${difieren.map((c) => `<li>
+      <strong>${escapar(c.moneda)}</strong>: la app suma
+      ${escapar(formatearNumero(c.nuestro, DECIMALES_EURO))} y la planilla decía
+      ${escapar(formatearNumero(c.planilla, DECIMALES_EURO))}.
+    </li>`).join('')}</ul>
+  `;
+}
+
+/**
+ * El botón de traer, que tiene que nombrar lo que de verdad va a entrar.
+ *
+ * Decir "traer los 43 movimientos" cuando además entran 11 ahorros hace que el
+ * usuario no se entere de la mitad de lo que acaba de hacer.
+ */
+export function dibujarBotonDeTraer(movimientos, ahorros) {
+  const partes = [];
+  if (movimientos > 0) partes.push(movimientos === 1 ? '1 movimiento' : `${movimientos} movimientos`);
+  if (ahorros > 0) partes.push(ahorros === 1 ? '1 ahorro' : `${ahorros} ahorros`);
+
+  const nada = partes.length === 0;
+  return `
+    <button type="button" class="principal" data-accion="importar-planilla"${nada ? ' disabled' : ''}>
+      ${nada ? 'No hay nada nuevo que traer' : `Traer ${partes.join(' y ')}`}
+    </button>
+  `;
+}
+
+function dibujarPreviaDePlanilla(planilla) {
+  const { movimientos, problemas, comprobaciones, yaEstan } = planilla;
   const nuevos = movimientos.length - yaEstan;
 
   return `
+    ${movimientos.length === 0 && (planilla.ahorros ?? []).length > 0 ? '' : `
     <p class="suave">Se leyeron
     <strong>${movimientos.length === 1 ? '1 movimiento' : `${movimientos.length} movimientos`}</strong>.
     ${yaEstan > 0
       ? `${yaEstan === 1 ? '1 ya está' : `${yaEstan} ya están`} cargado${yaEstan === 1 ? '' : 's'} en la app, así que
          ${nuevos === 1 ? 'entraría 1' : `entrarían ${nuevos}`}.`
-      : 'Ninguno está todavía en la app.'}</p>
+      : 'Ninguno está todavía en la app.'}</p>`}
 
     ${dibujarComprobaciones(comprobaciones)}
     ${dibujarProblemas(problemas)}
+    ${dibujarPreviaDeAhorros(planilla)}
 
-    <button type="button" class="principal" data-accion="importar-planilla"${nuevos === 0 ? ' disabled' : ''}>
-      ${nuevos === 0 ? 'No hay nada nuevo que traer' : `Traer ${nuevos === 1 ? 'el movimiento' : `los ${nuevos} movimientos`}`}
-    </button>
+    ${dibujarBotonDeTraer(nuevos, (planilla.ahorros ?? []).length - (planilla.ahorrosQueEstan ?? 0))}
     <button type="button" class="secundario" data-accion="cancelar-planilla">Dejar como está</button>
   `;
 }

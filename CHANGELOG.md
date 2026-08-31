@@ -3,6 +3,24 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.3.0 — 2026-08-31
+
+### Agregado
+- **Ahorros conjuntos** (Datos → *Ahorros conjuntos*). Reemplaza la hoja del
+  mismo nombre: cuánto hay en cada moneda, cuánto puso cada uno, y el historial
+  de movimientos —lo que entró al ahorro y lo que salió—.
+
+  **Las monedas no se suman entre sí**, y no es algo que falte: convertirlas
+  daría un número que no existe hasta que la plata se cambie de verdad y que
+  cambiaría solo todos los días. La pantalla lo explica ahí mismo.
+
+  Los ahorros **no entran en ningún total de gastos**: ni en el saldo del mes, ni
+  en la evolución, ni en los rubros.
+
+- **La hoja de ahorros de tu planilla se importa junto con los gastos**, en el
+  mismo paso. Cada fila que no entra se informa con su número de fila y por qué,
+  y los totales por moneda se comparan contra los que traía la planilla.
+
 ## 0.2.1 — 2026-08-31
 
 ### Arreglado

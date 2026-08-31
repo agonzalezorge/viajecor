@@ -278,3 +278,49 @@ habría dejado los dos adentro del código.
   pregunta 3 del plan. No bloquea: hoy son dos comentarios distintos, y si se
   decide unificarlos después, se aplica a lo importado igual que a lo cargado a
   mano.
+
+
+---
+
+## 12. La hoja `Ahorros conjuntos`
+
+Es la **tercera pestaña** del libro. Se abrió con `openpyxl` el 2026-08-31, sobre
+la copia que mandó el usuario, antes de escribir una línea del importador.
+
+**Encabezados en la fila 3, datos desde la 4:**
+
+| Columna | Encabezado | Qué es |
+|---|---|---|
+| A | `Comentarios` | Para qué es esa plata. Agrupa igual que en los gastos ("Para viajes", "Alojamiento Roma"). |
+| B | `DÍA` | La fecha, como número de serie de Excel. |
+| C | `DETALLES` | Texto libre. **No agrupa nada** (lo pidió el usuario). |
+| D | `MONEDA` | `DÓLARES`, `EUROS`, `PESOS UY` → `USD`, `EUR`, `UYU`. Se compara sin tildes. |
+| E | `MONTO` | El importe, sin signo. |
+| F | `ALE / IRE` | De quién es. |
+| G | `I/G` | `I` = entró al ahorro, `G` = salió. Es lo que lo hace un historial. |
+
+A la derecha, en `I..K`, tres cuadros de totales: por moneda, de ALE y de IRE. La
+app **no los importa** —son resultados, no datos— pero **sí los usa para
+comprobar** lo que sumó, igual que el acumulado de la hoja de gastos (§6).
+
+### Lo que esta hoja hace mal, y conviene tener anotado
+
+Los tres cuadros suman **tres rangos distintos de la misma tabla**:
+
+```
+I4  =SUMIFS($E4:$E89, $D4:$D89, I3)                     ← total por moneda
+I8  =SUMIFS($E4:$E93, $D4:$D93, I7, $F4:$F93, "ale")    ← lo de ALE
+I12 =SUMIFS($E4:$E97, $D4:$D97, I11, $F4:$F97, "ire")   ← lo de IRE
+```
+
+Hoy hay once filas y no muerde. **Pasadas las 89**, el total por moneda va a
+dejar de contar filas que los de cada persona sí cuentan, y los tres cuadros van
+a dejar de cerrar entre sí **sin decir nada**. Es exactamente L-001, en la hoja
+que estamos reemplazando, y es la razón por la que el importador y los cálculos
+de la app no tienen ningún límite de filas escrito a mano.
+
+### La copia que llegó vino sin montos
+
+La columna `E` estaba vacía en las once filas. El importador lo informa fila por
+fila —"la fila no tiene monto"— en vez de importar once movimientos en cero, que
+es la forma silenciosa de arruinar un historial.

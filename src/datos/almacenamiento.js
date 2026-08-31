@@ -13,7 +13,8 @@
 // que nunca hace es pisar en silencio un dato que no entendió: un dato ilegible
 // todavía se puede rescatar a mano; uno sobrescrito, no.
 
-import { validarMovimiento, validarFecha } from '../core/modelo.js';
+import { validarMovimiento, validarFecha, nuevoId } from '../core/modelo.js';
+import { personaDeLaPlanilla, tipoDeLaPlanilla } from '../core/ahorros.js';
 
 export const CLAVE_DATOS = 'viajecor:datos:v1';
 
@@ -46,6 +47,10 @@ export function estadoInicial({ monedas = [], versionApp } = {}) {
     // porque no se puede deducir de los movimientos: un viaje puede empezar
     // antes del primer gasto anotado.
     fechas_de_viaje: [],
+    // Los ahorros conjuntos (CU-14, T-040). Lista aparte de `movimientos` y no
+    // un rubro más: un ahorro no entra en el saldo del mes ni se reparte por
+    // rubro, y mezclarlo ensuciaría todos los totales que ya funcionan.
+    ahorros: [],
     preferencias: { moneda_predeterminada: 'EUR' },
   };
 }
@@ -229,6 +234,31 @@ export function migrarEstado(guardado, incidencias = []) {
     const hasta = validarFecha(v.hasta);
     if (hasta < desde) throw new Error('el viaje termina antes de empezar');
     return { clave: v.clave.trim().toLowerCase(), desde, hasta };
+  });
+
+  // Los ahorros conjuntos. Un registro roto se descarta solo, como las fechas
+  // de viaje: perder un movimiento de ahorro es molesto; perder los otros
+  // sesenta por culpa de ese, no.
+  estado.ahorros = leerLista(guardado.ahorros, 'ahorros', incidencias, (a) => {
+    if (a === null || typeof a !== 'object') throw new Error('no es un movimiento de ahorro');
+    if (personaDeLaPlanilla(a.persona) === null) throw new Error('no dice de quién es');
+    if (tipoDeLaPlanilla(a.tipo) === null) throw new Error('no dice si la plata entró o salió');
+    if (!Number.isInteger(a.monto) || a.monto === 0) throw new Error('el monto no es un entero distinto de cero');
+    if (typeof a.moneda !== 'string' || !/^[A-Za-z]{3}$/.test(a.moneda.trim())) {
+      throw new Error('la moneda no es un código de tres letras');
+    }
+    const fecha = validarFecha(a.fecha);
+    return {
+      id: typeof a.id === 'string' && a.id !== '' ? a.id : nuevoId('aho'),
+      fecha,
+      persona: personaDeLaPlanilla(a.persona),
+      tipo: tipoDeLaPlanilla(a.tipo),
+      monto: a.monto,
+      moneda: a.moneda.trim().toUpperCase(),
+      comentario: typeof a.comentario === 'string' ? a.comentario : '',
+      detalle: typeof a.detalle === 'string' ? a.detalle : '',
+      creado: /^\d{4}-\d{2}-\d{2}$/.test(a.creado) ? a.creado : fecha,
+    };
   });
 
   const preferencias = guardado.preferencias;

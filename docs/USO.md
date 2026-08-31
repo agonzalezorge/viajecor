@@ -350,6 +350,32 @@ preguntas distintas, y **la fila de gastos fijos te lo aclara ahí mismo**.
 
 ---
 
+## 7c. Los ahorros conjuntos
+
+**Datos → Mirar el historial → Ahorros conjuntos.**
+
+Es la hoja `Ahorros conjuntos` de tu planilla, y **se importa sola** cuando traés
+el Excel: no hay que hacer nada aparte.
+
+Muestra **cuánto hay en cada moneda** y, dentro de cada una, **cuánto puso cada
+uno**. Abajo, el historial: `+` es plata que entró al ahorro, `−` plata que
+salió.
+
+**No vas a encontrar un total que junte las monedas, y es a propósito:** sumar
+pesos con euros exige convertirlos al cambio de hoy, y eso da un número que
+cambia solo todos los días y que no existe hasta que cambies la plata de verdad.
+
+Lo que escribas en **Detalles** es tuyo para leer —"plazo fijo, vence el
+28/08/26"— y la app no lo usa para agrupar ni sumar nada.
+
+> **Un dato de tu planilla que conviene que sepas:** sus tres cuadros de totales
+> suman **rangos de filas distintos** (`$E4:$E89`, `$E4:$E93`, `$E4:$E97`). Con
+> once filas da igual; pasadas las 89, el total por moneda iba a dejar de contar
+> filas que los de cada persona sí cuentan, **sin avisar**. Acá no hay ningún
+> límite de filas: por eso los tres números siempre cierran entre sí.
+
+---
+
 ## 8. Lo que todavía no está
 
 Lo que se hace después está en [`PLAN.md`](PLAN.md), que es el archivo que manda.

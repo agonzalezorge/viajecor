@@ -1162,7 +1162,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.2.1";
+globalThis.__VIAJECOR_VERSION__ = "0.3.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -2335,6 +2335,358 @@ function otrosGrupos(estado) {
   return grupos.sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
 }
 
+// ── src/core/busqueda.js ────────────────────────────────────────
+// Buscar texto en todos los movimientos — CU-17, T-943.
+//
+// Pedido del usuario (2026-08-29): una lupa en la pestaña de movimientos que
+// busque **en todos los movimientos cargados** y **en todos sus campos**.
+//
+// ── Buscar SÍ saca las tildes; agrupar NO ───────────────────────────────────
+//
+// Parece una contradicción con ADR-013, que decidió a propósito que `Perú` y
+// `Peru` fueran dos etiquetas distintas. No lo es, y la diferencia importa:
+//
+//   - **Agrupar** junta plata. Sacar tildes automáticamente uniría totales que
+//     el usuario quiso separar, y eso no se ve: el número sale mal y listo.
+//   - **Buscar** solo muestra. Si de más, se ve; si de menos, el usuario cree
+//     que el gasto no existe. Equivocarse siendo generoso es barato y visible;
+//     equivocarse siendo estricto esconde datos.
+//
+// Por eso acá `Peru` encuentra `Perú`, y en los totales siguen siendo dos.
+//
+// ── Varias palabras: todas tienen que estar ─────────────────────────────────
+//
+// `roma cena` trae los movimientos que tienen **las dos**, no los que tienen
+// alguna. Buscar dos palabras es como acordarse de dos cosas del mismo gasto, no
+// de dos gastos distintos.
+//
+// Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
+
+
+
+
+/**
+ * Deja un texto listo para comparar: sin tildes, en minúsculas y con un solo
+ * espacio entre palabras.
+ *
+ * `normalize('NFD')` parte cada letra acentuada en la letra y su tilde, y el
+ * reemplazo borra las tildes sueltas. Es la forma estándar y no una lista de
+ * pares `á→a`, que se olvida de la ü o de las letras de otro idioma.
+ *
+ * **La ñ se salva a mano, y no es un detalle.** Para Unicode es una `n` con
+ * tilde y `NFD` la parte igual que a la `á`; para el español es **otra letra**.
+ * Sin esta línea, buscar `ano` encontraría todos los `año`, que además de
+ * incorrecto es cómico. Se cambia por un carácter que no se usa nunca, se
+ * normaliza el resto, y se vuelve a poner.
+ */
+const RESGUARDO_ENIE = '\u0000';
+
+function normalizarBusqueda(texto) {
+  return String(texto ?? '')
+    .replace(/ñ/g, RESGUARDO_ENIE)
+    .replace(/Ñ/g, RESGUARDO_ENIE)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(new RegExp(RESGUARDO_ENIE, 'g'), 'ñ')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Todo lo que un movimiento "dice", en un solo texto para buscar adentro.
+ *
+ * Lleva **cada campo en las dos formas**: como se guarda y como se muestra. Sin
+ * eso, buscar `12,50` no encontraría un monto guardado como `1250`, y buscar
+ * `14/03/2026` no encontraría una fecha guardada como `2026-03-14` — y el
+ * usuario busca por lo que ve en la pantalla, no por lo que hay en el archivo.
+ */
+function textoDeMovimiento(estado, movimiento) {
+  const partes = [
+    movimiento.comentario,
+    movimiento.detalle,
+    movimiento.rubro,
+    formatearRubro(movimiento.rubro),
+    movimiento.moneda,
+    movimiento.fecha,
+    movimiento.tipo === TIPO_GASTO ? 'gasto' : 'ingreso',
+  ];
+
+  try {
+    partes.push(formatearFecha(movimiento.fecha));
+  } catch {
+    // Una fecha ilegible no puede dejar al movimiento fuera de toda búsqueda:
+    // sigue estando por su etiqueta, su rubro y su importe.
+  }
+
+  try {
+    const decimales = decimalesDe(estado.monedas, movimiento.moneda);
+    partes.push(formatearMonto(movimiento.monto, decimales, movimiento.moneda));
+    // El monto sin separadores ni símbolo, para que `1250` también encuentre
+    // `1.250,00 €`.
+    partes.push(String(movimiento.monto));
+
+    // Y su valor en euros, que es el número que se ve en las listas cuando el
+    // gasto es en otra moneda.
+    if (movimiento.moneda !== 'EUR' && !faltaCambioPara(movimiento, estado.tipos_cambio)) {
+      partes.push(formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas)));
+    }
+  } catch {
+    partes.push(String(movimiento.monto));
+  }
+
+  return normalizarBusqueda(partes.filter(Boolean).join(' '));
+}
+
+/** Las palabras de lo buscado. Vacío si no se escribió nada que buscar. */
+function palabrasDe(texto) {
+  const limpio = normalizarBusqueda(texto);
+  return limpio === '' ? [] : limpio.split(' ');
+}
+
+/**
+ * Los movimientos que tienen **todas** las palabras buscadas, del más nuevo al
+ * más viejo.
+ *
+ * Mira **todo el historial**, no el mes que se está viendo: el usuario que
+ * busca "psicóloga" no sabe en qué mes fue —si lo supiera no buscaría—, y
+ * limitarlo al mes en curso daría "no hay nada" sobre datos que sí están.
+ *
+ * Sin ningún tope de filas (L-001).
+ */
+function buscar(estado, texto) {
+  const palabras = palabrasDe(texto);
+  if (palabras.length === 0) return [];
+
+  return (estado.movimientos ?? [])
+    .filter((movimiento) => {
+      const donde = textoDeMovimiento(estado, movimiento);
+      return palabras.every((palabra) => donde.includes(palabra));
+    })
+    .slice()
+    .sort((a, b) => b.fecha.localeCompare(a.fecha)
+      || String(b.creado).localeCompare(String(a.creado)));
+}
+
+// ── src/core/ahorros.js ─────────────────────────────────────────
+// Los ahorros conjuntos — CU-14, T-040. Reemplaza la hoja `Ahorros conjuntos`.
+//
+// ── Por qué es un registro APARTE y no un rubro más ──────────────────────────
+//
+// Un ahorro no es un gasto ni un ingreso del mes: no entra en el saldo, no va en
+// la evolución, no se reparte por rubro. Meterlo en la lista de movimientos
+// ensuciaría todos los totales que ya funcionan, y para separarlo después
+// habría que acordarse de excluirlo en cada cuenta — o sea, no separarlo nunca.
+//
+// ── La regla que hace distinto a este módulo: NO SE CONVIERTE A EUROS ────────
+//
+// Un plazo fijo en pesos uruguayos es un plazo fijo en pesos uruguayos. Pasarlo
+// a euros al cambio de hoy inventa un número que no existe hasta que la plata
+// se cambie de verdad, y ese número cambiaría solo, todos los días, sin que el
+// usuario haya tocado nada.
+//
+// Por eso **no hay ningún total general**. Hay un total por moneda, y ninguno
+// que los junte. Que ese número no exista es el resultado correcto, no algo que
+// falte por hacer.
+//
+// ── Cómo está armada la hoja del usuario ─────────────────────────────────────
+//
+// `Comentarios | DÍA | DETALLES | MONEDA | MONTO | ALE / IRE | I/G`, con los
+// encabezados en la fila 3 y los datos desde la 4. La columna `I/G` es lo que
+// hace que esto sea un historial y no una foto: `I` es plata que entró al
+// ahorro y `G` plata que salió — "Vuelos Roma / G" es haber sacado del ahorro
+// para pagar los vuelos.
+//
+// ── Lo que la planilla hace mal, y acá no se copia ───────────────────────────
+//
+// Sus tres cuadros de totales usan **tres rangos distintos** sobre la misma
+// tabla: `$E4:$E89` el total por moneda, `$E4:$E93` el de ALE y `$E4:$E97` el de
+// IRE. Hoy hay once filas y no muerde; el día que pase de 89, el total general
+// va a dejar de contar filas que los de cada persona sí cuentan, y los cuadros
+// van a dejar de cerrar entre sí **sin decir nada**. Es exactamente L-001, y es
+// la razón por la que acá no hay ningún límite de filas escrito a mano.
+//
+// Este archivo no toca el navegador: es lógica pura y se testea con node --test.
+
+
+
+/** Plata que entra al ahorro. */
+const AHORRO_ENTRA = 'I';
+/** Plata que sale del ahorro. */
+const AHORRO_SALE = 'G';
+
+/**
+ * Las dos personas, tal como están escritas en la planilla.
+ *
+ * Es una lista cerrada a pedido del usuario (2026-08-31): son dos, con nombre
+ * propio, y no van a cambiar. Una lista editable sería una pantalla más para
+ * mantener algo que nadie va a querer tocar.
+ */
+const PERSONAS = Object.freeze(['ALE', 'IRE']);
+
+/**
+ * Las monedas escritas como las escribe la planilla.
+ *
+ * La hoja dice `DÓLARES`, `EUROS`, `PESOS UY`; la app trabaja con códigos ISO
+ * porque es lo que ya usa para todo lo demás y lo que permite compartir el
+ * catálogo de decimales (ADR-011). La traducción vive acá, en un solo lugar.
+ */
+const MONEDAS_DE_LA_PLANILLA = Object.freeze({
+  'dolares': 'USD',
+  'dolares estadounidenses': 'USD',
+  'usd': 'USD',
+  'euros': 'EUR',
+  'eur': 'EUR',
+  'pesos uy': 'UYU',
+  'pesos uruguayos': 'UYU',
+  'uyu': 'UYU',
+});
+
+/**
+ * De cómo lo escribe la planilla al código de moneda. Devuelve `null` si no se
+ * reconoce, para que quien llame decida: el importador lo cuenta como fila que
+ * no entró (RN-05), en vez de meter plata en la moneda equivocada.
+ */
+function monedaDeLaPlanilla(texto) {
+  // **Sin tildes**: la hoja dice `DÓLARES` y el mapa de arriba `dolares`, y son
+  // la misma palabra. Se reutiliza la normalización de la búsqueda (T-943), que
+  // además cuida la ñ. Escribir las dos formas en el mapa sería llevar dos
+  // listas que un día dejan de estar de acuerdo.
+  const clave = normalizarBusqueda(String(texto ?? ''));
+  return MONEDAS_DE_LA_PLANILLA[clave] ?? null;
+}
+
+/**
+ * De cómo la escribe la planilla al nombre de la persona.
+ *
+ * Compara normalizado —`ale`, `ALE`, `Ale` son la misma— por la misma razón que
+ * todo lo demás que agrupa (RN-03, L-002): una escritura distinta partiría los
+ * totales de una persona en dos sin avisar.
+ */
+function personaDeLaPlanilla(texto) {
+  const clave = normalizarClave(String(texto ?? ''));
+  return PERSONAS.find((p) => normalizarClave(p) === clave) ?? null;
+}
+
+/** Lo mismo para la columna `I/G`. Cualquier otra cosa no es un movimiento. */
+function tipoDeLaPlanilla(texto) {
+  const clave = normalizarClave(String(texto ?? ''));
+  if (clave === 'i') return AHORRO_ENTRA;
+  if (clave === 'g') return AHORRO_SALE;
+  return null;
+}
+
+/**
+ * Arma un movimiento de ahorro válido, o tira explicando qué falta.
+ *
+ * `decimales` viene del catálogo de monedas del usuario, igual que en los
+ * gastos: **el monto se guarda en unidades mínimas** (ADR-005) y sin saber
+ * cuántos decimales tiene la moneda, el número quedaría cien veces más grande o
+ * más chico.
+ */
+function crearAhorro(entrada, { decimales, id, creado } = {}) {
+  if (!Number.isInteger(decimales)) {
+    throw new Error(
+      'Falta saber cuántos decimales usa la moneda: sin ese dato el monto se guardaría cien veces más grande o más chico (RN-04b).'
+    );
+  }
+
+  const persona = personaDeLaPlanilla(entrada.persona);
+  if (persona === null) {
+    throw new Error(`"${entrada.persona}" no es una de las dos personas (${PERSONAS.join(', ')}).`);
+  }
+
+  const tipo = tipoDeLaPlanilla(entrada.tipo);
+  if (tipo === null) {
+    throw new Error(`"${entrada.tipo}" no dice si la plata entró (I) o salió (G) del ahorro.`);
+  }
+
+  const monto = aMinimas(entrada.monto, decimales);
+  if (monto === 0) {
+    throw new Error('Un movimiento de cero no se guarda: si no hubo dinero de por medio, no hay nada que registrar.');
+  }
+
+  return {
+    id: id ?? nuevoId('aho'),
+    fecha: validarFecha(entrada.fecha),
+    persona,
+    tipo,
+    monto,
+    moneda: normalizarMoneda(entrada.moneda),
+    // El comentario y el detalle se guardan TAL COMO SE ESCRIBIERON, igual que
+    // en los gastos (ADR-013). El detalle es texto libre y nada más: el usuario
+    // fue explícito en que "plazo fijo" es información suya para leer, no una
+    // categoría que la app tenga que agrupar (2026-08-31).
+    comentario: normalizarTextoVisible(entrada.comentario ?? ''),
+    detalle: normalizarTextoVisible(entrada.detalle ?? ''),
+    creado: creado ?? validarFecha(entrada.fecha),
+  };
+}
+
+/** Lo que suma un movimiento: lo que entra suma, lo que sale resta. */
+function aporteDe(movimiento) {
+  return movimiento.tipo === AHORRO_SALE ? -movimiento.monto : movimiento.monto;
+}
+
+/**
+ * Cuánto hay en cada moneda, de la que más tiene a la que menos.
+ *
+ * **No hay ningún total general y no es un olvido**: sumar monedas distintas
+ * exigiría convertirlas, y este módulo existe justamente para no hacer eso.
+ *
+ * Se listan **todas las monedas que aparecen**, incluso las que quedaron en
+ * cero: que un ahorro se haya gastado entero es información, y una moneda que
+ * desaparece de la lista se lee como que nunca existió.
+ */
+function totalPorMoneda(estado) {
+  const porMoneda = new Map();
+
+  for (const movimiento of estado?.ahorros ?? []) {
+    const anterior = porMoneda.get(movimiento.moneda) ?? { moneda: movimiento.moneda, total: 0, cuantos: 0 };
+    porMoneda.set(movimiento.moneda, {
+      ...anterior,
+      total: anterior.total + aporteDe(movimiento),
+      cuantos: anterior.cuantos + 1,
+    });
+  }
+
+  return [...porMoneda.values()]
+    .sort((a, b) => b.total - a.total || a.moneda.localeCompare(b.moneda));
+}
+
+/**
+ * Cuánto tiene cada persona en cada moneda.
+ *
+ * Es para lo que existe la hoja: los ahorros son de dos, y saber cuánto puso
+ * cada uno es la mitad del asunto. Van **las dos personas siempre**, aunque una
+ * no tenga nada en esa moneda: un cero dice "no tiene", y una fila que falta no
+ * dice nada.
+ */
+function totalPorPersona(estado) {
+  return totalPorMoneda(estado).map(({ moneda, total }) => ({
+    moneda,
+    total,
+    personas: PERSONAS.map((persona) => ({
+      persona,
+      total: sumar((estado?.ahorros ?? [])
+        .filter((m) => m.moneda === moneda && m.persona === persona)
+        .map(aporteDe)),
+    })),
+  }));
+}
+
+/**
+ * Los movimientos de ahorro, del más nuevo al más viejo.
+ *
+ * Se ordena por fecha y, entre las de un mismo día, por el orden de carga dado
+ * vuelta — la misma regla que la lista de gastos (T-945), por el mismo motivo:
+ * lo último que anotaste es lo que vas a querer corregir.
+ */
+function ahorrosOrdenados(estado) {
+  return [...(estado?.ahorros ?? [])].reverse()
+    .sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+}
+
 // ── src/core/calculos.js ────────────────────────────────────────
 // Los cálculos del mes — CU-04, CU-05 y CU-10.
 //
@@ -3353,6 +3705,7 @@ function fondoDeFranja(franja) {
 // que nunca hace es pisar en silencio un dato que no entendió: un dato ilegible
 // todavía se puede rescatar a mano; uno sobrescrito, no.
 
+
 const CLAVE_DATOS = 'viajecor:datos:v1';
 
 // Sube solo si cambia la FORMA de los datos guardados (PRODUCTO §9). No sube
@@ -3384,6 +3737,10 @@ function estadoInicial({ monedas = [], versionApp } = {}) {
     // porque no se puede deducir de los movimientos: un viaje puede empezar
     // antes del primer gasto anotado.
     fechas_de_viaje: [],
+    // Los ahorros conjuntos (CU-14, T-040). Lista aparte de `movimientos` y no
+    // un rubro más: un ahorro no entra en el saldo del mes ni se reparte por
+    // rubro, y mezclarlo ensuciaría todos los totales que ya funcionan.
+    ahorros: [],
     preferencias: { moneda_predeterminada: 'EUR' },
   };
 }
@@ -3567,6 +3924,31 @@ function migrarEstado(guardado, incidencias = []) {
     const hasta = validarFecha(v.hasta);
     if (hasta < desde) throw new Error('el viaje termina antes de empezar');
     return { clave: v.clave.trim().toLowerCase(), desde, hasta };
+  });
+
+  // Los ahorros conjuntos. Un registro roto se descarta solo, como las fechas
+  // de viaje: perder un movimiento de ahorro es molesto; perder los otros
+  // sesenta por culpa de ese, no.
+  estado.ahorros = leerLista(guardado.ahorros, 'ahorros', incidencias, (a) => {
+    if (a === null || typeof a !== 'object') throw new Error('no es un movimiento de ahorro');
+    if (personaDeLaPlanilla(a.persona) === null) throw new Error('no dice de quién es');
+    if (tipoDeLaPlanilla(a.tipo) === null) throw new Error('no dice si la plata entró o salió');
+    if (!Number.isInteger(a.monto) || a.monto === 0) throw new Error('el monto no es un entero distinto de cero');
+    if (typeof a.moneda !== 'string' || !/^[A-Za-z]{3}$/.test(a.moneda.trim())) {
+      throw new Error('la moneda no es un código de tres letras');
+    }
+    const fecha = validarFecha(a.fecha);
+    return {
+      id: typeof a.id === 'string' && a.id !== '' ? a.id : nuevoId('aho'),
+      fecha,
+      persona: personaDeLaPlanilla(a.persona),
+      tipo: tipoDeLaPlanilla(a.tipo),
+      monto: a.monto,
+      moneda: a.moneda.trim().toUpperCase(),
+      comentario: typeof a.comentario === 'string' ? a.comentario : '',
+      detalle: typeof a.detalle === 'string' ? a.detalle : '',
+      creado: /^\d{4}-\d{2}-\d{2}$/.test(a.creado) ? a.creado : fecha,
+    };
   });
 
   const preferencias = guardado.preferencias;
@@ -3888,6 +4270,10 @@ function contenidoDelRespaldo(estado, { fecha = hoy() } = {}) {
     // que al restaurar un respaldo se perdían para siempre y la app volvía a
     // decir "¿Cuándo fue?" sin que nada avisara. Ver L-031.
     fechas_de_viaje: estado.fechas_de_viaje ?? [],
+    // Los ahorros conjuntos (CU-14). Entran al respaldo **en el mismo commit en
+    // que nacen**, que es la lección que dejó haberlos olvidado con las fechas
+    // de viaje (L-031).
+    ahorros: estado.ahorros ?? [],
     preferencias: estado.preferencias ?? {},
   };
 
@@ -4090,6 +4476,13 @@ function aplicarImportacion(estadoActual, leido, modo) {
     // agregar un respaldo a lo que hay, lo de este dispositivo es lo más nuevo
     // que se sabe. Sin esta línea, un viaje del respaldo llegaba sin sus fechas
     // y la app volvía a preguntar "¿Cuándo fue?" por algo ya contestado (L-031).
+    // Los ahorros del respaldo se suman por id, igual que los movimientos: dos
+    // importaciones del mismo archivo no pueden duplicar la plata ahorrada.
+    ahorros: unirPorClave(
+      estadoActual.ahorros ?? [],
+      importado.ahorros ?? [],
+      (a) => a.id
+    ),
     fechas_de_viaje: unirPorClave(
       estadoActual.fechas_de_viaje ?? [],
       importado.fechas_de_viaje ?? [],
@@ -5568,6 +5961,7 @@ function leerAtributos(texto) {
 //      hay y asumir que están todas corre las columnas.
 
 
+
 /** Los formatos de fecha que Excel trae de fábrica. */
 const FORMATOS_DE_FECHA = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 30, 36, 45, 46, 47, 50, 57]);
 
@@ -5581,12 +5975,21 @@ const FORMATOS_DE_FECHA = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 30, 3
  * `filas` es un `Map` de número de fila a `Map` de letra de columna a
  * `{ valor, esFecha }`.
  */
-async function leerPlanilla(bytes) {
+async function leerPlanilla(bytes, { hoja: buscada } = {}) {
   const zip = await leerZip(bytes);
   if (zip.error) return { error: zip.error };
 
-  const hoja = primeraHoja(zip.entradas);
+  const hoja = buscarHoja(zip.entradas, buscada);
   if (!hoja) {
+    if (buscada !== undefined && buscada !== null) {
+      const nombres = hojasDelLibro(zip.entradas).map((h) => h.nombre);
+      return {
+        error: `Este archivo no tiene ninguna hoja llamada "${buscada}". ` +
+          (nombres.length > 0
+            ? `Las que tiene son: ${nombres.join(', ')}.`
+            : 'No se pudo leer la lista de hojas.'),
+      };
+    }
     return {
       error: 'Este archivo no tiene ninguna hoja de cálculo adentro. ' +
         '¿Puede ser que sea un documento de Word, o un .xlsx dañado?',
@@ -5600,17 +6003,73 @@ async function leerPlanilla(bytes) {
 }
 
 /**
- * La primera hoja del libro.
+ * Las hojas del libro, con su nombre y dónde está cada una.
  *
- * Se busca por el nombre de archivo y no siguiendo las relaciones del libro. Es
- * menos correcto —el orden real lo dan `workbook.xml` y sus relaciones— y es
- * suficiente: la planilla del usuario tiene una sola hoja, y en un `.xlsx` la
- * primera se llama `sheet1.xml` en la práctica totalidad de los casos. Si algún
- * día hace falta la segunda hoja, hay que hacerlo bien.
+ * **Ahora sí siguiendo las relaciones del libro**, que es lo correcto. La
+ * versión anterior agarraba `sheet1.xml` por su nombre de archivo y lo decía:
+ * "si algún día hace falta la segunda hoja, hay que hacerlo bien". Hizo falta
+ * —los ahorros conjuntos son la TERCERA hoja (T-042)— y el atajo no alcanzaba:
+ * el orden de los archivos `sheetN.xml` no tiene por qué ser el de las pestañas,
+ * y el nombre visible ("Ahorros conjuntos") solo está en `workbook.xml`.
+ *
+ * Son dos archivos y hay que cruzarlos: `workbook.xml` dice nombre → `r:id`, y
+ * `workbook.xml.rels` dice `r:id` → archivo.
  */
-function primeraHoja(entradas) {
-  if (entradas.has('xl/worksheets/sheet1.xml')) return entradas.get('xl/worksheets/sheet1.xml');
+function hojasDelLibro(entradas) {
+  const libro = entradas.get('xl/workbook.xml');
+  const relaciones = entradas.get('xl/_rels/workbook.xml.rels');
+  if (!libro) return [];
 
+  const porId = new Map();
+  if (relaciones) {
+    recorrerXml(relaciones, {
+      alAbrir(nombre, atributos) {
+        if (nombre !== 'Relationship') return;
+        const destino = String(atributos.Target ?? '');
+        if (destino === '') return;
+        // El destino puede venir relativo (`worksheets/sheet1.xml`) o absoluto
+        // (`/xl/worksheets/sheet1.xml`): las dos formas son válidas y las
+        // escriben programas distintos.
+        const ruta = destino.startsWith('/')
+          ? destino.slice(1)
+          : `xl/${destino.replace(/^\.?\//, '')}`;
+        porId.set(atributos.Id, ruta);
+      },
+    });
+  }
+
+  const hojas = [];
+  recorrerXml(libro, {
+    alAbrir(nombre, atributos) {
+      if (nombre !== 'sheet') return;
+      const ruta = porId.get(atributos['r:id'] ?? atributos.id);
+      if (ruta) hojas.push({ nombre: String(atributos.name ?? ''), ruta });
+    },
+  });
+  return hojas;
+}
+
+/**
+ * La hoja pedida por nombre, o la primera si no se pide ninguna.
+ *
+ * El nombre se compara **normalizado** (RN-03): la pestaña puede llamarse
+ * "Ahorros conjuntos", "AHORROS CONJUNTOS" o traer un espacio de más, y las
+ * tres son la misma pestaña para quien la mira.
+ */
+function buscarHoja(entradas, buscada) {
+  const hojas = hojasDelLibro(entradas);
+
+  if (buscada !== undefined && buscada !== null) {
+    const clave = normalizarClave(String(buscada));
+    const encontrada = hojas.find((h) => normalizarClave(h.nombre) === clave);
+    return encontrada ? entradas.get(encontrada.ruta) ?? null : null;
+  }
+
+  if (hojas.length > 0 && entradas.has(hojas[0].ruta)) return entradas.get(hojas[0].ruta);
+
+  // Sin `workbook.xml` legible, el atajo de siempre: es mejor leer algo que
+  // negarse a abrir un archivo que quizá está bien.
+  if (entradas.has('xl/worksheets/sheet1.xml')) return entradas.get('xl/worksheets/sheet1.xml');
   const alguna = [...entradas.keys()].filter((n) => n.startsWith('xl/worksheets/') && n.endsWith('.xml')).sort();
   return alguna.length > 0 ? entradas.get(alguna[0]) : null;
 }
@@ -5784,6 +6243,203 @@ function fechaDeSerie(serie) {
   const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0');
   const dia = String(fecha.getUTCDate()).padStart(2, '0');
   return `${anio}-${mes}-${dia}`;
+}
+
+// ── src/datos/importar-ahorros.js ───────────────────────────────
+// Importar la hoja `Ahorros conjuntos` de la planilla del usuario — T-042, CU-14.
+//
+// ── Cómo es la hoja, mirada de verdad ────────────────────────────────────────
+//
+// El usuario la pasó el 2026-08-31 y se abrió con `openpyxl` antes de escribir
+// una línea de esto. Encabezados en la **fila 3**, datos desde la **4**:
+//
+//   A Comentarios · B DÍA · C DETALLES · D MONEDA · E MONTO · F ALE/IRE · G I/G
+//
+// A la derecha, en I..K, tres cuadros de totales que la app **no lee**: son
+// resultados, no datos, y se recalculan solos. Sí se usan para comprobar, igual
+// que el acumulado de la hoja de gastos.
+//
+// ── Lo que la hoja hace mal, y por qué conviene saberlo ──────────────────────
+//
+// Sus tres cuadros suman **tres rangos distintos** de la misma tabla:
+// `$E4:$E89` el total por moneda, `$E4:$E93` el de ALE, `$E4:$E97` el de IRE.
+// Hoy hay once filas y no muerde; pasadas las 89, el total general va a dejar de
+// contar filas que los de cada persona sí cuentan y **los cuadros van a dejar de
+// cerrar entre sí sin decir nada**. Es L-001 otra vez, en la hoja que estamos
+// reemplazando, y es la razón por la que este importador no tiene ningún límite
+// de filas escrito a mano.
+//
+// ── La regla de siempre: nada entra ni se pierde en silencio ─────────────────
+//
+// Cada fila que no entra sale en el informe con **su número de fila**, lo que
+// decía y por qué. Se importa una sola vez, sobre datos que no están en ningún
+// otro lado (RN-05).
+
+
+
+
+/** El nombre de la pestaña, tal como está en la planilla del usuario. */
+const HOJA_DE_AHORROS = 'Ahorros conjuntos';
+
+const AHO_COMENTARIO = 'A';
+const AHO_DIA = 'B';
+const AHO_DETALLE = 'C';
+const AHO_MONEDA = 'D';
+const AHO_MONTO = 'E';
+const AHO_PERSONA = 'F';
+const AHO_TIPO = 'G';
+
+const textoDe = (celda) => normalizarTextoVisible(String(celda?.valor ?? ''));
+
+/**
+ * ¿Esta fila es un movimiento de ahorro?
+ *
+ * Se decide por el **contenido**, no por el número de fila: el encabezado, las
+ * filas en blanco que separan bloques y los cuadros de totales de la derecha
+ * quedan afuera solos. Hace falta al menos una fecha y una persona; sin eso no
+ * hay nada que interpretar.
+ */
+function esFilaDeAhorro(celdas) {
+  if (!celdas) return false;
+
+  // **La fecha tiene que ser una fecha**, no cualquier texto. Es lo que deja
+  // afuera al encabezado, que en esa misma columna dice "DÍA" — la primera
+  // versión lo dejaba pasar y lo reportaba como una fila con la moneda mal.
+  const dia = celdas.get(AHO_DIA)?.valor;
+  const esFecha = typeof dia === 'number'
+    ? Number.isFinite(dia) && dia > 0
+    : typeof dia === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dia.trim());
+  if (!esFecha) return false;
+
+  return textoDe(celdas.get(AHO_PERSONA)) !== '' || textoDe(celdas.get(AHO_MONEDA)) !== '';
+}
+
+/**
+ * Traduce una fila. Devuelve `{ ahorro }` o `{ problema }`.
+ *
+ * **Nunca tira**: una fila rota tiene que producir una línea del informe, no
+ * interrumpir la importación de las otras.
+ */
+function interpretarFilaDeAhorro(numero, celdas, monedas) {
+  const crudo = {
+    comentario: textoDe(celdas.get(AHO_COMENTARIO)),
+    detalle: textoDe(celdas.get(AHO_DETALLE)),
+    moneda: textoDe(celdas.get(AHO_MONEDA)),
+    persona: textoDe(celdas.get(AHO_PERSONA)),
+    tipo: textoDe(celdas.get(AHO_TIPO)),
+  };
+  const decir = (motivo) => ({ problema: { fila: numero, motivo, crudo } });
+
+  const dia = celdas.get(AHO_DIA)?.valor;
+  let fecha;
+  try {
+    fecha = typeof dia === 'number' ? fechaDeSerie(dia) : String(dia ?? '').slice(0, 10);
+  } catch {
+    return decir('la fecha no se pudo leer');
+  }
+
+  const moneda = monedaDeLaPlanilla(crudo.moneda);
+  if (moneda === null) {
+    return decir(`no se reconoce la moneda "${crudo.moneda}"`);
+  }
+  if (personaDeLaPlanilla(crudo.persona) === null) {
+    return decir(`no dice de quién es: "${crudo.persona}"`);
+  }
+  if (tipoDeLaPlanilla(crudo.tipo) === null) {
+    return decir(`la columna I/G dice "${crudo.tipo}", que no es ni I ni G`);
+  }
+
+  const monto = celdas.get(AHO_MONTO)?.valor;
+  if (monto === undefined || monto === null || String(monto).trim() === '') {
+    // Le pasó a la copia que mandó el usuario: la hoja tenía las filas y la
+    // columna de montos vacía. Decirlo con el número de fila es la diferencia
+    // entre "no importó nada" y "no importó ESTAS, mirá la planilla".
+    return decir('la fila no tiene monto');
+  }
+
+  try {
+    const ahorro = crearAhorro(
+      { ...crudo, moneda, monto, fecha },
+      { decimales: decimalesDe(monedas, moneda), id: idDeFilaDeAhorro(numero, crudo, monto, fecha) }
+    );
+    return { ahorro };
+  } catch (error) {
+    return decir(error.message);
+  }
+}
+
+/**
+ * Un identificador estable, sacado de la fila.
+ *
+ * Deducido del contenido y **del número de fila**: dos filas iguales —el mismo
+ * día, la misma persona, el mismo importe— son dos movimientos reales
+ * distintos, y sin el número la segunda se descartaría como repetida. Así,
+ * además, importar dos veces la misma planilla no puede duplicar la plata.
+ */
+function idDeFilaDeAhorro(numero, crudo, monto, fecha) {
+  const semilla = `${numero}|${fecha}|${crudo.persona}|${crudo.moneda}|${monto}|${crudo.comentario}`;
+  let hash = 0x811c9dc5 >>> 0;
+  for (let i = 0; i < semilla.length; i += 1) {
+    hash ^= semilla.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `aho_${hash.toString(16).padStart(8, '0')}${semilla.length.toString(16)}`;
+}
+
+/**
+ * Interpreta la hoja entera.
+ *
+ * Devuelve los ahorros, los problemas fila por fila y **una comprobación por
+ * moneda**: lo que suma la app contra lo que decía el cuadro de la planilla.
+ * Es la única oportunidad de contrastar el resultado con un número calculado
+ * por otra herramienta — después la planilla se archiva.
+ */
+function interpretarAhorros(filas, monedas) {
+  const ahorros = [];
+  const problemas = [];
+
+  for (const numero of [...filas.keys()].sort((a, b) => a - b)) {
+    const celdas = filas.get(numero);
+    if (!esFilaDeAhorro(celdas)) continue;
+
+    const resultado = interpretarFilaDeAhorro(numero, celdas, monedas);
+    if (resultado.problema) problemas.push(resultado.problema);
+    else ahorros.push(resultado.ahorro);
+  }
+
+  return { ahorros, problemas, comprobaciones: compararConLaPlanilla(ahorros, filas) };
+}
+
+/**
+ * Compara el total de cada moneda contra el cuadro de la planilla (I3:K4).
+ *
+ * Una diferencia no significa necesariamente que la app se equivocó: puede ser
+ * el rango corto de la propia hoja (`$E4:$E89`). Pero significa que **alguno de
+ * los dos está mal**, y eso hay que mirarlo antes de archivar la planilla.
+ */
+function compararConLaPlanilla(ahorros, filas) {
+  const encabezado = filas.get(3);
+  const valores = filas.get(4);
+  if (!encabezado || !valores) return [];
+
+  const comprobaciones = [];
+  for (const columna of ['I', 'J', 'K']) {
+    const moneda = monedaDeLaPlanilla(textoDe(encabezado.get(columna)));
+    const esperado = valores.get(columna)?.valor;
+    if (moneda === null || typeof esperado !== 'number') continue;
+
+    const nuestro = ahorros
+      .filter((a) => a.moneda === moneda)
+      .reduce((total, a) => total + (a.tipo === AHORRO_SALE ? -a.monto : a.monto), 0);
+
+    comprobaciones.push({
+      moneda,
+      nuestro,
+      planilla: Math.round(esperado * 100),
+      cuadra: nuestro === Math.round(esperado * 100),
+    });
+  }
+  return comprobaciones;
 }
 
 // ── src/datos/importar-planilla.js ──────────────────────────────
@@ -7363,139 +8019,6 @@ function dibujarResumen(vista) {
   `;
 }
 
-// ── src/core/busqueda.js ────────────────────────────────────────
-// Buscar texto en todos los movimientos — CU-17, T-943.
-//
-// Pedido del usuario (2026-08-29): una lupa en la pestaña de movimientos que
-// busque **en todos los movimientos cargados** y **en todos sus campos**.
-//
-// ── Buscar SÍ saca las tildes; agrupar NO ───────────────────────────────────
-//
-// Parece una contradicción con ADR-013, que decidió a propósito que `Perú` y
-// `Peru` fueran dos etiquetas distintas. No lo es, y la diferencia importa:
-//
-//   - **Agrupar** junta plata. Sacar tildes automáticamente uniría totales que
-//     el usuario quiso separar, y eso no se ve: el número sale mal y listo.
-//   - **Buscar** solo muestra. Si de más, se ve; si de menos, el usuario cree
-//     que el gasto no existe. Equivocarse siendo generoso es barato y visible;
-//     equivocarse siendo estricto esconde datos.
-//
-// Por eso acá `Peru` encuentra `Perú`, y en los totales siguen siendo dos.
-//
-// ── Varias palabras: todas tienen que estar ─────────────────────────────────
-//
-// `roma cena` trae los movimientos que tienen **las dos**, no los que tienen
-// alguna. Buscar dos palabras es como acordarse de dos cosas del mismo gasto, no
-// de dos gastos distintos.
-//
-// Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
-
-
-
-
-/**
- * Deja un texto listo para comparar: sin tildes, en minúsculas y con un solo
- * espacio entre palabras.
- *
- * `normalize('NFD')` parte cada letra acentuada en la letra y su tilde, y el
- * reemplazo borra las tildes sueltas. Es la forma estándar y no una lista de
- * pares `á→a`, que se olvida de la ü o de las letras de otro idioma.
- *
- * **La ñ se salva a mano, y no es un detalle.** Para Unicode es una `n` con
- * tilde y `NFD` la parte igual que a la `á`; para el español es **otra letra**.
- * Sin esta línea, buscar `ano` encontraría todos los `año`, que además de
- * incorrecto es cómico. Se cambia por un carácter que no se usa nunca, se
- * normaliza el resto, y se vuelve a poner.
- */
-const RESGUARDO_ENIE = '\u0000';
-
-function normalizarBusqueda(texto) {
-  return String(texto ?? '')
-    .replace(/ñ/g, RESGUARDO_ENIE)
-    .replace(/Ñ/g, RESGUARDO_ENIE)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(new RegExp(RESGUARDO_ENIE, 'g'), 'ñ')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
-/**
- * Todo lo que un movimiento "dice", en un solo texto para buscar adentro.
- *
- * Lleva **cada campo en las dos formas**: como se guarda y como se muestra. Sin
- * eso, buscar `12,50` no encontraría un monto guardado como `1250`, y buscar
- * `14/03/2026` no encontraría una fecha guardada como `2026-03-14` — y el
- * usuario busca por lo que ve en la pantalla, no por lo que hay en el archivo.
- */
-function textoDeMovimiento(estado, movimiento) {
-  const partes = [
-    movimiento.comentario,
-    movimiento.detalle,
-    movimiento.rubro,
-    formatearRubro(movimiento.rubro),
-    movimiento.moneda,
-    movimiento.fecha,
-    movimiento.tipo === TIPO_GASTO ? 'gasto' : 'ingreso',
-  ];
-
-  try {
-    partes.push(formatearFecha(movimiento.fecha));
-  } catch {
-    // Una fecha ilegible no puede dejar al movimiento fuera de toda búsqueda:
-    // sigue estando por su etiqueta, su rubro y su importe.
-  }
-
-  try {
-    const decimales = decimalesDe(estado.monedas, movimiento.moneda);
-    partes.push(formatearMonto(movimiento.monto, decimales, movimiento.moneda));
-    // El monto sin separadores ni símbolo, para que `1250` también encuentre
-    // `1.250,00 €`.
-    partes.push(String(movimiento.monto));
-
-    // Y su valor en euros, que es el número que se ve en las listas cuando el
-    // gasto es en otra moneda.
-    if (movimiento.moneda !== 'EUR' && !faltaCambioPara(movimiento, estado.tipos_cambio)) {
-      partes.push(formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas)));
-    }
-  } catch {
-    partes.push(String(movimiento.monto));
-  }
-
-  return normalizarBusqueda(partes.filter(Boolean).join(' '));
-}
-
-/** Las palabras de lo buscado. Vacío si no se escribió nada que buscar. */
-function palabrasDe(texto) {
-  const limpio = normalizarBusqueda(texto);
-  return limpio === '' ? [] : limpio.split(' ');
-}
-
-/**
- * Los movimientos que tienen **todas** las palabras buscadas, del más nuevo al
- * más viejo.
- *
- * Mira **todo el historial**, no el mes que se está viendo: el usuario que
- * busca "psicóloga" no sabe en qué mes fue —si lo supiera no buscaría—, y
- * limitarlo al mes en curso daría "no hay nada" sobre datos que sí están.
- *
- * Sin ningún tope de filas (L-001).
- */
-function buscar(estado, texto) {
-  const palabras = palabrasDe(texto);
-  if (palabras.length === 0) return [];
-
-  return (estado.movimientos ?? [])
-    .filter((movimiento) => {
-      const donde = textoDeMovimiento(estado, movimiento);
-      return palabras.every((palabra) => donde.includes(palabra));
-    })
-    .slice()
-    .sort((a, b) => b.fecha.localeCompare(a.fecha)
-      || String(b.creado).localeCompare(String(a.creado)));
-}
-
 // ── src/core/etiquetas.js ───────────────────────────────────────
 // Las etiquetas que el usuario ya escribió — CU-16, T-025.
 //
@@ -8245,6 +8768,128 @@ function intentarBorrarFechas(estado, clave) {
   } catch (error) {
     return { error: error.message };
   }
+}
+
+// ── src/ui/pantallas/ahorros.js ─────────────────────────────────
+// Los ahorros conjuntos — CU-14, T-041. Reemplaza la hoja `Ahorros conjuntos`.
+//
+// ── Lo que esta pantalla NO muestra, y es su decisión más importante ─────────
+//
+// **No hay ningún número que junte las monedas.** Sumar euros con pesos
+// uruguayos exige convertirlos, y esa conversión inventa un número que no existe
+// hasta que la plata se cambie de verdad — y que cambiaría solo, todos los días,
+// sin que nadie toque nada. Que ese total no esté es el resultado correcto, y la
+// pantalla lo dice con todas las letras para que no se lea como algo que falta.
+//
+// ── Qué muestra, en el orden en que se pregunta ─────────────────────────────
+//
+//   1. Cuánto hay en cada moneda.
+//   2. Dentro de cada moneda, cuánto puso cada uno. Es para lo que existe la
+//      hoja: los ahorros son de dos.
+//   3. El historial, del movimiento más nuevo al más viejo.
+//
+// El detalle se muestra tal como se escribió y **no agrupa nada**: el usuario
+// fue explícito en que "plazo fijo" es información suya para leer, no una
+// categoría (2026-08-31).
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras.
+
+
+
+
+/**
+ * Un importe en SU moneda. Nunca en euros: ver arriba.
+ *
+ * Los decimales salen del catálogo del usuario (ADR-011). Si la moneda no
+ * estuviera —un respaldo viejo, una moneda borrada— se muestran dos, que es lo
+ * que usan las tres monedas de esta hoja, en vez de romper la pantalla.
+ */
+function importeDeAhorro(minimas, moneda, monedas) {
+  let decimales = 2;
+  try {
+    decimales = decimalesDe(monedas ?? [], moneda);
+  } catch {
+    // Sin la moneda en el catálogo, el número se muestra igual: es peor una
+    // pantalla en blanco que un importe con dos decimales de más.
+  }
+  return formatearMonto(minimas, decimales, moneda);
+}
+
+/** El bloque de una moneda: cuánto hay, y cuánto puso cada uno. */
+function dibujarMonedaDeAhorro(bloque, monedas) {
+  const personas = bloque.personas.map((p) => `
+    <div class="rubro-pie suave">
+      <span>${escapar(p.persona)}</span>
+      <span>${escapar(importeDeAhorro(p.total, bloque.moneda, monedas))}</span>
+    </div>`).join('');
+
+  return `
+    <li class="fila-rubro">
+      <span class="rubro-cabeza">
+        <span class="nombre">${escapar(bloque.moneda)}</span>
+        <span class="importe">${escapar(importeDeAhorro(bloque.total, bloque.moneda, monedas))}</span>
+      </span>
+      ${personas}
+    </li>
+  `;
+}
+
+/** Una línea del historial. */
+function dibujarMovimientoDeAhorro(movimiento, monedas) {
+  const salida = movimiento.tipo === AHORRO_SALE;
+  const signo = salida ? '−' : '+';
+  const pie = [movimiento.persona, movimiento.detalle].filter((t) => t !== '').join(' · ');
+
+  return `
+    <li class="fila-rubro">
+      <span class="rubro-cabeza">
+        <span class="nombre">${escapar(movimiento.comentario || (salida ? 'Salida' : 'Entrada'))}</span>
+        <span class="importe ${salida ? 'gasto' : 'ingreso'}">${escapar(signo)}${escapar(importeDeAhorro(movimiento.monto, movimiento.moneda, monedas))}</span>
+      </span>
+      <div class="rubro-pie suave">
+        <span>${escapar(formatearFecha(movimiento.fecha))}</span>
+        <span>${escapar(pie)}</span>
+      </div>
+    </li>
+  `;
+}
+
+function dibujarAhorros(vista) {
+  const estado = vista.estado ?? {};
+  const monedas = estado.monedas ?? [];
+  const porMoneda = totalPorPersona(estado);
+
+  if (porMoneda.length === 0) {
+    return `
+      <section class="tarjeta">
+        <h2>Ahorros conjuntos</h2>
+        <p class="suave">Todavía no hay ninguno. Acá va la plata guardada de los
+        dos, en cada moneda: lo que entra y lo que sale, sin mezclarse con los
+        gastos del mes.</p>
+      </section>
+    `;
+  }
+
+  const historial = ahorrosOrdenados(estado);
+
+  return `
+    <section class="tarjeta">
+      <h2>Ahorros conjuntos</h2>
+      <p class="suave nota">Cuánto hay en cada moneda, y cuánto puso cada uno.
+      <strong>No se suman entre sí</strong>: pasar pesos a euros al cambio de hoy
+      daría un número que cambia solo todos los días y que no existe hasta que la
+      plata se cambie de verdad.</p>
+      <ul class="rubros">${porMoneda.map((b) => dibujarMonedaDeAhorro(b, monedas)).join('')}</ul>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Movimientos de los ahorros</h2>
+      <p class="suave nota">${historial.length === 1 ? '1 movimiento' : `${historial.length} movimientos`},
+      del más nuevo al más viejo. <strong>+</strong> es plata que entró al ahorro
+      y <strong>−</strong> plata que salió.</p>
+      <ul class="rubros">${historial.map((m) => dibujarMovimientoDeAhorro(m, monedas)).join('')}</ul>
+    </section>
+  `;
 }
 
 // ── src/ui/pantallas/monedas.js ─────────────────────────────────
@@ -9364,6 +10009,7 @@ function dibujarLista(vista) {
 
 
 
+
 /** Un tamaño legible: 12 kB dice más que 12.283 bytes. */
 function tamanoLegible(bytes) {
   if (bytes < 1024) return `${bytes} bytes`;
@@ -9553,6 +10199,9 @@ function dibujarDatos(vista) {
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
         Otros grupos de gastos
+      </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
+        Ahorros conjuntos
       </button>
     </section>
 
@@ -9769,23 +10418,95 @@ function dibujarPlanillaVieja(vista) {
 }
 
 /** Lo que se leyó, antes de tocar nada. */
-function dibujarPreviaDePlanilla({ movimientos, problemas, comprobaciones, yaEstan }) {
+/**
+ * Lo que la planilla trae de la hoja de ahorros conjuntos — T-042.
+ *
+ * Va aparte del bloque de movimientos porque **son otra cosa**: no entran en el
+ * saldo del mes ni se reparten por rubro. Y se cuenta igual que lo demás: lo que
+ * entra, lo que ya estaba y lo que no se pudo traer, con su número de fila.
+ */
+function dibujarPreviaDeAhorros(planilla) {
+  const ahorros = planilla.ahorros ?? [];
+  const problemas = planilla.problemasDeAhorros ?? [];
+  if (ahorros.length === 0 && problemas.length === 0) return '';
+
+  const yaEstan = planilla.ahorrosQueEstan ?? 0;
+  const nuevos = ahorros.length - yaEstan;
+
+  return `
+    <p class="suave nota">La planilla también tiene la hoja de <strong>ahorros
+    conjuntos</strong>: se leyeron
+    ${ahorros.length === 1 ? '1 movimiento' : `${ahorros.length} movimientos`} de
+    ahorro${yaEstan > 0 ? `, de los que ${yaEstan === 1 ? '1 ya está' : `${yaEstan} ya están`}` : ''}.
+    ${nuevos > 0 ? `Entra${nuevos === 1 ? '' : 'n'} con el mismo botón.` : ''}</p>
+    ${dibujarComprobacionesDeAhorros(planilla.comprobacionesDeAhorros ?? [])}
+    ${dibujarProblemas(problemas)}
+  `;
+}
+
+/** Lo que suma la app contra el cuadro de totales de la hoja. */
+function dibujarComprobacionesDeAhorros(comprobaciones) {
+  if (comprobaciones.length === 0) return '';
+
+  const difieren = comprobaciones.filter((c) => !c.cuadra);
+  if (difieren.length === 0) {
+    return `<p class="suave">Los totales por moneda coinciden con los que
+      calculaba la planilla.</p>`;
+  }
+
+  // Una diferencia no dice necesariamente que la app se equivocó: la hoja suma
+  // tres rangos distintos ($E4:$E89, $E4:$E93, $E4:$E97). Pero dice que alguno
+  // de los dos está mal, y esta es la última oportunidad de mirarlo.
+  return `
+    <p class="suave">En ${difieren.length === 1 ? 'una moneda' : `${difieren.length} monedas`}
+    el total no coincide con el de la planilla. No significa que la app esté mal
+    —la hoja suma rangos de filas distintos en cada cuadro— pero conviene
+    mirarlo antes de archivarla.</p>
+    <ul class="filas-con-problema">${difieren.map((c) => `<li>
+      <strong>${escapar(c.moneda)}</strong>: la app suma
+      ${escapar(formatearNumero(c.nuestro, DECIMALES_EURO))} y la planilla decía
+      ${escapar(formatearNumero(c.planilla, DECIMALES_EURO))}.
+    </li>`).join('')}</ul>
+  `;
+}
+
+/**
+ * El botón de traer, que tiene que nombrar lo que de verdad va a entrar.
+ *
+ * Decir "traer los 43 movimientos" cuando además entran 11 ahorros hace que el
+ * usuario no se entere de la mitad de lo que acaba de hacer.
+ */
+function dibujarBotonDeTraer(movimientos, ahorros) {
+  const partes = [];
+  if (movimientos > 0) partes.push(movimientos === 1 ? '1 movimiento' : `${movimientos} movimientos`);
+  if (ahorros > 0) partes.push(ahorros === 1 ? '1 ahorro' : `${ahorros} ahorros`);
+
+  const nada = partes.length === 0;
+  return `
+    <button type="button" class="principal" data-accion="importar-planilla"${nada ? ' disabled' : ''}>
+      ${nada ? 'No hay nada nuevo que traer' : `Traer ${partes.join(' y ')}`}
+    </button>
+  `;
+}
+
+function dibujarPreviaDePlanilla(planilla) {
+  const { movimientos, problemas, comprobaciones, yaEstan } = planilla;
   const nuevos = movimientos.length - yaEstan;
 
   return `
+    ${movimientos.length === 0 && (planilla.ahorros ?? []).length > 0 ? '' : `
     <p class="suave">Se leyeron
     <strong>${movimientos.length === 1 ? '1 movimiento' : `${movimientos.length} movimientos`}</strong>.
     ${yaEstan > 0
       ? `${yaEstan === 1 ? '1 ya está' : `${yaEstan} ya están`} cargado${yaEstan === 1 ? '' : 's'} en la app, así que
          ${nuevos === 1 ? 'entraría 1' : `entrarían ${nuevos}`}.`
-      : 'Ninguno está todavía en la app.'}</p>
+      : 'Ninguno está todavía en la app.'}</p>`}
 
     ${dibujarComprobaciones(comprobaciones)}
     ${dibujarProblemas(problemas)}
+    ${dibujarPreviaDeAhorros(planilla)}
 
-    <button type="button" class="principal" data-accion="importar-planilla"${nuevos === 0 ? ' disabled' : ''}>
-      ${nuevos === 0 ? 'No hay nada nuevo que traer' : `Traer ${nuevos === 1 ? 'el movimiento' : `los ${nuevos} movimientos`}`}
-    </button>
+    ${dibujarBotonDeTraer(nuevos, (planilla.ahorros ?? []).length - (planilla.ahorrosQueEstan ?? 0))}
     <button type="button" class="secundario" data-accion="cancelar-planilla">Dejar como está</button>
   `;
 }
@@ -10456,6 +11177,8 @@ function conectarUna(tarjeta) {
 
 
 
+
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -10550,6 +11273,14 @@ registrarPantalla('grupos', {
   conMes: false,
   enBarra: false,
   dibujar: dibujarGrupos,
+});
+
+registrarPantalla('ahorros', {
+  etiqueta: 'Ahorros conjuntos',
+  icono: '◈',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarAhorros,
 });
 
 registrarPantalla('viajes', {
@@ -11288,7 +12019,25 @@ function iniciar(documento, almacen) {
     }
 
     const { movimientos, problemas, comprobaciones } = interpretarPlanilla(leida.filas);
-    if (movimientos.length === 0 && problemas.length === 0) {
+
+    // La hoja de ahorros conjuntos, si la planilla la tiene — T-042, CU-14.
+    //
+    // Se lee en la MISMA importación: el usuario elige un archivo, no una hoja.
+    // Que su planilla tenga los gastos y los ahorros en el mismo lugar es un
+    // dato de su planilla, no algo que él tenga que traducir a dos pasos.
+    //
+    // Si no está la hoja, no pasa nada: `leerPlanilla` devuelve un error que acá
+    // significa "no hay ahorros que traer", no "algo salió mal".
+    const hojaDeAhorros = await leerPlanilla(bytes, { hoja: HOJA_DE_AHORROS });
+    const ahorros = hojaDeAhorros.error
+      ? { ahorros: [], problemas: [], comprobaciones: [] }
+      : interpretarAhorros(hojaDeAhorros.filas, vista.estado.monedas ?? []);
+    // Sin gastos NI ahorros no hay nada que mostrar. Con ahorros solos, sí: una
+    // planilla puede traer la hoja de ahorros y no la de gastos —o tenerla ya
+    // importada—, y negarse a abrirla por eso sería negarse a hacer lo único
+    // que el usuario venía a hacer.
+    if (movimientos.length === 0 && problemas.length === 0
+        && ahorros.ahorros.length === 0 && ahorros.problemas.length === 0) {
       vista = {
         ...vista,
         planilla: null,
@@ -11302,11 +12051,16 @@ function iniciar(documento, almacen) {
     }
 
     const yaEstan = new Set((vista.estado.movimientos ?? []).map((m) => m.id));
+    const ahorrosQueEstan = new Set((vista.estado.ahorros ?? []).map((a) => a.id));
     vista = {
       ...vista,
       planilla: {
         movimientos, problemas, comprobaciones,
         yaEstan: movimientos.filter((m) => yaEstan.has(m.id)).length,
+        ahorros: ahorros.ahorros,
+        problemasDeAhorros: ahorros.problemas,
+        comprobacionesDeAhorros: ahorros.comprobaciones,
+        ahorrosQueEstan: ahorros.ahorros.filter((a) => ahorrosQueEstan.has(a.id)).length,
       },
       errorPlanillaVieja: null,
       avisoPlanillaVieja: null,
@@ -11327,9 +12081,16 @@ function iniciar(documento, almacen) {
 
     const yaEstan = new Set((vista.estado.movimientos ?? []).map((m) => m.id));
     const nuevos = vista.planilla.movimientos.filter((m) => !yaEstan.has(m.id));
+
+    // Los ahorros entran en el mismo viaje, y con la misma regla: el
+    // identificador sale de la fila, así que importar dos veces no duplica.
+    const ahorrosQueEstan = new Set((vista.estado.ahorros ?? []).map((a) => a.id));
+    const ahorrosNuevos = (vista.planilla.ahorros ?? []).filter((a) => !ahorrosQueEstan.has(a.id));
+
     const nuevoEstado = {
       ...vista.estado,
       movimientos: [...(vista.estado.movimientos ?? []), ...nuevos],
+      ahorros: [...(vista.estado.ahorros ?? []), ...ahorrosNuevos],
     };
 
     try {

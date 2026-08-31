@@ -150,6 +150,13 @@ export function aplicarImportacion(estadoActual, leido, modo) {
     // agregar un respaldo a lo que hay, lo de este dispositivo es lo más nuevo
     // que se sabe. Sin esta línea, un viaje del respaldo llegaba sin sus fechas
     // y la app volvía a preguntar "¿Cuándo fue?" por algo ya contestado (L-031).
+    // Los ahorros del respaldo se suman por id, igual que los movimientos: dos
+    // importaciones del mismo archivo no pueden duplicar la plata ahorrada.
+    ahorros: unirPorClave(
+      estadoActual.ahorros ?? [],
+      importado.ahorros ?? [],
+      (a) => a.id
+    ),
     fechas_de_viaje: unirPorClave(
       estadoActual.fechas_de_viaje ?? [],
       importado.fechas_de_viaje ?? [],

@@ -87,8 +87,9 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-031 | Lector de `.xlsx` sin librerías | **Hecha** | T-009 |
 | T-032 | Importador con informe de filas no interpretadas | **Hecha** | T-030, T-031, T-017 |
 | **Etapa 4 — Ahorros conjuntos** ||||
-| T-040 | Modelo de ahorros multimoneda | Pendiente | T-004 |
-| T-041 | Pantalla de ahorros conjuntos | Pendiente | T-040, T-010 |
+| T-040 | Modelo de ahorros multimoneda | **Hecha** | T-004 |
+| T-041 | Pantalla de ahorros conjuntos | **Hecha** | T-040, T-010 |
+| T-042 | Importar la hoja de ahorros de la planilla | **Hecha** | T-040, T-031 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
@@ -2330,3 +2331,54 @@ importar. El viaje vuelve con "42,00 € por día en 10 días · 01/07/2026 →
 
 **Aviso para el usuario:** un respaldo hecho con una versión anterior **no
 tiene** esas fechas adentro. Hay que volver a bajarlo.
+
+### T-040 · Modelo de ahorros · T-041 · Pantalla · T-042 · Importar la hoja — **Hechas** (2026-08-31)
+**Cierran la etapa 4 y CU-14** · **Tocó:** `core/ahorros.js`,
+`datos/importar-ahorros.js`, `ui/pantallas/ahorros.js` (nuevos),
+`datos/planilla.js`, `datos/almacenamiento.js`, `datos/exportar.js`,
+`datos/importar.js`, `ui/app.js`, `ui/pantallas/datos.js`
+
+**Se empezó abriendo la planilla del usuario, no imaginándola.** Mandó su hoja el
+2026-08-31 y se leyó con `openpyxl` antes de escribir una línea: encabezados en
+la fila 3, `Comentarios | DÍA | DETALLES | MONEDA | MONTO | ALE/IRE | I/G`. Está
+documentada en `MAPEO-EXCEL.md` §12.
+
+**Lo que la hoja enseñó sin querer:** sus tres cuadros de totales suman **tres
+rangos distintos** de la misma tabla (`$E4:$E89`, `$E4:$E93`, `$E4:$E97`). Con
+once filas no muerde; pasadas las 89, los cuadros dejan de cerrar entre sí sin
+decir nada. Es L-001 otra vez, en la hoja que estamos reemplazando.
+
+**La decisión que ordena todo el módulo: no se convierte nada a euros.** Un plazo
+fijo en pesos uruguayos es un plazo fijo en pesos uruguayos. **No existe ningún
+total que junte las monedas**, y hay un test cuyo trabajo es que ese número no
+aparezca nunca. La pantalla lo dice con todas las letras para que no se lea como
+algo que falta.
+
+**Tres cosas que decidió el usuario y cambiaron el diseño:**
+- **Historial, no foto**: se anotan movimientos (`I`/`G`) y la app suma.
+- **ALE / IRE** fijos: una lista editable sería una pantalla más para mantener
+  algo que nadie va a tocar.
+- **El detalle no agrupa**: "plazo fijo" es información suya para leer. Se cayó
+  el bloque "por etiqueta" que yo había propuesto.
+
+**Se lee en la misma importación que los gastos**, porque el usuario elige un
+archivo y no una hoja. Para eso hubo que hacer bien algo que estaba a medias:
+`leerPlanilla` agarraba `sheet1.xml` por su nombre de archivo y lo decía —"si
+algún día hace falta la segunda hoja, hay que hacerlo bien"—. Hizo falta: los
+ahorros son la tercera. Ahora se cruzan `workbook.xml` y sus relaciones, que es
+lo que da el nombre visible de cada pestaña.
+
+**La copia que mandó vino con la columna MONTO vacía**, y el importador lo dice
+fila por fila —"la fila no tiene monto"— en vez de traer once movimientos en
+cero, que es la forma silenciosa de arruinar un historial.
+
+**Verificación independiente:** como no había montos con qué probar, se fabricó
+una planilla con la misma estructura y montos conocidos, y se comparó lo que
+suma la app contra lo calculado aparte con `openpyxl`. **La comprobación
+encontró una diferencia real**: una fila sin persona que la planilla suma y la
+app no. Es exactamente para lo que existe ese cuadro.
+
+**Recorrido en el navegador:** importar la planilla, ver la previa —cuántos
+ahorros entran, qué filas no y por qué, y en qué moneda no cuadra el total—,
+traerlos, recargar y mirar la pantalla. Cero pedidos de red, cero errores de
+consola.

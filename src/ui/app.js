@@ -27,6 +27,7 @@ import { dibujarEtiquetas, dibujarAvisoRenombrar, intentarRenombrar,
   intentarBorrarEtiqueta } from './pantallas/etiquetas.js';
 import { efectoDeRenombrar } from '../core/etiquetas.js';
 import { conectarSeries } from './series-interaccion.js';
+import { dibujarAhorros } from './pantallas/ahorros.js';
 import { dibujarViajes, intentarFijarFechas, intentarBorrarFechas,
   dibujarDuracion } from './pantallas/viajes.js';
 import { dibujarGrupos } from './pantallas/grupos.js';
@@ -44,6 +45,7 @@ import { registrarServicio, pedirPersistencia } from '../datos/instalacion.js';
 import { crearPlanilla } from '../datos/xlsx.js';
 import { leerPlanilla } from '../datos/planilla.js';
 import { interpretarPlanilla } from '../datos/importar-planilla.js';
+import { interpretarAhorros, HOJA_DE_AHORROS } from '../datos/importar-ahorros.js';
 import { prepararCsv } from '../datos/csv.js';
 
 /**
@@ -140,6 +142,14 @@ registrarPantalla('grupos', {
   conMes: false,
   enBarra: false,
   dibujar: dibujarGrupos,
+});
+
+registrarPantalla('ahorros', {
+  etiqueta: 'Ahorros conjuntos',
+  icono: '◈',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarAhorros,
 });
 
 registrarPantalla('viajes', {
@@ -878,7 +888,25 @@ export function iniciar(documento, almacen) {
     }
 
     const { movimientos, problemas, comprobaciones } = interpretarPlanilla(leida.filas);
-    if (movimientos.length === 0 && problemas.length === 0) {
+
+    // La hoja de ahorros conjuntos, si la planilla la tiene — T-042, CU-14.
+    //
+    // Se lee en la MISMA importación: el usuario elige un archivo, no una hoja.
+    // Que su planilla tenga los gastos y los ahorros en el mismo lugar es un
+    // dato de su planilla, no algo que él tenga que traducir a dos pasos.
+    //
+    // Si no está la hoja, no pasa nada: `leerPlanilla` devuelve un error que acá
+    // significa "no hay ahorros que traer", no "algo salió mal".
+    const hojaDeAhorros = await leerPlanilla(bytes, { hoja: HOJA_DE_AHORROS });
+    const ahorros = hojaDeAhorros.error
+      ? { ahorros: [], problemas: [], comprobaciones: [] }
+      : interpretarAhorros(hojaDeAhorros.filas, vista.estado.monedas ?? []);
+    // Sin gastos NI ahorros no hay nada que mostrar. Con ahorros solos, sí: una
+    // planilla puede traer la hoja de ahorros y no la de gastos —o tenerla ya
+    // importada—, y negarse a abrirla por eso sería negarse a hacer lo único
+    // que el usuario venía a hacer.
+    if (movimientos.length === 0 && problemas.length === 0
+        && ahorros.ahorros.length === 0 && ahorros.problemas.length === 0) {
       vista = {
         ...vista,
         planilla: null,
@@ -892,11 +920,16 @@ export function iniciar(documento, almacen) {
     }
 
     const yaEstan = new Set((vista.estado.movimientos ?? []).map((m) => m.id));
+    const ahorrosQueEstan = new Set((vista.estado.ahorros ?? []).map((a) => a.id));
     vista = {
       ...vista,
       planilla: {
         movimientos, problemas, comprobaciones,
         yaEstan: movimientos.filter((m) => yaEstan.has(m.id)).length,
+        ahorros: ahorros.ahorros,
+        problemasDeAhorros: ahorros.problemas,
+        comprobacionesDeAhorros: ahorros.comprobaciones,
+        ahorrosQueEstan: ahorros.ahorros.filter((a) => ahorrosQueEstan.has(a.id)).length,
       },
       errorPlanillaVieja: null,
       avisoPlanillaVieja: null,
@@ -917,9 +950,16 @@ export function iniciar(documento, almacen) {
 
     const yaEstan = new Set((vista.estado.movimientos ?? []).map((m) => m.id));
     const nuevos = vista.planilla.movimientos.filter((m) => !yaEstan.has(m.id));
+
+    // Los ahorros entran en el mismo viaje, y con la misma regla: el
+    // identificador sale de la fila, así que importar dos veces no duplica.
+    const ahorrosQueEstan = new Set((vista.estado.ahorros ?? []).map((a) => a.id));
+    const ahorrosNuevos = (vista.planilla.ahorros ?? []).filter((a) => !ahorrosQueEstan.has(a.id));
+
     const nuevoEstado = {
       ...vista.estado,
       movimientos: [...(vista.estado.movimientos ?? []), ...nuevos],
+      ahorros: [...(vista.estado.ahorros ?? []), ...ahorrosNuevos],
     };
 
     try {

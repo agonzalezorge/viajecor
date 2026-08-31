@@ -64,6 +64,10 @@ export function contenidoDelRespaldo(estado, { fecha = hoy() } = {}) {
     // que al restaurar un respaldo se perdían para siempre y la app volvía a
     // decir "¿Cuándo fue?" sin que nada avisara. Ver L-031.
     fechas_de_viaje: estado.fechas_de_viaje ?? [],
+    // Los ahorros conjuntos (CU-14). Entran al respaldo **en el mismo commit en
+    // que nacen**, que es la lección que dejó haberlos olvidado con las fechas
+    // de viaje (L-031).
+    ahorros: estado.ahorros ?? [],
     preferencias: estado.preferencias ?? {},
   };
 
