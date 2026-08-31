@@ -83,6 +83,16 @@ petición a internet una vez abierta.
 pantalla de inicio*. La app trae su propio ícono adentro, así que iOS no va a
 poner una captura de pantalla.
 
+**Abre sin conexión.** La primera vez necesita red; después el navegador se
+guarda una copia y la app abre igual en un avión o sin señal, y podés seguir
+cargando gastos. Cuando hay red, siempre trae la última versión.
+
+**En Android, agregada a la pantalla de inicio** (Chrome → tres puntos →
+*Añadir a pantalla de inicio*) abre con su nombre, su ícono y su color, sin la
+barra del navegador. Y en la pantalla de **Datos** vas a ver una línea que te
+dice **si este navegador se comprometió a no borrar tus datos** cuando falte
+espacio. Si dice que no, o que no se sabe, tratalo como un no: respaldá seguido.
+
 > **El riesgo real, y hay que tomarlo en serio:** iOS borra lo que un sitio tiene
 > guardado si **no lo abrís durante 7 días**. Es una política de Apple, no algo
 > que la app pueda evitar. Usándola seguido no pasa nada, pero **el respaldo

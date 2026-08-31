@@ -20,6 +20,17 @@ La versión publicada vive en el archivo `VERSION`.
   recalculan solas. Ver ADR-040.
 
 ### Agregado
+- **La app publicada abre sin conexión otra vez.** El navegador se guarda una
+  copia y la usa cuando no hay red: en un avión o sin señal, abrís y está todo,
+  y podés seguir cargando gastos. Cuando hay red, siempre trae la última
+  versión — la copia es el respaldo, no la fuente. Ver ADR-045.
+- **Agregada a la pantalla de inicio de un Android**, la app abre con su nombre,
+  su ícono y su color, sin la barra del navegador.
+- **La pantalla de Datos dice si tus datos están a salvo del olvido**: si el
+  navegador se comprometió a no borrarlos cuando falte espacio, si no lo hizo, o
+  si no se pudo averiguar. Los tres casos llevan al mismo consejo —respaldar—,
+  pero ahora sabés en cuál estás.
+
 - **La app se puede abrir desde la web**, en `https://viajecor.vercel.app` (hay
   que importar el proyecto en Vercel una vez; los pasos están en `USO.md §1b`). Es la
   única forma de usarla en un iPhone: Chrome en iOS no abre archivos locales. El

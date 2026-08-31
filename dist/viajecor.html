@@ -4223,6 +4223,78 @@ function diasDesdeElMasViejo(movimientos, fecha) {
   return Math.max(0, diasEntre(masViejo, fecha));
 }
 
+// ── src/datos/instalacion.js ────────────────────────────────────
+// Lo que la app le pide al navegador para portarse como una app — T-950.
+//
+// Dos pedidos, los dos opcionales y los dos que pueden decir que no:
+//
+//   1. **Que guarde una copia de la página** (el trabajador de servicio), para
+//      que abra sin conexión.
+//   2. **Que no borre los datos para hacer lugar** (`storage.persist()`).
+//
+// ── Por qué está acá y no en `ui/` ───────────────────────────────────────────
+//
+// Es acceso al navegador, como `almacenamiento.js`: no dibuja nada. Y recibe el
+// `navigator` en vez de tomarlo del ámbito, que es lo que permite probarlo con
+// un doble en `node --test` en vez de solo mirándolo en un teléfono.
+//
+// ── Ninguno de los dos puede romper la app ───────────────────────────────────
+//
+// Un navegador viejo no tiene estas cosas; un navegador en ventana privada las
+// niega; `file://` no admite trabajadores de servicio. Las tres son respuestas
+// legítimas y frecuentes, así que **nada de esto tira**: devuelve qué pasó, y
+// la app sigue andando exactamente igual que antes. Lo único que se pierde es
+// abrir sin conexión.
+
+/** Dónde vive el trabajador de servicio, servido desde la raíz del sitio. */
+const RUTA_DEL_SERVICIO = '/sw.js';
+
+/**
+ * Registra el trabajador de servicio, si este navegador puede.
+ *
+ * **Solo con `http:` o `https:`.** Desde `file://` el navegador no los admite —y
+ * ahí no hace falta: el archivo ya está en el disco—. Preguntarlo antes evita
+ * un error en la consola en el caso que MÁS se usa hoy, que es el archivo.
+ */
+function registrarServicio(navegador, protocolo) {
+  if (protocolo !== 'http:' && protocolo !== 'https:') return { pedido: false, motivo: 'archivo' };
+  if (!navegador?.serviceWorker?.register) return { pedido: false, motivo: 'no lo tiene' };
+
+  try {
+    const promesa = navegador.serviceWorker.register(RUTA_DEL_SERVICIO);
+    // Si falla, no hay nada que hacer ni nada que decirle al usuario: la app
+    // funciona igual, solo que necesitando red para abrir.
+    promesa?.catch?.(() => {});
+    return { pedido: true, motivo: null };
+  } catch {
+    return { pedido: false, motivo: 'falló' };
+  }
+}
+
+/**
+ * Le pide al navegador que no borre los datos para hacer lugar.
+ *
+ * Sin esto, un teléfono con poco espacio puede tirar lo guardado por este sitio
+ * sin avisar. Chrome suele conceder el permiso a los sitios agregados a la
+ * pantalla de inicio; Safari lo maneja distinto y puede decir que no.
+ *
+ * **La respuesta importa y por eso se devuelve**: la pantalla de Datos la
+ * escribe, para que el usuario sepa si está protegido o si el respaldo es su
+ * única red.
+ */
+async function pedirPersistencia(navegador) {
+  const almacen = navegador?.storage;
+  if (!almacen?.persist) return 'no se sabe';
+
+  try {
+    // Si ya está concedido, `persisted()` lo dice sin volver a pedir nada.
+    if (almacen.persisted && await almacen.persisted()) return 'sí';
+    return await almacen.persist() ? 'sí' : 'no';
+  } catch {
+    return 'no se sabe';
+  }
+}
+
 // ── src/datos/zip.js ────────────────────────────────────────────
 // Un ZIP escrito a mano — la mitad de abajo del `.xlsx` (T-906).
 //
@@ -9336,6 +9408,35 @@ function compartirFallo(vista) {
   return vista.estado?.preferencias?.compartir_no_funciona === true;
 }
 
+/**
+ * Qué tan a salvo están los datos en ESTE navegador — T-950.
+ *
+ * No es un adorno: si el navegador **no** concedió el almacenamiento
+ * permanente, puede borrar lo guardado para hacer lugar cuando el teléfono se
+ * quede sin espacio, y entonces el respaldo deja de ser una recomendación. El
+ * usuario tiene derecho a saber en cuál de los dos casos está.
+ *
+ * Cuando no se sabe —un navegador que no contesta, o que todavía no contestó—
+ * **se dice que no se sabe**. Inventar un "estás protegido" es peor que no
+ * decir nada: alguien dejaría de respaldar por eso.
+ */
+function dibujarPersistencia(persistencia) {
+  if (persistencia === undefined) return '';
+
+  const texto = {
+    'sí': `Este navegador se comprometió a <strong>no borrar</strong> tus datos
+      para hacer lugar. Igual conviene respaldar: eso no te cubre si borrás los
+      datos de navegación ni si cambiás de teléfono.`,
+    'no': `Este navegador <strong>no</strong> se comprometió a conservar tus
+      datos: si el dispositivo se queda sin espacio, puede borrarlos para hacer
+      lugar. Respaldá seguido.`,
+    'no se sabe': `No se pudo averiguar si este navegador conserva los datos
+      cuando falta espacio. Tratalo como si no: respaldá seguido.`,
+  }[persistencia];
+
+  return texto ? `<p class="suave nota">${texto}</p>` : '';
+}
+
 function dibujarDatos(vista) {
   const estado = vista.estado;
   const respaldo = prepararRespaldo(estado);
@@ -9346,6 +9447,7 @@ function dibujarDatos(vista) {
       <h2>Respaldo</h2>
 
       ${dibujarEstadoRespaldo(estado)}
+      ${dibujarPersistencia(vista.persistencia)}
 
       ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
       ${vista.avisoRespaldo ? `<p class="confirmacion" role="status">${escapar(vista.avisoRespaldo)}</p>` : ''}
@@ -10338,6 +10440,7 @@ function conectarUna(tarjeta) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -10711,6 +10814,28 @@ function irA(vista, nombre) {
  * separados (dos listas de monedas se desincronizan). Acá se juntan, que es el
  * único lugar donde tiene sentido.
  */
+/**
+ * Cuelga el manifiesto de la app publicada — T-950.
+ *
+ * **No está escrito en el HTML** y es a propósito: el archivo que se baja es UNO
+ * y no tiene al lado ningún `manifest.webmanifest` que buscar. Pedirlo desde
+ * `file://` sería un error en la consola en el caso más usado, y además dejaría
+ * en el HTML una dirección que la guardia de privacidad tendría que revisar.
+ *
+ * Así, el archivo bajado y el publicado siguen siendo el MISMO archivo, byte a
+ * byte, y lo que cambia es lo que la app hace al arrancar según dónde esté.
+ */
+function enlazarManifiesto(documento, protocolo) {
+  if (protocolo !== 'http:' && protocolo !== 'https:') return false;
+  if (documento.querySelector('link[rel="manifest"]')) return false;
+
+  const enlace = documento.createElement('link');
+  enlace.rel = 'manifest';
+  enlace.href = '/manifest.webmanifest';
+  documento.head.appendChild(enlace);
+  return true;
+}
+
 function iniciar(documento, almacen) {
   const lectura = leerEstado(almacen);
   let estado = lectura.estado;
@@ -10741,7 +10866,25 @@ function iniciar(documento, almacen) {
 
   // Se pregunta ANTES de dibujar nada: el usuario tiene que enterarse de que sus
   // datos no se van a guardar antes de cargar el primero, no después.
-  const riesgo = riesgoDeGuardado(documento.defaultView?.location?.protocol ?? '', almacen);
+  const protocolo = documento.defaultView?.location?.protocol ?? '';
+  const riesgo = riesgoDeGuardado(protocolo, almacen);
+
+  // Lo que hace que la app publicada se comporte como una app — T-950.
+  //
+  // Nada de esto es necesario para que ande, y nada de esto tira: en el archivo
+  // bajado no se hace, y en un navegador que no lo tenga, no pasa nada. Por eso
+  // va acá y no antes: primero la app, después las comodidades.
+  registrarServicio(documento.defaultView?.navigator, protocolo);
+  enlazarManifiesto(documento, protocolo);
+
+  // El navegador puede tardar en contestar si acepta guardar los datos de forma
+  // permanente, y la app no lo va a esperar para dibujarse. Cuando conteste, se
+  // guarda la respuesta y se repinta: es un dato de la pantalla de Datos, no
+  // algo que frene el arranque.
+  pedirPersistencia(documento.defaultView?.navigator).then((respuesta) => {
+    vista = { ...vista, persistencia: respuesta };
+    pintar();
+  }).catch(() => {});
 
   let vista = vistaInicial({
     estado, incidencias: lectura.incidencias, puedeCompartir, riesgoDeGuardado: riesgo,

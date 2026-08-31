@@ -74,8 +74,8 @@ function dibujar() {
   return px;
 }
 
-/** El ícono como `data:` URI, listo para meter en un `href`. */
-export function iconoComoDataUri() {
+/** El ícono como PNG, para el archivo que pide el manifiesto. */
+export function pngDelIcono() {
   const px = dibujar();
 
   // Cada fila lleva adelante su byte de filtro; el 0 es "sin filtro".
@@ -95,5 +95,10 @@ export function iconoComoDataUri() {
     trozo('IEND', Buffer.alloc(0)),
   ]);
 
-  return `data:image/png;base64,${png.toString('base64')}`;
+  return png;
+}
+
+/** El mismo ícono como `data:` URI, para meterlo dentro del HTML. */
+export function iconoComoDataUri() {
+  return `data:image/png;base64,${pngDelIcono().toString('base64')}`;
 }

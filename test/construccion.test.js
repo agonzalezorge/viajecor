@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buscarErrorDeSintaxis } from '../tools/sintaxis.mjs';
-import { buscarFugas } from '../tools/privacidad.mjs';
+import { buscarFugas, buscarFugasDelServicio } from '../tools/privacidad.mjs';
 import { iconoComoDataUri } from '../tools/icono.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,7 +61,7 @@ test('la guardia NO ejecuta el código que revisa', () => {
   delete globalThis.__tocado;
 });
 
-test('el constructor USA las dos guardias', async () => {
+test('el constructor USA las tres guardias', async () => {
   // Una guardia perfecta que nadie llama no protege de nada, y es la mutación
   // que sobrevivió a la primera vuelta: sacar la línea de `build.mjs` no ponía
   // ni un test en rojo.
@@ -74,7 +74,7 @@ test('el constructor USA las dos guardias', async () => {
   const { readFile } = await import('node:fs/promises');
   const constructor = await readFile(join(RAIZ, 'tools/build.mjs'), 'utf8');
 
-  for (const guardia of ['buscarErrorDeSintaxis', 'buscarFugas']) {
+  for (const guardia of ['buscarErrorDeSintaxis', 'buscarFugas', 'buscarFugasDelServicio']) {
     assert.match(constructor, new RegExp(`import .*${guardia}`), `no importa ${guardia}`);
     assert.match(constructor, new RegExp(`${guardia}\\(`), `importa ${guardia} y no la llama`);
   }
@@ -141,4 +141,45 @@ test('el archivo construido lleva el ícono adentro, también el de Apple', asyn
   assert.match(html, /<link rel="icon" href="data:image\/png;base64,[A-Za-z0-9+/=]+">/);
   assert.match(html, /<link rel="apple-touch-icon" href="data:image\/png;base64,[A-Za-z0-9+/=]+">/);
   assert.doesNotMatch(html, /\/\*\{\{ICONO\}\}\*\//, 'quedó el hueco sin reemplazar');
+});
+
+test('lo publicado incluye el trabajador de servicio, el manifiesto y el ícono', async () => {
+  // Si faltara cualquiera de los tres, la app seguiría andando —y esa es la
+  // trampa—: dejaría de abrir sin conexión sin que nada se rompa ni avise.
+  const { readFile } = await import('node:fs/promises');
+  await promisify(execFile)('node', ['tools/build.mjs'], { cwd: RAIZ });
+
+  const [sw, manifiesto, icono] = await Promise.all([
+    readFile(join(RAIZ, 'public/sw.js'), 'utf8'),
+    readFile(join(RAIZ, 'public/manifest.webmanifest'), 'utf8'),
+    readFile(join(RAIZ, 'public/icono.png')),
+  ]);
+
+  const version = (await readFile(join(RAIZ, 'VERSION'), 'utf8')).trim();
+  assert.match(sw, new RegExp(`viajecor-${version.replace(/\./g, '\\.')}`),
+    'la versión va en el nombre de la caché: es lo que tira la copia vieja al publicar');
+  assert.doesNotMatch(sw, /\{\{VERSION\}\}/, 'quedó el hueco sin reemplazar');
+
+  assert.equal(JSON.parse(manifiesto).start_url, '/');
+  assert.deepEqual([...icono.subarray(1, 4)], [0x50, 0x4e, 0x47]);
+});
+
+test('el trabajador de servicio pasa su propia guardia', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const sw = await readFile(join(RAIZ, 'public/sw.js'), 'utf8');
+
+  assert.equal(buscarFugasDelServicio(sw), null);
+  assert.equal(buscarErrorDeSintaxis(sw), null);
+});
+
+test('el archivo que se BAJA no menciona nada de lo publicado', async () => {
+  // El archivo bajado es uno solo y no tiene al lado ningún `sw.js` ni ningún
+  // manifiesto. Pedirlos desde el disco sería un error en la consola en el caso
+  // más usado. Lo que cambia es lo que la app hace al arrancar según dónde
+  // esté, no el archivo: los dos son el mismo, byte a byte.
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(join(RAIZ, 'dist/viajecor.html'), 'utf8');
+
+  assert.doesNotMatch(html, /<link[^>]*rel="manifest"/, 'el enlace se cuelga solo si hay servidor');
+  assert.doesNotMatch(html, /<script[^>]*src=/);
 });

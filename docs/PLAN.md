@@ -103,6 +103,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-947 | Los rubros de ingreso en la tabla mes a mes | **Hecha** | T-021 |
 | T-948 | Publicar la app para poder usarla en un iPhone | **Hecha** | — |
 | T-949 | Publicar en Vercel, con la CSP que hace cumplir el cero red | **Hecha** | T-948 |
+| T-950 | Que la app publicada abra sin conexión | **Hecha** | T-949 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -2270,3 +2271,36 @@ que andaba.
 están en `USO.md §1b`, con la advertencia que importa: **los datos no se mudan
 solos** entre el archivo y el sitio web, hay que exportar el `.json` e
 importarlo.
+
+### T-950 · Que la app publicada abra sin conexión — **Hecha** (2026-08-31)
+**Depende de:** T-949 · **Pedida por el usuario (2026-08-31)** · **Tocó:**
+`src/servicio.js` (nuevo), `src/datos/instalacion.js` (nuevo),
+`tools/manifiesto.mjs` (nuevo), `tools/build.mjs`, `tools/privacidad.mjs`,
+`tools/icono.mjs`, `src/ui/app.js`, `src/ui/pantallas/datos.js`, `vercel.json`
+
+Lo que se había perdido al pasar del archivo a la web: abrir con el modo avión
+puesto. Vuelve, y con dos cosas más que van en el mismo viaje —el ícono de
+Android con nombre y color propios, y el pedido de que el navegador no borre los
+datos por falta de espacio—. Todo el porqué está en ADR-045.
+
+**Lo que más me enseñó esta tarea fue cómo probarlo.** El recorrido en el
+navegador corta la red de verdad —y eso hay que hacerlo—, pero solo cubre el
+camino feliz y el camino sin red. Los casos que hacen daño son otros: guardar un
+error 500 como si fuera la app, no tirar nunca la copia vieja, interceptar
+pedidos ajenos. El trabajador de servicio es **JavaScript común que recibe su
+mundo del entorno**, así que se lo puede ejecutar en `node --test` con un `self`,
+un `caches` y un `fetch` de mentira y mirar qué hace. Siete tests que de otra
+forma habrían sido siete suposiciones.
+
+**Mutaciones:** 20 sembradas, 18 muertas. Las dos que sobreviven son
+equivalentes y quedan anotadas: sacar `if (!almacen?.persist)` cae igual en el
+`try/catch` que devuelve `'no se sabe'`, y sacar `if (persistencia ===
+undefined)` cae igual en el `texto ? … : ''` de la línea siguiente. Las dos son
+guardas explícitas cuyo efecto ya está cubierto una línea más abajo; se dejan
+porque dicen lo que se está protegiendo.
+
+**Recorridos en el navegador, los dos:** publicada —el trabajador queda activo,
+el manifiesto colgado, la red cortada de verdad, gastos cargados sin conexión y
+todo intacto al volver la red— y **el archivo desde el disco**, donde lo
+importante es lo que NO pasa: no cuelga el manifiesto, no registra nada, cero
+pedidos fuera del archivo y cero errores de consola.

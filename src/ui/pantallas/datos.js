@@ -85,6 +85,35 @@ export function compartirFallo(vista) {
   return vista.estado?.preferencias?.compartir_no_funciona === true;
 }
 
+/**
+ * Qué tan a salvo están los datos en ESTE navegador — T-950.
+ *
+ * No es un adorno: si el navegador **no** concedió el almacenamiento
+ * permanente, puede borrar lo guardado para hacer lugar cuando el teléfono se
+ * quede sin espacio, y entonces el respaldo deja de ser una recomendación. El
+ * usuario tiene derecho a saber en cuál de los dos casos está.
+ *
+ * Cuando no se sabe —un navegador que no contesta, o que todavía no contestó—
+ * **se dice que no se sabe**. Inventar un "estás protegido" es peor que no
+ * decir nada: alguien dejaría de respaldar por eso.
+ */
+export function dibujarPersistencia(persistencia) {
+  if (persistencia === undefined) return '';
+
+  const texto = {
+    'sí': `Este navegador se comprometió a <strong>no borrar</strong> tus datos
+      para hacer lugar. Igual conviene respaldar: eso no te cubre si borrás los
+      datos de navegación ni si cambiás de teléfono.`,
+    'no': `Este navegador <strong>no</strong> se comprometió a conservar tus
+      datos: si el dispositivo se queda sin espacio, puede borrarlos para hacer
+      lugar. Respaldá seguido.`,
+    'no se sabe': `No se pudo averiguar si este navegador conserva los datos
+      cuando falta espacio. Tratalo como si no: respaldá seguido.`,
+  }[persistencia];
+
+  return texto ? `<p class="suave nota">${texto}</p>` : '';
+}
+
 export function dibujarDatos(vista) {
   const estado = vista.estado;
   const respaldo = prepararRespaldo(estado);
@@ -95,6 +124,7 @@ export function dibujarDatos(vista) {
       <h2>Respaldo</h2>
 
       ${dibujarEstadoRespaldo(estado)}
+      ${dibujarPersistencia(vista.persistencia)}
 
       ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
       ${vista.avisoRespaldo ? `<p class="confirmacion" role="status">${escapar(vista.avisoRespaldo)}</p>` : ''}

@@ -40,6 +40,7 @@ import { prepararRespaldo, anotarRespaldo } from '../datos/exportar.js';
 import { leerRespaldo, previsualizar, aplicarImportacion } from '../datos/importar.js';
 import { compartirRespaldo, sePuedeCompartir, archivoDelRespaldo } from './compartir.js';
 import { estadoDelRecordatorio, posponerRecordatorio } from '../datos/recordatorio.js';
+import { registrarServicio, pedirPersistencia } from '../datos/instalacion.js';
 import { crearPlanilla } from '../datos/xlsx.js';
 import { leerPlanilla } from '../datos/planilla.js';
 import { interpretarPlanilla } from '../datos/importar-planilla.js';
@@ -418,6 +419,28 @@ export function irA(vista, nombre) {
  * separados (dos listas de monedas se desincronizan). Acá se juntan, que es el
  * único lugar donde tiene sentido.
  */
+/**
+ * Cuelga el manifiesto de la app publicada — T-950.
+ *
+ * **No está escrito en el HTML** y es a propósito: el archivo que se baja es UNO
+ * y no tiene al lado ningún `manifest.webmanifest` que buscar. Pedirlo desde
+ * `file://` sería un error en la consola en el caso más usado, y además dejaría
+ * en el HTML una dirección que la guardia de privacidad tendría que revisar.
+ *
+ * Así, el archivo bajado y el publicado siguen siendo el MISMO archivo, byte a
+ * byte, y lo que cambia es lo que la app hace al arrancar según dónde esté.
+ */
+export function enlazarManifiesto(documento, protocolo) {
+  if (protocolo !== 'http:' && protocolo !== 'https:') return false;
+  if (documento.querySelector('link[rel="manifest"]')) return false;
+
+  const enlace = documento.createElement('link');
+  enlace.rel = 'manifest';
+  enlace.href = '/manifest.webmanifest';
+  documento.head.appendChild(enlace);
+  return true;
+}
+
 export function iniciar(documento, almacen) {
   const lectura = leerEstado(almacen);
   let estado = lectura.estado;
@@ -448,7 +471,25 @@ export function iniciar(documento, almacen) {
 
   // Se pregunta ANTES de dibujar nada: el usuario tiene que enterarse de que sus
   // datos no se van a guardar antes de cargar el primero, no después.
-  const riesgo = riesgoDeGuardado(documento.defaultView?.location?.protocol ?? '', almacen);
+  const protocolo = documento.defaultView?.location?.protocol ?? '';
+  const riesgo = riesgoDeGuardado(protocolo, almacen);
+
+  // Lo que hace que la app publicada se comporte como una app — T-950.
+  //
+  // Nada de esto es necesario para que ande, y nada de esto tira: en el archivo
+  // bajado no se hace, y en un navegador que no lo tenga, no pasa nada. Por eso
+  // va acá y no antes: primero la app, después las comodidades.
+  registrarServicio(documento.defaultView?.navigator, protocolo);
+  enlazarManifiesto(documento, protocolo);
+
+  // El navegador puede tardar en contestar si acepta guardar los datos de forma
+  // permanente, y la app no lo va a esperar para dibujarse. Cuando conteste, se
+  // guarda la respuesta y se repinta: es un dato de la pantalla de Datos, no
+  // algo que frene el arranque.
+  pedirPersistencia(documento.defaultView?.navigator).then((respuesta) => {
+    vista = { ...vista, persistencia: respuesta };
+    pintar();
+  }).catch(() => {});
 
   let vista = vistaInicial({
     estado, incidencias: lectura.incidencias, puedeCompartir, riesgoDeGuardado: riesgo,

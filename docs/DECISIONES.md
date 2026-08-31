@@ -1664,3 +1664,65 @@ queda en pie la versión anterior.
 mudarse de origen es una mudanza de datos: hay que exportar el `.json` e
 importarlo. Escrito en `USO.md`, porque es lo que hace que alguien vea la app
 vacía y crea que perdió todo.
+
+
+## ADR-045 · La app publicada abre sin conexión, y eso cuesta un archivo más
+
+**Contexto.** Como archivo en el disco, Viajecor abría con el modo avión puesto.
+Publicada, la primera carga necesita red — y una app de gastos que no abre en un
+avión, justo cuando estás gastando en otro país, es un chiste malo. Lo señalé al
+publicar (T-949) y el usuario pidió resolverlo (2026-08-30).
+
+**Decisión.** Un **trabajador de servicio** (`src/servicio.js` → `public/sw.js`)
+que guarda una copia de la página y la sirve cuando no hay red, más un
+**manifiesto** para que el ícono en Android tenga nombre y color propios, y un
+pedido de **almacenamiento permanente** para que el navegador no borre los datos
+cuando falte espacio.
+
+**Rompe "un solo archivo", y no había forma de evitarlo:** el navegador exige que
+un trabajador de servicio venga de su propia dirección. La regla se mantiene
+donde importa — **el archivo que se baja sigue siendo uno solo** y no los
+necesita, porque desde el disco ya abre sin conexión—. Lo que se agrega existe
+únicamente en lo publicado.
+
+**El HTML no menciona ni al trabajador ni al manifiesto.** El enlace al
+manifiesto lo cuelga la app al arrancar, y solo si el protocolo es `http:` o
+`https:`. Así el archivo bajado y el publicado siguen siendo **el mismo archivo,
+byte a byte**: lo que cambia es lo que la app hace según dónde esté, no lo que
+es. Pedir un manifiesto desde `file://` sería un error en la consola en el caso
+que más se usa hoy.
+
+**Primero la red, la copia como respaldo.** La alternativa —servir la copia y
+actualizar por atrás— arranca más rápido y a cambio deja **una versión vieja
+pegada**: cargar gastos en una app que ya no es la publicada, sin forma de
+enterarse. En una app que se abre dos veces por día, medio segundo de arranque
+no vale ese riesgo.
+
+**La política de seguridad se abrió lo mínimo, y del lado correcto.** El
+documento sumó `worker-src 'self'` y `manifest-src 'self'`, pero **mantiene
+`connect-src 'none'`**: la página sigue sin poder conectarse a ningún lado. El
+único que puede hablar con el origen es el trabajador, que tiene su propia
+política en su propia ruta (`connect-src 'self'`), porque pedir esta misma
+página es literalmente su trabajo. Separar las dos políticas es lo que evita
+tener que aflojar la de la app.
+
+**Y el trabajador tiene su propia guardia.** `buscarFugasDelServicio()` es una
+lista aparte: puede usar `fetch` y `caches` —sin eso no existiría— pero no puede
+tener una dirección de internet, ni `XMLHttpRequest`, ni `WebSocket`, ni
+`importScripts`. Dos reglas distintas escritas aparte se pueden leer; una regla
+con un agujero adentro, no.
+
+**Se probó ejecutándolo, no solo mirándolo.** El recorrido en el navegador corta
+la red de verdad y comprueba que la app abre, que se pueden cargar gastos sin
+conexión y que al volver la red sigue todo. Pero eso solo cubre el camino feliz
+y el camino sin red; los casos que hacen daño —una respuesta 500 guardada como
+si fuera la app, una copia vieja que nunca se tira, un pedido ajeno
+interceptado— se prueban en `test/servicio.test.js`, **ejecutando el trabajador
+con un mundo de mentira**. Es JavaScript común: recibe `self`, `caches` y
+`fetch` del entorno, así que dándole otro entorno se lo puede mirar por dentro.
+
+**El estado del almacenamiento permanente se muestra, incluso cuando es malo.**
+La pantalla de Datos dice si el navegador se comprometió a no borrar los datos,
+si no lo hizo, o si no se pudo averiguar. Los tres textos llevan al respaldo;
+inventar un "estás protegido" sería peor que no decir nada, porque alguien
+dejaría de respaldar por eso.

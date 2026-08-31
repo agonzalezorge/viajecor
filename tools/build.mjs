@@ -11,9 +11,10 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buscarFugas } from './privacidad.mjs';
+import { buscarFugas, buscarFugasDelServicio } from './privacidad.mjs';
 import { buscarErrorDeSintaxis } from './sintaxis.mjs';
-import { iconoComoDataUri } from './icono.mjs';
+import { iconoComoDataUri, pngDelIcono } from './icono.mjs';
+import { manifiesto } from './manifiesto.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -33,6 +34,7 @@ const MODULOS = [
   'src/datos/exportar.js',
   'src/datos/importar.js',
   'src/datos/recordatorio.js',
+  'src/datos/instalacion.js',
   'src/datos/zip.js',
   'src/datos/xlsx.js',
   'src/datos/csv.js',
@@ -185,8 +187,32 @@ async function construir() {
   await mkdir(join(RAIZ, 'public'), { recursive: true });
   await writeFile(join(RAIZ, 'public/index.html'), html, 'utf8');
 
+  // El trabajador de servicio y el manifiesto — T-950, ADR-045.
+  //
+  // Van SOLO en lo publicado. El archivo que se baja sigue siendo uno solo: no
+  // los necesita, porque desde el disco ya abre sin conexión.
+  //
+  // La versión va adentro del nombre de la caché a propósito: es lo que hace
+  // que al publicar una versión nueva el navegador tire la copia vieja en vez
+  // de dejarla dando vueltas.
+  const servicio = await readFile(join(RAIZ, 'src/servicio.js'), 'utf8');
+
+  // El trabajador de servicio pasa por SU guardia, que es otra: puede usar
+  // `fetch` —es su trabajo— pero no puede hablar con nadie más que con esta
+  // misma dirección.
+  const fugaDelServicio = buscarFugasDelServicio(servicio);
+  if (fugaDelServicio) throw new Error(fugaDelServicio);
+
+  const rotoElServicio = buscarErrorDeSintaxis(servicio);
+  if (rotoElServicio) throw new Error(`El trabajador de servicio no se puede leer: ${rotoElServicio}`);
+  await writeFile(join(RAIZ, 'public/sw.js'),
+    servicio.replaceAll('{{VERSION}}', () => version), 'utf8');
+  await writeFile(join(RAIZ, 'public/manifest.webmanifest'),
+    JSON.stringify(manifiesto(version), null, 2) + '\n', 'utf8');
+  await writeFile(join(RAIZ, 'public/icono.png'), pngDelIcono());
+
   const kb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(1);
-  console.log(`dist/viajecor.html + public/index.html — v${version} — ${kb} kB — ${MODULOS.length} módulo(s)`);
+  console.log(`dist/viajecor.html + public/ (app, sw, manifiesto, ícono) — v${version} — ${kb} kB — ${MODULOS.length} módulo(s)`);
 }
 
 construir().catch((error) => {

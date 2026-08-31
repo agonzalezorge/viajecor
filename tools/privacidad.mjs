@@ -156,3 +156,40 @@ export function buscarFugas(
 
   return null;
 }
+
+// ── El trabajador de servicio: otras reglas, por una buena razón ─────────────
+//
+// `src/servicio.js` **tiene que** usar `fetch` y `caches`: su trabajo es pedir
+// esta misma página y guardarla para cuando no haya red. Pasarlo por la guardia
+// de arriba lo frenaría por hacer exactamente aquello para lo que existe.
+//
+// Lo que sí hay que vigilar es que **no hable con nadie más**. Eso es lo que
+// revisa esta función, y por eso es una lista propia y corta en vez de una
+// excepción metida en la otra: dos reglas distintas escritas aparte se pueden
+// leer; una regla con un agujero adentro, no.
+
+export const FORMAS_DE_SALIR_DEL_SERVICIO = [
+  ['una dirección de internet', /\bhttps?:\/\//i],
+  ['XMLHttpRequest', /\bXMLHttpRequest\b/],
+  ['un WebSocket', /\bWebSocket\b/],
+  ['un EventSource', /\bEventSource\b/],
+  ['sendBeacon', /sendBeacon/],
+  ['un script traído de afuera', /\bimportScripts\s*\(/],
+];
+
+/**
+ * Busca formas de sacar datos en el trabajador de servicio.
+ *
+ * Devuelve el motivo en castellano, o `null` si está limpio.
+ */
+export function buscarFugasDelServicio(codigo) {
+  for (const [nombre, patron] of FORMAS_DE_SALIR_DEL_SERVICIO) {
+    const encontrado = codigo.match(patron);
+    if (encontrado) {
+      return `El trabajador de servicio tiene ${nombre}: "${encontrado[0]}". ` +
+        `Solo puede pedir esta misma página; hablar con cualquier otro lado ` +
+        `rompería lo único que esta app promete (RN-06).`;
+    }
+  }
+  return null;
+}
