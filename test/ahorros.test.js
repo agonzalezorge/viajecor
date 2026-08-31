@@ -21,6 +21,7 @@ import {
 import { monedasIniciales } from '../src/core/monedas.js';
 import { estadoInicial, migrarEstado } from '../src/datos/almacenamiento.js';
 import { contenidoDelRespaldo } from '../src/datos/exportar.js';
+import { dibujarProblemas } from '../src/ui/pantallas/datos.js';
 
 const MONEDAS = monedasIniciales();
 let contador = 0;
@@ -317,4 +318,69 @@ test('un ahorro roto se descarta solo y se dice, sin llevarse a los demás', () 
   assert.deepEqual(leido.ahorros.map((a) => a.id), ['a']);
   assert.equal(incidencias.length, 1);
   assert.match(incidencias[0], /ahorros/);
+});
+
+// ── El signo del monto: viene dos veces y hay que resolverlo (0.3.1) ─────────
+
+test('una salida con el monto en negativo entra, con su valor absoluto', () => {
+  // Es lo que tiene la planilla del usuario: las filas `G` llevan la G en su
+  // columna Y el número en negativo. Las dos dicen lo mismo. La primera versión
+  // las rechazaba las cuatro, con un mensaje pensado para los gastos.
+  const { ahorro, problema } = interpretarFilaDeAhorro(9,
+    celdas({ A: 'Vuelos Roma', B: 45950, D: 'PESOS UY', E: -12000, F: 'ALE', G: 'G' }), MONEDAS);
+
+  assert.equal(problema, undefined);
+  assert.equal(ahorro.monto, 1200000, 'el monto se guarda sin signo');
+  assert.equal(ahorro.tipo, AHORRO_SALE);
+  assert.equal(aporteDe(ahorro), -1200000, 'y resta, porque la G dice que salió');
+});
+
+test('lo mismo si el monto vino escrito como texto', () => {
+  const { ahorro } = interpretarFilaDeAhorro(9,
+    celdas({ B: 45950, D: 'EUROS', E: '-320,25', F: 'IRE', G: 'G' }), MONEDAS);
+
+  assert.equal(ahorro.monto, 32025);
+});
+
+test('un negativo marcado como ENTRADA se contradice, y no se adivina', () => {
+  // El número dice una cosa y la columna I/G la contraria. Elegir cualquiera de
+  // las dos sería inventar el signo de una operación de dinero.
+  const { ahorro, problema } = interpretarFilaDeAhorro(9,
+    celdas({ B: 45950, D: 'EUROS', E: -100, F: 'ALE', G: 'I' }), MONEDAS);
+
+  assert.equal(ahorro, undefined);
+  assert.match(problema.motivo, /se contradicen/);
+});
+
+test('la contradicción se detecta también si el monto vino como texto', () => {
+  // Hay celdas escritas a mano en la planilla, y ahí el signo llega como parte
+  // del texto. Sin mirarlo, "-100" marcado como entrada se importaba sumando.
+  const { ahorro, problema } = interpretarFilaDeAhorro(9,
+    celdas({ B: 45950, D: 'EUROS', E: '-100', F: 'ALE', G: 'I' }), MONEDAS);
+
+  assert.equal(ahorro, undefined);
+  assert.match(problema.motivo, /se contradicen/);
+});
+
+test('cada fila que no entra dice QUÉ DECÍA, no solo por qué no entró', () => {
+  // El informe mostraba "Decía: ." — un número de fila sin contexto obliga a
+  // abrir la planilla para saber siquiera de qué fila están hablando.
+  const { problema } = interpretarFilaDeAhorro(12,
+    celdas({ A: 'Regalo Ivo', B: 45900, D: 'YENES', E: 50, F: 'ALE', G: 'I' }), MONEDAS);
+
+  assert.match(problema.decia, /Regalo Ivo/);
+  assert.match(problema.decia, /ALE/);
+  assert.match(problema.decia, /YENES/);
+  assert.match(problema.decia, /50/);
+});
+
+test('el informe no escribe dos puntos seguidos ni una frase vacía', () => {
+  const html = dibujarProblemas([
+    { fila: 9, motivo: 'Un monto no puede ser negativo.', decia: 'Vuelos Roma · ALE' },
+    { fila: 10, motivo: 'la fila no tiene monto', decia: '' },
+  ]);
+
+  assert.doesNotMatch(html, /\.\./);
+  assert.doesNotMatch(html, /Decía: \./);
+  assert.match(html, /Vuelos Roma · ALE\./);
 });

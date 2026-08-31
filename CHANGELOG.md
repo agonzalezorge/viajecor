@@ -3,6 +3,24 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.3.1 — 2026-08-31
+
+### Arreglado
+- **Las salidas del ahorro no se importaban.** En la planilla, las filas
+  marcadas `G` llevan además el **monto en negativo**, y el importador las
+  rechazaba con un mensaje pensado para los gastos: *"un monto no puede ser
+  negativo"*. Eran justo los cuatro movimientos de plata que salió.
+
+  Ahora el signo del número se toma como lo que es —**la misma información que
+  ya da la columna I/G**, escrita dos veces— y se usa el valor absoluto. Si los
+  dos se contradicen (un negativo marcado como `I`), la fila **se informa en vez
+  de adivinar** de qué lado está la verdad.
+
+- **El informe de filas que no entraron decía "Decía: ."** — sin el contenido de
+  la fila, un número suelto obliga a abrir la planilla para saber siquiera de
+  qué está hablando. Ahora muestra el comentario, la persona, la moneda y el
+  monto. Y se fueron los dos puntos seguidos.
+
 ## 0.3.0 — 2026-08-31
 
 ### Agregado

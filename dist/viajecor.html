@@ -1162,7 +1162,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.3.0";
+globalThis.__VIAJECOR_VERSION__ = "0.3.1";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -6328,7 +6328,19 @@ function interpretarFilaDeAhorro(numero, celdas, monedas) {
     persona: textoDe(celdas.get(AHO_PERSONA)),
     tipo: textoDe(celdas.get(AHO_TIPO)),
   };
-  const decir = (motivo) => ({ problema: { fila: numero, motivo, crudo } });
+  // `decia` es lo que la pantalla escribe al lado del número de fila. Sin esto,
+  // el informe decía "Decía: ." y no servía para nada: el usuario tiene que
+  // poder reconocer la fila SIN abrir la planilla.
+  const decir = (motivo) => ({
+    problema: {
+      fila: numero,
+      motivo,
+      crudo,
+      decia: [crudo.comentario, crudo.persona, crudo.moneda,
+        String(celdas.get(AHO_MONTO)?.valor ?? '').trim(), crudo.tipo]
+        .filter((t) => t !== '').join(' · '),
+    },
+  });
 
   const dia = celdas.get(AHO_DIA)?.valor;
   let fecha;
@@ -6357,10 +6369,31 @@ function interpretarFilaDeAhorro(numero, celdas, monedas) {
     return decir('la fila no tiene monto');
   }
 
+  // ── El signo, que en esta hoja viene DOS VECES ─────────────────────────────
+  //
+  // En la planilla del usuario las salidas del ahorro llevan la `G` en su
+  // columna **y además el monto en negativo**. Las dos cosas dicen lo mismo, y
+  // por eso acá se toma el valor absoluto: el signo del número es redundante,
+  // no un dato aparte.
+  //
+  // **Salvo que se contradigan.** Un monto negativo en una fila marcada `I`
+  // dice dos cosas opuestas, y ahí no se adivina: se informa la fila con lo que
+  // decía. Es la misma regla que en la hoja de gastos (MAPEO §6) — lo que
+  // cambia es que allá no hay nada con qué comparar el signo y acá sí.
+  const negativo = typeof monto === 'number'
+    ? monto < 0
+    : String(monto).trim().startsWith('-');
+
+  if (negativo && tipoDeLaPlanilla(crudo.tipo) === AHORRO_ENTRA) {
+    return decir('el monto es negativo pero la fila dice "I": el número y la columna I/G se contradicen');
+  }
+
+  const sinSigno = typeof monto === 'number' ? Math.abs(monto) : String(monto).trim().replace(/^-/, '');
+
   try {
     const ahorro = crearAhorro(
-      { ...crudo, moneda, monto, fecha },
-      { decimales: decimalesDe(monedas, moneda), id: idDeFilaDeAhorro(numero, crudo, monto, fecha) }
+      { ...crudo, moneda, monto: sinSigno, fecha },
+      { decimales: decimalesDe(monedas, moneda), id: idDeFilaDeAhorro(numero, crudo, sinSigno, fecha) }
     );
     return { ahorro };
   } catch (error) {
@@ -10566,6 +10599,17 @@ function dibujarComprobaciones(comprobaciones) {
  * Sin el número, el informe dice «hubo 14 problemas» y no sirve para nada. Con
  * él, el usuario abre su planilla, va a esa fila y decide.
  */
+/**
+ * Saca el punto final, si lo tiene.
+ *
+ * El motivo puede venir de un mensaje del modelo, que ya termina en punto, y la
+ * lista le agrega el suyo: quedaba "…no el número.. Decía: .". Dos puntos
+ * seguidos y una frase vacía es cómo se ve un informe que nadie miró.
+ */
+function sinPuntoFinal(texto) {
+  return String(texto ?? '').trim().replace(/\.+$/, '');
+}
+
 function dibujarProblemas(problemas) {
   if (problemas.length === 0) {
     return `<p class="suave">No quedó ninguna fila afuera.</p>`;
@@ -10577,8 +10621,8 @@ function dibujarProblemas(problemas) {
       <p class="suave">Están con su número de fila para que puedas abrir tu planilla y
       mirarlas. El resto se importa igual.</p>
       <ul class="filas-con-problema">${problemas.map((p) => `<li>
-        <strong>Fila ${p.fila}:</strong> ${escapar(p.motivo)}.
-        <span class="suave">Decía: ${escapar(p.decia)}.</span>
+        <strong>Fila ${p.fila}:</strong> ${escapar(sinPuntoFinal(p.motivo))}.
+        ${p.decia ? `<span class="suave">Decía: ${escapar(sinPuntoFinal(p.decia))}.</span>` : ''}
       </li>`).join('')}</ul>
     </div>`;
 }

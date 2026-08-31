@@ -319,6 +319,20 @@ a dejar de cerrar entre sí **sin decir nada**. Es exactamente L-001, en la hoja
 que estamos reemplazando, y es la razón por la que el importador y los cálculos
 de la app no tienen ningún límite de filas escrito a mano.
 
+### El signo viene dos veces
+
+Las filas marcadas `G` llevan además **el monto en negativo**. Las dos cosas
+dicen lo mismo, así que el importador **usa el valor absoluto**: el signo del
+número es redundante, no un dato aparte.
+
+**Salvo que se contradigan.** Un monto negativo en una fila marcada `I` dice dos
+cosas opuestas, y ahí no se adivina: la fila se informa con lo que decía. Es la
+misma regla que en la hoja de gastos (§6) — lo que cambia es que allá no hay
+nada con qué comparar el signo, y acá sí.
+
+Esto lo encontró el usuario importando su planilla de verdad (0.3.1): la copia
+que había mandado antes venía sin montos, así que ninguna prueba podía verlo.
+
 ### La copia que llegó vino sin montos
 
 La columna `E` estaba vacía en las once filas. El importador lo informa fila por

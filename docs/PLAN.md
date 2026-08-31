@@ -2382,3 +2382,32 @@ app no. Es exactamente para lo que existe ese cuadro.
 ahorros entran, qué filas no y por qué, y en qué moneda no cuadra el total—,
 traerlos, recargar y mirar la pantalla. Cero pedidos de red, cero errores de
 consola.
+
+### T-043 · El signo de las salidas del ahorro — **Hecha** (2026-08-31)
+**Encontrada por el usuario importando su planilla de verdad** · **Tocó:**
+`datos/importar-ahorros.js`, `ui/pantallas/datos.js`
+
+Las cuatro filas `G` de su hoja no entraron: llevan el monto en negativo y el
+importador las rechazaba con el mensaje del modelo, pensado para los gastos.
+Eran justo los movimientos de plata que salió del ahorro.
+
+**El signo viene dos veces —en la columna I/G y en el número— y dicen lo mismo**,
+así que se usa el valor absoluto. Cuando se contradicen (negativo marcado `I`),
+la fila se informa: adivinar el signo de una operación de dinero es exactamente
+lo que este proyecto no hace.
+
+**Y el informe no servía:** decía "Decía: ." porque los problemas de ahorros
+traían `crudo` y la pantalla escribe `decia`. Un número de fila sin contenido
+obliga a abrir la planilla para saber de qué fila están hablando. Ahora muestra
+comentario, persona, moneda y monto, y se fueron los dos puntos seguidos.
+
+**Por qué no lo vieron las pruebas:** la copia que el usuario había mandado venía
+con la columna MONTO **vacía**, así que ninguna fila llegaba a la parte del
+signo. Se probó todo lo que se podía probar con lo que había, y no alcanzaba —
+la única prueba real era su planilla con datos.
+
+**Verificación:** se rehízo la planilla de prueba con negativos en las salidas y
+se comparó contra `openpyxl`. Las ocho filas entran, cero problemas, y los tres
+totales por moneda **cuadran al céntimo** con los que calcula Excel.
+
+**Mutaciones:** 19 sembradas, 19 muertas.

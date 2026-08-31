@@ -28,7 +28,7 @@
 // otro lado (RN-05).
 
 import { crearAhorro, monedaDeLaPlanilla, personaDeLaPlanilla, tipoDeLaPlanilla,
-  AHORRO_SALE } from '../core/ahorros.js';
+  AHORRO_ENTRA, AHORRO_SALE } from '../core/ahorros.js';
 import { normalizarTextoVisible } from '../core/modelo.js';
 import { fechaDeSerie } from './planilla.js';
 import { decimalesDe } from '../core/monedas.js';
@@ -83,7 +83,19 @@ export function interpretarFilaDeAhorro(numero, celdas, monedas) {
     persona: textoDe(celdas.get(AHO_PERSONA)),
     tipo: textoDe(celdas.get(AHO_TIPO)),
   };
-  const decir = (motivo) => ({ problema: { fila: numero, motivo, crudo } });
+  // `decia` es lo que la pantalla escribe al lado del número de fila. Sin esto,
+  // el informe decía "Decía: ." y no servía para nada: el usuario tiene que
+  // poder reconocer la fila SIN abrir la planilla.
+  const decir = (motivo) => ({
+    problema: {
+      fila: numero,
+      motivo,
+      crudo,
+      decia: [crudo.comentario, crudo.persona, crudo.moneda,
+        String(celdas.get(AHO_MONTO)?.valor ?? '').trim(), crudo.tipo]
+        .filter((t) => t !== '').join(' · '),
+    },
+  });
 
   const dia = celdas.get(AHO_DIA)?.valor;
   let fecha;
@@ -112,10 +124,31 @@ export function interpretarFilaDeAhorro(numero, celdas, monedas) {
     return decir('la fila no tiene monto');
   }
 
+  // ── El signo, que en esta hoja viene DOS VECES ─────────────────────────────
+  //
+  // En la planilla del usuario las salidas del ahorro llevan la `G` en su
+  // columna **y además el monto en negativo**. Las dos cosas dicen lo mismo, y
+  // por eso acá se toma el valor absoluto: el signo del número es redundante,
+  // no un dato aparte.
+  //
+  // **Salvo que se contradigan.** Un monto negativo en una fila marcada `I`
+  // dice dos cosas opuestas, y ahí no se adivina: se informa la fila con lo que
+  // decía. Es la misma regla que en la hoja de gastos (MAPEO §6) — lo que
+  // cambia es que allá no hay nada con qué comparar el signo y acá sí.
+  const negativo = typeof monto === 'number'
+    ? monto < 0
+    : String(monto).trim().startsWith('-');
+
+  if (negativo && tipoDeLaPlanilla(crudo.tipo) === AHORRO_ENTRA) {
+    return decir('el monto es negativo pero la fila dice "I": el número y la columna I/G se contradicen');
+  }
+
+  const sinSigno = typeof monto === 'number' ? Math.abs(monto) : String(monto).trim().replace(/^-/, '');
+
   try {
     const ahorro = crearAhorro(
-      { ...crudo, moneda, monto, fecha },
-      { decimales: decimalesDe(monedas, moneda), id: idDeFilaDeAhorro(numero, crudo, monto, fecha) }
+      { ...crudo, moneda, monto: sinSigno, fecha },
+      { decimales: decimalesDe(monedas, moneda), id: idDeFilaDeAhorro(numero, crudo, sinSigno, fecha) }
     );
     return { ahorro };
   } catch (error) {

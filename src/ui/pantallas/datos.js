@@ -583,7 +583,18 @@ function dibujarComprobaciones(comprobaciones) {
  * Sin el número, el informe dice «hubo 14 problemas» y no sirve para nada. Con
  * él, el usuario abre su planilla, va a esa fila y decide.
  */
-function dibujarProblemas(problemas) {
+/**
+ * Saca el punto final, si lo tiene.
+ *
+ * El motivo puede venir de un mensaje del modelo, que ya termina en punto, y la
+ * lista le agrega el suyo: quedaba "…no el número.. Decía: .". Dos puntos
+ * seguidos y una frase vacía es cómo se ve un informe que nadie miró.
+ */
+function sinPuntoFinal(texto) {
+  return String(texto ?? '').trim().replace(/\.+$/, '');
+}
+
+export function dibujarProblemas(problemas) {
   if (problemas.length === 0) {
     return `<p class="suave">No quedó ninguna fila afuera.</p>`;
   }
@@ -594,8 +605,8 @@ function dibujarProblemas(problemas) {
       <p class="suave">Están con su número de fila para que puedas abrir tu planilla y
       mirarlas. El resto se importa igual.</p>
       <ul class="filas-con-problema">${problemas.map((p) => `<li>
-        <strong>Fila ${p.fila}:</strong> ${escapar(p.motivo)}.
-        <span class="suave">Decía: ${escapar(p.decia)}.</span>
+        <strong>Fila ${p.fila}:</strong> ${escapar(sinPuntoFinal(p.motivo))}.
+        ${p.decia ? `<span class="suave">Decía: ${escapar(sinPuntoFinal(p.decia))}.</span>` : ''}
       </li>`).join('')}</ul>
     </div>`;
 }
