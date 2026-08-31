@@ -264,7 +264,7 @@ function escribirMes(rejilla, estado, mes, desde) {
     rejilla.poner(n, 4, [movimiento.detalle, motivo].filter(Boolean).join(' — ') || null, CELDA);
     // El rubro va con SU color, el mismo que tiene en la app (T-909, T-916).
     rejilla.poner(n, 5, formatearRubro(movimiento.rubro),
-      RUBRO_CELDA_BASE + franjaDeRubro(movimiento.tipo, movimiento.rubro));
+      RUBRO_CELDA_BASE + franjaDeRubro(movimiento.tipo, movimiento.rubro, estado?.rubros));
     rejilla.poner(n, 6, euros === null ? null : aDosDecimales(euros), EUROS);
     rejilla.poner(n, 7, movimiento.tipo, TIPO);
     n += 1;
@@ -301,7 +301,7 @@ function todosLosRubros(estado, mes, tipo) {
 
   // El tercer elemento es el rubro sin formatear: lo necesita el color, que se
   // calcula con la clave y no con la etiqueta que se muestra.
-  return rubrosDe(tipo).map((rubro) => [
+  return rubrosDe(tipo, estado?.rubros).map((rubro) => [
     formatearRubro(rubro),
     aEuros(conMovimientos.get(rubro) ?? 0),
     rubro,
@@ -333,7 +333,7 @@ function escribirResumen(rejilla, estado, mes, desde) {
     for (const [i, [etiqueta]] of columnas.entries()) {
       const estilo = tipo === null
         ? ENCABEZADO
-        : RUBRO_ENCABEZADO_BASE + franjaDeRubro(tipo, columnas[i][2] ?? etiqueta);
+        : RUBRO_ENCABEZADO_BASE + franjaDeRubro(tipo, columnas[i][2] ?? etiqueta, estado?.rubros);
       rejilla.poner(n, COL_RESUMEN + i, etiqueta.toUpperCase(), estilo);
     }
     rejilla.poner(n, COL_RESUMEN + columnas.length, 'TOTAL', ENCABEZADO);
@@ -472,11 +472,11 @@ export function hojaDeAnalisis(estado, mesActual = mesDe(hoy())) {
   rejilla.poner(3, 1, 'MES', ENCABEZADO);
   for (const [i, rubro] of matriz.rubros.entries()) {
     rejilla.poner(3, 2 + i, formatearRubro(rubro).toUpperCase(),
-      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_GASTO, rubro));
+      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_GASTO, rubro, estado?.rubros));
   }
   for (const [i, rubro] of matriz.rubrosIngreso.entries()) {
     rejilla.poner(3, COL_ING_1 + i, formatearRubro(rubro).toUpperCase(),
-      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_INGRESO, rubro));
+      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_INGRESO, rubro, estado?.rubros));
   }
   rejilla.poner(3, COL_GASTOS, 'GASTOS', ENCABEZADO);
   rejilla.poner(3, COL_INGRESOS, 'INGRESOS', ENCABEZADO);

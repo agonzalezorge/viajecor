@@ -41,10 +41,29 @@ export const RUBROS_INGRESO = Object.freeze([
  * Los rubros que acepta un tipo. `otros` aparece en las dos listas y son cosas
  * distintas: "otros gastos" y "otros ingresos" no se mezclan nunca en un total,
  * y lo que los mantiene separados es el campo `tipo`, no el nombre del rubro.
+ *
+ * ── El catálogo es del usuario, no de la app (T-048) ────────────────────────
+ *
+ * Las dos listas de arriba dejaron de ser la verdad y pasaron a ser **el punto
+ * de partida**: quien manda es `estado.rubros`, que el usuario edita desde
+ * Ajustes. `catalogo` es ese objeto `{ gasto: [...], ingreso: [...] }`.
+ *
+ * Sin catálogo se devuelven las listas de fábrica, y eso **no es un atajo**: es
+ * lo que hace que todo el código viejo —y los tests que no hablan de rubros—
+ * sigan funcionando sin cambiar una línea. Un estado recién creado tiene el
+ * catálogo de fábrica, así que las dos ramas dicen lo mismo.
  */
-export function rubrosDe(tipo) {
+export function rubrosDe(tipo, catalogo) {
   const normalizado = normalizarTipo(tipo);
+  const propios = normalizado === TIPO_GASTO ? catalogo?.gasto : catalogo?.ingreso;
+
+  if (Array.isArray(propios) && propios.length > 0) return propios;
   return normalizado === TIPO_GASTO ? RUBROS_GASTO : RUBROS_INGRESO;
+}
+
+/** Los rubros de fábrica, para arrancar un catálogo nuevo. */
+export function rubrosIniciales() {
+  return { gasto: [...RUBROS_GASTO], ingreso: [...RUBROS_INGRESO] };
 }
 
 // ── Normalización de texto (RN-03, L-002) ────────────────────────────────────
@@ -106,9 +125,9 @@ export function normalizarTipo(tipo) {
  * mostrarlo: viene de una lista cerrada cuya forma canónica ya es minúscula
  * (`supermercado`, `gastos fijos`).
  */
-export function normalizarRubro(rubro, tipo) {
+export function normalizarRubro(rubro, tipo, catalogo) {
   const clave = normalizarClave(String(rubro ?? ''));
-  const permitidos = rubrosDe(tipo);
+  const permitidos = rubrosDe(tipo, catalogo);
   if (!permitidos.includes(clave)) {
     const nombreTipo = normalizarTipo(tipo) === TIPO_GASTO ? 'gasto' : 'ingreso';
     throw new Error(
@@ -295,7 +314,7 @@ export function crearMovimiento(entrada, opciones = {}) {
   if (entrada === null || typeof entrada !== 'object') {
     throw new Error('Para crear un movimiento hace falta un objeto con sus datos.');
   }
-  const { decimales, id, creado } = opciones;
+  const { decimales, id, creado, catalogo } = opciones;
   if (decimales === undefined) {
     throw new Error(
       'Falta saber cuántos decimales usa la moneda: sin ese dato el monto se guardaría cien veces más grande o más chico (RN-04b).'
@@ -312,7 +331,7 @@ export function crearMovimiento(entrada, opciones = {}) {
     id: id ?? nuevoId(),
     fecha: validarFecha(entrada.fecha),
     tipo,
-    rubro: normalizarRubro(entrada.rubro, tipo),
+    rubro: normalizarRubro(entrada.rubro, tipo, catalogo),
     monto,
     moneda: normalizarMoneda(entrada.moneda),
     // El comentario se guarda TAL COMO SE ESCRIBIÓ (sin espacios de más) para
@@ -335,7 +354,7 @@ export function crearMovimiento(entrada, opciones = {}) {
  * campos de más, y arrastrarlos hacia adentro es cómo un dato viejo sobrevive a
  * su propia migración.
  */
-export function validarMovimiento(movimiento) {
+export function validarMovimiento(movimiento, catalogo) {
   if (movimiento === null || typeof movimiento !== 'object') {
     throw new Error(`Se esperaba un movimiento y llegó ${JSON.stringify(movimiento)}.`);
   }
@@ -358,7 +377,7 @@ export function validarMovimiento(movimiento) {
     id: movimiento.id.trim(),
     fecha: validarFecha(movimiento.fecha),
     tipo,
-    rubro: normalizarRubro(movimiento.rubro, tipo),
+    rubro: normalizarRubro(movimiento.rubro, tipo, catalogo),
     monto,
     moneda: normalizarMoneda(movimiento.moneda),
     comentario: movimiento.comentario ? normalizarTextoVisible(movimiento.comentario) : '',

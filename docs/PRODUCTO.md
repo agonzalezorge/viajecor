@@ -271,6 +271,7 @@ qué existe.
 | CU-16 | Limpiar los comentarios y detalles ya escritos | **Hecho** (T-025) |
 | CU-17 | Buscar un movimiento en todo el historial | **Hecho** (T-943) |
 | CU-18 | Ver los otros grupos de gastos | **Hecho** (T-946) |
+| CU-19 | Editar los rubros | **Hecho** (T-048) |
 
 ---
 
@@ -630,6 +631,33 @@ la hoja (ver `docs/MAPEO-EXCEL.md` §12).
 
 **Los ahorros no entran en ningún total de gastos:** no van en el saldo del mes,
 ni en la evolución, ni en los rubros. Son un registro aparte.
+
+---
+
+### CU-19 — Editar los rubros
+
+**Para qué:** los rubros venían fijos en el código, y son de quien anota los
+gastos, no de quien escribió la app.
+
+**Muestra:** los rubros de gasto y los de ingreso, cada uno con su color y con
+**cuántos movimientos usa**. Se puede crear uno nuevo, renombrarlo o unir dos.
+
+**Las tres reglas, y las tres protegen lo mismo:**
+
+1. **Renombrar y unir mueven también los movimientos.** El rubro está escrito
+   adentro de cada uno: cambiar la lista sin tocarlos dejaría gastos apuntando a
+   un rubro que ya no existe, que no dan error y **desaparecen de todos los
+   totales por rubro**.
+2. **Un rubro con movimientos no se saca: se une con otro.** Sacarlo perdería
+   esos gastos de los totales; borrarlos con él sería borrar plata anotada.
+3. **Como mucho ocho por tipo.** La paleta tiene ocho colores validados contra
+   daltonismo (ADR-029) y un noveno sería indistinguible. Para agregar uno hay
+   que unir dos.
+
+**Si un rubro queda con movimientos pero fuera de la lista** —puede pasar
+importando un respaldo de otro dispositivo con más rubros de los que entran—,
+la pantalla **lo dice** y deja unirlo: esos movimientos existen y no aparecen en
+ningún total por rubro.
 
 ---
 

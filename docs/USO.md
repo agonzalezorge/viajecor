@@ -59,6 +59,21 @@ no cargues nada: cerrá y abrila por la dirección.
 
 ---
 
+## 1a. Las dos mitades de la app
+
+Arriba del todo hay dos botones: **Vida cotidiana** y **Ahorros conjuntos**.
+
+- **Vida cotidiana** es la app de siempre: los gastos e ingresos del mes, los
+  rubros, los viajes, los historiales.
+- **Ahorros conjuntos** es la plata guardada de los dos, en cada moneda, que no
+  se mezcla con nada de lo anterior.
+
+La barra de abajo cambia según cuál estés usando, y la app **recuerda en cuál
+estabas** la próxima vez que la abras. **Datos** y **Ajustes** están en las dos:
+el respaldo se lleva todo junto.
+
+---
+
 ## 1b. En un iPhone: por la web, no por el archivo
 
 **En un iPhone no hay forma de abrir el archivo bajado.** No es una configuración
@@ -347,6 +362,26 @@ también un arreglo (rubro *otros*, 10 €), vas a ver **«Casa» en las dos
 pantallas**: en gastos fijos con 60 € —lo que "Casa" gastó en ese rubro— y acá
 con 70 € —«Casa» entera—. No es un error ni se cuenta dos veces: son dos
 preguntas distintas, y **la fila de gastos fijos te lo aclara ahí mismo**.
+
+---
+
+## 5b. Los rubros (Ajustes → Rubros)
+
+Los rubros de gasto y de ingreso ya no vienen fijos: podés **crear** uno nuevo,
+**renombrarlo** o **unir dos** en uno solo. Cada uno muestra cuántos movimientos
+usa, para que sepas qué estás por mover.
+
+**Renombrar y unir mueven también tus movimientos**, así que nada queda colgado.
+Si le ponés a un rubro el nombre de otro que ya existe, los dos se unen — que es
+justo lo que uno quiere decir al escribir encima.
+
+**Un rubro que tiene movimientos no se puede sacar a secas**: hay que unirlo con
+otro. Sacarlo dejaría esos gastos afuera de todos los totales, y borrarlos sería
+borrar plata que anotaste.
+
+**El máximo es ocho de cada tipo.** No es un límite técnico: cada rubro tiene su
+color, los ocho pasaron una prueba de daltonismo, y un noveno sería
+indistinguible de otro. Para agregar uno más, uní dos de los que ya tenés.
 
 ---
 

@@ -128,7 +128,7 @@ export function porRubro(estado, mes, tipo) {
 /** Los rubros de un tipo que el usuario NO usó este mes. Para el detalle. */
 export function rubrosSinUsar(estado, mes, tipo) {
   const usados = new Set(porRubro(estado, mes, tipo).map((r) => normalizarClave(r.rubro)));
-  return rubrosDe(tipo).filter((r) => !usados.has(r));
+  return rubrosDe(tipo, estado?.rubros).filter((r) => !usados.has(r));
 }
 
 /**
@@ -229,8 +229,8 @@ export function mesesSeguidos(desde, hasta) {
  */
 export function matrizMesRubro(estado, mesActual) {
   const conMovimientos = mesesConMovimientos(estado.movimientos);
-  const rubros = rubrosDe(TIPO_GASTO);
-  const rubrosIngreso = rubrosDe(TIPO_INGRESO);
+  const rubros = rubrosDe(TIPO_GASTO, estado?.rubros);
+  const rubrosIngreso = rubrosDe(TIPO_INGRESO, estado?.rubros);
   if (conMovimientos.length === 0) {
     return { meses: [], rubros, rubrosIngreso, filas: [], total: null, promedio: null, mesesDelPromedio: 0 };
   }

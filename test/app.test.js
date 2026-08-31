@@ -21,6 +21,11 @@ import {
   vistaInicial,
   moverMes,
   irA,
+  dibujarPerfiles,
+  irAlPerfil,
+  esDelPerfil,
+  PERFIL_COTIDIANA,
+  PERFIL_AHORROS,
 } from '../src/ui/app.js';
 
 import { mesAnterior, mesSiguiente, mesDe, hoy } from '../src/core/modelo.js';
@@ -118,26 +123,71 @@ test('en una pantalla que no es de un mes, el selector no se dibuja', () => {
 // ── Navegación ───────────────────────────────────────────────────────────────
 
 test('la barra tiene una pestaña por sección, más el botón de cargar', () => {
-  const html = dibujarNavegacion('mes');
-  for (const p of pantallasRegistradas().filter((x) => x.enBarra !== false)) {
+  const html = dibujarNavegacion('mes', PERFIL_COTIDIANA);
+  for (const p of pantallasRegistradas().filter((x) => x.enBarra !== false && esDelPerfil(x, PERFIL_COTIDIANA))) {
     assert.ok(html.includes(`data-pantalla="${p.nombre}"`), `falta la pestaña ${p.nombre}`);
     assert.ok(html.includes(p.etiqueta));
   }
   assert.ok(html.includes('class="pestania nueva'));
 });
 
-test('la barra tiene cuatro pestañas y nada más, para que entren en un celular', () => {
-  const enBarra = pantallasRegistradas().filter((p) => p.enBarra !== false);
-  assert.equal(enBarra.length, 4);
+test('la barra tiene cinco pestañas y nada más, para que entren en un celular', () => {
+  // Cinco es el tope: la sexta deja los textos ilegibles en un teléfono. Si
+  // hiciera falta otra sección, tiene que entrar dentro de una de estas.
+  const enBarra = pantallasRegistradas()
+    .filter((p) => p.enBarra !== false && esDelPerfil(p, PERFIL_COTIDIANA));
+  assert.equal(enBarra.length, 5);
+});
+
+test('el perfil de ahorros tiene su propia barra, más corta', () => {
+  // Es la mitad de la app que casi no se toca: mezclarla con la de todos los
+  // días dejaba dos pestañas que no servían para lo que estabas haciendo.
+  const enBarra = pantallasRegistradas()
+    .filter((p) => p.enBarra !== false && esDelPerfil(p, PERFIL_AHORROS));
+
+  assert.deepEqual(enBarra.map((p) => p.nombre).sort(), ['ahorros', 'ajustes', 'datos', 'nuevo-ahorro']);
+});
+
+test('cambiar de perfil lleva a su pantalla de inicio y lo recuerda', () => {
+  const vista = { pantalla: 'mes', perfil: PERFIL_COTIDIANA, estado: { preferencias: {} } };
+  const enAhorros = irAlPerfil(vista, PERFIL_AHORROS);
+
+  assert.equal(enAhorros.perfil, PERFIL_AHORROS);
+  assert.equal(enAhorros.pantalla, 'ahorros');
+  assert.equal(enAhorros.estado.preferencias.perfil, PERFIL_AHORROS);
+});
+
+test('un perfil que no existe no cambia nada', () => {
+  const vista = { pantalla: 'mes', perfil: PERFIL_COTIDIANA, estado: { preferencias: {} } };
+  assert.equal(irAlPerfil(vista, 'inventado'), vista);
+});
+
+test('el selector muestra los dos perfiles y marca el puesto', () => {
+  const html = dibujarPerfiles(PERFIL_AHORROS);
+
+  assert.match(html, /Vida cotidiana/);
+  assert.match(html, /Ahorros conjuntos/);
+  assert.match(html, /data-perfil="ahorros"[^>]*aria-pressed="true"/);
+  assert.match(html, /data-perfil="cotidiana"[^>]*aria-pressed="false"/);
+});
+
+test('una pantalla del otro perfil no se dibuja: se cae a la de inicio', () => {
+  // Pasa con el perfil recordado de la visita anterior. Dibujarla igual dejaría
+  // la barra de abajo señalando otra cosa que la que se está viendo.
+  const estado = { ...estadoInicial({ monedas: monedasIniciales() }), movimientos: [] };
+  const html = dibujarApp({ pantalla: 'mes', perfil: PERFIL_AHORROS, mes: '2026-08', estado });
+
+  assert.match(html, /Ahorros conjuntos/);
+  assert.doesNotMatch(html, /data-accion="mes-anterior"/, 'no quedó el selector de mes de la otra mitad');
 });
 
 test('"Cargar" es la primera pestaña', () => {
   // Pedido del usuario (2026-08-27): es lo que más se hace y lo que se hace
   // apurado, parado en la caja del supermercado. Antes estaba última.
-  const html = dibujarNavegacion('mes');
+  const html = dibujarNavegacion('mes', PERFIL_COTIDIANA);
   const orden = [...html.matchAll(/data-pantalla="([a-z]+)"/g)].map((m) => m[1]);
 
-  assert.deepEqual(orden, ['nuevo', 'mes', 'movimientos', 'datos']);
+  assert.deepEqual(orden, ['nuevo', 'mes', 'movimientos', 'datos', 'ajustes']);
 });
 
 test('el orden de la barra no depende del orden en que se registraron', () => {
@@ -148,8 +198,13 @@ test('el orden de la barra no depende del orden en que se registraron', () => {
   for (const p of enBarra) {
     assert.equal(typeof p.orden, 'number', `la pantalla ${p.nombre} no dice en qué orden va`);
   }
-  const ordenes = enBarra.map((p) => p.orden);
-  assert.equal(new Set(ordenes).size, ordenes.length, 'hay dos pantallas con el mismo orden');
+
+  // La unicidad se mira **dentro de cada perfil**: son dos barras distintas y
+  // nunca se ven juntas, así que "Cargar" puede ser la primera de las dos.
+  for (const perfil of [PERFIL_COTIDIANA, PERFIL_AHORROS]) {
+    const ordenes = enBarra.filter((p) => esDelPerfil(p, perfil)).map((p) => p.orden);
+    assert.equal(new Set(ordenes).size, ordenes.length, `dos pantallas con el mismo orden en ${perfil}`);
+  }
 });
 
 test('"Cargar" se sigue viendo distinta de las otras', () => {
@@ -184,7 +239,7 @@ test('la pestaña actual se marca, y solo una', () => {
 test('están las secciones previstas, la carga y los tipos de cambio', () => {
   assert.deepEqual(
     pantallasRegistradas().map((p) => p.nombre),
-    ['mes', 'movimientos', 'datos', 'evolucion', 'grupos', 'ahorros', 'nuevo-ahorro', 'viajes', 'etiquetas', 'monedas', 'cambios', 'nuevo']
+    ['mes', 'movimientos', 'datos', 'evolucion', 'grupos', 'ahorros', 'nuevo-ahorro', 'viajes', 'etiquetas', 'monedas', 'cambios', 'rubros', 'ajustes', 'nuevo']
   );
 });
 

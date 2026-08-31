@@ -23,7 +23,7 @@
 // es el mismo rubro, y el texto negro encima se lee. No son otra paleta: son la
 // misma vista de otra manera.
 
-import { RUBROS_GASTO, TIPO_GASTO, normalizarClave } from './modelo.js';
+import { TIPO_GASTO, normalizarClave, rubrosDe } from './modelo.js';
 
 /** Cuántos colores hay. Es un tope, no un valor por omisión. */
 export const COLORES = 8;
@@ -116,7 +116,7 @@ export const FONDOS_RUBRO = Object.freeze([
  * Los rubros de gasto la sacan de su posición en la lista. Los de ingreso, de
  * un mapa propio, para que también hereden los colores de la planilla.
  */
-export function franjaDeRubro(tipo, rubro) {
+export function franjaDeRubro(tipo, rubro, catalogo) {
   const clave = normalizarClave(String(rubro ?? ''));
 
   if (tipo !== TIPO_GASTO) {
@@ -129,7 +129,11 @@ export function franjaDeRubro(tipo, rubro) {
     return COLORES;
   }
 
-  const posicion = RUBROS_GASTO.indexOf(clave);
+  // La posición en el catálogo **del usuario** (T-048), no en la lista de
+  // fábrica: si él creó "mascotas", tiene que tener un color propio como
+  // cualquier otro. El catálogo arranca igual al de fábrica, así que los
+  // colores de siempre no se mueven.
+  const posicion = rubrosDe(TIPO_GASTO, catalogo).indexOf(clave);
 
   // Un rubro que no está en la lista no debería existir (RN-02), pero si llega
   // de un dato viejo se le da la última franja en vez de romper la pantalla.

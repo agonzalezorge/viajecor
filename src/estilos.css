@@ -1157,3 +1157,57 @@ body {
 
 .que-entra > summary::marker { color: var(--texto-suave); }
 .que-entra .rubros { margin-top: 0.25rem; }
+
+
+/* ── El selector de perfil (T-046) ───────────────────────────────────────────
+   Dos botones a la vista, no un desplegable: con dos opciones, esconder una
+   obliga a saber que existe para ir a buscarla. Va arriba del todo porque
+   cambia de qué app estamos hablando, no qué pantalla de la misma app. */
+.perfiles {
+  display: flex;
+  gap: 0.375rem;
+  margin: 0 0 0.75rem;
+  padding: 0.25rem;
+  background: var(--fondo-hundido, rgba(0, 0, 0, 0.04));
+  border-radius: 999px;
+}
+
+.opcion-perfil {
+  flex: 1;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* El activo va con fondo sólido y no solo con otro color de texto: dos textos
+   parecidos obligan a compararlos para saber cuál está puesto. */
+.opcion-perfil.activa {
+  background: var(--superficie);
+  color: var(--texto);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+
+/* ── Los formularios de una línea (T-048) ────────────────────────────────────
+   Editar un rubro pasa DENTRO de su fila, no en otra pantalla: lo que se está
+   por cambiar tiene que quedar a la vista mientras se cambia. */
+.formulario-linea { margin: 0.5rem 0 0; }
+.formulario-linea input[type="text"],
+.formulario-linea select {
+  width: 100%;
+  padding: 0.625rem;
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+}
+.formulario-linea .botones { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.formulario-linea .campo { margin: 0; }

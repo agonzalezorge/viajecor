@@ -68,6 +68,11 @@ export function contenidoDelRespaldo(estado, { fecha = hoy() } = {}) {
     // que nacen**, que es la lección que dejó haberlos olvidado con las fechas
     // de viaje (L-031).
     ahorros: estado.ahorros ?? [],
+    // El catálogo de rubros (T-048). Sin esto, restaurar un respaldo en otro
+    // dispositivo descartaría todos los movimientos de los rubros que el
+    // usuario creó — no se puede recalcular mirando los movimientos, así que
+    // entra al respaldo el mismo día que nace (L-031).
+    rubros: estado.rubros ?? undefined,
     preferencias: estado.preferencias ?? {},
   };
 

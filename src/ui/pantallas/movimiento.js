@@ -86,6 +86,8 @@ export function intentarGuardar(estado, borrador) {
       decimales,
       id: original?.id,
       creado: original?.creado,
+      // Los rubros que valen son los del usuario (T-048), no los de fábrica.
+      catalogo: estado.rubros,
     });
   } catch (error) {
     // El mensaje viene del modelo, ya escrito para una persona. Repetirlo acá
@@ -325,12 +327,12 @@ export function dibujarNuevo(vista) {
         <!-- El campo se pinta del color del rubro elegido: es la confirmación
              de que quedó puesto el que se quería, sin volver a leerlo. El mismo
              color que va a tener después en el resumen del mes. -->
-        <div class="campo-rubro ${borrador.rubro ? claseDeRubro(borrador.tipo, borrador.rubro) : 'sin-elegir'}"
+        <div class="campo-rubro ${borrador.rubro ? claseDeRubro(borrador.tipo, borrador.rubro, estado.rubros) : 'sin-elegir'}"
              data-campo-rubro>
           <select name="rubro">
             <option value=""${borrador.rubro ? '' : ' selected'} disabled>Elegí un rubro</option>
             ${opciones(
-              rubrosDe(borrador.tipo).map((r) => ({ valor: r, texto: formatearRubro(r) })),
+              rubrosDe(borrador.tipo, estado.rubros).map((r) => ({ valor: r, texto: formatearRubro(r) })),
               borrador.rubro
             )}
           </select>

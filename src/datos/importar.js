@@ -22,7 +22,8 @@
 //      lo mismo que importarlo una.
 
 import { migrarEstado } from './almacenamiento.js';
-import { validarFecha, normalizarClave } from '../core/modelo.js';
+import { validarFecha, normalizarClave, rubrosDe, TIPO_GASTO, TIPO_INGRESO } from '../core/modelo.js';
+import { TOPE_DE_RUBROS } from '../core/rubros.js';
 
 /**
  * Lee el texto de un respaldo. **Nunca tira**: devuelve el resultado o el
@@ -150,6 +151,11 @@ export function aplicarImportacion(estadoActual, leido, modo) {
     // agregar un respaldo a lo que hay, lo de este dispositivo es lo más nuevo
     // que se sabe. Sin esta línea, un viaje del respaldo llegaba sin sus fechas
     // y la app volvía a preguntar "¿Cuándo fue?" por algo ya contestado (L-031).
+    // El catálogo de rubros del respaldo se UNE al de acá: si el archivo trae
+    // "mascotas" y este dispositivo no lo tiene, sin esto entrarían movimientos
+    // de un rubro inexistente y se caerían en la próxima lectura.
+    rubros: unirCatalogos(estadoActual.rubros, importado.rubros),
+
     // Los ahorros del respaldo se suman por id, igual que los movimientos: dos
     // importaciones del mismo archivo no pueden duplicar la plata ahorrada.
     ahorros: unirPorClave(
@@ -204,4 +210,31 @@ function ultimoRespaldoDespuesDe(estadoActual, leido) {
 function unirPorClave(propios, ajenos, clave) {
   const vistos = new Set(propios.map(clave));
   return [...propios, ...ajenos.filter((a) => !vistos.has(clave(a)))];
+}
+
+
+/**
+ * Une dos catálogos de rubros, respetando el tope de la paleta — T-048.
+ *
+ * Lo de este dispositivo va primero (conserva los colores) y del respaldo entra
+ * lo que falte. **Se corta en el tope**: nueve rubros no tendrían nueve colores
+ * distinguibles (ADR-029), y lo que no entra no se pierde —sus movimientos
+ * siguen ahí— sino que queda como rubro huérfano, que Ajustes muestra y deja
+ * unir con otro.
+ */
+export function unirCatalogos(propio, ajeno) {
+  const unir = (a = [], b = []) => {
+    const juntos = [...a];
+    for (const rubro of b) {
+      if (typeof rubro !== 'string') continue;
+      const clave = normalizarClave(rubro);
+      if (clave !== '' && !juntos.includes(clave)) juntos.push(clave);
+    }
+    return juntos.slice(0, TOPE_DE_RUBROS);
+  };
+
+  const base = { gasto: rubrosDe(TIPO_GASTO, propio), ingreso: rubrosDe(TIPO_INGRESO, propio) };
+  if (!ajeno || typeof ajeno !== 'object') return base;
+
+  return { gasto: unir(base.gasto, ajeno.gasto), ingreso: unir(base.ingreso, ajeno.ingreso) };
 }

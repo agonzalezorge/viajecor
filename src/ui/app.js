@@ -27,6 +27,9 @@ import { dibujarEtiquetas, dibujarAvisoRenombrar, intentarRenombrar,
   intentarBorrarEtiqueta } from './pantallas/etiquetas.js';
 import { efectoDeRenombrar } from '../core/etiquetas.js';
 import { conectarSeries } from './series-interaccion.js';
+import { dibujarAjustes } from './pantallas/ajustes.js';
+import { dibujarRubros } from './pantallas/rubros.js';
+import { crearRubro, renombrarRubro, unirRubros, borrarRubro } from '../core/rubros.js';
 import { dibujarAhorros } from './pantallas/ahorros.js';
 import {
   dibujarNuevoAhorro, borradorDeAhorro, borradorDesdeAhorro, intentarGuardarAhorro,
@@ -87,6 +90,43 @@ export function escapar(texto) {
 // haber pantallas sin construir. Si vuelve a hacer falta, está en el historial;
 // lo que no se deja es una función que no llama nadie.
 
+// ── Los perfiles ─────────────────────────────────────────────────────────────
+//
+// La app hace dos cosas que casi no se tocan entre sí:
+//
+//   - **Vida cotidiana**: los gastos e ingresos del mes, con sus rubros, sus
+//     viajes y sus historiales. Todo en euros, todo con un mes de por medio.
+//   - **Ahorros conjuntos**: la plata guardada de dos personas en tres monedas
+//     que **no se convierten entre sí**, sin mes y sin rubros.
+//
+// Mezclarlas en una sola barra de abajo tiene un costo que se paga todos los
+// días: cinco pestañas de las que dos no sirven para lo que estás haciendo. El
+// selector de arriba cambia **de qué app estamos hablando**, y la barra pasa a
+// mostrar solo lo de ese perfil.
+//
+// Lo pidió el usuario (2026-08-31) después de ver algo parecido en otra app.
+// La decisión de fondo ya estaba tomada desde CU-14 —los ahorros son un
+// registro aparte, no un rubro más—; esto la hace visible.
+
+export const PERFIL_COTIDIANA = 'cotidiana';
+export const PERFIL_AHORROS = 'ahorros';
+
+export const PERFILES = Object.freeze([
+  { clave: PERFIL_COTIDIANA, etiqueta: 'Vida cotidiana', inicio: 'mes' },
+  { clave: PERFIL_AHORROS, etiqueta: 'Ahorros conjuntos', inicio: 'ahorros' },
+]);
+
+/** El perfil al que pertenece una pantalla. `ambos` la deja en los dos. */
+export function perfilDe(definicion) {
+  return definicion?.perfil ?? PERFIL_COTIDIANA;
+}
+
+/** ¿Esta pantalla se ve estando en este perfil? */
+export function esDelPerfil(definicion, perfil) {
+  const suyo = perfilDe(definicion);
+  return suyo === 'ambos' || suyo === perfil;
+}
+
 const PANTALLAS = new Map();
 
 export function registrarPantalla(nombre, definicion) {
@@ -118,7 +158,10 @@ registrarPantalla('movimientos', {
   dibujar: dibujarLista,
 });
 
+// Los datos son de TODA la app —el respaldo lleva las dos mitades, y la
+// planilla trae las dos hojas—, así que la pestaña está en los dos perfiles.
 registrarPantalla('datos', {
+  perfil: 'ambos',
   etiqueta: 'Datos',
   orden: 4,
   icono: '↧',
@@ -149,18 +192,21 @@ registrarPantalla('grupos', {
 });
 
 registrarPantalla('ahorros', {
-  etiqueta: 'Ahorros conjuntos',
+  etiqueta: 'Ahorros',
+  orden: 2,
   icono: '◈',
   conMes: false,
-  enBarra: false,
+  perfil: PERFIL_AHORROS,
   dibujar: dibujarAhorros,
 });
 
 registrarPantalla('nuevo-ahorro', {
-  etiqueta: 'Cargar en ahorros',
-  icono: '＋',
+  etiqueta: 'Cargar',
+  orden: 1,
+  icono: '+',
   conMes: false,
-  enBarra: false,
+  destacada: true,
+  perfil: PERFIL_AHORROS,
   dibujar: dibujarNuevoAhorro,
 });
 
@@ -199,6 +245,25 @@ registrarPantalla('cambios', {
 // Primera de la barra, por pedido del usuario (2026-08-27): cargar un gasto es
 // lo que más se hace y lo que se hace apurado, parado en la caja del
 // supermercado. `destacada` es lo que le da el aspecto distinto que ya tenía.
+// La quinta pestaña, pedida por el usuario (2026-08-31). Va última: es lo que
+// menos se toca, y en una barra el pulgar llega antes a lo de la izquierda.
+registrarPantalla('rubros', {
+  etiqueta: 'Rubros',
+  icono: '◑',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarRubros,
+});
+
+registrarPantalla('ajustes', {
+  etiqueta: 'Ajustes',
+  orden: 5,
+  icono: '⚙',
+  conMes: false,
+  perfil: 'ambos',
+  dibujar: dibujarAjustes,
+});
+
 registrarPantalla('nuevo', {
   etiqueta: 'Cargar',
   orden: 1,
@@ -218,7 +283,7 @@ registrarPantalla('nuevo', {
  * En las pantallas que no son de un mes (los datos, las monedas) el selector no
  * se dibuja: un control que no hace nada enseña a desconfiar de los controles.
  */
-export function dibujarEncabezado({ mes, conMes }) {
+export function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA }) {
   const selector = conMes
     ? `
       <nav class="mes" aria-label="Mes que se está viendo">
@@ -233,15 +298,39 @@ export function dibujarEncabezado({ mes, conMes }) {
       <h1>Viajecor</h1>
       <span class="version">v${escapar(versionApp())}</span>
     </header>
+    ${dibujarPerfiles(perfil)}
     ${selector}
   `;
+}
+
+/**
+ * El selector de perfil, arriba del todo.
+ *
+ * **Dos botones a la vista y no un desplegable.** Un desplegable esconde que
+ * existe la otra mitad de la app: hay que saber que está para ir a buscarla.
+ * Con dos, la primera vez que alguien abre la app **ve que hay dos cosas**, y
+ * cambiar es un toque en vez de tres.
+ *
+ * Si algún día hubiera cuatro perfiles, esto tendría que ser un desplegable —
+ * cuatro botones no entran a lo ancho de un teléfono—. Con dos, no.
+ */
+export function dibujarPerfiles(perfil = PERFIL_COTIDIANA) {
+  const botones = PERFILES.map((p) => {
+    const activo = p.clave === perfil;
+    return `
+      <button type="button" class="opcion-perfil${activo ? ' activa' : ''}"
+              data-accion="perfil" data-perfil="${escapar(p.clave)}"
+              aria-pressed="${activo}">${escapar(p.etiqueta)}</button>`;
+  }).join('');
+
+  return `<nav class="perfiles" aria-label="Qué parte de la app">${botones}</nav>`;
 }
 
 /**
  * La barra de navegación, abajo y no arriba: en un celular sostenido con una
  * mano, la parte de arriba de la pantalla es donde el pulgar no llega.
  */
-export function dibujarNavegacion(actual) {
+export function dibujarNavegacion(actual, perfil = PERFIL_COTIDIANA) {
   // El orden lo decide el campo `orden` de cada pantalla, no el orden en que se
   // registraron: registrar depende de los `import`, y hacer que mover una
   // pestaña dependa de reordenar imports es una trampa esperando.
@@ -250,7 +339,7 @@ export function dibujarNavegacion(actual) {
   // de la barra—, así que cambiar su etiqueta o su ícono había que hacerlo en
   // dos lugares. Ahora sale del registro como todas.
   const botones = pantallasRegistradas()
-    .filter((p) => p.enBarra !== false)
+    .filter((p) => p.enBarra !== false && esDelPerfil(p, perfil))
     .sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99))
     .map((p) => {
       const seleccionada = p.nombre === actual;
@@ -367,16 +456,24 @@ export function dibujarRecordatorio(vista, { fecha } = {}) {
 
 /** La app entera, como texto. Es la función que los tests miran. */
 export function dibujarApp(vista) {
-  const definicion = pantalla(vista.pantalla) ?? pantalla('mes');
+  const perfil = vista.perfil ?? PERFIL_COTIDIANA;
+  const pedida = pantalla(vista.pantalla);
+
+  // Una pantalla que no es de este perfil no se dibuja: se cae a la de inicio
+  // del perfil. Pasa con un enlace viejo o con el perfil recordado de la visita
+  // anterior, y mostrarla igual dejaría la barra de abajo señalando otra cosa.
+  const definicion = pedida && esDelPerfil(pedida, perfil)
+    ? pedida
+    : pantalla(PERFILES.find((p) => p.clave === perfil)?.inicio ?? 'mes');
   const contenido = definicion.dibujar(vista);
 
   return `
-    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes })}
+    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes, perfil: vista.perfil })}
     ${dibujarRiesgoDeGuardado(vista.riesgoDeGuardado)}
     ${dibujarAvisos(vista.incidencias)}
     ${dibujarRecordatorio(vista)}
     <main class="contenido">${contenido}</main>
-    ${dibujarNavegacion(definicion.nombre)}
+    ${dibujarNavegacion(definicion.nombre, vista.perfil)}
   `;
 }
 
@@ -390,6 +487,9 @@ export function dibujarApp(vista) {
 export function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false, riesgoDeGuardado = null } = {}) {
   return {
     pantalla: 'mes',
+    // El perfil elegido se recuerda entre visitas: quien está poniendo al día
+    // los ahorros de un mes abre la app tres veces seguidas para eso mismo.
+    perfil: estado?.preferencias?.perfil === PERFIL_AHORROS ? PERFIL_AHORROS : PERFIL_COTIDIANA,
     mes: mes ?? mesDe(hoy()),
     estado,
     incidencias,
@@ -405,6 +505,26 @@ export function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = f
 export function moverMes(vista, direccion) {
   const mes = direccion === 'anterior' ? mesAnterior(vista.mes) : mesSiguiente(vista.mes);
   return { ...vista, mes };
+}
+
+/**
+ * Cambia de perfil y aterriza en su pantalla de inicio.
+ *
+ * Guarda la elección en las preferencias, con la misma lógica que la moneda
+ * predeterminada: es una preferencia de uso, no un dato del usuario.
+ */
+export function irAlPerfil(vista, clave) {
+  const perfil = PERFILES.find((p) => p.clave === clave);
+  if (!perfil || perfil.clave === vista.perfil) return vista;
+
+  return {
+    ...irA(vista, perfil.inicio),
+    perfil: perfil.clave,
+    estado: {
+      ...vista.estado,
+      preferencias: { ...vista.estado?.preferencias, perfil: perfil.clave },
+    },
+  };
 }
 
 export function irA(vista, nombre) {
@@ -610,6 +730,37 @@ export function iniciar(documento, almacen) {
       // varios seguidos.
       pantalla: resultado.corrigiendo ? 'ahorros' : vista.pantalla,
     };
+    pintar();
+  }
+
+  /**
+   * Aplica un cambio de rubros — T-048.
+   *
+   * Todos pasan por acá y no cada uno por su lado: **mueven movimientos**, así
+   * que todos tienen que escribirse antes de decir que se hicieron (ADR-016) y
+   * todos tienen que dejar el error a la vista si el modelo dice que no. Una
+   * segunda puerta sería una segunda puerta sin alguna de las dos cosas.
+   */
+  function cambiarRubros(hacerlo, aviso) {
+    let nuevoEstado;
+    try {
+      nuevoEstado = hacerlo();
+    } catch (error) {
+      vista = { ...vista, error: error.message, avisoRubro: null };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(nuevoEstado, almacen);
+    } catch (error) {
+      vista = { ...vista, error: error.message, avisoRubro: null };
+      pintar();
+      return;
+    }
+
+    vista = { ...vista, estado: nuevoEstado, rubroEditado: null, rubroUnido: null,
+      error: null, avisoRubro: aviso };
     pintar();
   }
 
@@ -1456,6 +1607,25 @@ export function iniciar(documento, almacen) {
     } else if (evento.target.matches('[data-formulario="ahorro"]')) {
       evento.preventDefault();
       guardarElAhorro();
+    } else if (evento.target.matches('[data-formulario="nuevo-rubro"]')) {
+      evento.preventDefault();
+      const campos = evento.target.elements;
+      cambiarRubros(() => crearRubro(vista.estado, campos.tipo.value, campos.nombre.value),
+        `Se agregó "${campos.nombre.value.trim()}".`);
+    } else if (evento.target.matches('[data-formulario="rubro"]')) {
+      evento.preventDefault();
+      const campos = evento.target.elements;
+      cambiarRubros(
+        () => renombrarRubro(vista.estado, campos.tipo.value, campos.viejo.value, campos.nombre.value),
+        `Listo: "${campos.viejo.value}" ahora es "${campos.nombre.value.trim()}", con sus movimientos.`
+      );
+    } else if (evento.target.matches('[data-formulario="unir-rubro"]')) {
+      evento.preventDefault();
+      const campos = evento.target.elements;
+      cambiarRubros(
+        () => unirRubros(vista.estado, campos.tipo.value, campos.desde.value, campos.hasta.value),
+        `Listo: los movimientos de "${campos.desde.value}" pasaron a "${campos.hasta.value}".`
+      );
     } else if (evento.target.matches('[data-formulario="cambio"]')) {
       evento.preventDefault();
       guardarTipoDeCambio();
@@ -1684,6 +1854,32 @@ export function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, borrado: null };
+    } else if (accion === 'editar-rubro') {
+      vista = { ...vista, rubroEditado: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
+        rubroUnido: null, error: null, avisoRubro: null };
+    } else if (accion === 'unir-desde') {
+      vista = { ...vista, rubroUnido: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
+        rubroEditado: null, error: null, avisoRubro: null };
+    } else if (accion === 'cancelar-rubro') {
+      vista = { ...vista, rubroEditado: null, rubroUnido: null, error: null };
+    } else if (accion === 'borrar-rubro') {
+      // Sin confirmación, y a propósito: este botón solo aparece en los rubros
+      // que **no tiene ningún movimiento**, así que no hay nada que perder. Los
+      // que sí tienen se sacan uniéndolos, que es otra cosa y pregunta.
+      cambiarRubros(() => borrarRubro(vista.estado, boton.dataset.tipo, boton.dataset.rubro),
+        `Se sacó "${boton.dataset.rubro}".`);
+      return;
+    } else if (accion === 'perfil') {
+      vista = irAlPerfil(vista, boton.dataset.perfil);
+      // El perfil elegido se guarda: quien está poniendo al día los ahorros
+      // abre la app varias veces seguidas para lo mismo. Si no se puede
+      // escribir, se cambia igual y se recuerda solo mientras esté abierta:
+      // negarse a cambiar de pantalla por eso sería absurdo.
+      try {
+        guardarEstado(vista.estado, almacen);
+      } catch {
+        // Ver arriba.
+      }
     } else if (accion === 'guardar-ahorro') {
       evento.preventDefault();
       guardarElAhorro();

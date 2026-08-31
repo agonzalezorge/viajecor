@@ -91,6 +91,9 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-041 | Pantalla de ahorros conjuntos | **Hecha** | T-040, T-010 |
 | T-042 | Importar la hoja de ahorros de la planilla | **Hecha** | T-040, T-031 |
 | T-045 | Cargar, corregir y borrar ahorros desde la app | **Hecha** | T-041 |
+| T-046 | Dos perfiles: vida cotidiana y ahorros conjuntos | **Hecha** | T-045 |
+| T-047 | La pestaña de Ajustes | **Hecha** | T-046 |
+| T-048 | Rubros editables: crear, renombrar, unir | **Hecha** | T-047 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
@@ -2492,3 +2495,57 @@ corregir uno —cambiándole el monto y la persona—, borrar otro y ver que pre
 deshacer, recargar y comprobar que quedó como debía. Más el caso de un monto
 cero, que no se guarda y no borra lo escrito. Cero pedidos de red, cero errores
 de consola.
+
+### T-046 · Dos perfiles · T-047 · Ajustes · T-048 · Rubros editables — **Hechas** (2026-08-31)
+**Pedidas por el usuario (2026-08-31)** · **Tocó:** `core/rubros.js`,
+`ui/pantallas/rubros.js`, `ui/pantallas/ajustes.js` (nuevos), `core/modelo.js`,
+`core/paleta.js`, `core/calculos.js`, `datos/almacenamiento.js`,
+`datos/exportar.js`, `datos/importar.js`, `datos/xlsx.js`, `ui/app.js`,
+`ui/colores.js`, `ui/pantallas/movimiento.js`, `ui/pantallas/datos.js`,
+`estilos.css`
+
+**T-046 — los perfiles.** El usuario vio un selector así en otra app y lo pidió.
+La decisión de fondo ya estaba tomada desde CU-14 —los ahorros son un registro
+aparte, no un rubro más—; esto la hace visible: la barra de abajo cambia con el
+perfil, así que no quedan pestañas que no sirven para lo que estás haciendo.
+
+**Dos botones a la vista y no un desplegable.** Con dos opciones, esconder una
+obliga a saber que existe para ir a buscarla; con dos botones, la primera vez
+que alguien abre la app ve que hay dos cosas. Si algún día hubiera cuatro
+perfiles habría que cambiarlo — cuatro no entran a lo ancho de un teléfono.
+
+**T-047 — Ajustes.** La quinta pestaña separa dos preguntas que se hacen en
+momentos distintos: "¿cómo guardo mis datos?" (Datos) y "¿cómo quiero que la app
+se comporte?" (Ajustes). Las pantallas que ya existían **se mudaron**, no se
+duplicaron: dos puertas a la misma pantalla es la forma más barata de que una
+quede vieja.
+
+**T-048 — los rubros.** Era lo más delicado que se tocó en todo el proyecto,
+porque **el rubro está escrito adentro de cada movimiento**: cambiar la lista sin
+mover los movimientos deja gastos apuntando a un rubro que ya no existe, que no
+dan error y desaparecen de todos los totales por rubro.
+
+De ahí las tres reglas: renombrar y unir **mueven también los movimientos**; un
+rubro con movimientos **no se saca, se une**; y el tope es **ocho por tipo**,
+porque la paleta tiene ocho colores validados contra daltonismo (ADR-029) y el
+noveno sería indistinguible.
+
+**El defecto más caro, atajado antes de que existiera:** `validarMovimiento`
+comprueba que el rubro esté en la lista, así que leer el estado con el catálogo
+de fábrica **descartaría en silencio todos los movimientos de los rubros creados
+por el usuario**. Por eso el catálogo se lee *antes* que los movimientos y se le
+pasa, y por eso entra al respaldo el mismo día que nace (L-031). Tiene su test.
+
+**El catálogo del respaldo se une al de acá, y se corta en el tope.** Lo que no
+entra no se pierde: queda como **rubro huérfano**, y la pantalla lo muestra
+aparte con un aviso, porque son movimientos que existen y no aparecen en ningún
+total por rubro.
+
+**Mutaciones:** 16 sembradas, 16 muertas.
+
+**Recorrido en el navegador:** cambiar de perfil y ver que la barra cambia, que
+se recuerda al recargar; entrar a Ajustes → Rubros, ver que con ocho no ofrece
+agregar y explica por qué, unir "salud" con "otros" —con su movimiento—, crear
+"mascotas" con el lugar que quedó libre, recargar y comprobar que el gasto
+aparece ahora en "otros" y que el formulario de carga ofrece "mascotas". Cero
+pedidos de red, cero errores de consola.

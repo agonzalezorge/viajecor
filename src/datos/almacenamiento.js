@@ -13,7 +13,9 @@
 // que nunca hace es pisar en silencio un dato que no entendió: un dato ilegible
 // todavía se puede rescatar a mano; uno sobrescrito, no.
 
-import { validarMovimiento, validarFecha, nuevoId } from '../core/modelo.js';
+import {
+  validarMovimiento, validarFecha, nuevoId, rubrosIniciales, normalizarClave,
+} from '../core/modelo.js';
 import { personaDeLaPlanilla, tipoDeLaPlanilla } from '../core/ahorros.js';
 
 export const CLAVE_DATOS = 'viajecor:datos:v1';
@@ -51,6 +53,11 @@ export function estadoInicial({ monedas = [], versionApp } = {}) {
     // un rubro más: un ahorro no entra en el saldo del mes ni se reparte por
     // rubro, y mezclarlo ensuciaría todos los totales que ya funcionan.
     ahorros: [],
+    // El catálogo de rubros del usuario (T-048). Arranca con los de fábrica y
+    // se edita desde Ajustes: crear, renombrar, unir. Vive en los datos y no en
+    // el código por lo mismo que las monedas (T-008) — quien decide qué rubros
+    // usa es quien anota los gastos, no quien escribió la app.
+    rubros: rubrosIniciales(),
     preferencias: { moneda_predeterminada: 'EUR' },
   };
 }
@@ -179,8 +186,15 @@ export function migrarEstado(guardado, incidencias = []) {
     estado.version_app = guardado.version_app;
   }
 
+  // ⚠️ El catálogo de rubros se lee **antes** que los movimientos, y no es un
+  // detalle de orden: `validarMovimiento` comprueba que el rubro exista, así
+  // que con el catálogo de fábrica **todo movimiento de un rubro creado por el
+  // usuario se descartaría al recargar**. Plata anotada que desaparece en
+  // silencio, que es exactamente lo que esta app no hace. Ver T-048.
+  estado.rubros = leerCatalogoDeRubros(guardado.rubros, incidencias);
+
   estado.movimientos = leerLista(guardado.movimientos, 'movimientos', incidencias, (mov) =>
-    validarMovimiento(mov)
+    validarMovimiento(mov, estado.rubros)
   );
 
   estado.tipos_cambio = leerLista(guardado.tipos_cambio, 'tipos de cambio', incidencias, (tc) => {
@@ -287,6 +301,12 @@ export function migrarEstado(guardado, incidencias = []) {
     // Que compartir no funciona en este teléfono (T-914). Sin esto, el botón
     // que ya falló una vez volvería a ofrecerse en cada recarga y volvería a
     // fallar igual.
+    // En qué mitad de la app estaba (T-046). Sin esto, quien está poniendo al
+    // día los ahorros vuelve a caer en los gastos cada vez que abre.
+    if (preferencias.perfil === 'ahorros' || preferencias.perfil === 'cotidiana') {
+      estado.preferencias.perfil = preferencias.perfil;
+    }
+
     if (preferencias.compartir_no_funciona === true) {
       estado.preferencias.compartir_no_funciona = true;
     }
@@ -513,4 +533,48 @@ function puedeEscribir(almacen) {
   } catch {
     return false;
   }
+}
+
+
+/**
+ * Lee el catálogo de rubros guardado — T-048.
+ *
+ * **Nunca deja al usuario sin rubros.** Un catálogo vacío o roto haría que no se
+ * pueda cargar ni leer un solo movimiento: ahí se vuelve al de fábrica y se
+ * dice, que es mucho mejor que una app que no deja hacer nada.
+ *
+ * Los rubros se guardan normalizados y sin repetidos, por lo mismo que todo lo
+ * que agrupa (RN-03): dos entradas que solo se diferencian en una mayúscula
+ * partirían los totales de ese rubro en dos.
+ */
+export function leerCatalogoDeRubros(guardado, incidencias = []) {
+  const inicial = rubrosIniciales();
+  if (guardado === undefined || guardado === null) return inicial;
+
+  if (typeof guardado !== 'object' || Array.isArray(guardado)) {
+    incidencias.push('La lista de rubros guardada no se entendió; se usaron los de siempre.');
+    return inicial;
+  }
+
+  const limpiar = (lista, deFabrica, cual) => {
+    if (!Array.isArray(lista)) return [...deFabrica];
+
+    const vistos = [];
+    for (const rubro of lista) {
+      if (typeof rubro !== 'string') continue;
+      const clave = normalizarClave(rubro);
+      if (clave !== '' && !vistos.includes(clave)) vistos.push(clave);
+    }
+
+    if (vistos.length === 0) {
+      incidencias.push(`No quedaba ningún rubro de ${cual}; se usaron los de siempre.`);
+      return [...deFabrica];
+    }
+    return vistos;
+  };
+
+  return {
+    gasto: limpiar(guardado.gasto, inicial.gasto, 'gasto'),
+    ingreso: limpiar(guardado.ingreso, inicial.ingreso, 'ingreso'),
+  };
 }

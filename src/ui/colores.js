@@ -43,6 +43,6 @@ import { COLORES, franjaDeRubro } from '../core/paleta.js';
 // movió es dónde vive el cálculo, no quién lo usa.
 export { COLORES, franjaDeRubro };
 
-export function claseDeRubro(tipo, rubro) {
-  return `rubro-${franjaDeRubro(tipo, rubro)}`;
+export function claseDeRubro(tipo, rubro, catalogo) {
+  return `rubro-${franjaDeRubro(tipo, rubro, catalogo)}`;
 }

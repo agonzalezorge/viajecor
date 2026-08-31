@@ -3,6 +3,34 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.6.0 — 2026-08-31
+
+### Agregado
+- **Dos perfiles, con un selector arriba del todo:** *Vida cotidiana* y *Ahorros
+  conjuntos*. La barra de abajo cambia con el perfil, así que ya no hay pestañas
+  que no sirven para lo que estás haciendo. El perfil elegido se recuerda entre
+  visitas.
+
+- **Una quinta pestaña, Ajustes**, con lo que cambia cómo funciona la app: los
+  rubros, las etiquetas, las monedas y los tipos de cambio. En **Datos** quedó
+  lo que mueve información hacia afuera o hacia adentro: respaldos, importar y
+  exportar. Las pantallas no se duplicaron: se mudaron.
+
+- **Los rubros se pueden editar** (Ajustes → Rubros), tanto los de gasto como
+  los de ingreso: crear uno nuevo, renombrarlo o **unir dos en uno solo**.
+
+  **Renombrar y unir mueven también los movimientos**, así que nada queda
+  colgado de un rubro que ya no existe. Cada rubro muestra cuántos movimientos
+  usa, y cada acción dice qué va a pasar antes de hacerla.
+
+  Un rubro **con** movimientos no se puede sacar a secas: hay que unirlo con
+  otro. Sacarlo dejaría esos gastos fuera de todos los totales, y borrarlos con
+  él sería borrar plata anotada.
+
+  **El máximo es ocho por tipo.** No es una limitación técnica: la paleta tiene
+  ocho colores que pasaron el validador de daltonismo, y un noveno sería
+  indistinguible de otro. Para agregar uno más hay que unir dos.
+
 ## 0.5.0 — 2026-08-31
 
 ### Agregado

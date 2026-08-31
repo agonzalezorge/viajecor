@@ -1171,6 +1171,60 @@ body {
 
 .que-entra > summary::marker { color: var(--texto-suave); }
 .que-entra .rubros { margin-top: 0.25rem; }
+
+
+/* ── El selector de perfil (T-046) ───────────────────────────────────────────
+   Dos botones a la vista, no un desplegable: con dos opciones, esconder una
+   obliga a saber que existe para ir a buscarla. Va arriba del todo porque
+   cambia de qué app estamos hablando, no qué pantalla de la misma app. */
+.perfiles {
+  display: flex;
+  gap: 0.375rem;
+  margin: 0 0 0.75rem;
+  padding: 0.25rem;
+  background: var(--fondo-hundido, rgba(0, 0, 0, 0.04));
+  border-radius: 999px;
+}
+
+.opcion-perfil {
+  flex: 1;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* El activo va con fondo sólido y no solo con otro color de texto: dos textos
+   parecidos obligan a compararlos para saber cuál está puesto. */
+.opcion-perfil.activa {
+  background: var(--superficie);
+  color: var(--texto);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+
+/* ── Los formularios de una línea (T-048) ────────────────────────────────────
+   Editar un rubro pasa DENTRO de su fila, no en otra pantalla: lo que se está
+   por cambiar tiene que quedar a la vista mientras se cambia. */
+.formulario-linea { margin: 0.5rem 0 0; }
+.formulario-linea input[type="text"],
+.formulario-linea select {
+  width: 100%;
+  padding: 0.625rem;
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+}
+.formulario-linea .botones { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.formulario-linea .campo { margin: 0; }
 </style>
 
 <div id="app" class="app">
@@ -1184,7 +1238,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.5.0";
+globalThis.__VIAJECOR_VERSION__ = "0.6.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -1490,10 +1544,29 @@ const RUBROS_INGRESO = Object.freeze([
  * Los rubros que acepta un tipo. `otros` aparece en las dos listas y son cosas
  * distintas: "otros gastos" y "otros ingresos" no se mezclan nunca en un total,
  * y lo que los mantiene separados es el campo `tipo`, no el nombre del rubro.
+ *
+ * ── El catálogo es del usuario, no de la app (T-048) ────────────────────────
+ *
+ * Las dos listas de arriba dejaron de ser la verdad y pasaron a ser **el punto
+ * de partida**: quien manda es `estado.rubros`, que el usuario edita desde
+ * Ajustes. `catalogo` es ese objeto `{ gasto: [...], ingreso: [...] }`.
+ *
+ * Sin catálogo se devuelven las listas de fábrica, y eso **no es un atajo**: es
+ * lo que hace que todo el código viejo —y los tests que no hablan de rubros—
+ * sigan funcionando sin cambiar una línea. Un estado recién creado tiene el
+ * catálogo de fábrica, así que las dos ramas dicen lo mismo.
  */
-function rubrosDe(tipo) {
+function rubrosDe(tipo, catalogo) {
   const normalizado = normalizarTipo(tipo);
+  const propios = normalizado === TIPO_GASTO ? catalogo?.gasto : catalogo?.ingreso;
+
+  if (Array.isArray(propios) && propios.length > 0) return propios;
   return normalizado === TIPO_GASTO ? RUBROS_GASTO : RUBROS_INGRESO;
+}
+
+/** Los rubros de fábrica, para arrancar un catálogo nuevo. */
+function rubrosIniciales() {
+  return { gasto: [...RUBROS_GASTO], ingreso: [...RUBROS_INGRESO] };
 }
 
 // ── Normalización de texto (RN-03, L-002) ────────────────────────────────────
@@ -1555,9 +1628,9 @@ function normalizarTipo(tipo) {
  * mostrarlo: viene de una lista cerrada cuya forma canónica ya es minúscula
  * (`supermercado`, `gastos fijos`).
  */
-function normalizarRubro(rubro, tipo) {
+function normalizarRubro(rubro, tipo, catalogo) {
   const clave = normalizarClave(String(rubro ?? ''));
-  const permitidos = rubrosDe(tipo);
+  const permitidos = rubrosDe(tipo, catalogo);
   if (!permitidos.includes(clave)) {
     const nombreTipo = normalizarTipo(tipo) === TIPO_GASTO ? 'gasto' : 'ingreso';
     throw new Error(
@@ -1744,7 +1817,7 @@ function crearMovimiento(entrada, opciones = {}) {
   if (entrada === null || typeof entrada !== 'object') {
     throw new Error('Para crear un movimiento hace falta un objeto con sus datos.');
   }
-  const { decimales, id, creado } = opciones;
+  const { decimales, id, creado, catalogo } = opciones;
   if (decimales === undefined) {
     throw new Error(
       'Falta saber cuántos decimales usa la moneda: sin ese dato el monto se guardaría cien veces más grande o más chico (RN-04b).'
@@ -1761,7 +1834,7 @@ function crearMovimiento(entrada, opciones = {}) {
     id: id ?? nuevoId(),
     fecha: validarFecha(entrada.fecha),
     tipo,
-    rubro: normalizarRubro(entrada.rubro, tipo),
+    rubro: normalizarRubro(entrada.rubro, tipo, catalogo),
     monto,
     moneda: normalizarMoneda(entrada.moneda),
     // El comentario se guarda TAL COMO SE ESCRIBIÓ (sin espacios de más) para
@@ -1784,7 +1857,7 @@ function crearMovimiento(entrada, opciones = {}) {
  * campos de más, y arrastrarlos hacia adentro es cómo un dato viejo sobrevive a
  * su propia migración.
  */
-function validarMovimiento(movimiento) {
+function validarMovimiento(movimiento, catalogo) {
   if (movimiento === null || typeof movimiento !== 'object') {
     throw new Error(`Se esperaba un movimiento y llegó ${JSON.stringify(movimiento)}.`);
   }
@@ -1807,7 +1880,7 @@ function validarMovimiento(movimiento) {
     id: movimiento.id.trim(),
     fecha: validarFecha(movimiento.fecha),
     tipo,
-    rubro: normalizarRubro(movimiento.rubro, tipo),
+    rubro: normalizarRubro(movimiento.rubro, tipo, catalogo),
     monto,
     moneda: normalizarMoneda(movimiento.moneda),
     comentario: movimiento.comentario ? normalizarTextoVisible(movimiento.comentario) : '',
@@ -2490,6 +2563,194 @@ function buscar(estado, texto) {
       || String(b.creado).localeCompare(String(a.creado)));
 }
 
+// ── src/core/rubros.js ──────────────────────────────────────────
+// Editar los rubros — T-048, CU-19.
+//
+// ── Por qué esto es delicado y no una lista más ──────────────────────────────
+//
+// El rubro está escrito adentro de **cada movimiento**. Cambiar el catálogo sin
+// tocar los movimientos deja gastos apuntando a un rubro que ya no existe: no
+// dan error, simplemente **desaparecen de todos los totales** que recorren la
+// lista de rubros. Es la peor forma de fallar de esta app —plata que se esfuma
+// sin un mensaje— y es la razón de las tres reglas de abajo.
+//
+// ── Las tres reglas ──────────────────────────────────────────────────────────
+//
+// 1. **Todo lo que toca el catálogo mueve también los movimientos.** Renombrar
+//    reescribe el rubro de los que lo usaban; unir los pasa al que queda.
+//
+// 2. **Un rubro con movimientos no se puede borrar a secas: hay que decir a
+//    dónde van.** Borrarlo y dejar los gastos huérfanos sería perderlos; y
+//    borrar los gastos con él sería borrar plata anotada, que no es lo que
+//    nadie quiere decir con "sacar un rubro de la lista".
+//
+// 3. **Como mucho ocho por tipo.** No es una limitación técnica: la paleta
+//    tiene ocho colores que pasaron el validador de daltonismo, y un noveno
+//    tono generado sería indistinguible de alguno de esos (ADR-029). Para
+//    agregar el noveno hay que unir dos primero.
+//
+// Este archivo no toca el navegador: es lógica pura y se testea con node --test.
+
+/** Cuántos rubros admite cada tipo. Ver la regla 3. */
+const TOPE_DE_RUBROS = 8;
+
+/** La clave del tipo dentro del catálogo. */
+function ladoDe(tipo) {
+  return normalizarTipo(tipo) === TIPO_GASTO ? 'gasto' : 'ingreso';
+}
+
+/** El catálogo de un estado, siempre completo aunque el estado no lo traiga. */
+function catalogoDe(estado) {
+  return {
+    gasto: rubrosDe(TIPO_GASTO, estado?.rubros),
+    ingreso: rubrosDe(TIPO_INGRESO, estado?.rubros),
+  };
+}
+
+/**
+ * Cuántos movimientos usa cada rubro de ese tipo.
+ *
+ * Es lo que la pantalla necesita para poder decir "esto va a mover 43 gastos"
+ * **antes** de tocar nada. Un cambio que mueve plata sin decir cuánta es un
+ * cambio que se acepta sin entender.
+ */
+function usoDeRubros(estado, tipo) {
+  const buscado = normalizarTipo(tipo);
+  const cuenta = new Map(catalogoDe(estado)[ladoDe(tipo)].map((r) => [r, 0]));
+
+  for (const movimiento of estado?.movimientos ?? []) {
+    if (normalizarTipo(movimiento.tipo) !== buscado) continue;
+    const clave = normalizarClave(String(movimiento.rubro ?? ''));
+    cuenta.set(clave, (cuenta.get(clave) ?? 0) + 1);
+  }
+  return cuenta;
+}
+
+/** Los rubros que están en los movimientos pero ya no en el catálogo. */
+function rubrosHuerfanos(estado, tipo) {
+  const catalogo = catalogoDe(estado)[ladoDe(tipo)];
+  return [...usoDeRubros(estado, tipo).entries()]
+    .filter(([rubro, cuantos]) => cuantos > 0 && !catalogo.includes(rubro))
+    .map(([rubro, cuantos]) => ({ rubro, cuantos }));
+}
+
+/** Reemplaza el catálogo de un tipo, dejando el otro como estaba. */
+function conCatalogo(estado, tipo, lista) {
+  const catalogo = catalogoDe(estado);
+  return { ...estado, rubros: { ...catalogo, [ladoDe(tipo)]: lista } };
+}
+
+/** Cambia el rubro de los movimientos que usaban `desde`. */
+function moverMovimientos(estado, tipo, desde, hasta) {
+  const buscado = normalizarTipo(tipo);
+  return (estado?.movimientos ?? []).map((m) => (
+    normalizarTipo(m.tipo) === buscado && normalizarClave(String(m.rubro ?? '')) === desde
+      ? { ...m, rubro: hasta }
+      : m
+  ));
+}
+
+/**
+ * Agrega un rubro nuevo.
+ *
+ * Va **al final** y no ordenado alfabéticamente: la posición decide el color
+ * (ADR-029), así que insertarlo en el medio repintaría media app y "el ámbar"
+ * dejaría de ser supermercado.
+ */
+function crearRubro(estado, tipo, nombre) {
+  const clave = normalizarClave(String(nombre ?? ''));
+  if (clave === '') throw new Error('El rubro necesita un nombre.');
+
+  const lista = catalogoDe(estado)[ladoDe(tipo)];
+  if (lista.includes(clave)) throw new Error(`"${clave}" ya está en la lista.`);
+
+  if (lista.length >= TOPE_DE_RUBROS) {
+    throw new Error(
+      `Ya hay ${TOPE_DE_RUBROS} rubros y no entran más: cada uno tiene su color, y ` +
+      `un noveno sería indistinguible de otro para quien no distingue bien los ` +
+      `colores. Para agregar este, uní dos de los que ya están.`
+    );
+  }
+
+  return conCatalogo(estado, tipo, [...lista, clave]);
+}
+
+/**
+ * Le cambia el nombre a un rubro, **y se lo cambia también a sus movimientos**.
+ *
+ * Conserva la posición, o sea el color: renombrar "salidas" a "entretenimiento"
+ * no tiene por qué cambiar de qué color es en la torta.
+ *
+ * Si el nombre nuevo es el de otro rubro que ya existe, **es una unión** y se
+ * hace como tal: es lo mismo que pide el usuario cuando escribe encima, y
+ * negarse le dejaría el trabajo a medio hacer.
+ */
+function renombrarRubro(estado, tipo, viejo, nuevo) {
+  const desde = normalizarClave(String(viejo ?? ''));
+  const hasta = normalizarClave(String(nuevo ?? ''));
+  if (hasta === '') throw new Error('El rubro necesita un nombre.');
+
+  const lista = catalogoDe(estado)[ladoDe(tipo)];
+  if (!lista.includes(desde)) throw new Error(`"${viejo}" no está en la lista.`);
+  if (desde === hasta) return estado;
+
+  if (lista.includes(hasta)) return unirRubros(estado, tipo, desde, hasta);
+
+  return {
+    ...conCatalogo(estado, tipo, lista.map((r) => (r === desde ? hasta : r))),
+    movimientos: moverMovimientos(estado, tipo, desde, hasta),
+  };
+}
+
+/**
+ * Une dos rubros: los movimientos de `desde` pasan a `hasta`, y `desde` se va.
+ *
+ * Es la operación que hace posible todo lo demás. Sin ella, "sacar un rubro"
+ * solo se podría hacer con los que nunca se usaron.
+ */
+function unirRubros(estado, tipo, desde, hasta) {
+  const origen = normalizarClave(String(desde ?? ''));
+  const destino = normalizarClave(String(hasta ?? ''));
+
+  const lista = catalogoDe(estado)[ladoDe(tipo)];
+  if (!lista.includes(origen)) throw new Error(`"${desde}" no está en la lista.`);
+  if (!lista.includes(destino)) throw new Error(`"${hasta}" no está en la lista.`);
+  if (origen === destino) throw new Error('Hay que elegir dos rubros distintos.');
+
+  return {
+    ...conCatalogo(estado, tipo, lista.filter((r) => r !== origen)),
+    movimientos: moverMovimientos(estado, tipo, origen, destino),
+  };
+}
+
+/**
+ * Saca un rubro de la lista. **Solo si no lo usa ningún movimiento.**
+ *
+ * Con movimientos adentro hay que unirlo a otro: es la regla 2. El mensaje dice
+ * cuántos son y qué hacer, porque "no se puede" sin decir por qué es la forma
+ * más rápida de que alguien busque la manera de forzarlo.
+ */
+function borrarRubro(estado, tipo, nombre) {
+  const clave = normalizarClave(String(nombre ?? ''));
+  const lista = catalogoDe(estado)[ladoDe(tipo)];
+  if (!lista.includes(clave)) throw new Error(`"${nombre}" no está en la lista.`);
+
+  if (lista.length === 1) {
+    throw new Error('Tiene que quedar al menos un rubro: sin ninguno no se podría cargar nada.');
+  }
+
+  const cuantos = usoDeRubros(estado, tipo).get(clave) ?? 0;
+  if (cuantos > 0) {
+    throw new Error(
+      `"${clave}" lo usan ${cuantos === 1 ? '1 movimiento' : `${cuantos} movimientos`}. ` +
+      `Sacarlo los dejaría fuera de todos los totales, así que primero hay que ` +
+      `unirlo con otro rubro: sus movimientos se mudan y el rubro desaparece.`
+    );
+  }
+
+  return conCatalogo(estado, tipo, lista.filter((r) => r !== clave));
+}
+
 // ── src/core/ahorros.js ─────────────────────────────────────────
 // Los ahorros conjuntos — CU-14, T-040. Reemplaza la hoja `Ahorros conjuntos`.
 //
@@ -2838,7 +3099,7 @@ function porRubro(estado, mes, tipo) {
 /** Los rubros de un tipo que el usuario NO usó este mes. Para el detalle. */
 function rubrosSinUsar(estado, mes, tipo) {
   const usados = new Set(porRubro(estado, mes, tipo).map((r) => normalizarClave(r.rubro)));
-  return rubrosDe(tipo).filter((r) => !usados.has(r));
+  return rubrosDe(tipo, estado?.rubros).filter((r) => !usados.has(r));
 }
 
 /**
@@ -2939,8 +3200,8 @@ function mesesSeguidos(desde, hasta) {
  */
 function matrizMesRubro(estado, mesActual) {
   const conMovimientos = mesesConMovimientos(estado.movimientos);
-  const rubros = rubrosDe(TIPO_GASTO);
-  const rubrosIngreso = rubrosDe(TIPO_INGRESO);
+  const rubros = rubrosDe(TIPO_GASTO, estado?.rubros);
+  const rubrosIngreso = rubrosDe(TIPO_INGRESO, estado?.rubros);
   if (conMovimientos.length === 0) {
     return { meses: [], rubros, rubrosIngreso, filas: [], total: null, promedio: null, mesesDelPromedio: 0 };
   }
@@ -3682,7 +3943,7 @@ const FONDOS_RUBRO = Object.freeze([
  * Los rubros de gasto la sacan de su posición en la lista. Los de ingreso, de
  * un mapa propio, para que también hereden los colores de la planilla.
  */
-function franjaDeRubro(tipo, rubro) {
+function franjaDeRubro(tipo, rubro, catalogo) {
   const clave = normalizarClave(String(rubro ?? ''));
 
   if (tipo !== TIPO_GASTO) {
@@ -3695,7 +3956,11 @@ function franjaDeRubro(tipo, rubro) {
     return COLORES;
   }
 
-  const posicion = RUBROS_GASTO.indexOf(clave);
+  // La posición en el catálogo **del usuario** (T-048), no en la lista de
+  // fábrica: si él creó "mascotas", tiene que tener un color propio como
+  // cualquier otro. El catálogo arranca igual al de fábrica, así que los
+  // colores de siempre no se mueven.
+  const posicion = rubrosDe(TIPO_GASTO, catalogo).indexOf(clave);
 
   // Un rubro que no está en la lista no debería existir (RN-02), pero si llega
   // de un dato viejo se le da la última franja en vez de romper la pantalla.
@@ -3784,6 +4049,11 @@ function estadoInicial({ monedas = [], versionApp } = {}) {
     // un rubro más: un ahorro no entra en el saldo del mes ni se reparte por
     // rubro, y mezclarlo ensuciaría todos los totales que ya funcionan.
     ahorros: [],
+    // El catálogo de rubros del usuario (T-048). Arranca con los de fábrica y
+    // se edita desde Ajustes: crear, renombrar, unir. Vive en los datos y no en
+    // el código por lo mismo que las monedas (T-008) — quien decide qué rubros
+    // usa es quien anota los gastos, no quien escribió la app.
+    rubros: rubrosIniciales(),
     preferencias: { moneda_predeterminada: 'EUR' },
   };
 }
@@ -3912,8 +4182,15 @@ function migrarEstado(guardado, incidencias = []) {
     estado.version_app = guardado.version_app;
   }
 
+  // ⚠️ El catálogo de rubros se lee **antes** que los movimientos, y no es un
+  // detalle de orden: `validarMovimiento` comprueba que el rubro exista, así
+  // que con el catálogo de fábrica **todo movimiento de un rubro creado por el
+  // usuario se descartaría al recargar**. Plata anotada que desaparece en
+  // silencio, que es exactamente lo que esta app no hace. Ver T-048.
+  estado.rubros = leerCatalogoDeRubros(guardado.rubros, incidencias);
+
   estado.movimientos = leerLista(guardado.movimientos, 'movimientos', incidencias, (mov) =>
-    validarMovimiento(mov)
+    validarMovimiento(mov, estado.rubros)
   );
 
   estado.tipos_cambio = leerLista(guardado.tipos_cambio, 'tipos de cambio', incidencias, (tc) => {
@@ -4020,6 +4297,12 @@ function migrarEstado(guardado, incidencias = []) {
     // Que compartir no funciona en este teléfono (T-914). Sin esto, el botón
     // que ya falló una vez volvería a ofrecerse en cada recarga y volvería a
     // fallar igual.
+    // En qué mitad de la app estaba (T-046). Sin esto, quien está poniendo al
+    // día los ahorros vuelve a caer en los gastos cada vez que abre.
+    if (preferencias.perfil === 'ahorros' || preferencias.perfil === 'cotidiana') {
+      estado.preferencias.perfil = preferencias.perfil;
+    }
+
     if (preferencias.compartir_no_funciona === true) {
       estado.preferencias.compartir_no_funciona = true;
     }
@@ -4248,6 +4531,50 @@ function puedeEscribir(almacen) {
   }
 }
 
+
+/**
+ * Lee el catálogo de rubros guardado — T-048.
+ *
+ * **Nunca deja al usuario sin rubros.** Un catálogo vacío o roto haría que no se
+ * pueda cargar ni leer un solo movimiento: ahí se vuelve al de fábrica y se
+ * dice, que es mucho mejor que una app que no deja hacer nada.
+ *
+ * Los rubros se guardan normalizados y sin repetidos, por lo mismo que todo lo
+ * que agrupa (RN-03): dos entradas que solo se diferencian en una mayúscula
+ * partirían los totales de ese rubro en dos.
+ */
+function leerCatalogoDeRubros(guardado, incidencias = []) {
+  const inicial = rubrosIniciales();
+  if (guardado === undefined || guardado === null) return inicial;
+
+  if (typeof guardado !== 'object' || Array.isArray(guardado)) {
+    incidencias.push('La lista de rubros guardada no se entendió; se usaron los de siempre.');
+    return inicial;
+  }
+
+  const limpiar = (lista, deFabrica, cual) => {
+    if (!Array.isArray(lista)) return [...deFabrica];
+
+    const vistos = [];
+    for (const rubro of lista) {
+      if (typeof rubro !== 'string') continue;
+      const clave = normalizarClave(rubro);
+      if (clave !== '' && !vistos.includes(clave)) vistos.push(clave);
+    }
+
+    if (vistos.length === 0) {
+      incidencias.push(`No quedaba ningún rubro de ${cual}; se usaron los de siempre.`);
+      return [...deFabrica];
+    }
+    return vistos;
+  };
+
+  return {
+    gasto: limpiar(guardado.gasto, inicial.gasto, 'gasto'),
+    ingreso: limpiar(guardado.ingreso, inicial.ingreso, 'ingreso'),
+  };
+}
+
 // ── src/datos/exportar.js ───────────────────────────────────────
 // Exportar los datos — CU-07.
 //
@@ -4317,6 +4644,11 @@ function contenidoDelRespaldo(estado, { fecha = hoy() } = {}) {
     // que nacen**, que es la lección que dejó haberlos olvidado con las fechas
     // de viaje (L-031).
     ahorros: estado.ahorros ?? [],
+    // El catálogo de rubros (T-048). Sin esto, restaurar un respaldo en otro
+    // dispositivo descartaría todos los movimientos de los rubros que el
+    // usuario creó — no se puede recalcular mirando los movimientos, así que
+    // entra al respaldo el mismo día que nace (L-031).
+    rubros: estado.rubros ?? undefined,
     preferencias: estado.preferencias ?? {},
   };
 
@@ -4391,6 +4723,7 @@ function diasSinRespaldar(estado, { fecha = hoy() } = {}) {
 //   3. **Agregar no duplica.** Un movimiento que ya está —mismo identificador—
 //      no entra dos veces. Importar dos veces el mismo respaldo tiene que dejar
 //      lo mismo que importarlo una.
+
 
 
 /**
@@ -4519,6 +4852,11 @@ function aplicarImportacion(estadoActual, leido, modo) {
     // agregar un respaldo a lo que hay, lo de este dispositivo es lo más nuevo
     // que se sabe. Sin esta línea, un viaje del respaldo llegaba sin sus fechas
     // y la app volvía a preguntar "¿Cuándo fue?" por algo ya contestado (L-031).
+    // El catálogo de rubros del respaldo se UNE al de acá: si el archivo trae
+    // "mascotas" y este dispositivo no lo tiene, sin esto entrarían movimientos
+    // de un rubro inexistente y se caerían en la próxima lectura.
+    rubros: unirCatalogos(estadoActual.rubros, importado.rubros),
+
     // Los ahorros del respaldo se suman por id, igual que los movimientos: dos
     // importaciones del mismo archivo no pueden duplicar la plata ahorrada.
     ahorros: unirPorClave(
@@ -4573,6 +4911,33 @@ function ultimoRespaldoDespuesDe(estadoActual, leido) {
 function unirPorClave(propios, ajenos, clave) {
   const vistos = new Set(propios.map(clave));
   return [...propios, ...ajenos.filter((a) => !vistos.has(clave(a)))];
+}
+
+
+/**
+ * Une dos catálogos de rubros, respetando el tope de la paleta — T-048.
+ *
+ * Lo de este dispositivo va primero (conserva los colores) y del respaldo entra
+ * lo que falte. **Se corta en el tope**: nueve rubros no tendrían nueve colores
+ * distinguibles (ADR-029), y lo que no entra no se pierde —sus movimientos
+ * siguen ahí— sino que queda como rubro huérfano, que Ajustes muestra y deja
+ * unir con otro.
+ */
+function unirCatalogos(propio, ajeno) {
+  const unir = (a = [], b = []) => {
+    const juntos = [...a];
+    for (const rubro of b) {
+      if (typeof rubro !== 'string') continue;
+      const clave = normalizarClave(rubro);
+      if (clave !== '' && !juntos.includes(clave)) juntos.push(clave);
+    }
+    return juntos.slice(0, TOPE_DE_RUBROS);
+  };
+
+  const base = { gasto: rubrosDe(TIPO_GASTO, propio), ingreso: rubrosDe(TIPO_INGRESO, propio) };
+  if (!ajeno || typeof ajeno !== 'object') return base;
+
+  return { gasto: unir(base.gasto, ajeno.gasto), ingreso: unir(base.ingreso, ajeno.ingreso) };
 }
 
 // ── src/datos/recordatorio.js ───────────────────────────────────
@@ -5271,7 +5636,7 @@ function escribirMes(rejilla, estado, mes, desde) {
     rejilla.poner(n, 4, [movimiento.detalle, motivo].filter(Boolean).join(' — ') || null, CELDA);
     // El rubro va con SU color, el mismo que tiene en la app (T-909, T-916).
     rejilla.poner(n, 5, formatearRubro(movimiento.rubro),
-      RUBRO_CELDA_BASE + franjaDeRubro(movimiento.tipo, movimiento.rubro));
+      RUBRO_CELDA_BASE + franjaDeRubro(movimiento.tipo, movimiento.rubro, estado?.rubros));
     rejilla.poner(n, 6, euros === null ? null : aDosDecimales(euros), EUROS);
     rejilla.poner(n, 7, movimiento.tipo, TIPO);
     n += 1;
@@ -5308,7 +5673,7 @@ function todosLosRubros(estado, mes, tipo) {
 
   // El tercer elemento es el rubro sin formatear: lo necesita el color, que se
   // calcula con la clave y no con la etiqueta que se muestra.
-  return rubrosDe(tipo).map((rubro) => [
+  return rubrosDe(tipo, estado?.rubros).map((rubro) => [
     formatearRubro(rubro),
     aEuros(conMovimientos.get(rubro) ?? 0),
     rubro,
@@ -5340,7 +5705,7 @@ function escribirResumen(rejilla, estado, mes, desde) {
     for (const [i, [etiqueta]] of columnas.entries()) {
       const estilo = tipo === null
         ? ENCABEZADO
-        : RUBRO_ENCABEZADO_BASE + franjaDeRubro(tipo, columnas[i][2] ?? etiqueta);
+        : RUBRO_ENCABEZADO_BASE + franjaDeRubro(tipo, columnas[i][2] ?? etiqueta, estado?.rubros);
       rejilla.poner(n, COL_RESUMEN + i, etiqueta.toUpperCase(), estilo);
     }
     rejilla.poner(n, COL_RESUMEN + columnas.length, 'TOTAL', ENCABEZADO);
@@ -5479,11 +5844,11 @@ function hojaDeAnalisis(estado, mesActual = mesDe(hoy())) {
   rejilla.poner(3, 1, 'MES', ENCABEZADO);
   for (const [i, rubro] of matriz.rubros.entries()) {
     rejilla.poner(3, 2 + i, formatearRubro(rubro).toUpperCase(),
-      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_GASTO, rubro));
+      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_GASTO, rubro, estado?.rubros));
   }
   for (const [i, rubro] of matriz.rubrosIngreso.entries()) {
     rejilla.poner(3, COL_ING_1 + i, formatearRubro(rubro).toUpperCase(),
-      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_INGRESO, rubro));
+      RUBRO_ENCABEZADO_BASE + franjaDeRubro(TIPO_INGRESO, rubro, estado?.rubros));
   }
   rejilla.poner(3, COL_GASTOS, 'GASTOS', ENCABEZADO);
   rejilla.poner(3, COL_INGRESOS, 'INGRESOS', ENCABEZADO);
@@ -6864,8 +7229,8 @@ function describir({ dia, rubro, monto, comentario, detalle }) {
 // Se reexportan para no obligar a media app a cambiar sus imports: lo que se
 // movió es dónde vive el cálculo, no quién lo usa.
 
-function claseDeRubro(tipo, rubro) {
-  return `rubro-${franjaDeRubro(tipo, rubro)}`;
+function claseDeRubro(tipo, rubro, catalogo) {
+  return `rubro-${franjaDeRubro(tipo, rubro, catalogo)}`;
 }
 
 // ── src/ui/compartir.js ─────────────────────────────────────────
@@ -8859,6 +9224,234 @@ function intentarBorrarFechas(estado, clave) {
   }
 }
 
+// ── src/ui/pantallas/rubros.js ──────────────────────────────────
+// La pantalla de rubros — T-048, CU-19.
+//
+// ── Lo que esta pantalla tiene que dejar clarísimo ───────────────────────────
+//
+// Que **acá se mueve plata**. Renombrar un rubro reescribe el rubro de todos sus
+// movimientos; unir dos los pasa de uno al otro. No es editar una lista: es
+// tocar el historial. Por eso cada rubro muestra **cuántos movimientos usa** y
+// cada acción dice qué va a pasar antes de hacerla.
+//
+// El tope de ocho tampoco es un capricho y se explica donde se choca con él: la
+// paleta tiene ocho colores que pasaron el validador de daltonismo, y un noveno
+// tono generado sería indistinguible de alguno (ADR-029).
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras.
+
+
+
+
+
+const NOMBRE_DEL_TIPO = { [TIPO_GASTO]: 'gasto', [TIPO_INGRESO]: 'ingreso' };
+
+/** Cuántos movimientos usa un rubro, escrito para leer. */
+function dibujarUso(cuantos) {
+  if (cuantos === 0) return 'sin movimientos';
+  return cuantos === 1 ? '1 movimiento' : `${cuantos} movimientos`;
+}
+
+/** Una fila de rubro, con su color, su uso y sus acciones. */
+function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
+  const editando = vista.rubroEditado?.tipo === tipo && vista.rubroEditado?.rubro === rubro;
+  const uniendo = vista.rubroUnido?.tipo === tipo && vista.rubroUnido?.rubro === rubro;
+  const otros = catalogo.filter((r) => r !== rubro);
+
+  return `
+    <li class="fila-rubro">
+      <span class="rubro-cabeza">
+        <span class="nombre">
+          <span class="punto-rubro ${claseDeRubro(tipo, rubro, vista.estado?.rubros)}" aria-hidden="true"></span>
+          ${escapar(formatearRubro(rubro))}
+        </span>
+        <span class="suave">${escapar(dibujarUso(cuantos))}</span>
+      </span>
+
+      ${editando ? `
+      <form class="formulario-linea" data-formulario="rubro" novalidate>
+        <input type="hidden" name="tipo" value="${escapar(tipo)}">
+        <input type="hidden" name="viejo" value="${escapar(rubro)}">
+        <input name="nombre" type="text" autocomplete="off" value="${escapar(formatearRubro(rubro))}"
+               aria-label="Nombre del rubro">
+        <p class="suave nota">Si le ponés el nombre de otro rubro que ya existe,
+        los dos se unen en uno.</p>
+        <div class="botones">
+          <button type="submit" class="principal chico" data-accion="guardar-rubro">Guardar</button>
+          <button type="button" class="secundario chico" data-accion="cancelar-rubro">Cancelar</button>
+        </div>
+      </form>` : ''}
+
+      ${uniendo ? `
+      <form class="formulario-linea" data-formulario="unir-rubro" novalidate>
+        <input type="hidden" name="tipo" value="${escapar(tipo)}">
+        <input type="hidden" name="desde" value="${escapar(rubro)}">
+        <label class="campo">
+          <span>Pasar sus ${escapar(dibujarUso(cuantos))} a…</span>
+          <select name="hasta">${otros.map((r) => `
+            <option value="${escapar(r)}">${escapar(formatearRubro(r))}</option>`).join('')}</select>
+        </label>
+        <p class="suave nota"><strong>${escapar(formatearRubro(rubro))}</strong> deja de
+        existir y sus movimientos pasan al otro rubro. Los movimientos no se borran.</p>
+        <div class="botones">
+          <button type="submit" class="peligro chico" data-accion="unir-rubro">Unir</button>
+          <button type="button" class="secundario chico" data-accion="cancelar-rubro">Cancelar</button>
+        </div>
+      </form>` : ''}
+
+      ${editando || uniendo ? '' : `
+      <div class="movimiento-acciones">
+        <button type="button" class="secundario chico" data-accion="editar-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Renombrar</button>
+        ${otros.length > 0 ? `
+        <button type="button" class="secundario chico" data-accion="unir-desde"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Unir con otro</button>` : ''}
+        ${cuantos === 0 && catalogo.length > 1 ? `
+        <button type="button" class="secundario chico" data-accion="borrar-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Sacar</button>` : ''}
+      </div>`}
+    </li>
+  `;
+}
+
+/** El bloque de un tipo: sus rubros, y el formulario para agregar uno. */
+function dibujarRubrosDe(vista, tipo) {
+  const estado = vista.estado ?? {};
+  const catalogo = catalogoDe(estado)[tipo === TIPO_GASTO ? 'gasto' : 'ingreso'];
+  const uso = usoDeRubros(estado, tipo);
+  const lleno = catalogo.length >= TOPE_DE_RUBROS;
+  const cual = NOMBRE_DEL_TIPO[tipo];
+
+  return `
+    <section class="tarjeta">
+      <h2>Rubros de ${escapar(cual)}</h2>
+      <p class="suave nota">Renombrar un rubro <strong>reescribe también sus
+      movimientos</strong>, y unir dos los pasa de uno al otro. Nada se borra:
+      los movimientos se mudan.</p>
+
+      <ul class="rubros">${catalogo
+        .map((r) => dibujarRubro(r, uso.get(r) ?? 0, tipo, catalogo, vista))
+        .join('')}</ul>
+
+      ${lleno ? `
+      <p class="suave nota">Ya hay ${TOPE_DE_RUBROS}, que es el máximo: cada uno
+      tiene su color, y un noveno sería indistinguible de otro para quien no
+      distingue bien los colores. Para agregar uno nuevo, uní dos de estos.</p>`
+      : `
+      <form class="formulario-linea" data-formulario="nuevo-rubro" novalidate>
+        <input type="hidden" name="tipo" value="${escapar(tipo)}">
+        <label class="campo">
+          <span>Agregar un rubro de ${escapar(cual)}</span>
+          <input name="nombre" type="text" autocomplete="off" placeholder="mascotas">
+        </label>
+        <button type="submit" class="secundario" data-accion="crear-rubro">Agregar</button>
+      </form>`}
+    </section>
+  `;
+}
+
+/**
+ * Los rubros que están en los movimientos pero ya no en la lista.
+ *
+ * Puede pasar al importar un respaldo de otro dispositivo con más rubros que los
+ * que entran (el tope de ocho). **No se puede callar**: esos movimientos existen
+ * y no aparecen en ningún total por rubro.
+ */
+function dibujarHuerfanos(vista, tipo) {
+  const sueltos = rubrosHuerfanos(vista.estado ?? {}, tipo);
+  if (sueltos.length === 0) return '';
+
+  return `
+    <div class="aviso importante" role="alert">
+      <h2>${sueltos.length === 1 ? 'Un rubro quedó fuera de la lista' : `${sueltos.length} rubros quedaron fuera de la lista`}</h2>
+      <p class="suave">Tienen movimientos pero ya no están entre los rubros, así
+      que <strong>no aparecen en los totales por rubro</strong>. Uní cada uno con
+      alguno de los de arriba para recuperarlos.</p>
+      <ul class="filas-con-problema">${sueltos.map((h) => `<li>
+        <strong>${escapar(formatearRubro(h.rubro))}</strong>: ${escapar(dibujarUso(h.cuantos))}.
+      </li>`).join('')}</ul>
+    </div>`;
+}
+
+function dibujarRubros(vista) {
+  return `
+    ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
+    ${vista.avisoRubro ? `<p class="confirmacion" role="status">${escapar(vista.avisoRubro)}</p>` : ''}
+    ${dibujarHuerfanos(vista, TIPO_GASTO)}
+    ${dibujarHuerfanos(vista, TIPO_INGRESO)}
+    ${dibujarRubrosDe(vista, TIPO_GASTO)}
+    ${dibujarRubrosDe(vista, TIPO_INGRESO)}
+  `;
+}
+
+// ── src/ui/pantallas/ajustes.js ─────────────────────────────────
+// La pestaña de Configuración — T-047.
+//
+// ── Qué va acá y qué no ──────────────────────────────────────────────────────
+//
+// Acá va lo que **cambia cómo funciona la app**: los rubros, las etiquetas, las
+// monedas, los tipos de cambio. En **Datos** queda lo que mueve información
+// hacia afuera o hacia adentro: respaldos, importar, exportar.
+//
+// La diferencia importa porque son dos preguntas distintas. "¿Cómo guardo mis
+// datos?" y "¿cómo quiero que la app se comporte?" se responden en momentos
+// distintos y con cabezas distintas; tenerlas en la misma pantalla obligaba a
+// leer seis tarjetas para encontrar una.
+//
+// Las tarjetas que ya existían no se duplican: se **mudaron** de Datos a acá.
+// Dos puertas a la misma pantalla es la forma más barata de que una de las dos
+// quede desactualizada.
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras.
+
+
+function dibujarAjustes(vista) {
+  const enCotidiana = (vista.perfil ?? PERFIL_COTIDIANA) === PERFIL_COTIDIANA;
+
+  return `
+    ${enCotidiana ? `
+    <section class="tarjeta">
+      <h2>Rubros</h2>
+      <p class="suave">Los rubros de gasto y de ingreso: crear uno nuevo,
+      renombrarlo, o unir dos en uno solo. Los movimientos se mueven con
+      ellos.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="rubros">
+        Ver los rubros
+      </button>
+    </section>` : ''}
+
+    <section class="tarjeta">
+      <h2>Etiquetas y detalles</h2>
+      <p class="suave">Ver las que ya escribiste, renombrarlas —renombrar una con
+      el nombre de otra las une— o sacarlas. Los movimientos no se tocan.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="etiquetas">
+        Ver etiquetas y detalles
+      </button>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Monedas</h2>
+      <p class="suave">Ver las que hay, agregar una nueva u ocultar las que ya no
+      usás. Sirve para los dos lados de la app.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="monedas">
+        Ver monedas
+      </button>
+    </section>
+
+    ${enCotidiana ? `
+    <section class="tarjeta">
+      <h2>Tipos de cambio</h2>
+      <p class="suave">Lo que vale cada moneda en euros, mes por mes. Sin esto,
+      un gasto en otra moneda no puede entrar en ningún total.</p>
+      <!-- Solo en vida cotidiana: los ahorros NO se convierten a euros nunca
+           (CU-14), así que ahí un tipo de cambio no cambiaría ningún número. -->
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">
+        Ver tipos de cambio
+      </button>
+    </section>` : ''}
+  `;
+}
+
 // ── src/ui/pantallas/ahorro.js ──────────────────────────────────
 // Cargar, corregir y borrar un movimiento de ahorro — T-045, CU-14.
 //
@@ -10538,14 +11131,6 @@ function dibujarDatos(vista) {
 
     ${dibujarPlanillaVieja(vista)}
 
-    <section class="tarjeta">
-      <h2>Tipos de cambio</h2>
-      <p class="suave">Ver y corregir cuánto vale cada moneda en cada mes.</p>
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">
-        Ver tipos de cambio
-      </button>
-    </section>
-
     <!-- Las pantallas de historial también se ofrecen acá, y no solo desde el
          resumen del mes. Ahí los botones están al final del desglose, así que un
          mes sin movimientos —el 1 de cada mes, o un mes que todavía no cargaste—
@@ -10568,23 +11153,11 @@ function dibujarDatos(vista) {
       </button>
     </section>
 
-    <section class="tarjeta">
-      <h2>Etiquetas y detalles</h2>
-      <p class="suave">Ver las que ya escribiste, renombrarlas —renombrar una con
-      el nombre de otra las une— o sacarlas. Los movimientos no se tocan.</p>
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="etiquetas">
-        Ver etiquetas y detalles
-      </button>
-    </section>
-
-    <section class="tarjeta">
-      <h2>Monedas</h2>
-      <p class="suave">Ver las que hay, agregar una nueva u ocultar las que ya no usás.</p>
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="monedas">
-        Ver monedas
-      </button>
-    </section>
-  `;
+    <!-- Las etiquetas, las monedas y los tipos de cambio se mudaron a Ajustes
+         (T-047): acá quedó lo que mueve datos hacia afuera o hacia adentro. No
+         se dejó un botón "también está en Ajustes" porque dos puertas a la
+         misma pantalla es la forma más barata de que una quede vieja. -->
+ `;
 }
 
 /**
@@ -11107,6 +11680,8 @@ function intentarGuardar(estado, borrador) {
       decimales,
       id: original?.id,
       creado: original?.creado,
+      // Los rubros que valen son los del usuario (T-048), no los de fábrica.
+      catalogo: estado.rubros,
     });
   } catch (error) {
     // El mensaje viene del modelo, ya escrito para una persona. Repetirlo acá
@@ -11346,12 +11921,12 @@ function dibujarNuevo(vista) {
         <!-- El campo se pinta del color del rubro elegido: es la confirmación
              de que quedó puesto el que se quería, sin volver a leerlo. El mismo
              color que va a tener después en el resumen del mes. -->
-        <div class="campo-rubro ${borrador.rubro ? claseDeRubro(borrador.tipo, borrador.rubro) : 'sin-elegir'}"
+        <div class="campo-rubro ${borrador.rubro ? claseDeRubro(borrador.tipo, borrador.rubro, estado.rubros) : 'sin-elegir'}"
              data-campo-rubro>
           <select name="rubro">
             <option value=""${borrador.rubro ? '' : ' selected'} disabled>Elegí un rubro</option>
             ${opciones(
-              rubrosDe(borrador.tipo).map((r) => ({ valor: r, texto: formatearRubro(r) })),
+              rubrosDe(borrador.tipo, estado.rubros).map((r) => ({ valor: r, texto: formatearRubro(r) })),
               borrador.rubro
             )}
           </select>
@@ -11622,6 +12197,9 @@ function conectarUna(tarjeta) {
 
 
 
+
+
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -11657,6 +12235,43 @@ function escapar(texto) {
 // haber pantallas sin construir. Si vuelve a hacer falta, está en el historial;
 // lo que no se deja es una función que no llama nadie.
 
+// ── Los perfiles ─────────────────────────────────────────────────────────────
+//
+// La app hace dos cosas que casi no se tocan entre sí:
+//
+//   - **Vida cotidiana**: los gastos e ingresos del mes, con sus rubros, sus
+//     viajes y sus historiales. Todo en euros, todo con un mes de por medio.
+//   - **Ahorros conjuntos**: la plata guardada de dos personas en tres monedas
+//     que **no se convierten entre sí**, sin mes y sin rubros.
+//
+// Mezclarlas en una sola barra de abajo tiene un costo que se paga todos los
+// días: cinco pestañas de las que dos no sirven para lo que estás haciendo. El
+// selector de arriba cambia **de qué app estamos hablando**, y la barra pasa a
+// mostrar solo lo de ese perfil.
+//
+// Lo pidió el usuario (2026-08-31) después de ver algo parecido en otra app.
+// La decisión de fondo ya estaba tomada desde CU-14 —los ahorros son un
+// registro aparte, no un rubro más—; esto la hace visible.
+
+const PERFIL_COTIDIANA = 'cotidiana';
+const PERFIL_AHORROS = 'ahorros';
+
+const PERFILES = Object.freeze([
+  { clave: PERFIL_COTIDIANA, etiqueta: 'Vida cotidiana', inicio: 'mes' },
+  { clave: PERFIL_AHORROS, etiqueta: 'Ahorros conjuntos', inicio: 'ahorros' },
+]);
+
+/** El perfil al que pertenece una pantalla. `ambos` la deja en los dos. */
+function perfilDe(definicion) {
+  return definicion?.perfil ?? PERFIL_COTIDIANA;
+}
+
+/** ¿Esta pantalla se ve estando en este perfil? */
+function esDelPerfil(definicion, perfil) {
+  const suyo = perfilDe(definicion);
+  return suyo === 'ambos' || suyo === perfil;
+}
+
 const PANTALLAS = new Map();
 
 function registrarPantalla(nombre, definicion) {
@@ -11688,7 +12303,10 @@ registrarPantalla('movimientos', {
   dibujar: dibujarLista,
 });
 
+// Los datos son de TODA la app —el respaldo lleva las dos mitades, y la
+// planilla trae las dos hojas—, así que la pestaña está en los dos perfiles.
 registrarPantalla('datos', {
+  perfil: 'ambos',
   etiqueta: 'Datos',
   orden: 4,
   icono: '↧',
@@ -11719,18 +12337,21 @@ registrarPantalla('grupos', {
 });
 
 registrarPantalla('ahorros', {
-  etiqueta: 'Ahorros conjuntos',
+  etiqueta: 'Ahorros',
+  orden: 2,
   icono: '◈',
   conMes: false,
-  enBarra: false,
+  perfil: PERFIL_AHORROS,
   dibujar: dibujarAhorros,
 });
 
 registrarPantalla('nuevo-ahorro', {
-  etiqueta: 'Cargar en ahorros',
-  icono: '＋',
+  etiqueta: 'Cargar',
+  orden: 1,
+  icono: '+',
   conMes: false,
-  enBarra: false,
+  destacada: true,
+  perfil: PERFIL_AHORROS,
   dibujar: dibujarNuevoAhorro,
 });
 
@@ -11769,6 +12390,25 @@ registrarPantalla('cambios', {
 // Primera de la barra, por pedido del usuario (2026-08-27): cargar un gasto es
 // lo que más se hace y lo que se hace apurado, parado en la caja del
 // supermercado. `destacada` es lo que le da el aspecto distinto que ya tenía.
+// La quinta pestaña, pedida por el usuario (2026-08-31). Va última: es lo que
+// menos se toca, y en una barra el pulgar llega antes a lo de la izquierda.
+registrarPantalla('rubros', {
+  etiqueta: 'Rubros',
+  icono: '◑',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarRubros,
+});
+
+registrarPantalla('ajustes', {
+  etiqueta: 'Ajustes',
+  orden: 5,
+  icono: '⚙',
+  conMes: false,
+  perfil: 'ambos',
+  dibujar: dibujarAjustes,
+});
+
 registrarPantalla('nuevo', {
   etiqueta: 'Cargar',
   orden: 1,
@@ -11788,7 +12428,7 @@ registrarPantalla('nuevo', {
  * En las pantallas que no son de un mes (los datos, las monedas) el selector no
  * se dibuja: un control que no hace nada enseña a desconfiar de los controles.
  */
-function dibujarEncabezado({ mes, conMes }) {
+function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA }) {
   const selector = conMes
     ? `
       <nav class="mes" aria-label="Mes que se está viendo">
@@ -11803,15 +12443,39 @@ function dibujarEncabezado({ mes, conMes }) {
       <h1>Viajecor</h1>
       <span class="version">v${escapar(versionApp())}</span>
     </header>
+    ${dibujarPerfiles(perfil)}
     ${selector}
   `;
+}
+
+/**
+ * El selector de perfil, arriba del todo.
+ *
+ * **Dos botones a la vista y no un desplegable.** Un desplegable esconde que
+ * existe la otra mitad de la app: hay que saber que está para ir a buscarla.
+ * Con dos, la primera vez que alguien abre la app **ve que hay dos cosas**, y
+ * cambiar es un toque en vez de tres.
+ *
+ * Si algún día hubiera cuatro perfiles, esto tendría que ser un desplegable —
+ * cuatro botones no entran a lo ancho de un teléfono—. Con dos, no.
+ */
+function dibujarPerfiles(perfil = PERFIL_COTIDIANA) {
+  const botones = PERFILES.map((p) => {
+    const activo = p.clave === perfil;
+    return `
+      <button type="button" class="opcion-perfil${activo ? ' activa' : ''}"
+              data-accion="perfil" data-perfil="${escapar(p.clave)}"
+              aria-pressed="${activo}">${escapar(p.etiqueta)}</button>`;
+  }).join('');
+
+  return `<nav class="perfiles" aria-label="Qué parte de la app">${botones}</nav>`;
 }
 
 /**
  * La barra de navegación, abajo y no arriba: en un celular sostenido con una
  * mano, la parte de arriba de la pantalla es donde el pulgar no llega.
  */
-function dibujarNavegacion(actual) {
+function dibujarNavegacion(actual, perfil = PERFIL_COTIDIANA) {
   // El orden lo decide el campo `orden` de cada pantalla, no el orden en que se
   // registraron: registrar depende de los `import`, y hacer que mover una
   // pestaña dependa de reordenar imports es una trampa esperando.
@@ -11820,7 +12484,7 @@ function dibujarNavegacion(actual) {
   // de la barra—, así que cambiar su etiqueta o su ícono había que hacerlo en
   // dos lugares. Ahora sale del registro como todas.
   const botones = pantallasRegistradas()
-    .filter((p) => p.enBarra !== false)
+    .filter((p) => p.enBarra !== false && esDelPerfil(p, perfil))
     .sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99))
     .map((p) => {
       const seleccionada = p.nombre === actual;
@@ -11937,16 +12601,24 @@ function dibujarRecordatorio(vista, { fecha } = {}) {
 
 /** La app entera, como texto. Es la función que los tests miran. */
 function dibujarApp(vista) {
-  const definicion = pantalla(vista.pantalla) ?? pantalla('mes');
+  const perfil = vista.perfil ?? PERFIL_COTIDIANA;
+  const pedida = pantalla(vista.pantalla);
+
+  // Una pantalla que no es de este perfil no se dibuja: se cae a la de inicio
+  // del perfil. Pasa con un enlace viejo o con el perfil recordado de la visita
+  // anterior, y mostrarla igual dejaría la barra de abajo señalando otra cosa.
+  const definicion = pedida && esDelPerfil(pedida, perfil)
+    ? pedida
+    : pantalla(PERFILES.find((p) => p.clave === perfil)?.inicio ?? 'mes');
   const contenido = definicion.dibujar(vista);
 
   return `
-    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes })}
+    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes, perfil: vista.perfil })}
     ${dibujarRiesgoDeGuardado(vista.riesgoDeGuardado)}
     ${dibujarAvisos(vista.incidencias)}
     ${dibujarRecordatorio(vista)}
     <main class="contenido">${contenido}</main>
-    ${dibujarNavegacion(definicion.nombre)}
+    ${dibujarNavegacion(definicion.nombre, vista.perfil)}
   `;
 }
 
@@ -11960,6 +12632,9 @@ function dibujarApp(vista) {
 function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false, riesgoDeGuardado = null } = {}) {
   return {
     pantalla: 'mes',
+    // El perfil elegido se recuerda entre visitas: quien está poniendo al día
+    // los ahorros de un mes abre la app tres veces seguidas para eso mismo.
+    perfil: estado?.preferencias?.perfil === PERFIL_AHORROS ? PERFIL_AHORROS : PERFIL_COTIDIANA,
     mes: mes ?? mesDe(hoy()),
     estado,
     incidencias,
@@ -11975,6 +12650,26 @@ function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false, r
 function moverMes(vista, direccion) {
   const mes = direccion === 'anterior' ? mesAnterior(vista.mes) : mesSiguiente(vista.mes);
   return { ...vista, mes };
+}
+
+/**
+ * Cambia de perfil y aterriza en su pantalla de inicio.
+ *
+ * Guarda la elección en las preferencias, con la misma lógica que la moneda
+ * predeterminada: es una preferencia de uso, no un dato del usuario.
+ */
+function irAlPerfil(vista, clave) {
+  const perfil = PERFILES.find((p) => p.clave === clave);
+  if (!perfil || perfil.clave === vista.perfil) return vista;
+
+  return {
+    ...irA(vista, perfil.inicio),
+    perfil: perfil.clave,
+    estado: {
+      ...vista.estado,
+      preferencias: { ...vista.estado?.preferencias, perfil: perfil.clave },
+    },
+  };
 }
 
 function irA(vista, nombre) {
@@ -12180,6 +12875,37 @@ function iniciar(documento, almacen) {
       // varios seguidos.
       pantalla: resultado.corrigiendo ? 'ahorros' : vista.pantalla,
     };
+    pintar();
+  }
+
+  /**
+   * Aplica un cambio de rubros — T-048.
+   *
+   * Todos pasan por acá y no cada uno por su lado: **mueven movimientos**, así
+   * que todos tienen que escribirse antes de decir que se hicieron (ADR-016) y
+   * todos tienen que dejar el error a la vista si el modelo dice que no. Una
+   * segunda puerta sería una segunda puerta sin alguna de las dos cosas.
+   */
+  function cambiarRubros(hacerlo, aviso) {
+    let nuevoEstado;
+    try {
+      nuevoEstado = hacerlo();
+    } catch (error) {
+      vista = { ...vista, error: error.message, avisoRubro: null };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(nuevoEstado, almacen);
+    } catch (error) {
+      vista = { ...vista, error: error.message, avisoRubro: null };
+      pintar();
+      return;
+    }
+
+    vista = { ...vista, estado: nuevoEstado, rubroEditado: null, rubroUnido: null,
+      error: null, avisoRubro: aviso };
     pintar();
   }
 
@@ -13026,6 +13752,25 @@ function iniciar(documento, almacen) {
     } else if (evento.target.matches('[data-formulario="ahorro"]')) {
       evento.preventDefault();
       guardarElAhorro();
+    } else if (evento.target.matches('[data-formulario="nuevo-rubro"]')) {
+      evento.preventDefault();
+      const campos = evento.target.elements;
+      cambiarRubros(() => crearRubro(vista.estado, campos.tipo.value, campos.nombre.value),
+        `Se agregó "${campos.nombre.value.trim()}".`);
+    } else if (evento.target.matches('[data-formulario="rubro"]')) {
+      evento.preventDefault();
+      const campos = evento.target.elements;
+      cambiarRubros(
+        () => renombrarRubro(vista.estado, campos.tipo.value, campos.viejo.value, campos.nombre.value),
+        `Listo: "${campos.viejo.value}" ahora es "${campos.nombre.value.trim()}", con sus movimientos.`
+      );
+    } else if (evento.target.matches('[data-formulario="unir-rubro"]')) {
+      evento.preventDefault();
+      const campos = evento.target.elements;
+      cambiarRubros(
+        () => unirRubros(vista.estado, campos.tipo.value, campos.desde.value, campos.hasta.value),
+        `Listo: los movimientos de "${campos.desde.value}" pasaron a "${campos.hasta.value}".`
+      );
     } else if (evento.target.matches('[data-formulario="cambio"]')) {
       evento.preventDefault();
       guardarTipoDeCambio();
@@ -13254,6 +13999,32 @@ function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, borrado: null };
+    } else if (accion === 'editar-rubro') {
+      vista = { ...vista, rubroEditado: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
+        rubroUnido: null, error: null, avisoRubro: null };
+    } else if (accion === 'unir-desde') {
+      vista = { ...vista, rubroUnido: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
+        rubroEditado: null, error: null, avisoRubro: null };
+    } else if (accion === 'cancelar-rubro') {
+      vista = { ...vista, rubroEditado: null, rubroUnido: null, error: null };
+    } else if (accion === 'borrar-rubro') {
+      // Sin confirmación, y a propósito: este botón solo aparece en los rubros
+      // que **no tiene ningún movimiento**, así que no hay nada que perder. Los
+      // que sí tienen se sacan uniéndolos, que es otra cosa y pregunta.
+      cambiarRubros(() => borrarRubro(vista.estado, boton.dataset.tipo, boton.dataset.rubro),
+        `Se sacó "${boton.dataset.rubro}".`);
+      return;
+    } else if (accion === 'perfil') {
+      vista = irAlPerfil(vista, boton.dataset.perfil);
+      // El perfil elegido se guarda: quien está poniendo al día los ahorros
+      // abre la app varias veces seguidas para lo mismo. Si no se puede
+      // escribir, se cambia igual y se recuerda solo mientras esté abierta:
+      // negarse a cambiar de pantalla por eso sería absurdo.
+      try {
+        guardarEstado(vista.estado, almacen);
+      } catch {
+        // Ver arriba.
+      }
     } else if (accion === 'guardar-ahorro') {
       evento.preventDefault();
       guardarElAhorro();

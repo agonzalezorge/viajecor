@@ -192,14 +192,6 @@ export function dibujarDatos(vista) {
 
     ${dibujarPlanillaVieja(vista)}
 
-    <section class="tarjeta">
-      <h2>Tipos de cambio</h2>
-      <p class="suave">Ver y corregir cuánto vale cada moneda en cada mes.</p>
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">
-        Ver tipos de cambio
-      </button>
-    </section>
-
     <!-- Las pantallas de historial también se ofrecen acá, y no solo desde el
          resumen del mes. Ahí los botones están al final del desglose, así que un
          mes sin movimientos —el 1 de cada mes, o un mes que todavía no cargaste—
@@ -222,23 +214,11 @@ export function dibujarDatos(vista) {
       </button>
     </section>
 
-    <section class="tarjeta">
-      <h2>Etiquetas y detalles</h2>
-      <p class="suave">Ver las que ya escribiste, renombrarlas —renombrar una con
-      el nombre de otra las une— o sacarlas. Los movimientos no se tocan.</p>
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="etiquetas">
-        Ver etiquetas y detalles
-      </button>
-    </section>
-
-    <section class="tarjeta">
-      <h2>Monedas</h2>
-      <p class="suave">Ver las que hay, agregar una nueva u ocultar las que ya no usás.</p>
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="monedas">
-        Ver monedas
-      </button>
-    </section>
-  `;
+    <!-- Las etiquetas, las monedas y los tipos de cambio se mudaron a Ajustes
+         (T-047): acá quedó lo que mueve datos hacia afuera o hacia adentro. No
+         se dejó un botón "también está en Ajustes" porque dos puertas a la
+         misma pantalla es la forma más barata de que una quede vieja. -->
+ `;
 }
 
 /**
