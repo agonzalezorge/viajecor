@@ -41,6 +41,10 @@ En el **mismo commit** que el código:
 - Actualizar el estado de la tarea en `docs/PLAN.md`.
 - Anotar la decisión no trivial en `docs/DECISIONES.md` (agregando al final).
 - Anotar la trampa descubierta en `docs/LECCIONES.md` (agregando al final).
+- **Subir `VERSION`** (`PRODUCTO.md` §9: MENOR si es una función nueva, PARCHE si
+  es un arreglo) y abrirle su entrada en `CHANGELOG.md`. El usuario lee ese
+  número arriba a la derecha en la app para saber si ya le llegó el cambio: una
+  versión que no se mueve le miente.
 - Regenerar y commitear `dist/viajecor.html`.
 
 Una tarea no está terminada si los documentos quedaron atrás.

@@ -3,7 +3,12 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
-## Sin publicar
+## 0.2.0 — 2026-08-31
+
+**La versión venía clavada en `0.1.0`** mientras se agregaban la búsqueda, los
+gráficos interactivos, los grupos de gastos, los rubros de ingreso y la
+publicación en la web. La regla de `PRODUCTO.md §9` estaba escrita y no se
+cumplió; ahora hay un test que exige que cada versión tenga su entrada acá.
 
 ### Cambiado
 - **La tabla mes a mes se lee mejor al deslizarla.** El rótulo de cada bloque va

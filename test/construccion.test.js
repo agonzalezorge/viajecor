@@ -183,3 +183,19 @@ test('el archivo que se BAJA no menciona nada de lo publicado', async () => {
   assert.doesNotMatch(html, /<link[^>]*rel="manifest"/, 'el enlace se cuelga solo si hay servidor');
   assert.doesNotMatch(html, /<script[^>]*src=/);
 });
+
+test('la versión que muestra la app tiene su entrada en el CHANGELOG', async () => {
+  // La versión quedó en 0.1.0 durante diez tareas seguidas mientras la app
+  // cambiaba entera. El usuario la lee arriba a la derecha justamente para
+  // saber si el cambio ya le llegó: un número que no se mueve le miente, y es
+  // peor que no mostrar ninguno.
+  const { readFile } = await import('node:fs/promises');
+  const [version, cambios] = await Promise.all([
+    readFile(join(RAIZ, 'VERSION'), 'utf8'),
+    readFile(join(RAIZ, 'CHANGELOG.md'), 'utf8'),
+  ]);
+
+  const titulo = new RegExp(`^## ${version.trim().replace(/\./g, '\\.')} — \\d{4}-\\d{2}-\\d{2}$`, 'm');
+  assert.match(cambios, titulo,
+    `falta la entrada "## ${version.trim()} — AAAA-MM-DD" en CHANGELOG.md`);
+});
