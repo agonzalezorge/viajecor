@@ -3,6 +3,19 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.4.0 — 2026-08-31
+
+### Agregado
+- **Al importar la planilla, ahora se ve QUÉ va a entrar, no solo cuántos.**
+  Antes decía "voy a traer 1 movimiento" y no había forma de saber cuál. Pasa
+  justo al reimportar, que es cuando la diferencia es de uno o dos y el que
+  aparece suele ser **uno que habías borrado a mano**: sin la lista había que
+  aceptar a ciegas y salir a buscarlo después.
+
+  Cada uno con su fecha, su rubro (o de quién es el ahorro), su importe **en su
+  moneda** y su etiqueta. Con pocos la lista viene abierta; con muchos —la
+  primera importación son cientos— viene plegada y muestra los primeros 25.
+
 ## 0.3.1 — 2026-08-31
 
 ### Arreglado

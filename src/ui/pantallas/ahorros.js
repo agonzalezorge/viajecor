@@ -23,25 +23,16 @@
 
 import { escapar } from '../app.js';
 import { totalPorPersona, ahorrosOrdenados, aporteDe, AHORRO_SALE } from '../../core/ahorros.js';
-import { formatearMonto, formatearFecha } from '../../core/formato.js';
-import { decimalesDe } from '../../core/monedas.js';
+import { formatearEnSuMoneda, formatearFecha } from '../../core/formato.js';
 
 /**
- * Un importe en SU moneda. Nunca en euros: ver arriba.
+ * Un importe en SU moneda. **Nunca en euros**: ver arriba.
  *
- * Los decimales salen del catálogo del usuario (ADR-011). Si la moneda no
- * estuviera —un respaldo viejo, una moneda borrada— se muestran dos, que es lo
- * que usan las tres monedas de esta hoja, en vez de romper la pantalla.
+ * Es `formatearEnSuMoneda()` con otro nombre, para que las llamadas de esta
+ * pantalla se lean diciendo qué es lo que no hacen: convertir.
  */
 export function importeDeAhorro(minimas, moneda, monedas) {
-  let decimales = 2;
-  try {
-    decimales = decimalesDe(monedas ?? [], moneda);
-  } catch {
-    // Sin la moneda en el catálogo, el número se muestra igual: es peor una
-    // pantalla en blanco que un importe con dos decimales de más.
-  }
-  return formatearMonto(minimas, decimales, moneda);
+  return formatearEnSuMoneda(minimas, moneda, monedas);
 }
 
 /** El bloque de una moneda: cuánto hay, y cuánto puso cada uno. */

@@ -2411,3 +2411,36 @@ se comparó contra `openpyxl`. Las ocho filas entran, cero problemas, y los tres
 totales por moneda **cuadran al céntimo** con los que calcula Excel.
 
 **Mutaciones:** 19 sembradas, 19 muertas.
+
+### T-044 · Ver qué va a entrar al importar, no solo cuántos — **Hecha** (2026-08-31)
+**Pedida por el usuario (2026-08-31)** · **Tocó:** `ui/pantallas/datos.js`,
+`ui/app.js`, `core/formato.js`, `estilos.css`
+
+Reimportó su planilla después de haber borrado un movimiento a mano, la app le
+dijo *"voy a traer 11 ahorros y 1 movimiento"* y **no tenía forma de saber cuál
+era ese movimiento**. El número solo sirve en la primera importación; en la
+segunda, el que aparece es casi siempre uno que él había sacado a propósito, y
+sin verlo hay que aceptar a ciegas y salir a buscarlo después.
+
+Ahora la previa lista lo que va a entrar —gastos y ahorros juntos, del más nuevo
+al más viejo—, cada uno con su fecha, su rubro o de quién es, su importe y su
+etiqueta. **Con pocos viene abierta; con muchos, plegada** y con los primeros 25:
+en la primera importación son cientos y abrirlos haría una pantalla inmanejable,
+justo cuando la lista no aporta nada.
+
+**De paso se arregló algo que estaba mal en silencio:** los importes se
+formateaban con decimales de euro para cualquier moneda. Para las cuatro que usa
+hoy da igual —todas usan dos— pero para el yen habría mostrado `¥1.500,00`, un
+número que no existe. Ahora hay `formatearEnSuMoneda()`, que saca los decimales
+del catálogo del usuario, y la pantalla de ahorros la usa también.
+
+**Mutaciones:** 10 sembradas, 8 muertas. Las dos que sobreviven son los filtros
+`!yaEstan.has(...)` de `iniciar()`, que no alcanza `node --test` porque viven
+dentro de la función que toca el documento. **Las mata el recorrido**: si no
+filtraran, al reimportar diría "los 8 que van a entrar" en vez de "el que va a
+entrar".
+
+**Recorrido en el navegador, el caso exacto del usuario:** importar, borrar un
+movimiento a mano, reimportar. La app dice *"Ver el que va a entrar"* y lista
+"Ahorro · IRE · −180,00 € · 29/04/2026 · Cacerola Le Creuset". Cero pedidos de
+red, cero errores de consola.

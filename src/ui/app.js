@@ -926,10 +926,19 @@ export function iniciar(documento, almacen) {
       planilla: {
         movimientos, problemas, comprobaciones,
         yaEstan: movimientos.filter((m) => yaEstan.has(m.id)).length,
+        // **Cuáles son los que van a entrar**, no solo cuántos — T-044.
+        //
+        // Lo pidió el usuario después de reimportar su planilla: la app le dijo
+        // "voy a traer 1 movimiento" y él no tenía forma de saber cuál. Pasa
+        // justo cuando importa por segunda vez, que es cuando la diferencia es
+        // chica y **el que aparece suele ser uno que había borrado a mano**. Un
+        // número sin la lista lo obliga a aceptar a ciegas y buscarlo después.
+        nuevos: movimientos.filter((m) => !yaEstan.has(m.id)),
         ahorros: ahorros.ahorros,
         problemasDeAhorros: ahorros.problemas,
         comprobacionesDeAhorros: ahorros.comprobaciones,
         ahorrosQueEstan: ahorros.ahorros.filter((a) => ahorrosQueEstan.has(a.id)).length,
+        ahorrosNuevos: ahorros.ahorros.filter((a) => !ahorrosQueEstan.has(a.id)),
       },
       errorPlanillaVieja: null,
       avisoPlanillaVieja: null,

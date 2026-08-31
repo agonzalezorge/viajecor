@@ -350,6 +350,17 @@ preguntas distintas, y **la fila de gastos fijos te lo aclara ahí mismo**.
 
 ---
 
+## 6b. Volver a importar la planilla
+
+Podés importar el mismo archivo las veces que quieras: **lo que ya está no entra
+dos veces**, porque cada fila trae su propio identificador.
+
+Antes de tocar nada, la app te muestra **qué va a entrar** —no solo cuántos—, con
+su fecha, su importe y su etiqueta. Es útil sobre todo la segunda vez: si
+borraste algo a mano, al reimportar va a volver, y ahí lo ves antes de aceptar.
+
+---
+
 ## 7c. Los ahorros conjuntos
 
 **Datos → Mirar el historial → Ahorros conjuntos.**

@@ -21,7 +21,7 @@ import {
 import { monedasIniciales } from '../src/core/monedas.js';
 import { estadoInicial, migrarEstado } from '../src/datos/almacenamiento.js';
 import { contenidoDelRespaldo } from '../src/datos/exportar.js';
-import { dibujarProblemas } from '../src/ui/pantallas/datos.js';
+import { dibujarProblemas, dibujarQueEntra, NUEVOS_QUE_SE_MUESTRAN } from '../src/ui/pantallas/datos.js';
 
 const MONEDAS = monedasIniciales();
 let contador = 0;
@@ -383,4 +383,80 @@ test('el informe no escribe dos puntos seguidos ni una frase vacía', () => {
   assert.doesNotMatch(html, /\.\./);
   assert.doesNotMatch(html, /Decía: \./);
   assert.match(html, /Vuelos Roma · ALE\./);
+});
+
+// ── Ver QUÉ va a entrar antes de importar (T-044) ────────────────────────────
+
+test('la previa lista los movimientos que van a entrar, no solo cuántos', () => {
+  // Lo pidió el usuario: la app le dijo "voy a traer 1 movimiento" y no tenía
+  // forma de saber cuál. Pasa al reimportar, que es cuando la diferencia es de
+  // uno o dos y el que aparece suele ser uno que él había borrado a mano.
+  const html = dibujarQueEntra({
+    nuevos: [{ fecha: '2026-05-15', rubro: 'salud', tipo: 'G', monto: 4500, moneda: 'EUR',
+      comentario: 'Dentista', detalle: 'limpieza' }],
+    ahorrosNuevos: [],
+  }, { monedas: MONEDAS });
+
+  assert.match(html, /Salud/);
+  assert.match(html, /15\/05\/2026/);
+  assert.match(html, /45,00/);
+  assert.match(html, /Dentista · limpieza/);
+  assert.match(html, /el que va a entrar/);
+});
+
+test('los ahorros también se listan, y se ve de quién son', () => {
+  const html = dibujarQueEntra({
+    nuevos: [],
+    ahorrosNuevos: [aho({ monto: '12000', moneda: 'UYU', persona: 'ALE', tipo: 'G',
+      fecha: '2025-10-20', comentario: 'Vuelos Roma' })],
+  }, { monedas: MONEDAS });
+
+  assert.match(html, /Ahorro · ALE/);
+  assert.match(html, /Vuelos Roma/);
+  assert.match(html, /−/, 'la G es plata que salió');
+});
+
+test('cada importe va en SU moneda, no en euros', () => {
+  const html = dibujarQueEntra({
+    nuevos: [],
+    ahorrosNuevos: [aho({ monto: '1500,50', moneda: 'USD', tipo: 'I' })],
+  }, { monedas: MONEDAS });
+
+  assert.match(html, /US\$/);
+  assert.doesNotMatch(html, /1500,50 €/);
+});
+
+test('con pocos, la lista viene abierta; con muchos, plegada', () => {
+  // Al reimportar son uno o dos y hay que verlos sin tocar nada. En la primera
+  // importación son cientos y abrirlos haría una pantalla inmanejable.
+  const uno = { nuevos: [{ fecha: '2026-05-15', rubro: 'salud', tipo: 'G', monto: 100, moneda: 'EUR', comentario: '', detalle: '' }], ahorrosNuevos: [] };
+  const muchos = { nuevos: Array.from({ length: 40 }, (_, i) => (
+    { fecha: '2026-05-15', rubro: 'salud', tipo: 'G', monto: 100 + i, moneda: 'EUR', comentario: '', detalle: '' })), ahorrosNuevos: [] };
+
+  assert.match(dibujarQueEntra(uno, { monedas: MONEDAS }), /<details class="que-entra" open>/);
+  assert.doesNotMatch(dibujarQueEntra(muchos, { monedas: MONEDAS }), / open>/);
+});
+
+test('con muchos se muestran los primeros y se dice cuántos quedan', () => {
+  const muchos = { nuevos: Array.from({ length: 40 }, (_, i) => (
+    { fecha: '2026-05-15', rubro: 'salud', tipo: 'G', monto: 100 + i, moneda: 'EUR', comentario: '', detalle: '' })), ahorrosNuevos: [] };
+
+  const html = dibujarQueEntra(muchos, { monedas: MONEDAS });
+  assert.equal((html.match(/<li class="fila-rubro">/g) ?? []).length, NUEVOS_QUE_SE_MUESTRAN);
+  assert.match(html, /Y 15 más/);
+  assert.match(html, /los 40 que van a entrar/);
+});
+
+test('si no entra nada, no hay lista que mostrar', () => {
+  assert.equal(dibujarQueEntra({ nuevos: [], ahorrosNuevos: [] }), '');
+  assert.equal(dibujarQueEntra({}), '');
+});
+
+test('van del más nuevo al más viejo, mezclando gastos y ahorros', () => {
+  const html = dibujarQueEntra({
+    nuevos: [{ fecha: '2025-01-01', rubro: 'salud', tipo: 'G', monto: 100, moneda: 'EUR', comentario: 'Viejo', detalle: '' }],
+    ahorrosNuevos: [aho({ monto: '10', fecha: '2026-06-01', comentario: 'Nuevo' })],
+  }, { monedas: MONEDAS });
+
+  assert.ok(html.indexOf('Nuevo') < html.indexOf('Viejo'));
 });

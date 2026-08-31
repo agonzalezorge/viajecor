@@ -22,10 +22,10 @@ import { prepararRespaldo, diasSinRespaldar } from '../../datos/exportar.js';
 import { crearPlanilla } from '../../datos/xlsx.js';
 import { prepararCsv } from '../../datos/csv.js';
 import { MODO_REEMPLAZAR, MODO_AGREGAR } from '../../datos/importar.js';
-import { formatearEuros, formatearNumero } from '../../core/formato.js';
+import { formatearEuros, formatearNumero, formatearRubro, formatearFecha, formatearEnSuMoneda } from '../../core/formato.js';
 import { DECIMALES_EURO } from '../../core/dinero.js';
 import { formatearFechaLarga } from '../../core/formato.js';
-import { hoy } from '../../core/modelo.js';
+import { hoy, TIPO_GASTO } from '../../core/modelo.js';
 
 /** Un tamaño legible: 12 kB dice más que 12.283 bytes. */
 export function tamanoLegible(bytes) {
@@ -429,7 +429,7 @@ export function dibujarPlanillaVieja(vista) {
 
       ${vista.errorPlanillaVieja ? `<p class="error-carga" role="alert">${escapar(vista.errorPlanillaVieja)}</p>` : ''}
       ${vista.avisoPlanillaVieja ? `<p class="confirmacion" role="status">${escapar(vista.avisoPlanillaVieja)}</p>` : ''}
-      ${previa ? dibujarPreviaDePlanilla(previa) : ''}
+      ${previa ? dibujarPreviaDePlanilla(previa, vista.estado?.monedas ?? []) : ''}
     </section>
   `;
 }
@@ -506,7 +506,69 @@ export function dibujarBotonDeTraer(movimientos, ahorros) {
   `;
 }
 
-function dibujarPreviaDePlanilla(planilla) {
+/**
+ * Cuántos se muestran de la lista de lo que va a entrar.
+ *
+ * En la primera importación son cientos y listarlos todos haría una pantalla
+ * inmanejable. En la segunda son dos o tres, que es cuando la lista importa de
+ * verdad — y ahí entran todos.
+ */
+export const NUEVOS_QUE_SE_MUESTRAN = 25;
+
+/**
+ * Qué es cada cosa que va a entrar — T-044.
+ *
+ * Lo pidió el usuario: la app le decía "voy a traer 1 movimiento" y no tenía
+ * forma de saber cuál. Pasa al importar por segunda vez, que es cuando la
+ * diferencia es de uno o dos y **el que aparece suele ser uno que él había
+ * borrado a mano**. Sin la lista hay que aceptar a ciegas y salir a buscarlo
+ * después.
+ */
+export function dibujarQueEntra(planilla, { monedas = [], tope = NUEVOS_QUE_SE_MUESTRAN } = {}) {
+  const nuevos = planilla.nuevos ?? [];
+  const ahorros = planilla.ahorrosNuevos ?? [];
+  const cuantos = nuevos.length + ahorros.length;
+  if (cuantos === 0) return '';
+
+  const lineas = [
+    ...nuevos.map((m) => ({
+      fecha: m.fecha,
+      que: formatearRubro(m.rubro),
+      importe: `${m.tipo === TIPO_GASTO ? '−' : '+'}${formatearEnSuMoneda(m.monto, m.moneda, monedas)}`,
+      pie: [m.comentario, m.detalle].filter((t) => t).join(' · '),
+    })),
+    ...ahorros.map((a) => ({
+      fecha: a.fecha,
+      que: `Ahorro · ${a.persona}`,
+      importe: `${a.tipo === 'G' ? '−' : '+'}${formatearEnSuMoneda(a.monto, a.moneda, monedas)}`,
+      pie: [a.comentario, a.detalle].filter((t) => t).join(' · '),
+    })),
+  ].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+
+  const muestra = lineas.slice(0, tope);
+  const restan = lineas.length - muestra.length;
+
+  return `
+    <details class="que-entra"${cuantos <= tope ? ' open' : ''}>
+      <summary>Ver ${cuantos === 1 ? 'el que va a entrar' : `los ${cuantos} que van a entrar`}</summary>
+      <ul class="rubros">${muestra.map((l) => `
+        <li class="fila-rubro">
+          <span class="rubro-cabeza">
+            <span class="nombre">${escapar(l.que)}</span>
+            <span class="importe">${escapar(l.importe)}</span>
+          </span>
+          <div class="rubro-pie suave">
+            <span>${escapar(formatearFecha(l.fecha))}</span>
+            <span>${escapar(l.pie)}</span>
+          </div>
+        </li>`).join('')}</ul>
+      ${restan > 0 ? `<p class="suave nota">Y ${restan} más. Se ven todos en
+        Movimientos después de traerlos.</p>` : ''}
+    </details>
+  `;
+}
+
+function dibujarPreviaDePlanilla(planilla, monedas) {
   const { movimientos, problemas, comprobaciones, yaEstan } = planilla;
   const nuevos = movimientos.length - yaEstan;
 
@@ -523,6 +585,7 @@ function dibujarPreviaDePlanilla(planilla) {
     ${dibujarProblemas(problemas)}
     ${dibujarPreviaDeAhorros(planilla)}
 
+    ${dibujarQueEntra(planilla, { monedas })}
     ${dibujarBotonDeTraer(nuevos, (planilla.ahorros ?? []).length - (planilla.ahorrosQueEstan ?? 0))}
     <button type="button" class="secundario" data-accion="cancelar-planilla">Dejar como está</button>
   `;

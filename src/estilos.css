@@ -1135,3 +1135,25 @@ body {
 }
 
 .filas-con-problema li { margin-bottom: 0.5rem; font-size: 0.9375rem; }
+
+
+/* ── Lo que va a entrar al importar (T-044) ──────────────────────────────────
+   Va plegado cuando son muchos —en la primera importación son cientos— y
+   abierto cuando son pocos, que es justo cuando la lista importa: al reimportar
+   aparecen uno o dos, y son los que el usuario había borrado a mano. */
+.que-entra { margin: 0.75rem 0; }
+
+.que-entra > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+  /* Área de toque cómoda con el pulgar, sin que parezca un botón: es un
+     desplegable, y disfrazarlo de botón promete otra cosa. */
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.que-entra > summary::marker { color: var(--texto-suave); }
+.que-entra .rubros { margin-top: 0.25rem; }

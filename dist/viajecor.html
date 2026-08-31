@@ -1149,6 +1149,28 @@ body {
 }
 
 .filas-con-problema li { margin-bottom: 0.5rem; font-size: 0.9375rem; }
+
+
+/* ── Lo que va a entrar al importar (T-044) ──────────────────────────────────
+   Va plegado cuando son muchos —en la primera importación son cientos— y
+   abierto cuando son pocos, que es justo cuando la lista importa: al reimportar
+   aparecen uno o dos, y son los que el usuario había borrado a mano. */
+.que-entra { margin: 0.75rem 0; }
+
+.que-entra > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+  /* Área de toque cómoda con el pulgar, sin que parezca un botón: es un
+     desplegable, y disfrazarlo de botón promete otra cosa. */
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.que-entra > summary::marker { color: var(--texto-suave); }
+.que-entra .rubros { margin-top: 0.25rem; }
 </style>
 
 <div id="app" class="app">
@@ -1162,7 +1184,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.3.1";
+globalThis.__VIAJECOR_VERSION__ = "0.4.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -3338,6 +3360,7 @@ function sugerenciasPara(escrito, usados, limite = 5) {
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
 
+
 // El español de España: coma decimal, punto de miles, y la fecha como
 // día/mes/año. Es el idioma en el que el usuario piensa sus gastos.
 const IDIOMA = 'es-ES';
@@ -3366,6 +3389,26 @@ function formatearMonto(minimas, decimales, moneda = 'EUR') {
     minimumFractionDigits: decimales,
     maximumFractionDigits: decimales,
   }).format(numero);
+}
+
+/**
+ * Un importe en **su** moneda, con los decimales que esa moneda usa.
+ *
+ * Los decimales salen del catálogo del usuario (ADR-011) en vez de suponer dos:
+ * el yen usa cero, y mostrar `¥1.500,00` es mostrar un número que no existe.
+ *
+ * **Si la moneda no está en el catálogo, se muestran dos y no se rompe nada.**
+ * Puede pasar con un respaldo viejo o una moneda borrada, y una pantalla en
+ * blanco es peor que un importe con dos decimales de más.
+ */
+function formatearEnSuMoneda(minimas, moneda, monedas) {
+  let decimales = 2;
+  try {
+    decimales = decimalesDe(monedas ?? [], moneda);
+  } catch {
+    // Ver arriba: se muestra igual.
+  }
+  return formatearMonto(minimas, decimales, moneda);
 }
 
 /** Un importe en céntimos de euro, que es la unidad de todos los totales. */
@@ -8829,23 +8872,14 @@ function intentarBorrarFechas(estado, clave) {
 
 
 
-
 /**
- * Un importe en SU moneda. Nunca en euros: ver arriba.
+ * Un importe en SU moneda. **Nunca en euros**: ver arriba.
  *
- * Los decimales salen del catálogo del usuario (ADR-011). Si la moneda no
- * estuviera —un respaldo viejo, una moneda borrada— se muestran dos, que es lo
- * que usan las tres monedas de esta hoja, en vez de romper la pantalla.
+ * Es `formatearEnSuMoneda()` con otro nombre, para que las llamadas de esta
+ * pantalla se lean diciendo qué es lo que no hacen: convertir.
  */
 function importeDeAhorro(minimas, moneda, monedas) {
-  let decimales = 2;
-  try {
-    decimales = decimalesDe(monedas ?? [], moneda);
-  } catch {
-    // Sin la moneda en el catálogo, el número se muestra igual: es peor una
-    // pantalla en blanco que un importe con dos decimales de más.
-  }
-  return formatearMonto(minimas, decimales, moneda);
+  return formatearEnSuMoneda(minimas, moneda, monedas);
 }
 
 /** El bloque de una moneda: cuánto hay, y cuánto puso cada uno. */
@@ -10445,7 +10479,7 @@ function dibujarPlanillaVieja(vista) {
 
       ${vista.errorPlanillaVieja ? `<p class="error-carga" role="alert">${escapar(vista.errorPlanillaVieja)}</p>` : ''}
       ${vista.avisoPlanillaVieja ? `<p class="confirmacion" role="status">${escapar(vista.avisoPlanillaVieja)}</p>` : ''}
-      ${previa ? dibujarPreviaDePlanilla(previa) : ''}
+      ${previa ? dibujarPreviaDePlanilla(previa, vista.estado?.monedas ?? []) : ''}
     </section>
   `;
 }
@@ -10522,7 +10556,69 @@ function dibujarBotonDeTraer(movimientos, ahorros) {
   `;
 }
 
-function dibujarPreviaDePlanilla(planilla) {
+/**
+ * Cuántos se muestran de la lista de lo que va a entrar.
+ *
+ * En la primera importación son cientos y listarlos todos haría una pantalla
+ * inmanejable. En la segunda son dos o tres, que es cuando la lista importa de
+ * verdad — y ahí entran todos.
+ */
+const NUEVOS_QUE_SE_MUESTRAN = 25;
+
+/**
+ * Qué es cada cosa que va a entrar — T-044.
+ *
+ * Lo pidió el usuario: la app le decía "voy a traer 1 movimiento" y no tenía
+ * forma de saber cuál. Pasa al importar por segunda vez, que es cuando la
+ * diferencia es de uno o dos y **el que aparece suele ser uno que él había
+ * borrado a mano**. Sin la lista hay que aceptar a ciegas y salir a buscarlo
+ * después.
+ */
+function dibujarQueEntra(planilla, { monedas = [], tope = NUEVOS_QUE_SE_MUESTRAN } = {}) {
+  const nuevos = planilla.nuevos ?? [];
+  const ahorros = planilla.ahorrosNuevos ?? [];
+  const cuantos = nuevos.length + ahorros.length;
+  if (cuantos === 0) return '';
+
+  const lineas = [
+    ...nuevos.map((m) => ({
+      fecha: m.fecha,
+      que: formatearRubro(m.rubro),
+      importe: `${m.tipo === TIPO_GASTO ? '−' : '+'}${formatearEnSuMoneda(m.monto, m.moneda, monedas)}`,
+      pie: [m.comentario, m.detalle].filter((t) => t).join(' · '),
+    })),
+    ...ahorros.map((a) => ({
+      fecha: a.fecha,
+      que: `Ahorro · ${a.persona}`,
+      importe: `${a.tipo === 'G' ? '−' : '+'}${formatearEnSuMoneda(a.monto, a.moneda, monedas)}`,
+      pie: [a.comentario, a.detalle].filter((t) => t).join(' · '),
+    })),
+  ].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+
+  const muestra = lineas.slice(0, tope);
+  const restan = lineas.length - muestra.length;
+
+  return `
+    <details class="que-entra"${cuantos <= tope ? ' open' : ''}>
+      <summary>Ver ${cuantos === 1 ? 'el que va a entrar' : `los ${cuantos} que van a entrar`}</summary>
+      <ul class="rubros">${muestra.map((l) => `
+        <li class="fila-rubro">
+          <span class="rubro-cabeza">
+            <span class="nombre">${escapar(l.que)}</span>
+            <span class="importe">${escapar(l.importe)}</span>
+          </span>
+          <div class="rubro-pie suave">
+            <span>${escapar(formatearFecha(l.fecha))}</span>
+            <span>${escapar(l.pie)}</span>
+          </div>
+        </li>`).join('')}</ul>
+      ${restan > 0 ? `<p class="suave nota">Y ${restan} más. Se ven todos en
+        Movimientos después de traerlos.</p>` : ''}
+    </details>
+  `;
+}
+
+function dibujarPreviaDePlanilla(planilla, monedas) {
   const { movimientos, problemas, comprobaciones, yaEstan } = planilla;
   const nuevos = movimientos.length - yaEstan;
 
@@ -10539,6 +10635,7 @@ function dibujarPreviaDePlanilla(planilla) {
     ${dibujarProblemas(problemas)}
     ${dibujarPreviaDeAhorros(planilla)}
 
+    ${dibujarQueEntra(planilla, { monedas })}
     ${dibujarBotonDeTraer(nuevos, (planilla.ahorros ?? []).length - (planilla.ahorrosQueEstan ?? 0))}
     <button type="button" class="secundario" data-accion="cancelar-planilla">Dejar como está</button>
   `;
@@ -12101,10 +12198,19 @@ function iniciar(documento, almacen) {
       planilla: {
         movimientos, problemas, comprobaciones,
         yaEstan: movimientos.filter((m) => yaEstan.has(m.id)).length,
+        // **Cuáles son los que van a entrar**, no solo cuántos — T-044.
+        //
+        // Lo pidió el usuario después de reimportar su planilla: la app le dijo
+        // "voy a traer 1 movimiento" y él no tenía forma de saber cuál. Pasa
+        // justo cuando importa por segunda vez, que es cuando la diferencia es
+        // chica y **el que aparece suele ser uno que había borrado a mano**. Un
+        // número sin la lista lo obliga a aceptar a ciegas y buscarlo después.
+        nuevos: movimientos.filter((m) => !yaEstan.has(m.id)),
         ahorros: ahorros.ahorros,
         problemasDeAhorros: ahorros.problemas,
         comprobacionesDeAhorros: ahorros.comprobaciones,
         ahorrosQueEstan: ahorros.ahorros.filter((a) => ahorrosQueEstan.has(a.id)).length,
+        ahorrosNuevos: ahorros.ahorros.filter((a) => !ahorrosQueEstan.has(a.id)),
       },
       errorPlanillaVieja: null,
       avisoPlanillaVieja: null,

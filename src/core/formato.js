@@ -12,6 +12,7 @@
 
 import { aNumero, DECIMALES_EURO } from './dinero.js';
 import { normalizarMoneda, validarFecha } from './modelo.js';
+import { decimalesDe } from './monedas.js';
 
 // El español de España: coma decimal, punto de miles, y la fecha como
 // día/mes/año. Es el idioma en el que el usuario piensa sus gastos.
@@ -41,6 +42,26 @@ export function formatearMonto(minimas, decimales, moneda = 'EUR') {
     minimumFractionDigits: decimales,
     maximumFractionDigits: decimales,
   }).format(numero);
+}
+
+/**
+ * Un importe en **su** moneda, con los decimales que esa moneda usa.
+ *
+ * Los decimales salen del catálogo del usuario (ADR-011) en vez de suponer dos:
+ * el yen usa cero, y mostrar `¥1.500,00` es mostrar un número que no existe.
+ *
+ * **Si la moneda no está en el catálogo, se muestran dos y no se rompe nada.**
+ * Puede pasar con un respaldo viejo o una moneda borrada, y una pantalla en
+ * blanco es peor que un importe con dos decimales de más.
+ */
+export function formatearEnSuMoneda(minimas, moneda, monedas) {
+  let decimales = 2;
+  try {
+    decimales = decimalesDe(monedas ?? [], moneda);
+  } catch {
+    // Ver arriba: se muestra igual.
+  }
+  return formatearMonto(minimas, decimales, moneda);
 }
 
 /** Un importe en céntimos de euro, que es la unidad de todos los totales. */

@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path';
 import {
   IDIOMA,
   formatearMonto,
+  formatearEnSuMoneda,
   formatearEuros,
   formatearNumero,
   formatearFecha,
@@ -202,4 +203,27 @@ test('todo se formatea en español de España', () => {
   assert.equal(IDIOMA, 'es-ES');
   // La coma decimal es lo que distingue: en inglés sería "12.50".
   assert.ok(formatearEuros(1250).includes(','));
+});
+
+// ── Cada importe en SU moneda (T-044) ────────────────────────────────────────
+
+test('formatearEnSuMoneda usa los decimales de esa moneda, no siempre dos', () => {
+  // El yen usa cero. Mostrar "¥1.500,00" es mostrar un número que no existe.
+  const monedas = [
+    { codigo: 'EUR', nombre: 'Euro', decimales: 2 },
+    { codigo: 'JPY', nombre: 'Yen', decimales: 0 },
+  ];
+
+  // Con cuatro cifras el español no lleva separador de miles, así que se usan
+  // cinco: si no, el test pasaría por el motivo equivocado.
+  assert.match(formatearEnSuMoneda(1500050, 'EUR', monedas), /15\.000,50/);
+  assert.match(formatearEnSuMoneda(15000, 'JPY', monedas), /15\.000/);
+  assert.doesNotMatch(formatearEnSuMoneda(15000, 'JPY', monedas), /15\.000,00/);
+});
+
+test('una moneda que no está en el catálogo se muestra igual, con dos decimales', () => {
+  // Puede pasar con un respaldo viejo o una moneda borrada. Una pantalla en
+  // blanco es peor que un importe con dos decimales de más.
+  assert.match(formatearEnSuMoneda(1500050, 'USD', []), /15\.000,50/);
+  assert.match(formatearEnSuMoneda(1500050, 'USD', undefined), /15\.000,50/);
 });
