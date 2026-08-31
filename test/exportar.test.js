@@ -341,3 +341,25 @@ test('la pantalla explica para qué es el CSV y en qué se diferencia', () => {
   assert.match(html, /el tipo de cambio que se aplicó/);
   assert.match(html, /para procesar/);
 });
+
+// ── Las fechas de viaje en el respaldo (L-031, 0.2.1) ────────────────────────
+
+test('el respaldo se lleva las fechas de cada viaje', () => {
+  // Faltaban, y era pérdida de datos silenciosa: las fechas de un viaje son lo
+  // único del estado que NO se puede deducir de los movimientos —un viaje
+  // empieza antes del primer gasto anotado—, así que al restaurar se perdían
+  // para siempre y la app volvía a preguntar "¿Cuándo fue?".
+  const estado = {
+    ...estadoInicial({ monedas: monedasIniciales() }),
+    fechas_de_viaje: [{ clave: 'roma', desde: '2026-07-01', hasta: '2026-07-10' }],
+  };
+
+  const leido = JSON.parse(contenidoDelRespaldo(estado, { fecha: '2026-08-31' }));
+  assert.deepEqual(leido.fechas_de_viaje,
+    [{ clave: 'roma', desde: '2026-07-01', hasta: '2026-07-10' }]);
+});
+
+test('un estado sin fechas de viaje exporta una lista vacía, no un hueco', () => {
+  const leido = JSON.parse(contenidoDelRespaldo(estadoInicial({ monedas: [] })));
+  assert.deepEqual(leido.fechas_de_viaje, []);
+});

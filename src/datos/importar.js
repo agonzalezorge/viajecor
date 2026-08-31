@@ -22,7 +22,7 @@
 //      lo mismo que importarlo una.
 
 import { migrarEstado } from './almacenamiento.js';
-import { validarFecha } from '../core/modelo.js';
+import { validarFecha, normalizarClave } from '../core/modelo.js';
 
 /**
  * Lee el texto de un respaldo. **Nunca tira**: devuelve el resultado o el
@@ -146,6 +146,15 @@ export function aplicarImportacion(estadoActual, leido, modo) {
       (c) => `${c.moneda}|${c.mes}`
     ),
     monedas: unirPorClave(estadoActual.monedas ?? [], importado.monedas ?? [], (m) => m.codigo),
+    // Las fechas de viaje también se suman, y **las que ya están mandan**: al
+    // agregar un respaldo a lo que hay, lo de este dispositivo es lo más nuevo
+    // que se sabe. Sin esta línea, un viaje del respaldo llegaba sin sus fechas
+    // y la app volvía a preguntar "¿Cuándo fue?" por algo ya contestado (L-031).
+    fechas_de_viaje: unirPorClave(
+      estadoActual.fechas_de_viaje ?? [],
+      importado.fechas_de_viaje ?? [],
+      (v) => normalizarClave(String(v?.clave ?? ''))
+    ),
     preferencias: { ...estadoActual.preferencias, ultimo_respaldo },
   };
 }

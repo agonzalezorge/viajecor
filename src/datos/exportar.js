@@ -58,6 +58,12 @@ export function contenidoDelRespaldo(estado, { fecha = hoy() } = {}) {
     movimientos: estado.movimientos ?? [],
     tipos_cambio: estado.tipos_cambio ?? [],
     monedas: estado.monedas ?? [],
+    // Las fechas de cada viaje (T-941). **Faltaban acá hasta la 0.2.1**, y era
+    // pérdida de datos silenciosa: son lo único del estado que NO se puede
+    // deducir de los movimientos —un viaje empieza antes del primer gasto—, así
+    // que al restaurar un respaldo se perdían para siempre y la app volvía a
+    // decir "¿Cuándo fue?" sin que nada avisara. Ver L-031.
+    fechas_de_viaje: estado.fechas_de_viaje ?? [],
     preferencias: estado.preferencias ?? {},
   };
 

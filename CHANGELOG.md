@@ -3,6 +3,20 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.2.1 — 2026-08-31
+
+### Arreglado
+- **El respaldo perdía las fechas de los viajes.** Se exportaban los
+  movimientos, los tipos de cambio y las monedas, pero no las fechas de inicio y
+  fin de cada viaje: al restaurar un respaldo —o al mudar los datos a otro
+  dispositivo— la app volvía a preguntar *"¿Cuándo fue?"* por viajes ya
+  contestados, y el gasto por día desaparecía. **Sin ningún aviso**, que es lo
+  peor. Son el único dato que no se puede recalcular a partir de los
+  movimientos. Ver L-031.
+
+  Si ya tenés un respaldo hecho con una versión anterior, sus fechas de viaje no
+  están ahí: volvé a bajar el `.json` con esta versión.
+
 ## 0.2.0 — 2026-08-31
 
 **La versión venía clavada en `0.1.0`** mientras se agregaban la búsqueda, los

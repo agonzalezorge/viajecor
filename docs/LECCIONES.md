@@ -1020,3 +1020,30 @@ programa perfectamente verificado y que igual no llegue a destino. Ahora lo
 cubren dos cosas: un test que comprueba que la configuración apunte a donde el
 build escribe, y **reproducir el despliegue en un clon limpio** —`npm install` y
 `npm run build`— antes de decir que anda.
+
+
+## L-031 · Lo que no se puede recalcular es lo que hay que respaldar primero
+
+**Dónde apareció.** Preparando los ahorros conjuntos, leyendo `exportar.js` por
+otra razón: el respaldo llevaba los movimientos, los tipos de cambio, las
+monedas y las preferencias — y **no** `fechas_de_viaje`. Estaban en el estado
+desde T-941 y nunca entraron al archivo.
+
+**Por qué duele especialmente.** Todo lo demás del estado se puede reconstruir
+mirando los movimientos: los viajes salen de las etiquetas, los grupos de las
+etiquetas, los totales de los montos. **Las fechas de un viaje no**: un viaje
+empieza antes del primer gasto anotado, y por eso el usuario las escribe a mano.
+Era el único dato irrecuperable del sistema, y era justo el que no se respaldaba.
+
+**Cómo falla, que es lo peor.** En silencio. El respaldo se baja, pesa lo que
+tiene que pesar, se importa sin un error, y los viajes vuelven sin fechas. La
+app pregunta *"¿Cuándo fue?"* por algo ya contestado y no hay nada que sugiera
+que se perdió algo: hay que acordarse de que lo habías escrito.
+
+**Lo que hay que aprender de esto.** Cuando se agrega un dato al estado, la
+pregunta no es "¿se muestra bien?" sino **"¿se puede volver a calcular si se
+pierde?"**. Si la respuesta es no, ese dato entra al respaldo en el mismo commit
+en que nace, y con su test. Y a la inversa: un test que compare el estado
+completo contra lo exportado habría encontrado esto solo — los tests de
+`exportar.js` miraban campo por campo, así que un campo nuevo simplemente no
+tenía a nadie que lo extrañara.

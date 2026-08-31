@@ -104,6 +104,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-948 | Publicar la app para poder usarla en un iPhone | **Hecha** | — |
 | T-949 | Publicar en Vercel, con la CSP que hace cumplir el cero red | **Hecha** | T-948 |
 | T-950 | Que la app publicada abra sin conexión | **Hecha** | T-949 |
+| T-951 | El respaldo perdía las fechas de los viajes | **Hecha** | T-941 |
 | T-901 | Versionado y CHANGELOG | Lista | — |
 | T-902 | Uso cómodo en celular | Lista (empezada en T-010) | T-010 |
 | T-903 | Recordatorio semanal de respaldo | **Hecha** | T-016 |
@@ -2304,3 +2305,28 @@ el manifiesto colgado, la red cortada de verdad, gastos cargados sin conexión y
 todo intacto al volver la red— y **el archivo desde el disco**, donde lo
 importante es lo que NO pasa: no cuelga el manifiesto, no registra nada, cero
 pedidos fuera del archivo y cero errores de consola.
+
+### T-951 · El respaldo perdía las fechas de los viajes — **Hecha** (2026-08-31)
+**Depende de:** T-941 · **Encontrada leyendo el código, no por un síntoma** ·
+**Tocó:** `src/datos/exportar.js`, `src/datos/importar.js`
+
+`contenidoDelRespaldo()` guardaba movimientos, tipos de cambio, monedas y
+preferencias, y **no `fechas_de_viaje`**. Es el único dato del estado que no se
+puede recalcular mirando los movimientos —un viaje empieza antes del primer
+gasto anotado— y era el único que no se respaldaba. Al restaurar, la app volvía
+a preguntar "¿Cuándo fue?" por viajes ya contestados, **sin avisar nada**
+(L-031).
+
+Al **reemplazar**, las fechas del respaldo entran tal cual. Al **agregar**, las
+que ya están en el dispositivo mandan: lo de acá es lo más nuevo que se sabe, y
+las del respaldo que no tienen par entran igual.
+
+**Mutaciones:** 5 sembradas, 5 muertas.
+
+**Recorrido en el navegador**, el circuito completo y en un perfil limpio:
+cargar un viaje con sus fechas, respaldar, empezar de cero, pegar el respaldo e
+importar. El viaje vuelve con "42,00 € por día en 10 días · 01/07/2026 →
+10/07/2026". Antes volvía sin nada de eso.
+
+**Aviso para el usuario:** un respaldo hecho con una versión anterior **no
+tiene** esas fechas adentro. Hay que volver a bajarlo.

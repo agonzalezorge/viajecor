@@ -19,7 +19,7 @@ import {
 
 import { dibujarImportar } from '../src/ui/pantallas/datos.js';
 import { contenidoDelRespaldo, anotarRespaldo } from '../src/datos/exportar.js';
-import { estadoInicial } from '../src/datos/almacenamiento.js';
+import { estadoInicial, ESQUEMA_ACTUAL } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
 import { intentarGuardar, borradorNuevo } from '../src/ui/pantallas/movimiento.js';
 import { crearCambio, desdeUnidadesPorEuro } from '../src/core/cambio.js';
@@ -399,4 +399,62 @@ test('perder un solo movimiento se dice en singular', () => {
 
   assert.ok(html.includes('Se borraría 1 movimiento'));
   assert.equal(html.includes('Se borrarían 1'), false);
+});
+
+// ── Las fechas de viaje al importar (L-031, 0.2.1) ───────────────────────────
+
+test('reemplazar un estado por un respaldo trae también las fechas de viaje', () => {
+  const respaldo = JSON.stringify({
+    esquema: ESQUEMA_ACTUAL,
+    movimientos: [],
+    tipos_cambio: [],
+    monedas: monedasIniciales(),
+    fechas_de_viaje: [{ clave: 'roma', desde: '2026-07-01', hasta: '2026-07-10' }],
+    preferencias: {},
+  });
+
+  const nuevo = aplicarImportacion(estadoInicial({ monedas: [] }), leerRespaldo(respaldo), MODO_REEMPLAZAR);
+
+  assert.deepEqual(nuevo.fechas_de_viaje,
+    [{ clave: 'roma', desde: '2026-07-01', hasta: '2026-07-10' }]);
+});
+
+test('al AGREGAR, las fechas que ya están mandan sobre las del respaldo', () => {
+  // Lo que hay en este dispositivo es lo más nuevo que se sabe. Y una fecha del
+  // respaldo para un viaje que acá no tiene, entra.
+  const actual = {
+    ...estadoInicial({ monedas: [] }),
+    fechas_de_viaje: [{ clave: 'roma', desde: '2026-07-02', hasta: '2026-07-11' }],
+  };
+  const respaldo = JSON.stringify({
+    esquema: ESQUEMA_ACTUAL,
+    movimientos: [],
+    tipos_cambio: [],
+    monedas: [],
+    fechas_de_viaje: [
+      { clave: 'roma', desde: '1999-01-01', hasta: '1999-01-02' },
+      { clave: 'lisboa', desde: '2026-05-01', hasta: '2026-05-08' },
+    ],
+    preferencias: {},
+  });
+
+  const nuevo = aplicarImportacion(actual, leerRespaldo(respaldo), MODO_AGREGAR);
+
+  assert.deepEqual(nuevo.fechas_de_viaje, [
+    { clave: 'roma', desde: '2026-07-02', hasta: '2026-07-11' },
+    { clave: 'lisboa', desde: '2026-05-01', hasta: '2026-05-08' },
+  ]);
+});
+
+test('un respaldo viejo, sin fechas de viaje, no rompe ni borra las que hay', () => {
+  const actual = {
+    ...estadoInicial({ monedas: [] }),
+    fechas_de_viaje: [{ clave: 'roma', desde: '2026-07-02', hasta: '2026-07-11' }],
+  };
+  const respaldo = JSON.stringify({
+    esquema: ESQUEMA_ACTUAL, movimientos: [], tipos_cambio: [], monedas: [], preferencias: {},
+  });
+
+  const nuevo = aplicarImportacion(actual, leerRespaldo(respaldo), MODO_AGREGAR);
+  assert.equal(nuevo.fechas_de_viaje.length, 1);
 });
