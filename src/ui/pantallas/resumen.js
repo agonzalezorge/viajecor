@@ -172,6 +172,12 @@ export function dibujarMesVacio(mes) {
       <button type="button" class="principal" data-accion="ir" data-pantalla="nuevo">
         Cargar un movimiento
       </button>
+      <!-- Los ahorros no dependen del mes que estés mirando: son otro registro.
+           Sin esto, un mes sin gastos los deja inalcanzables desde acá, que es
+           el mismo defecto que ya había tenido la evolución. -->
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
+        Ahorros conjuntos
+      </button>
     </section>
   `;
 }
@@ -215,6 +221,13 @@ export function dibujarIrAEvolucion() {
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
         Ver los otros grupos de gastos
+      </button>
+      <!-- Los ahorros van acá abajo, con los otros historiales, y no en la barra
+           de navegación: no son gastos ni ingresos del mes —no entran en ningún
+           total de esta pantalla— y se miran una vez por mes. Lo pidió el
+           usuario así (2026-08-31). -->
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
+        Ahorros conjuntos
       </button>
     </section>
   `;

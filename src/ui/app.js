@@ -28,6 +28,10 @@ import { dibujarEtiquetas, dibujarAvisoRenombrar, intentarRenombrar,
 import { efectoDeRenombrar } from '../core/etiquetas.js';
 import { conectarSeries } from './series-interaccion.js';
 import { dibujarAhorros } from './pantallas/ahorros.js';
+import {
+  dibujarNuevoAhorro, borradorDeAhorro, borradorDesdeAhorro, intentarGuardarAhorro,
+  borrarAhorro, restaurarAhorro, buscarAhorro,
+} from './pantallas/ahorro.js';
 import { dibujarViajes, intentarFijarFechas, intentarBorrarFechas,
   dibujarDuracion } from './pantallas/viajes.js';
 import { dibujarGrupos } from './pantallas/grupos.js';
@@ -150,6 +154,14 @@ registrarPantalla('ahorros', {
   conMes: false,
   enBarra: false,
   dibujar: dibujarAhorros,
+});
+
+registrarPantalla('nuevo-ahorro', {
+  etiqueta: 'Cargar en ahorros',
+  icono: '＋',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarNuevoAhorro,
 });
 
 registrarPantalla('viajes', {
@@ -536,6 +548,69 @@ export function iniciar(documento, almacen) {
       comentario: campo('comentario'),
       detalle: campo('detalle'),
     };
+  }
+
+  /** Lo mismo que `leerFormulario`, para el formulario de ahorros — T-045. */
+  function leerFormularioDeAhorro() {
+    // El borrador **puede no existir todavía**: la vista inicial no lo trae,
+    // porque el formulario de ahorros se abre desde su pantalla y no al
+    // arrancar. Sin este respaldo, la primera carga salía con `tipo: undefined`
+    // y el modelo la rechazaba con un mensaje que hablaba de "undefined". Lo
+    // encontró el recorrido en el navegador, no los tests: los tests le pasan
+    // siempre un borrador.
+    const actual = vista.borradorDeAhorro ?? borradorDeAhorro({ estado: vista.estado });
+    const formulario = raiz.querySelector('[data-formulario="ahorro"]');
+    if (!formulario) return actual;
+
+    const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
+    return {
+      ...actual,
+      fecha: campo('fecha'),
+      monto: campo('monto'),
+      moneda: campo('moneda'),
+      persona: campo('persona'),
+      comentario: campo('comentario'),
+      detalle: campo('detalle'),
+    };
+  }
+
+  /**
+   * Guarda un movimiento de ahorro.
+   *
+   * Mismo camino que un gasto: se intenta, se escribe **antes** de decir que se
+   * guardó, y si el navegador no puede escribir se muestra el error en vez de
+   * una confirmación falsa (ADR-016). Lo único que no hace es pedir tipo de
+   * cambio: los ahorros no se convierten nunca.
+   */
+  function guardarElAhorro() {
+    const resultado = intentarGuardarAhorro(vista.estado, leerFormularioDeAhorro());
+
+    if (resultado.error) {
+      vista = { ...vista, borradorDeAhorro: resultado.borrador, error: resultado.error, aviso: null };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorDeAhorro: leerFormularioDeAhorro(), error: error.message, aviso: null };
+      pintar();
+      return;
+    }
+
+    vista = {
+      ...vista,
+      estado: resultado.estado,
+      borradorDeAhorro: resultado.borrador,
+      error: null,
+      aviso: resultado.aviso,
+      // Al corregir se vuelve a la lista, que es de donde se vino. Al cargar uno
+      // nuevo se queda en el formulario: quien anota los ahorros del mes carga
+      // varios seguidos.
+      pantalla: resultado.corrigiendo ? 'ahorros' : vista.pantalla,
+    };
+    pintar();
   }
 
   function guardarMovimiento() {
@@ -1378,6 +1453,9 @@ export function iniciar(documento, almacen) {
     if (evento.target.matches('[data-formulario="movimiento"]')) {
       evento.preventDefault();
       guardarMovimiento();
+    } else if (evento.target.matches('[data-formulario="ahorro"]')) {
+      evento.preventDefault();
+      guardarElAhorro();
     } else if (evento.target.matches('[data-formulario="cambio"]')) {
       evento.preventDefault();
       guardarTipoDeCambio();
@@ -1606,6 +1684,62 @@ export function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, borrado: null };
+    } else if (accion === 'guardar-ahorro') {
+      evento.preventDefault();
+      guardarElAhorro();
+      return;
+    } else if (accion === 'tipo-ahorro') {
+      // Entró / salió del ahorro. Lo escrito no se pierde porque se lee antes.
+      vista = { ...vista, borradorDeAhorro: { ...leerFormularioDeAhorro(), tipo }, error: null };
+    } else if (accion === 'editar-ahorro') {
+      const ahorro = buscarAhorro(vista.estado, boton.dataset.id);
+      if (!ahorro) return;
+      let decimales;
+      try {
+        decimales = decimalesDe(vista.estado.monedas, ahorro.moneda);
+      } catch {
+        // La moneda no está en el catálogo —un respaldo viejo, una moneda
+        // borrada—: se muestra con dos decimales en vez de no dejar corregir.
+        decimales = 2;
+      }
+      vista = {
+        ...vista,
+        pantalla: 'nuevo-ahorro',
+        borradorDeAhorro: borradorDesdeAhorro(ahorro, decimales),
+        error: null,
+        aviso: null,
+        confirmandoAhorro: null,
+      };
+    } else if (accion === 'borrar-ahorro') {
+      // Primer toque: no borra, pregunta. Igual que en los movimientos.
+      vista = { ...vista, confirmandoAhorro: boton.dataset.id, ahorroBorrado: null };
+    } else if (accion === 'borrar-ahorro-no') {
+      vista = { ...vista, confirmandoAhorro: null };
+    } else if (accion === 'borrar-ahorro-si') {
+      const resultado = borrarAhorro(vista.estado, boton.dataset.id);
+      if (!resultado.borrado) {
+        vista = { ...vista, confirmandoAhorro: null };
+      } else {
+        try {
+          guardarEstado(resultado.estado, almacen);
+        } catch (error) {
+          // No se saca de la pantalla lo que sigue estando guardado.
+          vista = { ...vista, confirmandoAhorro: null, error: error.message };
+          pintar();
+          return;
+        }
+        vista = { ...vista, estado: resultado.estado, confirmandoAhorro: null, ahorroBorrado: resultado.borrado };
+      }
+    } else if (accion === 'deshacer-ahorro') {
+      const estado = restaurarAhorro(vista.estado, vista.ahorroBorrado);
+      try {
+        guardarEstado(estado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado, ahorroBorrado: null };
     } else if (accion === 'tipo') {
       // Cambiar de gasto a ingreso cambia la lista de rubros (RN-02), así que hay
       // que volver a dibujar. Lo escrito no se pierde porque se lee antes; el

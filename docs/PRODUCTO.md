@@ -617,6 +617,12 @@ nadie toque nada—. La pantalla lo dice con todas las letras.
 información del usuario para leer, no una categoría que la app sume aparte (lo
 pidió explícitamente, 2026-08-31).
 
+**Se carga, se corrige y se borra desde la app** (T-045), con las mismas
+dinámicas que un gasto: el borrado pregunta antes y se puede deshacer. El
+formulario dice **"Entró al ahorro" / "Salió del ahorro"**, no Ingreso / Gasto.
+Y **no pide tipo de cambio**: los ahorros no se convierten nunca, así que no hay
+ningún total del que puedan quedar afuera.
+
 **Se importa desde la misma planilla que los gastos**, en el mismo paso: el
 usuario elige un archivo, no una hoja. Cada fila que no entra se informa con su
 número de fila, y los totales por moneda se comparan contra el cuadro que traía

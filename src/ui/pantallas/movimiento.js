@@ -152,7 +152,12 @@ export function fechaEnPalabras(iso) {
   }
 }
 
-function opciones(valores, elegido) {
+/**
+ * Las `<option>` de un `<select>`. Exportada para que el formulario de ahorros
+ * use exactamente la misma: dos versiones de esto se separan el día que una
+ * aprende a escapar algo que la otra no.
+ */
+export function opciones(valores, elegido) {
   return valores
     .map((v) => {
       const valor = typeof v === 'string' ? v : v.valor;

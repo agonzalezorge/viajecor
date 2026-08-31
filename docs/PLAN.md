@@ -90,6 +90,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-040 | Modelo de ahorros multimoneda | **Hecha** | T-004 |
 | T-041 | Pantalla de ahorros conjuntos | **Hecha** | T-040, T-010 |
 | T-042 | Importar la hoja de ahorros de la planilla | **Hecha** | T-040, T-031 |
+| T-045 | Cargar, corregir y borrar ahorros desde la app | **Hecha** | T-041 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
@@ -2444,3 +2445,50 @@ entrar".
 movimiento a mano, reimportar. La app dice *"Ver el que va a entrar"* y lista
 "Ahorro · IRE · −180,00 € · 29/04/2026 · Cacerola Le Creuset". Cero pedidos de
 red, cero errores de consola.
+
+### T-045 · Cargar, corregir y borrar ahorros desde la app — **Hecha** (2026-08-31)
+**Pedida por el usuario (2026-08-31)** · **Tocó:** `ui/pantallas/ahorro.js`
+(nuevo), `ui/pantallas/ahorros.js`, `ui/pantallas/resumen.js`,
+`ui/pantallas/movimiento.js`, `ui/app.js`
+
+La pantalla de ahorros era de **solo lectura**: se llenaba importando la
+planilla y nada más. Para anotar un ahorro nuevo había que escribirlo en el
+Excel y reimportar — o sea, seguir usando la planilla que la app vino a
+reemplazar. Era un hueco, no una decisión.
+
+**Formulario aparte del de gastos, y el usuario lo dijo antes que yo:** "no son
+gastos e ingresos normales, son una cosa aparte". Un ahorro no tiene rubro y sí
+tiene persona; no entra en el saldo ni en la evolución. Meter una tercera opción
+en el formulario que se usa todos los días haría más lenta la carga diaria para
+servir a la mensual.
+
+**Pero funciona exactamente igual**: mismo borrador, misma función pura que
+devuelve estado nuevo, mismos avisos, pregunta antes de borrar y deja deshacer.
+Que dos pantallas parecidas tengan mecánicas distintas obliga a aprender la app
+dos veces.
+
+**Dos diferencias que sí importan:**
+- Dice **"Entró al ahorro" / "Salió del ahorro"** en vez de Ingreso / Gasto: un
+  ahorro usado para pagar un vuelo no es un ingreso de nada.
+- **No pide tipo de cambio**, a diferencia de los gastos (RN-04). Es la misma
+  regla vista del otro lado: los ahorros no se convierten a euros nunca, así que
+  no hay ningún total del que puedan quedar afuera. Pedir un dato que no se va a
+  usar es pedirlo porque sí.
+
+**El botón va al final del mes**, con los otros historiales, y **también en el
+mes vacío**: sin eso, un mes sin gastos dejaba los ahorros inalcanzables desde
+ahí — el mismo defecto que ya había tenido la evolución.
+
+**Un defecto encontrado por el recorrido, no por los tests:** la vista inicial no
+trae el borrador del formulario de ahorros —se abre desde su pantalla, no al
+arrancar—, así que la primera carga salía con `tipo: undefined` y el modelo la
+rechazaba con un mensaje que hablaba de "undefined". Los tests no podían verlo
+porque siempre le pasan un borrador.
+
+**Mutaciones:** 12 sembradas, 12 muertas.
+
+**Recorrido en el navegador:** cargar dos movimientos en monedas distintas,
+corregir uno —cambiándole el monto y la persona—, borrar otro y ver que pregunta,
+deshacer, recargar y comprobar que quedó como debía. Más el caso de un monto
+cero, que no se guarda y no borra lo escrito. Cero pedidos de red, cero errores
+de consola.

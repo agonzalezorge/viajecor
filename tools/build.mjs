@@ -55,6 +55,7 @@ const MODULOS = [
   'src/core/viajes.js',
   'src/ui/pantallas/etiquetas.js',
   'src/ui/pantallas/viajes.js',
+  'src/ui/pantallas/ahorro.js',
   'src/ui/pantallas/ahorros.js',
   'src/ui/pantallas/monedas.js',
   'src/ui/pantallas/grupos.js',

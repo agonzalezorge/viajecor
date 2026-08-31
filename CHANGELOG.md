@@ -3,6 +3,26 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.5.0 — 2026-08-31
+
+### Agregado
+- **Los ahorros conjuntos ya no son de solo lectura.** Se pueden **cargar,
+  corregir y borrar** desde la app, con las mismas dinámicas que todo lo demás:
+  el borrado pregunta antes y se puede deshacer, corregir mantiene el
+  movimiento en su lugar, y lo que el modelo rechaza no se guarda pero tampoco
+  te borra lo escrito.
+
+  Hasta ahora la única forma de agregar un ahorro era anotarlo en el Excel y
+  reimportar — es decir, seguir usando la planilla que la app vino a reemplazar.
+
+- **Botón "Ahorros conjuntos" al final de la pantalla del mes**, junto a los
+  otros historiales. También aparece cuando el mes está vacío: los ahorros no
+  dependen del mes que estés mirando.
+
+- El formulario dice **"Entró al ahorro" / "Salió del ahorro"**, no "Ingreso" y
+  "Gasto": acá la plata no entra ni sale de la casa, entra o sale del ahorro. Un
+  ahorro usado para pagar un vuelo no es un ingreso de nada.
+
 ## 0.4.0 — 2026-08-31
 
 ### Agregado

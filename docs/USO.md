@@ -372,6 +372,14 @@ Muestra **cuánto hay en cada moneda** y, dentro de cada una, **cuánto puso cad
 uno**. Abajo, el historial: `+` es plata que entró al ahorro, `−` plata que
 salió.
 
+**Para cargar uno nuevo**, el botón *"Cargar en ahorros conjuntos"*. Elegís si la
+plata **entró** o **salió** del ahorro, el monto y su moneda, de quién es, la
+fecha, y —si querés— un detalle y una etiqueta. Al guardar, el formulario se
+queda listo para el siguiente con la misma fecha y la misma persona.
+
+**Cada movimiento se puede corregir o borrar** desde su propia línea, igual que
+en Movimientos: borrar pregunta antes y después te deja deshacerlo.
+
 **No vas a encontrar un total que junte las monedas, y es a propósito:** sumar
 pesos con euros exige convertirlos al cambio de hoy, y eso da un número que
 cambia solo todos los días y que no existe hasta que cambies la plata de verdad.

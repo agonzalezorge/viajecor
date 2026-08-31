@@ -1184,7 +1184,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.4.0";
+globalThis.__VIAJECOR_VERSION__ = "0.5.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -8030,6 +8030,12 @@ function dibujarMesVacio(mes) {
       <button type="button" class="principal" data-accion="ir" data-pantalla="nuevo">
         Cargar un movimiento
       </button>
+      <!-- Los ahorros no dependen del mes que estés mirando: son otro registro.
+           Sin esto, un mes sin gastos los deja inalcanzables desde acá, que es
+           el mismo defecto que ya había tenido la evolución. -->
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
+        Ahorros conjuntos
+      </button>
     </section>
   `;
 }
@@ -8073,6 +8079,13 @@ function dibujarIrAEvolucion() {
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
         Ver los otros grupos de gastos
+      </button>
+      <!-- Los ahorros van acá abajo, con los otros historiales, y no en la barra
+           de navegación: no son gastos ni ingresos del mes —no entran en ningún
+           total de esta pantalla— y se miran una vez por mes. Lo pidió el
+           usuario así (2026-08-31). -->
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
+        Ahorros conjuntos
       </button>
     </section>
   `;
@@ -8846,6 +8859,240 @@ function intentarBorrarFechas(estado, clave) {
   }
 }
 
+// ── src/ui/pantallas/ahorro.js ──────────────────────────────────
+// Cargar, corregir y borrar un movimiento de ahorro — T-045, CU-14.
+//
+// ── Por qué es un formulario aparte del de gastos ────────────────────────────
+//
+// Porque son otra cosa, y el usuario lo dijo antes que yo: "no son gastos e
+// ingresos normales, son una cosa aparte". Un ahorro no tiene rubro y sí tiene
+// persona; no entra en el saldo del mes ni en la evolución. Meter una tercera
+// opción en el formulario que se usa todos los días haría más lento el 99 % de
+// las cargas para servir al 1 %.
+//
+// ── Y por qué, aun así, funciona EXACTAMENTE igual ───────────────────────────
+//
+// Mismo borrador, misma función pura que intenta guardar y devuelve estado
+// nuevo, mismos avisos, mismo "deshacer" al borrar. Lo que cambia son los
+// campos; lo que no cambia es cómo se comporta. Que dos pantallas parecidas
+// tengan mecánicas distintas es lo que obliga a aprender la app dos veces.
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras: reciben
+// estado y devuelven texto o estado nuevo. Quien guarda es `ui/app.js`.
+
+
+
+
+
+
+/** El formulario vacío. */
+function borradorDeAhorro({ estado, fecha, persona } = {}) {
+  return {
+    fecha: fecha ?? hoy(),
+    tipo: AHORRO_ENTRA,
+    // La persona y la moneda se mantienen entre cargas: quien anota los
+    // ahorros de un mes suele cargar varios seguidos del mismo lado.
+    persona: persona ?? PERSONAS[0],
+    monto: '',
+    moneda: estado?.preferencias?.moneda_predeterminada ?? 'EUR',
+    comentario: '',
+    detalle: '',
+  };
+}
+
+/**
+ * El formulario cargado con un ahorro que ya existe, para corregirlo.
+ *
+ * El monto vuelve a texto con la coma decimal del español: si volviera como
+ * `12.5`, el usuario vería su movimiento escrito de una forma en la que él
+ * nunca lo escribiría.
+ */
+function borradorDesdeAhorro(ahorro, decimales) {
+  return {
+    id: ahorro.id,
+    fecha: ahorro.fecha,
+    tipo: ahorro.tipo,
+    persona: ahorro.persona,
+    monto: formatearNumero(ahorro.monto, decimales),
+    moneda: ahorro.moneda,
+    comentario: ahorro.comentario,
+    detalle: ahorro.detalle,
+  };
+}
+
+/**
+ * Intenta guardar. Devuelve `{ estado, borrador, aviso, error }` — nunca tira.
+ *
+ * **No pide tipo de cambio**, a diferencia de los gastos (RN-04): los ahorros no
+ * se convierten a euros nunca, así que un ahorro en pesos no queda fuera de
+ * ningún total por no tener cambio. Es la misma regla de siempre vista desde el
+ * otro lado — pedir un dato que no se va a usar es pedirlo porque sí.
+ */
+function intentarGuardarAhorro(estado, borrador) {
+  let decimales;
+  try {
+    decimales = decimalesDe(estado.monedas, borrador.moneda);
+  } catch (error) {
+    return { estado, borrador, error: error.message };
+  }
+
+  const anteriores = estado.ahorros ?? [];
+  const original = borrador.id ? anteriores.find((a) => a.id === borrador.id) : null;
+
+  let ahorro;
+  try {
+    // Al corregir se conservan el identificador y el día de carga: es el mismo
+    // movimiento con otros datos, no uno nuevo.
+    ahorro = crearAhorro(borrador, { decimales, id: original?.id, creado: original?.creado });
+  } catch (error) {
+    // El mensaje viene del modelo, ya escrito para una persona.
+    return { estado, borrador, error: error.message };
+  }
+
+  const posicion = borrador.id ? anteriores.findIndex((a) => a.id === borrador.id) : -1;
+  const corrigiendo = posicion !== -1;
+
+  const nuevoEstado = {
+    ...estado,
+    ahorros: corrigiendo
+      ? anteriores.map((a, i) => (i === posicion ? ahorro : a))
+      : [...anteriores, ahorro],
+    preferencias: { ...estado.preferencias, moneda_predeterminada: ahorro.moneda },
+  };
+
+  return {
+    estado: nuevoEstado,
+    corrigiendo,
+    // El formulario se vacía pero conserva la fecha y la persona: cargar los
+    // ahorros de un mes es cargar varios seguidos parecidos.
+    borrador: borradorDeAhorro({ estado: nuevoEstado, fecha: ahorro.fecha, persona: ahorro.persona }),
+    aviso: { ahorro, decimales, corrigiendo },
+  };
+}
+
+/** Saca un ahorro, y devuelve lo necesario para poder deshacerlo. */
+function borrarAhorro(estado, id) {
+  const anteriores = estado.ahorros ?? [];
+  const posicion = anteriores.findIndex((a) => a.id === id);
+  if (posicion === -1) return { estado, borrado: null };
+
+  return {
+    estado: { ...estado, ahorros: anteriores.filter((a) => a.id !== id) },
+    borrado: { ahorro: anteriores[posicion], posicion },
+  };
+}
+
+/** Vuelve a poner un ahorro borrado en su lugar exacto. */
+function restaurarAhorro(estado, borrado) {
+  if (!borrado) return estado;
+
+  const ahorros = [...(estado.ahorros ?? [])];
+  ahorros.splice(Math.min(borrado.posicion, ahorros.length), 0, borrado.ahorro);
+  return { ...estado, ahorros };
+}
+
+/** Busca un ahorro por su identificador. */
+function buscarAhorro(estado, id) {
+  return (estado.ahorros ?? []).find((a) => a.id === id) ?? null;
+}
+
+/** Las etiquetas de ahorro ya usadas, para ofrecerlas al escribir (RN-03). */
+function etiquetasDeAhorros(estado) {
+  const vistas = new Map();
+  for (const ahorro of estado.ahorros ?? []) {
+    const texto = String(ahorro.comentario ?? '').trim();
+    if (texto === '') continue;
+    if (!vistas.has(texto.toLowerCase())) vistas.set(texto.toLowerCase(), texto);
+  }
+  return [...vistas.values()];
+}
+
+function dibujarAvisoDeAhorro(aviso) {
+  if (!aviso?.ahorro) return '';
+
+  const entra = aviso.ahorro.tipo === AHORRO_ENTRA;
+  const que = aviso.corrigiendo
+    ? 'Cambio guardado'
+    : `Guardado: ${entra ? 'entró' : 'salió'} plata del ahorro`;
+
+  return `<p class="confirmacion" role="status">${escapar(que)}.</p>`;
+}
+
+function dibujarNuevoAhorro(vista) {
+  const estado = vista.estado ?? {};
+  const borrador = vista.borradorDeAhorro ?? borradorDeAhorro({ estado });
+  const entra = borrador.tipo !== AHORRO_SALE;
+
+  const monedas = monedasVisibles(estado.monedas ?? []).map((m) => ({ valor: m.codigo, texto: m.codigo }));
+
+  return `
+    <form class="tarjeta formulario" data-formulario="ahorro" novalidate>
+      <h2>${borrador.id ? 'Corregir movimiento de ahorro' : 'Cargar en ahorros conjuntos'}</h2>
+
+      ${dibujarError(vista.error)}
+      ${dibujarAvisoDeAhorro(vista.aviso)}
+
+      <!-- Entró / Salió en vez de Ingreso / Gasto: acá la plata no entra ni sale
+           de la casa, entra o sale DEL AHORRO. Un ahorro que se usa para pagar
+           un vuelo no es un ingreso de nada. -->
+      <div class="tipo" role="group" aria-label="Qué pasó con la plata">
+        <button type="button" class="opcion-tipo${entra ? ' activa' : ''}"
+                data-accion="tipo-ahorro" data-tipo="${AHORRO_ENTRA}" aria-pressed="${entra}">Entró al ahorro</button>
+        <button type="button" class="opcion-tipo${entra ? '' : ' activa'}"
+                data-accion="tipo-ahorro" data-tipo="${AHORRO_SALE}" aria-pressed="${!entra}">Salió del ahorro</button>
+      </div>
+
+      <label class="campo">
+        <span>Monto</span>
+        <div class="monto-fila">
+          <input name="monto" class="importe" type="text" inputmode="decimal"
+                 autocomplete="off" enterkeyhint="done" placeholder="0,00"
+                 value="${escapar(borrador.monto)}">
+          <select name="moneda" aria-label="Moneda">${opciones(monedas, borrador.moneda)}</select>
+        </div>
+        <button type="button" class="enlace" data-accion="ir" data-pantalla="monedas">
+          ¿Falta una moneda?
+        </button>
+      </label>
+
+      <label class="campo">
+        <span>¿De quién es?</span>
+        <select name="persona">${opciones(PERSONAS, borrador.persona)}</select>
+      </label>
+
+      <label class="campo">
+        <span>Fecha</span>
+        <input name="fecha" type="date" value="${escapar(borrador.fecha)}">
+        <span class="fecha-legible" data-fecha-legible>${escapar(fechaEnPalabras(borrador.fecha))}</span>
+      </label>
+
+      <label class="campo">
+        <span>Detalle <em class="suave">— para acordarte</em></span>
+        <!-- Texto libre y nada más: acá va "plazo fijo, vence el 28/08/26", que
+             es información para leer y no una categoría (pedido del usuario). -->
+        <input name="detalle" type="text" autocomplete="off"
+               placeholder="plazo fijo, vence el 28/08/26" value="${escapar(borrador.detalle)}">
+      </label>
+
+      <label class="campo">
+        <span>Etiqueta <em class="suave">(agrupar por)</em></span>
+        <input name="comentario" type="text" autocomplete="off"
+               placeholder="Para viajes, Regalos…" value="${escapar(borrador.comentario)}">
+        <div class="sugerencias" data-sugerencias="comentario">${
+          dibujarSugerencias('comentario', borrador.comentario, etiquetasDeAhorros(estado))
+        }</div>
+      </label>
+
+      <button type="submit" class="principal" data-accion="guardar-ahorro">
+        ${borrador.id ? 'Guardar los cambios' : 'Guardar en ahorros'}
+      </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
+        ${borrador.id ? 'Dejar como estaba' : 'Volver a los ahorros'}
+      </button>
+    </form>
+  `;
+}
+
 // ── src/ui/pantallas/ahorros.js ─────────────────────────────────
 // Los ahorros conjuntos — CU-14, T-041. Reemplaza la hoja `Ahorros conjuntos`.
 //
@@ -8901,8 +9148,15 @@ function dibujarMonedaDeAhorro(bloque, monedas) {
   `;
 }
 
-/** Una línea del historial. */
-function dibujarMovimientoDeAhorro(movimiento, monedas) {
+/**
+ * Una línea del historial, con sus botones — T-045.
+ *
+ * Corregir y borrar viven acá, en la propia línea, igual que en la lista de
+ * movimientos: es donde uno está mirando cuando se da cuenta de que algo está
+ * mal. Y el borrado **pregunta antes**, con la misma mecánica de siempre: es
+ * plata, y un toque de más no puede hacerla desaparecer.
+ */
+function dibujarMovimientoDeAhorro(movimiento, monedas, { confirmando = false } = {}) {
   const salida = movimiento.tipo === AHORRO_SALE;
   const signo = salida ? '−' : '+';
   const pie = [movimiento.persona, movimiento.detalle].filter((t) => t !== '').join(' · ');
@@ -8917,7 +9171,39 @@ function dibujarMovimientoDeAhorro(movimiento, monedas) {
         <span>${escapar(formatearFecha(movimiento.fecha))}</span>
         <span>${escapar(pie)}</span>
       </div>
+
+      ${confirmando ? `
+      <div class="confirmar-borrado" role="alertdialog" aria-label="Confirmar borrado">
+        <p>¿Borrar este movimiento de ahorro?</p>
+        <div class="botones">
+          <button type="button" class="peligro" data-accion="borrar-ahorro-si" data-id="${escapar(movimiento.id)}">Sí, borrar</button>
+          <button type="button" class="secundario" data-accion="borrar-ahorro-no">No</button>
+        </div>
+      </div>` : `
+      <div class="movimiento-acciones">
+        <button type="button" class="secundario chico" data-accion="editar-ahorro" data-id="${escapar(movimiento.id)}">Corregir</button>
+        <button type="button" class="secundario chico" data-accion="borrar-ahorro" data-id="${escapar(movimiento.id)}">Borrar</button>
+      </div>`}
     </li>
+  `;
+}
+
+/**
+ * El cartel de deshacer, después de borrar.
+ *
+ * Existe por lo mismo que el de los gastos: el borrado es lo único que la app
+ * hace y no se puede reconstruir mirando otra pantalla.
+ */
+function dibujarDeshacerAhorro(vista) {
+  if (!vista.ahorroBorrado) return '';
+
+  const { ahorro } = vista.ahorroBorrado;
+  return `
+    <section class="deshacer" role="status">
+      <p>Borraste <strong>${escapar(ahorro.comentario || 'un movimiento de ahorro')}</strong>
+      del ${escapar(formatearFecha(ahorro.fecha))}.</p>
+      <button type="button" class="secundario" data-accion="deshacer-ahorro">Deshacer</button>
+    </section>
   `;
 }
 
@@ -8926,6 +9212,11 @@ function dibujarAhorros(vista) {
   const monedas = estado.monedas ?? [];
   const porMoneda = totalPorPersona(estado);
 
+  const cargar = `
+    <button type="button" class="principal" data-accion="ir" data-pantalla="nuevo-ahorro">
+      Cargar en ahorros conjuntos
+    </button>`;
+
   if (porMoneda.length === 0) {
     return `
       <section class="tarjeta">
@@ -8933,6 +9224,7 @@ function dibujarAhorros(vista) {
         <p class="suave">Todavía no hay ninguno. Acá va la plata guardada de los
         dos, en cada moneda: lo que entra y lo que sale, sin mezclarse con los
         gastos del mes.</p>
+        ${cargar}
       </section>
     `;
   }
@@ -8947,14 +9239,18 @@ function dibujarAhorros(vista) {
       daría un número que cambia solo todos los días y que no existe hasta que la
       plata se cambie de verdad.</p>
       <ul class="rubros">${porMoneda.map((b) => dibujarMonedaDeAhorro(b, monedas)).join('')}</ul>
+      ${cargar}
     </section>
+
+    ${dibujarDeshacerAhorro(vista)}
 
     <section class="tarjeta">
       <h2>Movimientos de los ahorros</h2>
       <p class="suave nota">${historial.length === 1 ? '1 movimiento' : `${historial.length} movimientos`},
       del más nuevo al más viejo. <strong>+</strong> es plata que entró al ahorro
       y <strong>−</strong> plata que salió.</p>
-      <ul class="rubros">${historial.map((m) => dibujarMovimientoDeAhorro(m, monedas)).join('')}</ul>
+      <ul class="rubros">${historial.map((m) => dibujarMovimientoDeAhorro(m, monedas,
+        { confirmando: vista.confirmandoAhorro === m.id })).join('')}</ul>
     </section>
   `;
 }
@@ -10877,6 +11173,11 @@ function fechaEnPalabras(iso) {
   }
 }
 
+/**
+ * Las `<option>` de un `<select>`. Exportada para que el formulario de ahorros
+ * use exactamente la misma: dos versiones de esto se separan el día que una
+ * aprende a escapar algo que la otra no.
+ */
 function opciones(valores, elegido) {
   return valores
     .map((v) => {
@@ -11320,6 +11621,7 @@ function conectarUna(tarjeta) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -11422,6 +11724,14 @@ registrarPantalla('ahorros', {
   conMes: false,
   enBarra: false,
   dibujar: dibujarAhorros,
+});
+
+registrarPantalla('nuevo-ahorro', {
+  etiqueta: 'Cargar en ahorros',
+  icono: '＋',
+  conMes: false,
+  enBarra: false,
+  dibujar: dibujarNuevoAhorro,
 });
 
 registrarPantalla('viajes', {
@@ -11808,6 +12118,69 @@ function iniciar(documento, almacen) {
       comentario: campo('comentario'),
       detalle: campo('detalle'),
     };
+  }
+
+  /** Lo mismo que `leerFormulario`, para el formulario de ahorros — T-045. */
+  function leerFormularioDeAhorro() {
+    // El borrador **puede no existir todavía**: la vista inicial no lo trae,
+    // porque el formulario de ahorros se abre desde su pantalla y no al
+    // arrancar. Sin este respaldo, la primera carga salía con `tipo: undefined`
+    // y el modelo la rechazaba con un mensaje que hablaba de "undefined". Lo
+    // encontró el recorrido en el navegador, no los tests: los tests le pasan
+    // siempre un borrador.
+    const actual = vista.borradorDeAhorro ?? borradorDeAhorro({ estado: vista.estado });
+    const formulario = raiz.querySelector('[data-formulario="ahorro"]');
+    if (!formulario) return actual;
+
+    const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
+    return {
+      ...actual,
+      fecha: campo('fecha'),
+      monto: campo('monto'),
+      moneda: campo('moneda'),
+      persona: campo('persona'),
+      comentario: campo('comentario'),
+      detalle: campo('detalle'),
+    };
+  }
+
+  /**
+   * Guarda un movimiento de ahorro.
+   *
+   * Mismo camino que un gasto: se intenta, se escribe **antes** de decir que se
+   * guardó, y si el navegador no puede escribir se muestra el error en vez de
+   * una confirmación falsa (ADR-016). Lo único que no hace es pedir tipo de
+   * cambio: los ahorros no se convierten nunca.
+   */
+  function guardarElAhorro() {
+    const resultado = intentarGuardarAhorro(vista.estado, leerFormularioDeAhorro());
+
+    if (resultado.error) {
+      vista = { ...vista, borradorDeAhorro: resultado.borrador, error: resultado.error, aviso: null };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorDeAhorro: leerFormularioDeAhorro(), error: error.message, aviso: null };
+      pintar();
+      return;
+    }
+
+    vista = {
+      ...vista,
+      estado: resultado.estado,
+      borradorDeAhorro: resultado.borrador,
+      error: null,
+      aviso: resultado.aviso,
+      // Al corregir se vuelve a la lista, que es de donde se vino. Al cargar uno
+      // nuevo se queda en el formulario: quien anota los ahorros del mes carga
+      // varios seguidos.
+      pantalla: resultado.corrigiendo ? 'ahorros' : vista.pantalla,
+    };
+    pintar();
   }
 
   function guardarMovimiento() {
@@ -12650,6 +13023,9 @@ function iniciar(documento, almacen) {
     if (evento.target.matches('[data-formulario="movimiento"]')) {
       evento.preventDefault();
       guardarMovimiento();
+    } else if (evento.target.matches('[data-formulario="ahorro"]')) {
+      evento.preventDefault();
+      guardarElAhorro();
     } else if (evento.target.matches('[data-formulario="cambio"]')) {
       evento.preventDefault();
       guardarTipoDeCambio();
@@ -12878,6 +13254,62 @@ function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, borrado: null };
+    } else if (accion === 'guardar-ahorro') {
+      evento.preventDefault();
+      guardarElAhorro();
+      return;
+    } else if (accion === 'tipo-ahorro') {
+      // Entró / salió del ahorro. Lo escrito no se pierde porque se lee antes.
+      vista = { ...vista, borradorDeAhorro: { ...leerFormularioDeAhorro(), tipo }, error: null };
+    } else if (accion === 'editar-ahorro') {
+      const ahorro = buscarAhorro(vista.estado, boton.dataset.id);
+      if (!ahorro) return;
+      let decimales;
+      try {
+        decimales = decimalesDe(vista.estado.monedas, ahorro.moneda);
+      } catch {
+        // La moneda no está en el catálogo —un respaldo viejo, una moneda
+        // borrada—: se muestra con dos decimales en vez de no dejar corregir.
+        decimales = 2;
+      }
+      vista = {
+        ...vista,
+        pantalla: 'nuevo-ahorro',
+        borradorDeAhorro: borradorDesdeAhorro(ahorro, decimales),
+        error: null,
+        aviso: null,
+        confirmandoAhorro: null,
+      };
+    } else if (accion === 'borrar-ahorro') {
+      // Primer toque: no borra, pregunta. Igual que en los movimientos.
+      vista = { ...vista, confirmandoAhorro: boton.dataset.id, ahorroBorrado: null };
+    } else if (accion === 'borrar-ahorro-no') {
+      vista = { ...vista, confirmandoAhorro: null };
+    } else if (accion === 'borrar-ahorro-si') {
+      const resultado = borrarAhorro(vista.estado, boton.dataset.id);
+      if (!resultado.borrado) {
+        vista = { ...vista, confirmandoAhorro: null };
+      } else {
+        try {
+          guardarEstado(resultado.estado, almacen);
+        } catch (error) {
+          // No se saca de la pantalla lo que sigue estando guardado.
+          vista = { ...vista, confirmandoAhorro: null, error: error.message };
+          pintar();
+          return;
+        }
+        vista = { ...vista, estado: resultado.estado, confirmandoAhorro: null, ahorroBorrado: resultado.borrado };
+      }
+    } else if (accion === 'deshacer-ahorro') {
+      const estado = restaurarAhorro(vista.estado, vista.ahorroBorrado);
+      try {
+        guardarEstado(estado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado, ahorroBorrado: null };
     } else if (accion === 'tipo') {
       // Cambiar de gasto a ingreso cambia la lista de rubros (RN-02), así que hay
       // que volver a dibujar. Lo escrito no se pierde porque se lee antes; el

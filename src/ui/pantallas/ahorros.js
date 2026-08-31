@@ -54,8 +54,15 @@ export function dibujarMonedaDeAhorro(bloque, monedas) {
   `;
 }
 
-/** Una línea del historial. */
-export function dibujarMovimientoDeAhorro(movimiento, monedas) {
+/**
+ * Una línea del historial, con sus botones — T-045.
+ *
+ * Corregir y borrar viven acá, en la propia línea, igual que en la lista de
+ * movimientos: es donde uno está mirando cuando se da cuenta de que algo está
+ * mal. Y el borrado **pregunta antes**, con la misma mecánica de siempre: es
+ * plata, y un toque de más no puede hacerla desaparecer.
+ */
+export function dibujarMovimientoDeAhorro(movimiento, monedas, { confirmando = false } = {}) {
   const salida = movimiento.tipo === AHORRO_SALE;
   const signo = salida ? '−' : '+';
   const pie = [movimiento.persona, movimiento.detalle].filter((t) => t !== '').join(' · ');
@@ -70,7 +77,39 @@ export function dibujarMovimientoDeAhorro(movimiento, monedas) {
         <span>${escapar(formatearFecha(movimiento.fecha))}</span>
         <span>${escapar(pie)}</span>
       </div>
+
+      ${confirmando ? `
+      <div class="confirmar-borrado" role="alertdialog" aria-label="Confirmar borrado">
+        <p>¿Borrar este movimiento de ahorro?</p>
+        <div class="botones">
+          <button type="button" class="peligro" data-accion="borrar-ahorro-si" data-id="${escapar(movimiento.id)}">Sí, borrar</button>
+          <button type="button" class="secundario" data-accion="borrar-ahorro-no">No</button>
+        </div>
+      </div>` : `
+      <div class="movimiento-acciones">
+        <button type="button" class="secundario chico" data-accion="editar-ahorro" data-id="${escapar(movimiento.id)}">Corregir</button>
+        <button type="button" class="secundario chico" data-accion="borrar-ahorro" data-id="${escapar(movimiento.id)}">Borrar</button>
+      </div>`}
     </li>
+  `;
+}
+
+/**
+ * El cartel de deshacer, después de borrar.
+ *
+ * Existe por lo mismo que el de los gastos: el borrado es lo único que la app
+ * hace y no se puede reconstruir mirando otra pantalla.
+ */
+export function dibujarDeshacerAhorro(vista) {
+  if (!vista.ahorroBorrado) return '';
+
+  const { ahorro } = vista.ahorroBorrado;
+  return `
+    <section class="deshacer" role="status">
+      <p>Borraste <strong>${escapar(ahorro.comentario || 'un movimiento de ahorro')}</strong>
+      del ${escapar(formatearFecha(ahorro.fecha))}.</p>
+      <button type="button" class="secundario" data-accion="deshacer-ahorro">Deshacer</button>
+    </section>
   `;
 }
 
@@ -79,6 +118,11 @@ export function dibujarAhorros(vista) {
   const monedas = estado.monedas ?? [];
   const porMoneda = totalPorPersona(estado);
 
+  const cargar = `
+    <button type="button" class="principal" data-accion="ir" data-pantalla="nuevo-ahorro">
+      Cargar en ahorros conjuntos
+    </button>`;
+
   if (porMoneda.length === 0) {
     return `
       <section class="tarjeta">
@@ -86,6 +130,7 @@ export function dibujarAhorros(vista) {
         <p class="suave">Todavía no hay ninguno. Acá va la plata guardada de los
         dos, en cada moneda: lo que entra y lo que sale, sin mezclarse con los
         gastos del mes.</p>
+        ${cargar}
       </section>
     `;
   }
@@ -100,14 +145,18 @@ export function dibujarAhorros(vista) {
       daría un número que cambia solo todos los días y que no existe hasta que la
       plata se cambie de verdad.</p>
       <ul class="rubros">${porMoneda.map((b) => dibujarMonedaDeAhorro(b, monedas)).join('')}</ul>
+      ${cargar}
     </section>
+
+    ${dibujarDeshacerAhorro(vista)}
 
     <section class="tarjeta">
       <h2>Movimientos de los ahorros</h2>
       <p class="suave nota">${historial.length === 1 ? '1 movimiento' : `${historial.length} movimientos`},
       del más nuevo al más viejo. <strong>+</strong> es plata que entró al ahorro
       y <strong>−</strong> plata que salió.</p>
-      <ul class="rubros">${historial.map((m) => dibujarMovimientoDeAhorro(m, monedas)).join('')}</ul>
+      <ul class="rubros">${historial.map((m) => dibujarMovimientoDeAhorro(m, monedas,
+        { confirmando: vista.confirmandoAhorro === m.id })).join('')}</ul>
     </section>
   `;
 }
