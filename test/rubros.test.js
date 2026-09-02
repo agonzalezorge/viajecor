@@ -23,6 +23,8 @@ import { franjaDeRubro } from '../src/core/paleta.js';
 import { estadoInicial, migrarEstado } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
 import { porRubro } from '../src/core/calculos.js';
+import { dibujarRubrosNuevos } from '../src/ui/pantallas/datos.js';
+import { dibujarTorta } from '../src/ui/pantallas/graficos.js';
 import { contenidoDelRespaldo } from '../src/datos/exportar.js';
 import { unirCatalogos } from '../src/datos/importar.js';
 
@@ -101,13 +103,29 @@ test('no se puede repetir un rubro ni crear uno sin nombre', () => {
   assert.throws(() => crearRubro(estado, TIPO_GASTO, '   '), /necesita un nombre/);
 });
 
-test('con ocho ya no entran más, y se explica por qué', () => {
-  // No es una limitación técnica: es que la paleta tiene ocho colores que
-  // pasaron el validador de daltonismo (ADR-029). El mensaje lo dice, porque
-  // "no se puede" sin motivo es lo que empuja a buscar cómo forzarlo.
+test('el tope son veinte, que es hasta donde llegan los colores', () => {
+  // El usuario pidió sacar el tope de ocho (2026-08-31). Veinte es hasta donde
+  // llega la paleta: el veintiuno tendría que repetir un color, y dos rubros
+  // del mismo color no se leen en una torta. El mensaje lo dice, porque "no se
+  // puede" sin motivo es lo que empuja a buscar cómo forzarlo.
+  assert.equal(TOPE_DE_RUBROS, 20);
+
+  let estado = estadoCon();
+  for (let i = catalogoDe(estado).gasto.length; i < TOPE_DE_RUBROS; i += 1) {
+    estado = crearRubro(estado, TIPO_GASTO, `rubro ${i}`);
+  }
+
+  assert.equal(catalogoDe(estado).gasto.length, 20);
+  assert.throws(() => crearRubro(estado, TIPO_GASTO, 'uno más'), /colores/);
+});
+
+test('los ocho de siempre siguen entrando, y con su color de siempre', () => {
+  // Sacar el tope no puede cambiarle el color a un rubro que el usuario ya
+  // tiene: la paleta creció por el final.
   const estado = estadoCon();
-  assert.equal(catalogoDe(estado).gasto.length, TOPE_DE_RUBROS);
-  assert.throws(() => crearRubro(estado, TIPO_GASTO, 'mascotas'), /colores/);
+  assert.equal(catalogoDe(estado).gasto.length, 8);
+  assert.equal(franjaDeRubro(TIPO_GASTO, 'supermercado', estado.rubros), 2);
+  assert.equal(franjaDeRubro(TIPO_GASTO, 'otros', estado.rubros), 8);
 });
 
 test('los rubros de ingreso tienen su propio cupo', () => {
@@ -170,10 +188,17 @@ test('al importar, los rubros del respaldo se suman a los de acá', () => {
   assert.deepEqual(unido.gasto, ['salud', 'mascotas'], 'lo de acá primero, conserva los colores');
 });
 
-test('unir catálogos respeta el tope: no entran nueve', () => {
-  const unido = unirCatalogos(rubrosIniciales(), { gasto: ['mascotas', 'viajes'], ingreso: [] });
+test('unir catálogos respeta el tope', () => {
+  const veinte = Array.from({ length: 20 }, (_, i) => `r${i}`);
+  const unido = unirCatalogos({ gasto: veinte, ingreso: [] }, { gasto: ['mascotas'], ingreso: [] });
+
   assert.equal(unido.gasto.length, TOPE_DE_RUBROS);
   assert.equal(unido.gasto.includes('mascotas'), false, 'lo que no entra queda huérfano, y la pantalla lo dice');
+});
+
+test('con lugar de sobra, los rubros del respaldo entran todos', () => {
+  const unido = unirCatalogos(rubrosIniciales(), { gasto: ['mascotas', 'regalos'], ingreso: [] });
+  assert.deepEqual(unido.gasto.slice(8), ['mascotas', 'regalos']);
 });
 
 test('renombrar no toca los movimientos del otro tipo', () => {
@@ -311,11 +336,21 @@ test('la pantalla avisa que renombrar mueve los movimientos', () => {
 });
 
 test('cuando está lleno, la pantalla no ofrece agregar y explica por qué', () => {
-  const html = dibujarRubros({ estado: estadoCon() }).replace(/\s+/g, ' ');
+  let estado = estadoCon();
+  for (let i = catalogoDe(estado).gasto.length; i < TOPE_DE_RUBROS; i += 1) {
+    estado = crearRubro(estado, TIPO_GASTO, `rubro ${i}`);
+  }
+
+  const html = dibujarRubros({ estado }).replace(/\s+/g, ' ');
   const gastos = html.slice(html.indexOf('Rubros de gasto'), html.indexOf('Rubros de ingreso'));
 
   assert.doesNotMatch(gastos, /Agregar un rubro/);
-  assert.match(gastos, /Ya hay 8, que es el máximo/);
+  assert.match(gastos, /Ya hay 20, que es el máximo/);
+});
+
+test('con ocho todavía se puede agregar, que es el caso normal', () => {
+  const html = dibujarRubros({ estado: estadoCon() }).replace(/\s+/g, ' ');
+  assert.match(html, /Agregar un rubro de gasto/);
 });
 
 test('al unir, la pantalla dice qué va a pasar antes de hacerlo', () => {
@@ -326,4 +361,36 @@ test('al unir, la pantalla dice qué va a pasar antes de hacerlo', () => {
   assert.match(html.replace(/\s+/g, ' '), /Pasar sus 2 movimientos a…/);
   assert.match(html.replace(/\s+/g, ' '), /deja de existir y sus movimientos pasan al otro rubro/);
   assert.match(html, /Los movimientos no se borran/);
+});
+
+
+// ── Importar una planilla con rubros que la app no tiene (T-049) ─────────────
+
+test('la previa avisa qué rubros se van a agregar, y cuáles no', () => {
+  // Agregarle rubros al catálogo de alguien sin decírselo es cambiarle la app
+  // por la ventana. Y un rubro que aparece por un error de tipeo en la planilla
+  // se ve acá y se arregla antes, no después.
+  const html = dibujarRubrosNuevos({
+    rubrosNuevos: [{ tipo: TIPO_GASTO, rubro: 'farmacia' }, { tipo: TIPO_INGRESO, rubro: 'clases' }],
+  }).replace(/\s+/g, ' ');
+
+  assert.match(html, /2 rubros/);
+  assert.match(html, /Farmacia \(gasto\), Clases \(ingreso\)/);
+});
+
+test('sin rubros nuevos no se dice nada', () => {
+  assert.equal(dibujarRubrosNuevos({ rubrosNuevos: [] }), '');
+  assert.equal(dibujarRubrosNuevos({}), '');
+});
+
+test('el rótulo de cada porción lleva su franja, para elegir la tinta', () => {
+  // Sin la franja en el `<text>`, el CSS no puede pintar de blanco el número de
+  // las porciones oscuras y queda ilegible sobre la ciruela o el violeta.
+  const filas = [
+    { rubro: 'viajes', total: 7000, cuantos: 1, porcentaje: 70 },
+    { rubro: 'salud', total: 3000, cuantos: 1, porcentaje: 30 },
+  ];
+  const svg = dibujarTorta(filas, TIPO_GASTO);
+
+  assert.match(svg, /class="rotulo-porcion rubro-\d+"/);
 });

@@ -478,9 +478,11 @@ body {
 
 /* El único texto de la app que NO usa un color de texto: va encima de un color
    de rubro, así que el color se elige contra ESE fondo y no contra la tarjeta.
-   El negro es el único que se lee sobre los ocho tonos, en claro y en oscuro
-   (lo peor es 4,2:1 sobre el verde). Un test lo comprueba: si algún día cambia
-   la paleta y un tono deja de aguantar el negro, falla ahí y no acá. */
+   Con ocho tonos alcanzaba el negro; entre los veinte hay oscuros —la ciruela,
+   el violeta— donde el negro no se lee y el blanco sí, así que la tinta se
+   elige por franja. Cuáles llevan blanco lo calcula `tintaSobreRubro()` en
+   core/paleta.js, y un test comprueba que lo de acá abajo coincida: dos listas
+   escritas a mano se separan el día que se toca un color (T-049). */
 .rotulo-porcion {
   fill: #000000;
   font-size: 15px;
@@ -488,6 +490,32 @@ body {
   text-anchor: middle;
   dominant-baseline: middle;
   pointer-events: none;
+}
+
+/* Fondo claro: las franjas donde el blanco contrasta más que el negro. */
+.rotulo-porcion.rubro-4,
+.rotulo-porcion.rubro-5,
+.rotulo-porcion.rubro-9,
+.rotulo-porcion.rubro-11,
+.rotulo-porcion.rubro-12,
+.rotulo-porcion.rubro-13,
+.rotulo-porcion.rubro-17,
+.rotulo-porcion.rubro-19,
+.rotulo-porcion.rubro-20 { fill: #ffffff; }
+
+@media (prefers-color-scheme: dark) {
+  /* Los tonos del fondo oscuro son otros, así que la lista también. */
+  .rotulo-porcion.rubro-3,
+  .rotulo-porcion.rubro-4,
+  .rotulo-porcion.rubro-5,
+  .rotulo-porcion.rubro-9,
+  .rotulo-porcion.rubro-11,
+  .rotulo-porcion.rubro-17,
+  .rotulo-porcion.rubro-20 { fill: #ffffff; }
+
+  .rotulo-porcion.rubro-12,
+  .rotulo-porcion.rubro-13,
+  .rotulo-porcion.rubro-19 { fill: #000000; }
 }
 
 /* ── La línea del acumulado (T-918) ──────────────────────────────────────── */
@@ -840,6 +868,25 @@ body {
   --rubro-6: #2a78d6;   /* azul       — transporte      */
   --rubro-7: #1baf7a;   /* aguamarina — salud           */
   --rubro-8: #7a7a7a;   /* gris       — otros           */
+
+  /* ── Del 9 al 20: los que quedan libres para los rubros que crees vos ──────
+     Se eligieron con el validador de la guía de visualización, uno por uno:
+     cada uno es el color que MÁS LEJOS estaba de todos los anteriores, mirando
+     también cómo se ven con daltonismo. Por eso los primeros son los más
+     distintos: si creás un rubro, el 9 se va a diferenciar mejor que el 20.
+     Ver ADR-049. */
+  --rubro-9: #74396d;   /* ciruela    — libre */
+  --rubro-10: #39b5ff;   /* celeste    — libre */
+  --rubro-11: #720caf;   /* violeta    — libre */
+  --rubro-12: #813934;   /* ladrillo   — libre */
+  --rubro-13: #1d40e7;   /* azul       — libre */
+  --rubro-14: #3295f6;   /* azul claro — libre */
+  --rubro-15: #27d271;   /* verde menta— libre */
+  --rubro-16: #31b0c6;   /* cian       — libre */
+  --rubro-17: #904c87;   /* malva      — libre */
+  --rubro-18: #db8833;   /* naranja    — libre */
+  --rubro-19: #1464fe;   /* azul vivo  — libre */
+  --rubro-20: #96455a;   /* bordó      — libre */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -854,6 +901,18 @@ body {
     --rubro-6: #3987e5;
     --rubro-7: #199e70;
     --rubro-8: #a8a8a8;
+    --rubro-9: #91417d;
+    --rubro-10: #56b2fd;
+    --rubro-11: #7e1cd8;
+    --rubro-12: #ff9b4e;
+    --rubro-13: #6c96c2;
+    --rubro-14: #71c5df;
+    --rubro-15: #9bc58d;
+    --rubro-16: #008d89;
+    --rubro-17: #8e32a7;
+    --rubro-18: #cf6b58;
+    --rubro-19: #226cff;
+    --rubro-20: #b60356;
   }
 }
 
@@ -873,6 +932,30 @@ body {
 .porcion.rubro-7 { fill: var(--rubro-7); }
 .punto-rubro.rubro-8 { background: var(--rubro-8); }
 .porcion.rubro-8 { fill: var(--rubro-8); }
+.punto-rubro.rubro-9 { background: var(--rubro-9); }
+.porcion.rubro-9 { fill: var(--rubro-9); }
+.punto-rubro.rubro-10 { background: var(--rubro-10); }
+.porcion.rubro-10 { fill: var(--rubro-10); }
+.punto-rubro.rubro-11 { background: var(--rubro-11); }
+.porcion.rubro-11 { fill: var(--rubro-11); }
+.punto-rubro.rubro-12 { background: var(--rubro-12); }
+.porcion.rubro-12 { fill: var(--rubro-12); }
+.punto-rubro.rubro-13 { background: var(--rubro-13); }
+.porcion.rubro-13 { fill: var(--rubro-13); }
+.punto-rubro.rubro-14 { background: var(--rubro-14); }
+.porcion.rubro-14 { fill: var(--rubro-14); }
+.punto-rubro.rubro-15 { background: var(--rubro-15); }
+.porcion.rubro-15 { fill: var(--rubro-15); }
+.punto-rubro.rubro-16 { background: var(--rubro-16); }
+.porcion.rubro-16 { fill: var(--rubro-16); }
+.punto-rubro.rubro-17 { background: var(--rubro-17); }
+.porcion.rubro-17 { fill: var(--rubro-17); }
+.punto-rubro.rubro-18 { background: var(--rubro-18); }
+.porcion.rubro-18 { fill: var(--rubro-18); }
+.punto-rubro.rubro-19 { background: var(--rubro-19); }
+.porcion.rubro-19 { fill: var(--rubro-19); }
+.punto-rubro.rubro-20 { background: var(--rubro-20); }
+.porcion.rubro-20 { fill: var(--rubro-20); }
 
 /* El punto que acompaña al nombre en las listas. Es chico a propósito: el
    nombre escrito es lo que manda, el color solo ayuda a encontrarlo. */

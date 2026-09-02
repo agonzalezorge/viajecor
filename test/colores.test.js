@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { COLORES_RUBRO, COLORES_RUBRO_OSCURO, FONDOS_RUBRO, fondoDeFranja, franjaDeRubro } from '../src/core/paleta.js';
+import { COLORES, COLORES_RUBRO, COLORES_RUBRO_OSCURO, FONDOS_RUBRO, fondoDeFranja, franjaDeRubro } from '../src/core/paleta.js';
 import { TIPO_GASTO, TIPO_INGRESO, RUBROS_GASTO } from '../src/core/modelo.js';
 
 
@@ -27,21 +27,22 @@ test('los colores del CSS son exactamente los de core/paleta.js', async () => {
   const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
   const css = await readFile(join(raiz, 'src/estilos.css'), 'utf8');
 
-  // Se leen las declaraciones en orden y se parten en dos: las ocho primeras
-  // son las del fondo claro y las ocho siguientes las del oscuro. Buscar cada
+  // Se leen las declaraciones en orden y se parten en dos: la primera mitad es
+  // la del fondo claro y la segunda la del oscuro. Buscar cada
   // color suelto en todo el archivo no alcanzaba: si el claro y el oscuro
   // comparten un tono —el violeta lo hace—, una búsqueda global lo encuentra en
   // el bloque equivocado y el cambio roto pasa. Lo descubrió una mutación.
-  const declaradas = [...css.matchAll(/--rubro-([1-8]):\s*(#[0-9a-f]{6})\s*;/gi)];
+  const declaradas = [...css.matchAll(/--rubro-(\d+):\s*(#[0-9a-f]{6})\s*;/gi)];
 
-  assert.equal(declaradas.length, 16,
-    'el CSS tiene que declarar los ocho rubros dos veces: fondo claro y fondo oscuro');
-  assert.deepEqual(declaradas.map((d) => Number(d[1])), [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8],
+  assert.equal(declaradas.length, COLORES * 2,
+    `el CSS tiene que declarar los ${COLORES} rubros dos veces: fondo claro y fondo oscuro`);
+  const enOrden = Array.from({ length: COLORES }, (_, i) => i + 1);
+  assert.deepEqual(declaradas.map((d) => Number(d[1])), [...enOrden, ...enOrden],
     'las declaraciones no están en orden, o falta alguna');
 
-  assert.deepEqual(declaradas.slice(0, 8).map((d) => d[2].toLowerCase()), [...COLORES_RUBRO],
+  assert.deepEqual(declaradas.slice(0, COLORES).map((d) => d[2].toLowerCase()), [...COLORES_RUBRO],
     'los colores del fondo claro no son los de COLORES_RUBRO');
-  assert.deepEqual(declaradas.slice(8).map((d) => d[2].toLowerCase()), [...COLORES_RUBRO_OSCURO],
+  assert.deepEqual(declaradas.slice(COLORES).map((d) => d[2].toLowerCase()), [...COLORES_RUBRO_OSCURO],
     'los colores del fondo oscuro no son los de COLORES_RUBRO_OSCURO');
 });
 

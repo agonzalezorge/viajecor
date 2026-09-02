@@ -379,9 +379,19 @@ justo lo que uno quiere decir al escribir encima.
 otro. Sacarlo dejaría esos gastos afuera de todos los totales, y borrarlos sería
 borrar plata que anotaste.
 
-**El máximo es ocho de cada tipo.** No es un límite técnico: cada rubro tiene su
-color, los ocho pasaron una prueba de daltonismo, y un noveno sería
-indistinguible de otro. Para agregar uno más, uní dos de los que ya tenés.
+**El máximo son veinte de cada tipo**, que es hasta donde llegan los colores.
+
+**Los primeros colores se distinguen mejor que los últimos**, y no es una
+impresión: están elegidos uno por uno, cada uno lo más distinto posible de todos
+los anteriores. Del rubro 15 en adelante empiezan a parecerse, así que **el
+nombre del rubro va siempre escrito al lado del color**: con veinte, el color
+sirve para agrupar de un vistazo, pero el que identifica es el nombre.
+
+**Si importás una planilla con rubros que la app no tiene, se agregan solos.**
+Antes esas filas se descartaban. Ahora la previa te dice cuáles son —"la planilla
+usa 4 rubros que esta app todavía no tenía: Farmacia, Deporte…"— y entran con el
+mismo botón, cada uno con su color. Sirve para prestarle la app a otra persona
+que lleva su propio Excel.
 
 ---
 

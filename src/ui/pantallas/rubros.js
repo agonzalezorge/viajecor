@@ -109,9 +109,9 @@ export function dibujarRubrosDe(vista, tipo) {
         .join('')}</ul>
 
       ${lleno ? `
-      <p class="suave nota">Ya hay ${TOPE_DE_RUBROS}, que es el máximo: cada uno
-      tiene su color, y un noveno sería indistinguible de otro para quien no
-      distingue bien los colores. Para agregar uno nuevo, uní dos de estos.</p>`
+      <p class="suave nota">Ya hay ${TOPE_DE_RUBROS}, que es el máximo: es hasta
+      donde llegan los colores, y el siguiente tendría que repetir uno. Para
+      agregar uno nuevo, uní dos de estos.</p>`
       : `
       <form class="formulario-linea" data-formulario="nuevo-rubro" novalidate>
         <input type="hidden" name="tipo" value="${escapar(tipo)}">

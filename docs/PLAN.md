@@ -94,6 +94,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-046 | Dos perfiles: vida cotidiana y ahorros conjuntos | **Hecha** | T-045 |
 | T-047 | La pestaña de Ajustes | **Hecha** | T-046 |
 | T-048 | Rubros editables: crear, renombrar, unir | **Hecha** | T-047 |
+| T-049 | Veinte colores, y rubros nuevos al importar | **Hecha** | T-048 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
@@ -2549,3 +2550,45 @@ agregar y explica por qué, unir "salud" con "otros" —con su movimiento—, cr
 "mascotas" con el lugar que quedó libre, recargar y comprobar que el gasto
 aparece ahora en "otros" y que el formulario de carga ofrece "mascotas". Cero
 pedidos de red, cero errores de consola.
+
+### T-049 · Veinte colores, y rubros nuevos al importar — **Hecha** (2026-08-31)
+**Pedidas por el usuario (2026-08-31)** · **Tocó:** `core/paleta.js`,
+`core/rubros.js`, `datos/importar-planilla.js`, `ui/pantallas/graficos.js`,
+`ui/pantallas/datos.js`, `ui/app.js`, `estilos.css`
+
+**Los doce colores nuevos se eligieron con un programa, no a ojo.** Se reusaron
+las funciones del validador de la guía de visualización —así la métrica con la
+que se ELIGEN y la que después los COMPRUEBA son literalmente la misma— y se fue
+tomando, en cada paso, el color más lejano a todos los anteriores. El detalle y
+los números están en ADR-049.
+
+**Dos errores propios en el camino, los dos encontrados mirando el resultado:**
+
+- La primera corrida eligió claro y oscuro **por separado**, y dio la franja 10
+  morada en claro y ámbar en oscuro. El mismo rubro cambiando de color al
+  cambiar de tema es justo lo que la paleta existe para evitar.
+- Al corregirlo, emparejé cada color con su tono **opuesto**: un error de signo
+  en la distancia circular. Se vio de inmediato porque el azul quedaba
+  emparejado con un ámbar.
+
+**Lo que encontró un test que ya existía:** el número dentro de las porciones de
+la torta se escribía en negro fijo, y entre los veinte hay tonos oscuros donde
+no se lee. El test comprobaba el contraste contra los ocho y falló con los
+veinte — que es exactamente para lo que estaba escrito. Se arregló eligiendo la
+tinta por color, y hay un test nuevo que exige que la lista del CSS coincida con
+lo que calcula la paleta.
+
+**El importador ahora agrega los rubros que no conoce.** El caso es real: el
+usuario le va a prestar la app a su esposa, que en su Excel tiene rubros que
+inventó ella. Descartar esas filas le dejaría afuera media planilla con un
+informe repitiendo lo mismo cien veces. Se agregan **una sola vez** aunque
+vengan en doscientas filas —lo encontró un test—, se muestran en la previa antes
+de importar, y **entran al catálogo antes que los movimientos que los usan**,
+porque al revés esos movimientos se caerían en la próxima lectura (T-048).
+
+**Mutaciones:** 9 sembradas, 9 muertas.
+
+**Recorrido en el navegador:** se fabricó una planilla con cuatro rubros
+inventados —farmacia, deporte, educación y clases particulares— y se importó.
+La previa los nombra uno por uno, no queda ninguna fila afuera, y después de
+recargar los cuatro están en Ajustes con su color.

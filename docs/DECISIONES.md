@@ -1726,3 +1726,53 @@ La pantalla de Datos dice si el navegador se comprometió a no borrar los datos,
 si no lo hizo, o si no se pudo averiguar. Los tres textos llevan al respaldo;
 inventar un "estás protegido" sería peor que no decir nada, porque alguien
 dejaría de respaldar por eso.
+
+
+## ADR-049 · Veinte colores, y el orden es la información
+
+**Contexto.** ADR-029 fijó ocho colores —los de la planilla del usuario— y dijo
+que ocho era el techo: un noveno tono generado sería indistinguible de alguno
+bajo daltonismo. Con los rubros editables (T-048) ese techo pasó a ser un tope
+de ocho rubros. El usuario pidió sacarlo y tener **veinte** (2026-08-31).
+
+**Decisión.** Veinte colores por tipo, definidos a mano. **Los ocho primeros no
+se tocan** —son los rubros que ya tiene cargados, y moverlos le cambiaría el
+color a un rubro con historial— y los doce nuevos se eligieron **uno por uno con
+el validador de la guía de visualización**: en cada paso, el color que más lejos
+estaba de todos los anteriores, mirando también cómo se ve con protanopia y
+deuteranopia.
+
+**Por eso el orden de la lista no es alfabético ni bonito: es la información.**
+Cada color entra en la posición que le corresponde por lo distinto que es, así
+que el rubro 9 se distingue mucho mejor que el 20. Los números, medidos:
+
+| Posición | 9 | 12 | 15 | 18 | 20 |
+|---|---|---|---|---|---|
+| Separación mínima (ΔE) | 14,6 | 9,6 | 8,2 | 7,2 | 6,7 |
+
+**Lo que esto significa, dicho sin maquillaje.** La guía pide ΔE ≥ 8 y marca 6–8
+como un piso que **solo es legal con codificación secundaria**. A partir del
+rubro 15 la paleta entra en esa banda. La codificación secundaria existe y
+siempre estuvo: **el nombre del rubro va escrito al lado del color en todas las
+pantallas** —la lista del mes, la tabla mes a mes, la leyenda de la torta—, así
+que ningún dato se identifica por color solo. Con veinte rubros, el color deja
+de ser un identificador y pasa a ser una ayuda para agrupar de un vistazo; eso
+es un intercambio real, y es el que el usuario eligió a sabiendas.
+
+**El modo oscuro conserva el TONO de cada color, no se elige aparte.** La
+primera versión los eligió por separado y dio la franja 10 morada en claro y
+ámbar en oscuro: el mismo rubro cambiando de color al cambiar de tema, que es
+justo lo que la paleta existe para evitar. Cuando la banda de luz del fondo
+oscuro aplasta dos tonos contra el mismo azul, **se afloja la fidelidad del tono
+antes que la distinguibilidad**: que un rubro cambie un poco de matiz entre
+temas es mejor que dos rubros que se confunden.
+
+**Lo que el validador sigue marcando, y por qué se acepta.** El gris de "otros"
+tiene croma 0 —viene de la planilla del usuario y ya estaba así (ADR-029)—, y
+varios tonos quedan por debajo de 3:1 contra el fondo. Las dos cosas están
+cubiertas por el rótulo directo. Lo que **no** se acepta y se arregló es el
+número escrito dentro de las porciones de la torta: era negro fijo, y entre los
+veinte hay tonos oscuros donde el negro no se lee. Ahora la tinta se elige por
+color (`tintaSobreRubro`), y un test comprueba que la lista del CSS coincida con
+lo que calcula la paleta — dos listas escritas a mano se separan el día que se
+toca un color.

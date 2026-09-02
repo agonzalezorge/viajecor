@@ -548,6 +548,29 @@ export function dibujarQueEntra(planilla, { monedas = [], tope = NUEVOS_QUE_SE_M
   `;
 }
 
+/**
+ * Los rubros que la planilla trae y la app todavía no tiene — T-049.
+ *
+ * Se muestran **antes** de importar. Agregarle rubros al catálogo de alguien sin
+ * decírselo es cambiarle la app por la ventana; y además, un rubro que aparece
+ * por un error de tipeo en la planilla se ve acá y se arregla antes, no después.
+ */
+export function dibujarRubrosNuevos(planilla) {
+  const nuevos = planilla.rubrosNuevos ?? [];
+  if (nuevos.length === 0) return '';
+
+  const nombre = (n) => `${formatearRubro(n.rubro)} (${n.tipo === TIPO_GASTO ? 'gasto' : 'ingreso'})`;
+
+  return `
+    <p class="suave nota">La planilla usa
+    ${nuevos.length === 1 ? '<strong>un rubro</strong> que' : `<strong>${nuevos.length} rubros</strong> que`}
+    esta app todavía no ${nuevos.length === 1 ? 'tiene' : 'tenía'}:
+    <strong>${escapar(nuevos.map(nombre).join(', '))}</strong>.
+    Se ${nuevos.length === 1 ? 'agrega' : 'agregan'} con el mismo botón, cada uno con
+    su color. Después se pueden renombrar o unir con otros desde Ajustes.</p>
+  `;
+}
+
 function dibujarPreviaDePlanilla(planilla, monedas) {
   const { movimientos, problemas, comprobaciones, yaEstan } = planilla;
   const nuevos = movimientos.length - yaEstan;
@@ -565,6 +588,7 @@ function dibujarPreviaDePlanilla(planilla, monedas) {
     ${dibujarProblemas(problemas)}
     ${dibujarPreviaDeAhorros(planilla)}
 
+    ${dibujarRubrosNuevos(planilla)}
     ${dibujarQueEntra(planilla, { monedas })}
     ${dibujarBotonDeTraer(nuevos, (planilla.ahorros ?? []).length - (planilla.ahorrosQueEstan ?? 0))}
     <button type="button" class="secundario" data-accion="cancelar-planilla">Dejar como está</button>

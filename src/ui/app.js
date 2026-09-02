@@ -1113,7 +1113,8 @@ export function iniciar(documento, almacen) {
       return;
     }
 
-    const { movimientos, problemas, comprobaciones } = interpretarPlanilla(leida.filas);
+    const { movimientos, problemas, comprobaciones, rubrosNuevos } =
+      interpretarPlanilla(leida.filas, vista.estado.rubros);
 
     // La hoja de ahorros conjuntos, si la planilla la tiene — T-042, CU-14.
     //
@@ -1160,6 +1161,10 @@ export function iniciar(documento, almacen) {
         // chica y **el que aparece suele ser uno que había borrado a mano**. Un
         // número sin la lista lo obliga a aceptar a ciegas y buscarlo después.
         nuevos: movimientos.filter((m) => !yaEstan.has(m.id)),
+        // Los rubros que la planilla trae y la app no tiene — T-049. Se muestran
+        // ANTES de importar: agregar rubros al catálogo de alguien sin decírselo
+        // es cambiarle la app por la ventana.
+        rubrosNuevos,
         ahorros: ahorros.ahorros,
         problemasDeAhorros: ahorros.problemas,
         comprobacionesDeAhorros: ahorros.comprobaciones,
@@ -1191,8 +1196,17 @@ export function iniciar(documento, almacen) {
     const ahorrosQueEstan = new Set((vista.estado.ahorros ?? []).map((a) => a.id));
     const ahorrosNuevos = (vista.planilla.ahorros ?? []).filter((a) => !ahorrosQueEstan.has(a.id));
 
+    // Los rubros nuevos entran ANTES que los movimientos que los usan: guardar
+    // un movimiento de un rubro que el catálogo todavía no tiene lo dejaría
+    // afuera en la próxima lectura (T-048).
+    let catalogo = vista.estado.rubros;
+    for (const { tipo, rubro } of vista.planilla.rubrosNuevos ?? []) {
+      catalogo = { ...catalogo, ...crearRubro({ rubros: catalogo }, tipo, rubro).rubros };
+    }
+
     const nuevoEstado = {
       ...vista.estado,
+      rubros: catalogo,
       movimientos: [...(vista.estado.movimientos ?? []), ...nuevos],
       ahorros: [...(vista.estado.ahorros ?? []), ...ahorrosNuevos],
     };

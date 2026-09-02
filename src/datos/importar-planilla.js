@@ -21,6 +21,16 @@
 import { crearMovimiento, normalizarTextoVisible, normalizarClave, rubrosDe,
   TIPO_GASTO, TIPO_INGRESO, validarFecha } from '../core/modelo.js';
 import { fechaDeSerie } from './planilla.js';
+import { TOPE_DE_RUBROS } from '../core/rubros.js';
+
+/** El catálogo más los rubros que esta importación decidió agregar. */
+function conLosNuevos(catalogo, nuevos) {
+  const juntar = (tipo) => [
+    ...rubrosDe(tipo, catalogo),
+    ...nuevos.filter((n) => n.tipo === tipo).map((n) => n.rubro),
+  ];
+  return { gasto: juntar(TIPO_GASTO), ingreso: juntar(TIPO_INGRESO) };
+}
 
 // Las columnas, según `docs/MAPEO-EXCEL.md` §3. Con prefijo porque en el archivo
 // construido todos los módulos comparten ámbito: `TIPO` a secas ya lo usa el
@@ -88,7 +98,7 @@ function fnv1a(texto, inicial) {
  * Nunca tira: una fila rota tiene que producir una línea del informe, no
  * interrumpir la importación de las otras mil.
  */
-export function interpretarFila(numero, celdas) {
+export function interpretarFila(numero, celdas, catalogo, nuevos = []) {
   const crudo = {
     comentario: texto(celdas.get(COL_COMENTARIO)),
     detalle: texto(celdas.get(COL_DETALLE)),
@@ -110,12 +120,33 @@ export function interpretarFila(numero, celdas) {
   const tipo = letra === 'G' ? TIPO_GASTO : TIPO_INGRESO;
 
   // ── El rubro (§5) ──────────────────────────────────────────────────────────
+  //
+  // **Un rubro que no está en la app no tira la fila: se agrega** — T-049.
+  //
+  // Antes se descartaba, y era razonable cuando los rubros venían fijos en el
+  // código. Desde T-048 los decide el usuario, y el caso que lo rompió es el
+  // real: la planilla de otra persona, con rubros que ella inventó. Descartar
+  // esas filas le dejaría afuera la mitad de su historial, con un informe
+  // larguísimo diciendo lo mismo cien veces.
+  //
+  // Lo que sí se respeta es el tope: si ya no entran más rubros, la fila no
+  // entra y se explica, porque meterla en un rubro que no es el suyo sería
+  // cambiarle los datos.
   const rubro = normalizarClave(crudo.rubro);
-  if (!rubrosDe(tipo).includes(rubro)) {
-    const otro = tipo === TIPO_GASTO ? TIPO_INGRESO : TIPO_GASTO;
-    return problema(rubrosDe(otro).includes(rubro)
-      ? `"${crudo.rubro}" no es un rubro de ${tipo === TIPO_GASTO ? 'gasto' : 'ingreso'}`
-      : `el rubro "${crudo.rubro}" no existe en la app`);
+  if (rubro === '') return problema('la fila no dice de qué rubro es');
+
+  if (!rubrosDe(tipo, catalogo).includes(rubro)) {
+    const cual = tipo === TIPO_GASTO ? 'gasto' : 'ingreso';
+    if (rubrosDe(tipo, catalogo).length >= TOPE_DE_RUBROS) {
+      return problema(
+        `el rubro "${crudo.rubro}" no está en la app y ya no entran más rubros de ${cual} ` +
+        `(el máximo son ${TOPE_DE_RUBROS}). Uní dos en Ajustes y volvé a importar`
+      );
+    }
+    // Una sola vez, aunque venga en doscientas filas: si no, la previa diría
+    // "se van a agregar 200 rubros" para uno solo, y el catálogo terminaría con
+    // el mismo nombre repetido hasta llenarse.
+    if (!nuevos.some((n) => n.tipo === tipo && n.rubro === rubro)) nuevos.push({ tipo, rubro });
   }
 
   // ── La fecha: día y mes son dos columnas y hay que casarlas (§4) ───────────
@@ -190,7 +221,15 @@ export function interpretarFila(numero, celdas) {
           comentario: crudo.comentario,
           detalle: crudo.detalle,
         },
-        { decimales: 2, id: idDeFila(numero, contenido), creado: fecha }
+        {
+          decimales: 2,
+          id: idDeFila(numero, contenido),
+          creado: fecha,
+          // El catálogo, ampliado con lo que esta misma importación va a
+          // agregar: si no, el modelo rechazaría el rubro que acabamos de
+          // decidir aceptar.
+          catalogo: conLosNuevos(catalogo, nuevos),
+        }
       ),
     };
   } catch (error) {
@@ -206,9 +245,13 @@ export function interpretarFila(numero, celdas) {
  * Devuelve los movimientos, los problemas fila por fila, y **las comprobaciones
  * de cada mes** (ver abajo).
  */
-export function interpretarPlanilla(filas) {
+export function interpretarPlanilla(filas, catalogo) {
   const movimientos = [];
   const problemas = [];
+  // Los rubros que la planilla trae y la app todavía no tiene — T-049. Se
+  // juntan acá y los agrega quien importa, en un solo paso: agregarlos fila por
+  // fila haría veinte cambios de estado para una sola importación.
+  const rubrosNuevos = [];
   const acumulados = new Map();
   const sumas = new Map();
   const cuantos = new Map();
@@ -219,7 +262,7 @@ export function interpretarPlanilla(filas) {
     const celdas = filas.get(numero);
     if (!esFilaDeDatos(celdas)) continue;
 
-    const resultado = interpretarFila(numero, celdas);
+    const resultado = interpretarFila(numero, celdas, catalogo, rubrosNuevos);
     if (resultado.problema) {
       problemas.push(resultado.problema);
       continue;
@@ -239,7 +282,7 @@ export function interpretarPlanilla(filas) {
     }
   }
 
-  return { movimientos, problemas, comprobaciones: comprobar(sumas, acumulados, cuantos) };
+  return { movimientos, problemas, rubrosNuevos, comprobaciones: comprobar(sumas, acumulados, cuantos) };
 }
 
 /**

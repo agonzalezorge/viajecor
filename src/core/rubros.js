@@ -18,17 +18,22 @@
 //    borrar los gastos con él sería borrar plata anotada, que no es lo que
 //    nadie quiere decir con "sacar un rubro de la lista".
 //
-// 3. **Como mucho ocho por tipo.** No es una limitación técnica: la paleta
-//    tiene ocho colores que pasaron el validador de daltonismo, y un noveno
-//    tono generado sería indistinguible de alguno de esos (ADR-029). Para
-//    agregar el noveno hay que unir dos primero.
+// 3. **Como mucho veinte por tipo**, que es hasta donde llega la paleta. No es
+//    una limitación técnica sino de colores: hay veinte tonos definidos a mano
+//    —elegidos con el validador de la guía, el más distinto primero— y el
+//    veintiuno tendría que repetir alguno. Ver ADR-049.
+//
+//    **Los primeros se distinguen mejor que los últimos**, y eso está medido:
+//    el rubro 9 está a ΔE 14,6 de todos los anteriores y el 20 a 6,7. De ahí que
+//    la app escriba SIEMPRE el nombre al lado del color, que es la compensación
+//    que la guía pide cuando la separación baja de 8.
 //
 // Este archivo no toca el navegador: es lógica pura y se testea con node --test.
 
 import { TIPO_GASTO, TIPO_INGRESO, normalizarTipo, normalizarClave, rubrosDe } from './modelo.js';
 
 /** Cuántos rubros admite cada tipo. Ver la regla 3. */
-export const TOPE_DE_RUBROS = 8;
+export const TOPE_DE_RUBROS = 20;
 
 /** La clave del tipo dentro del catálogo. */
 function ladoDe(tipo) {
@@ -102,9 +107,9 @@ export function crearRubro(estado, tipo, nombre) {
 
   if (lista.length >= TOPE_DE_RUBROS) {
     throw new Error(
-      `Ya hay ${TOPE_DE_RUBROS} rubros y no entran más: cada uno tiene su color, y ` +
-      `un noveno sería indistinguible de otro para quien no distingue bien los ` +
-      `colores. Para agregar este, uní dos de los que ya están.`
+      `Ya hay ${TOPE_DE_RUBROS} rubros de ese tipo, que es hasta donde llegan los ` +
+      `colores: el siguiente tendría que repetir uno y dos rubros del mismo color ` +
+      `no se pueden leer en una torta. Para agregar este, uní dos de los que ya están.`
     );
   }
 

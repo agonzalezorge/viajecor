@@ -26,7 +26,7 @@
 import { TIPO_GASTO, normalizarClave, rubrosDe } from './modelo.js';
 
 /** Cuántos colores hay. Es un tope, no un valor por omisión. */
-export const COLORES = 8;
+export const COLORES = 20;
 
 // ── De dónde salen estos tonos — T-922 ──────────────────────────────────────
 //
@@ -76,9 +76,36 @@ export const COLORES_RUBRO = Object.freeze([
   '#2a78d6',  // 6 · azul       — su celeste de transporte      (se movió 7°)
   '#1baf7a',  // 7 · aguamarina — CAMBIA: su lila era el mismo matiz que el violeta
   '#7a7a7a',  // 8 · gris       — su gris de otros, oscurecido para que contraste
+
+  // ── Del 9 al 20: los que quedan libres — T-049, ADR-049 ──────────────────
+  //
+  // Elegidos uno por uno con el validador de la guía: en cada paso, el color
+  // que MÁS LEJOS estaba de todos los anteriores, mirando también cómo se ven
+  // con daltonismo. Por eso el orden importa y no es alfabético ni bonito:
+  // **el 9 se distingue mucho mejor que el 20**, y el número al lado de cada
+  // uno es esa distancia medida (ΔE en OKLab ×100, la peor de las tres
+  // visiones). Bajar de 8 obliga a rótulo directo, que esta app siempre tiene:
+  // el nombre del rubro va escrito al lado del color, en todas las pantallas.
+  '#74396d',  // 9 · ciruela     — separación 14,6
+  '#39b5ff',  // 10 · celeste     — separación 14,5
+  '#720caf',  // 11 · violeta     — separación 11,7
+  '#813934',  // 12 · ladrillo    — separación 9,6
+  '#1d40e7',  // 13 · azul        — separación 8,9
+  '#3295f6',  // 14 · azul claro  — separación 8,6
+  '#27d271',  // 15 · verde menta — separación 8,2
+  '#31b0c6',  // 16 · cian        — separación 7,8
+  '#904c87',  // 17 · malva       — separación 7,6
+  '#db8833',  // 18 · naranja     — separación 7,2
+  '#1464fe',  // 19 · azul vivo   — separación 6,7
+  '#96455a',  // 20 · bordó       — separación 6,7
 ]);
 
-/** Los mismos ocho para el fondo oscuro, validados contra ese fondo. */
+/**
+ * Los mismos, para el fondo oscuro. **Cada uno conserva el TONO de su par claro**
+ * y cambia la luz: elegirlos por separado daba la franja 10 morada en claro y
+ * ámbar en oscuro, o sea el mismo rubro cambiando de color al cambiar de tema,
+ * que es justo lo que esta paleta existe para evitar.
+ */
 export const COLORES_RUBRO_OSCURO = Object.freeze([
   '#d55181',  // 1 · rosa
   '#c08000',  // 2 · ámbar
@@ -88,6 +115,19 @@ export const COLORES_RUBRO_OSCURO = Object.freeze([
   '#3987e5',  // 6 · azul
   '#199e70',  // 7 · aguamarina
   '#a8a8a8',  // 8 · gris
+
+  '#91417d',  // 9 · ciruela
+  '#56b2fd',  // 10 · celeste
+  '#7e1cd8',  // 11 · violeta
+  '#ff9b4e',  // 12 · ladrillo
+  '#6c96c2',  // 13 · azul
+  '#71c5df',  // 14 · azul claro
+  '#9bc58d',  // 15 · verde menta
+  '#008d89',  // 16 · cian
+  '#8e32a7',  // 17 · malva
+  '#cf6b58',  // 18 · naranja
+  '#226cff',  // 19 · azul vivo
+  '#b60356',  // 20 · bordó
 ]);
 
 /**
@@ -107,6 +147,22 @@ export const FONDOS_RUBRO = Object.freeze([
   '#99CCFF',  // 6 · su celeste de transporte
   '#E5CCFF',  // 7 · su lila de salud
   '#D9D9D9',  // 8 · su gris de otros
+
+  // Del 9 al 20: el mismo tono de cada color, muy aclarado, igual que los ocho
+  // de arriba —que salieron de la planilla del usuario—. En Excel el número va
+  // escrito ENCIMA, así que el fondo tiene que dejar leer texto negro.
+  '#D8C8D6',  // 9 · ciruela
+  '#C8EAFF',  // 10 · celeste
+  '#D8BBE9',  // 11 · violeta
+  '#DCC8C6',  // 12 · ladrillo
+  '#C0CAF8',  // 13 · azul
+  '#C6E1FC',  // 14 · azul claro
+  '#C3F2D7',  // 15 · verde menta
+  '#C5E9EF',  // 16 · cian
+  '#E0CDDD',  // 17 · malva
+  '#F5DEC6',  // 18 · naranja
+  '#BDD4FF',  // 19 · azul vivo
+  '#E2CBD1',  // 20 · bordó
 ]);
 
 /**
@@ -168,4 +224,34 @@ const FRANJA_DE_INGRESO = Object.freeze({
 export function fondoDeFranja(franja) {
   const color = FONDOS_RUBRO[franja - 1] ?? FONDOS_RUBRO[FONDOS_RUBRO.length - 1];
   return color.slice(1).toUpperCase();
+}
+
+
+/**
+ * Con qué color se escribe ENCIMA de un color de rubro — T-049.
+ *
+ * Es el único texto de la app que no usa un color de texto: va sobre el color
+ * del rubro, así que se elige contra **ese** fondo. Hasta la paleta de ocho
+ * alcanzaba con el negro; entre los veinte hay tonos oscuros —la ciruela, el
+ * violeta— donde el negro no se lee y el blanco sí.
+ *
+ * La cuenta es la luminancia relativa de WCAG, la misma que usa el test que lo
+ * comprueba: se elige el que más contraste da, y el resultado nunca baja de
+ * 4,5:1 en ninguna de las dos paletas.
+ */
+export function tintaSobreRubro(hex) {
+  const canal = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [1, 3, 5].map((i) => canal(parseInt(hex.slice(i, i + 2), 16) / 255));
+  const luz = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+  const contraNegro = (luz + 0.05) / 0.05;
+  const contraBlanco = 1.05 / (luz + 0.05);
+  return contraBlanco > contraNegro ? '#ffffff' : '#000000';
+}
+
+/** Las franjas que necesitan tinta blanca, para poder escribirlo en el CSS. */
+export function franjasConTintaClara(paleta = COLORES_RUBRO) {
+  return paleta
+    .map((hex, i) => (tintaSobreRubro(hex) === '#ffffff' ? i + 1 : null))
+    .filter((n) => n !== null);
 }

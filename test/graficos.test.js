@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 
 import { dibujarTorta, dibujarLinea, dibujarAcumulado, dibujarAcumuladoHistorico,
   dibujarMesAMes, diasHasta } from '../src/ui/pantallas/graficos.js';
-import { COLORES_RUBRO, COLORES_RUBRO_OSCURO } from '../src/core/paleta.js';
+import { COLORES_RUBRO, COLORES_RUBRO_OSCURO, tintaSobreRubro, franjasConTintaClara } from '../src/core/paleta.js';
 import { claseDeRubro, franjaDeRubro } from '../src/ui/colores.js';
 import { TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
 
@@ -101,7 +101,7 @@ test('solo las porciones grandes llevan su número escrito adentro', () => {
   // Ocho números en una torta chica se pisan entre sí. Los porcentajes de todos
   // los rubros están en la lista de abajo, que es donde se leen.
   const svg = dibujarTorta(filas([['viajes', 9500], ['salud', 300], ['transporte', 200]]), TIPO_GASTO);
-  const rotulos = [...svg.matchAll(/class="rotulo-porcion"[^>]*>(\d+) %</g)].map((m) => Number(m[1]));
+  const rotulos = [...svg.matchAll(/class="rotulo-porcion[^"]*"[^>]*>(\d+) %</g)].map((m) => Number(m[1]));
 
   assert.deepEqual(rotulos, [95]);
 });
@@ -144,11 +144,12 @@ test('los ingresos también tienen su torta, con sus propios colores', () => {
   assert.ok(svg.includes(`class="porcion rubro-${franjaDeRubro(TIPO_INGRESO, 'regalos')}"`));
 });
 
-test('el número escrito adentro de una porción se lee sobre los ocho colores', () => {
+test('el número escrito adentro de una porción se lee sobre LOS VEINTE colores', () => {
   // Es el único texto de la app que va encima de un color de rubro, así que su
-  // color se elige contra ESE fondo. El negro aguanta los ocho, en claro y en
-  // oscuro. Si algún día la paleta cambia y un tono deja de aguantarlo, tiene
-  // que fallar acá y no descubrirlo el usuario mirando un 32 % ilegible.
+  // color se elige contra ESE fondo. Con ocho alcanzaba el negro; entre los
+  // veinte hay oscuros donde hace falta el blanco. Si algún día la paleta
+  // cambia y un tono deja de aguantar ninguno de los dos, falla acá y no lo
+  // descubre el usuario mirando un 32 % ilegible.
   const luminancia = (hex) => {
     const canal = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
     const [r, g, b] = [1, 3, 5].map((i) => canal(parseInt(hex.slice(i, i + 2), 16) / 255));
@@ -157,11 +158,33 @@ test('el número escrito adentro de una porción se lee sobre los ocho colores',
 
   for (const paleta of [COLORES_RUBRO, COLORES_RUBRO_OSCURO]) {
     for (const [i, color] of paleta.entries()) {
-      const contraste = (luminancia(color) + 0.05) / 0.05;
-      assert.ok(contraste >= 4.2,
-        `el negro sobre el rubro ${i + 1} (${color}) contrasta ${contraste.toFixed(1)}:1`);
+      const luz = luminancia(color);
+      const contraste = tintaSobreRubro(color) === '#ffffff'
+        ? 1.05 / (luz + 0.05)
+        : (luz + 0.05) / 0.05;
+
+      assert.ok(contraste >= 4.5,
+        `la tinta elegida sobre el rubro ${i + 1} (${color}) contrasta ${contraste.toFixed(1)}:1`);
     }
   }
+});
+
+test('el CSS pinta de blanco EXACTAMENTE las franjas que lo necesitan', async () => {
+  // Dos listas escritas a mano —la del CSS y la que calcula la paleta— se
+  // separan el día que se toca un color, y el síntoma sería un número ilegible
+  // en una sola porción, que nadie mira hasta que le toca.
+  const { readFile } = await import('node:fs/promises');
+  const { dirname, join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const css = await readFile(join(raiz, 'src/estilos.css'), 'utf8');
+
+  const bloque = (desde, hasta) => css.slice(css.indexOf(desde), hasta ? css.indexOf(hasta) : undefined);
+  const franjasDe = (texto) => [...texto.matchAll(/\.rotulo-porcion\.rubro-(\d+)/g)]
+    .map((m) => Number(m[1])).sort((a, b) => a - b);
+
+  const claro = bloque('/* Fondo claro: las franjas', '@media (prefers-color-scheme: dark) {\n  /* Los tonos del fondo oscuro');
+  assert.deepEqual(franjasDe(claro), franjasConTintaClara(COLORES_RUBRO));
 });
 
 

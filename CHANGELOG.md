@@ -3,6 +3,28 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.7.0 — 2026-08-31
+
+### Cambiado
+- **Ya no hay tope de ocho rubros: ahora son veinte** de cada tipo, con veinte
+  colores definidos a mano. Los ocho de siempre quedaron igual y con su mismo
+  color; los doce nuevos se eligieron uno por uno, cada uno lo más distinto
+  posible de todos los anteriores.
+
+  **Los primeros se distinguen mejor que los últimos, y está medido**: el rubro
+  9 está a ΔE 14,6 de todos los demás y el 20 a 6,7. Por eso el nombre del rubro
+  va siempre escrito al lado del color — con veinte, el color ayuda a agrupar
+  pero ya no alcanza para identificar.
+
+- **El importador acepta los rubros que tu planilla tenga y la app no.** Antes
+  descartaba esas filas; ahora los agrega, y la previa te dice **cuáles** antes
+  de tocar nada. Sirve para prestarle la app a otra persona con su propio Excel.
+
+### Arreglado
+- **El número dentro de las porciones de la torta se escribía siempre en negro**,
+  y sobre los tonos oscuros de la paleta nueva no se leía. Ahora la tinta se
+  elige según el color de la porción.
+
 ## 0.6.0 — 2026-08-31
 
 ### Agregado

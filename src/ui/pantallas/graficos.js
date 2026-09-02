@@ -90,7 +90,9 @@ export function dibujarTorta(filas, tipo) {
     desde = hasta;
 
     const rotulo = porcentaje >= MINIMO_PARA_ROTULO
-      ? `<text class="rotulo-porcion" x="${rx}" y="${ry}">${Math.round(porcentaje)} %</text>`
+      // El rótulo lleva la franja de su porción para que el CSS pueda elegir la
+      // tinta: sobre los tonos oscuros de la paleta el negro no se lee (T-049).
+      ? `<text class="rotulo-porcion rubro-${franja}" x="${rx}" y="${ry}">${Math.round(porcentaje)} %</text>`
       : '';
 
     return `

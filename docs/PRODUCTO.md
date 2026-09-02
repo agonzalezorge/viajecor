@@ -650,9 +650,13 @@ gastos, no de quien escribió la app.
    totales por rubro**.
 2. **Un rubro con movimientos no se saca: se une con otro.** Sacarlo perdería
    esos gastos de los totales; borrarlos con él sería borrar plata anotada.
-3. **Como mucho ocho por tipo.** La paleta tiene ocho colores validados contra
-   daltonismo (ADR-029) y un noveno sería indistinguible. Para agregar uno hay
-   que unir dos.
+3. **Como mucho veinte por tipo**, que es hasta donde llega la paleta (ADR-049).
+   Los primeros colores se distinguen mejor que los últimos —está medido— y por
+   eso el nombre del rubro va siempre escrito al lado del color.
+
+**Al importar una planilla, los rubros que la app no tiene se agregan**, y la
+previa dice cuáles antes de tocar nada. Es lo que permite prestarle la app a
+otra persona que lleva su propio Excel con sus propios rubros.
 
 **Si un rubro queda con movimientos pero fuera de la lista** —puede pasar
 importando un respaldo de otro dispositivo con más rubros de los que entran—,

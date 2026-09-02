@@ -15,6 +15,7 @@ import {
   interpretarFila, interpretarPlanilla, esFilaDeDatos, idDeFila, comprobar,
 } from '../src/datos/importar-planilla.js';
 import { leerPlanilla } from '../src/datos/planilla.js';
+import { TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -99,10 +100,8 @@ test('una fila normal se convierte en un movimiento', () => {
 test('el rubro y el tipo se normalizan', () => {
   // La planilla tiene las mayúsculas inconsistentes de haberse escrito a mano
   // durante meses (RN-03).
-  const { movimiento } = interpretarFila(6, fila({ rubro: '  SUPER MERCADO ', tipo: 'g' }));
   const otro = interpretarFila(7, fila({ rubro: 'COMIDA HECHA', tipo: 'g' }));
 
-  assert.equal(movimiento, undefined, 'un rubro con espacios de más adentro no existe');
   assert.equal(otro.movimiento.rubro, 'comida hecha');
   assert.equal(otro.movimiento.tipo, 'G');
 });
@@ -191,21 +190,58 @@ test('si el tipo no se entiende, NO se inventa un segundo problema con el rubro'
   assert.equal(/rubro/.test(problema.motivo), false, `dijo: ${problema.motivo}`);
 });
 
-test('un rubro que no existe no entra, y NO se manda a "otros"', () => {
-  // Mandarlo a "otros" lo haría desaparecer dentro de un total que ya existe:
-  // se vería bien y estaría mal.
-  const { problema } = interpretarFila(6, fila({ rubro: 'mascotas' }));
+test('un rubro que la app no tiene SE AGREGA, y se dice cuál', () => {
+  // Cambió el 2026-08-31: el usuario le prestó la app a su esposa, que en su
+  // Excel tiene rubros que ella inventó. Descartar esas filas le dejaría afuera
+  // media planilla, con un informe repitiendo lo mismo cien veces.
+  //
+  // Y NO se manda a "otros": eso lo haría desaparecer dentro de un total que ya
+  // existe, o sea verse bien y estar mal.
+  const nuevos = [];
+  const { movimiento, problema } = interpretarFila(6, fila({ rubro: 'mascotas' }), undefined, nuevos);
 
-  assert.match(problema.motivo, /"mascotas" no existe/);
+  assert.equal(problema, undefined);
+  assert.equal(movimiento.rubro, 'mascotas');
+  assert.deepEqual(nuevos, [{ tipo: TIPO_GASTO, rubro: 'mascotas' }]);
 });
 
-test('un rubro de la otra lista lo dice con todas las letras', () => {
-  // "supermercado" existe, pero no como ingreso. Decir "rubro desconocido"
-  // mandaría a buscar un error de escritura que no está: lo que está mal es la
-  // combinación.
-  const { problema } = interpretarFila(6, fila({ rubro: 'supermercado', tipo: 'I' }));
+test('el mismo rubro nuevo en veinte filas se agrega UNA vez', () => {
+  const filas = new Map([[6, fila({ rubro: 'mascotas' })], [7, fila({ rubro: 'mascotas' })]]);
+  const { rubrosNuevos, movimientos } = interpretarPlanilla(filas);
 
-  assert.match(problema.motivo, /no es un rubro de ingreso/);
+  assert.equal(movimientos.length, 2);
+  assert.deepEqual(rubrosNuevos, [{ tipo: TIPO_GASTO, rubro: 'mascotas' }]);
+});
+
+test('pero si ya no entran más rubros, la fila no entra y se explica', () => {
+  // Meterla en un rubro que no es el suyo sería cambiarle los datos.
+  const lleno = { gasto: Array.from({ length: 20 }, (_, i) => `r${i}`), ingreso: ['trabajo'] };
+  const { movimiento, problema } = interpretarFila(6, fila({ rubro: 'mascotas' }), lleno, []);
+
+  assert.equal(movimiento, undefined);
+  assert.match(problema.motivo, /ya no entran más rubros/);
+  assert.match(problema.motivo, /Uní dos en Ajustes/);
+});
+
+test('una fila sin rubro sigue sin entrar', () => {
+  // Aceptar cualquier rubro no es aceptar la ausencia de rubro: un movimiento
+  // sin rubro no se puede leer en ninguna pantalla.
+  const { movimiento, problema } = interpretarFila(6, fila({ rubro: '   ' }), undefined, []);
+
+  assert.equal(movimiento, undefined);
+  assert.match(problema.motivo, /no dice de qué rubro/);
+});
+
+test('el mismo nombre en el otro tipo es un rubro nuevo de ese tipo', () => {
+  // "supermercado" existe como gasto. Como INGRESO no existía, y ahora se crea:
+  // son cosas distintas (RN-02), y en la planilla de otra persona un ingreso
+  // llamado así puede ser perfectamente real —una devolución—.
+  const nuevos = [];
+  const { movimiento } = interpretarFila(6, fila({ rubro: 'supermercado', tipo: 'I' }), undefined, nuevos);
+
+  assert.equal(movimiento.rubro, 'supermercado');
+  assert.equal(movimiento.tipo, TIPO_INGRESO);
+  assert.deepEqual(nuevos, [{ tipo: TIPO_INGRESO, rubro: 'supermercado' }]);
 });
 
 test('una fecha que no existe no entra, y no se ajusta al día más cercano', () => {
