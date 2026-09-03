@@ -1776,3 +1776,44 @@ veinte hay tonos oscuros donde el negro no se lee. Ahora la tinta se elige por
 color (`tintaSobreRubro`), y un test comprueba que la lista del CSS coincida con
 lo que calcula la paleta — dos listas escritas a mano se separan el día que se
 toca un color.
+
+
+## ADR-050 · La moneda base se elige, y cambiarla reexpresa los tipos en vez de tocar los montos
+
+**Contexto.** El euro estaba escrito como constante en todo el programa: era el
+denominador común de los totales y la única moneda sin tipo de cambio. Quien
+vive en pesos uruguayos veía sus gastos traducidos a una moneda que no usa.
+
+**Decisión.** La base es una preferencia (`preferencias.moneda_base`), con el
+euro como valor de fábrica. Cambiarla **no toca ningún movimiento**: cada uno
+sigue guardado en su moneda y con su monto. Lo que se reexpresa son los tipos de
+cambio, que estaban en la base vieja:
+
+    nuevo(moneda)   = viejo(moneda) / viejo(baseNueva)
+    nuevo(baseVieja) = 1 / viejo(baseNueva)
+
+En los meses sin cotización de la base nueva **no se reexpresa nada: se pierde**.
+Inventar una cotización que el usuario no dio es exactamente lo que esta app no
+hace.
+
+**Por qué no reescribir los montos.** Sería más simple de leer después y es
+irreversible: convertido un gasto de 100 EUR a 4.500 UYU, el 100 original ya no
+existe y ningún tipo de cambio posterior lo recupera. Los montos son el único
+dato que el usuario escribió con la mano; todo lo demás se deriva.
+
+**Por qué el efecto se mide sobre los movimientos y no sobre los tipos.** Fue el
+usuario quien lo señaló. Contar los tipos guardados hace parecer gratis
+justamente el caso peor: un historial entero en euros con base en euros no tiene
+ningún tipo cargado, y pasar a pesos deja **todos** los meses sin poder
+calcularse. `efectoDeCambiarBase()` simula el cambio y pregunta movimiento por
+movimiento, descontando lo que ya hoy no se podía convertir.
+
+**Consecuencia incómoda que se acepta.** El formulario del tipo de cambio
+mantiene un solo sentido, "1 &lt;base&gt; son N &lt;moneda&gt;". Con base en pesos y un
+gasto en euros hay que escribir `0,022222`. Es una regla sola y sin ambigüedad;
+ofrecer los dos sentidos es una decisión de producto que el usuario todavía no
+tomó.
+
+**Dos decimales para cualquier base.** Los totales se calculan en centésimas
+desde ADR-005 y cambiar eso tocaría cada cuenta del programa. Con euros y pesos
+uruguayos es exacto.

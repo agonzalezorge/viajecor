@@ -280,8 +280,39 @@ dice cuántos movimientos afecta y te muestra uno tuyo, antes y después, antes 
 aplicar nada.
 
 Una moneda con movimientos cargados **no se puede borrar** —dejaría gastos sin
-forma de convertirse a euros— pero sí **ocultar**: desaparece de la lista al
-cargar y sus movimientos siguen contando.
+forma de convertirse a la moneda base— pero sí **ocultar**: desaparece de la
+lista al cargar y sus movimientos siguen contando.
+
+---
+
+## 5a. La moneda base (Ajustes → Moneda base)
+
+Es la moneda en la que se muestran **todos los totales**: el resumen del mes, la
+evolución, los viajes, los grupos. Es también la única que no lleva tipo de
+cambio, porque vale 1 contra sí misma. **De fábrica es el euro**, y se puede
+cambiar por cualquiera de tus monedas.
+
+**Tus movimientos no se tocan.** Cada uno sigue guardado en su moneda y con su
+monto; lo único que cambia es en qué se suman.
+
+**Lo que sí se recalcula son los tipos de cambio**, porque estaban expresados en
+la base vieja. Donde hay cotización de la moneda nueva se reexpresan solos.
+Donde no la hay, se pierden.
+
+**Antes de confirmar, la app te dice qué va a pasar, con números** — incluidos
+los meses en los que van a quedar movimientos sin poder contarse. Leelo: si tu
+historial está entero en euros no tenés ningún tipo de cambio cargado, y pasar
+la base al peso te los va a pedir **todos, mes por mes, hacia atrás**. No es un
+error de la app: sin saber cuánto valía el euro en marzo, un gasto de marzo no
+se puede expresar en pesos.
+
+Para cargarlos: **Datos → Tipos de cambio**. Los que faltan aparecen arriba de
+todo con un botón *Cargar*, uno por mes. Se escriben siempre en el sentido
+"1 &lt;base&gt; son N &lt;moneda&gt;" — con base en pesos, un euro se carga como
+`0,022222`.
+
+Los **ahorros conjuntos no usan la moneda base**: ahí cada moneda se muestra por
+separado y nunca se convierte.
 
 ---
 

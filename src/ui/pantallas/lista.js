@@ -22,7 +22,7 @@ import { movimientosDelMes, movimientosFiltrados, hayFiltro,
   separarConvertibles } from '../../core/calculos.js';
 import { buscar, palabrasDe } from '../../core/busqueda.js';
 import { movimientoEnEuros, faltaCambioPara } from '../../core/cambio.js';
-import { decimalesDe } from '../../core/monedas.js';
+import { decimalesDe, monedaBaseDe } from '../../core/monedas.js';
 import { TIPO_GASTO, TIPO_INGRESO } from '../../core/modelo.js';
 import {
   formatearMonto,
@@ -72,10 +72,14 @@ function importeDe(estado, movimiento) {
     const propio = formatearMonto(movimiento.monto, decimales, movimiento.moneda);
     if (movimiento.moneda === 'EUR') return { propio, enEuros: null };
 
-    if (faltaCambioPara(movimiento, estado.tipos_cambio)) {
+    if (faltaCambioPara(movimiento, estado.tipos_cambio, monedaBaseDe(estado))) {
       return { propio, enEuros: null, sinCambio: true };
     }
-    return { propio, enEuros: formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas)) };
+    const base = monedaBaseDe(estado);
+    return {
+      propio,
+      enEuros: formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, base), base),
+    };
   } catch {
     // Un dato que no se puede formatear se muestra crudo antes que no mostrarse:
     // el usuario tiene que poder verlo para poder corregirlo o borrarlo.
@@ -292,7 +296,7 @@ export function dibujarResultados(vista) {
     </li>`).join('');
 
   return `
-    <p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total))}</strong>
+    <p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total, monedaBaseDe(vista.estado)))}</strong>
     en total, en todos los meses.</p>
     <ul class="resultados">${cuerpo}</ul>
   `;
@@ -372,7 +376,7 @@ export function dibujarLista(vista) {
   // desarmar, y verlo repetido acá es la confirmación de que la lista de abajo
   // es de verdad lo que compone ese total.
   const encabezado = filtrada
-    ? `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total))}</strong></p>`
+    ? `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total, monedaBaseDe(estado)))}</strong></p>`
     : `<p class="cuantos suave">${cuantos} en ${escapar(formatearMes(mes))}.</p>`;
 
   return `

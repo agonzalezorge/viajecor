@@ -16,11 +16,29 @@ import { unidadMinima } from './dinero.js';
 import { normalizarMoneda, normalizarTextoVisible, normalizarClave } from './modelo.js';
 
 /**
- * El euro es distinto de todas las demás: es la moneda base (RN-04), todos los
- * totales se expresan en ella, y por eso no se puede borrar, ni ocultar, ni
- * cambiarle los decimales.
+ * La moneda base de fábrica — RN-04.
+ *
+ * **Es el punto de partida, no la verdad.** Desde T-050 la base la elige el
+ * usuario en Ajustes: hay gente que lleva sus cuentas en pesos uruguayos y para
+ * ella el euro es una moneda más. Quien manda es `monedaBaseDe(estado)`; esta
+ * constante es lo que vale mientras nadie haya elegido otra cosa.
  */
 export const MONEDA_BASE = 'EUR';
+
+/**
+ * La moneda en la que se expresan todos los totales.
+ *
+ * Es la que **no lleva tipo de cambio** —vale 1 contra sí misma— y la que por
+ * eso no se puede borrar ni ocultar. Recibe el estado y no lo toma de ningún
+ * lado global: así una función que convierte dinero no puede depender de en qué
+ * pantalla está el usuario.
+ */
+export function monedaBaseDe(estado) {
+  const elegida = estado?.preferencias?.moneda_base;
+  return typeof elegida === 'string' && /^[A-Za-z]{3}$/.test(elegida.trim())
+    ? elegida.trim().toUpperCase()
+    : MONEDA_BASE;
+}
 
 // Las cuatro que el usuario usa hoy (RN-04b). Son un punto de partida editable,
 // no una lista cerrada: se agregan y se ocultan desde la app (CU-15).
@@ -116,13 +134,13 @@ export function agregarMoneda(monedas, entrada) {
  * avisarle al usuario cuántos movimientos cambian de significado — para eso está
  * `contarMovimientosDe()`.
  */
-export function cambiarDecimalesDe(monedas, codigo, decimales) {
+export function cambiarDecimalesDe(monedas, codigo, decimales, base = MONEDA_BASE) {
   const lista = listaDe(monedas);
   const moneda = exigirMoneda(lista, codigo);
 
-  if (moneda.codigo === MONEDA_BASE) {
+  if (moneda.codigo === base) {
     throw new Error(
-      'El euro es la moneda base y siempre usa dos decimales: todos los totales de la app se expresan en euros.'
+      `${moneda.codigo} es la moneda base y siempre usa dos decimales: todos los totales de la app se expresan en ella.`
     );
   }
   unidadMinima(decimales);
@@ -143,12 +161,12 @@ export function contarMovimientosDe(movimientos, codigo) {
  *
  * Es la salida para "esta ya no la uso" sin perder el historial del viaje.
  */
-export function ocultarMoneda(monedas, codigo) {
+export function ocultarMoneda(monedas, codigo, base = MONEDA_BASE) {
   const lista = listaDe(monedas);
   const moneda = exigirMoneda(lista, codigo);
 
-  if (moneda.codigo === MONEDA_BASE) {
-    throw new Error('El euro no se puede ocultar: es la moneda en la que se expresan todos los totales.');
+  if (moneda.codigo === base) {
+    throw new Error(`${moneda.codigo} no se puede ocultar: es la moneda en la que se expresan todos los totales.`);
   }
   return lista.map((m) => (m === moneda ? { ...m, oculta: true } : m));
 }
@@ -167,19 +185,19 @@ export function mostrarMoneda(monedas, codigo) {
  * pantalla podría mostrar bien y que ningún total podría sumar. Por eso la
  * respuesta no es "¿estás seguro?" sino "no, y en cambio podés ocultarla".
  */
-export function borrarMoneda(monedas, codigo, movimientos = []) {
+export function borrarMoneda(monedas, codigo, movimientos = [], base = MONEDA_BASE) {
   const lista = listaDe(monedas);
   const moneda = exigirMoneda(lista, codigo);
 
-  if (moneda.codigo === MONEDA_BASE) {
-    throw new Error('El euro no se puede borrar: es la moneda base de la app.');
+  if (moneda.codigo === base) {
+    throw new Error(`${moneda.codigo} no se puede borrar: es la moneda base de la app.`);
   }
 
   const cuantos = contarMovimientosDe(movimientos, moneda.codigo);
   if (cuantos > 0) {
     const plural = cuantos === 1 ? 'movimiento cargado' : 'movimientos cargados';
     throw new Error(
-      `${moneda.nombre} tiene ${cuantos} ${plural}: borrarla los dejaría sin forma de convertirse a euros. Ocultala en vez de borrarla.`
+      `${moneda.nombre} tiene ${cuantos} ${plural}: borrarla los dejaría sin forma de convertirse a la moneda base. Ocultala en vez de borrarla.`
     );
   }
   return lista.filter((m) => m !== moneda);

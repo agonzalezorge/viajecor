@@ -301,6 +301,13 @@ export function migrarEstado(guardado, incidencias = []) {
     // Que compartir no funciona en este teléfono (T-914). Sin esto, el botón
     // que ya falló una vez volvería a ofrecerse en cada recarga y volvería a
     // fallar igual.
+    // La moneda base elegida (T-050). Sin esto, los totales volverían a euros
+    // en cada recarga y el usuario vería sus números multiplicados por cuarenta.
+    const base = preferencias.moneda_base;
+    if (typeof base === 'string' && /^[A-Za-z]{3}$/.test(base.trim())) {
+      estado.preferencias.moneda_base = base.trim().toUpperCase();
+    }
+
     // En qué mitad de la app estaba (T-046). Sin esto, quien está poniendo al
     // día los ahorros vuelve a caer en los gastos cada vez que abre.
     if (preferencias.perfil === 'ahorros' || preferencias.perfil === 'cotidiana') {

@@ -106,9 +106,24 @@ test('corregir reemplaza, no acumula', () => {
   assert.ok(Math.abs(aUnidadesPorEuro(buscarCambio(estado.tipos_cambio, 'CRC', MES)) - 640) < 1e-9);
 });
 
-test('no se puede cargar un tipo de cambio para el euro', () => {
+test('no se puede cargar un tipo de cambio para la moneda base', () => {
   const { error } = intentarGuardarCambio(estadoLimpio(), { moneda: 'EUR', mes: MES, unidadesPorEuro: '1' });
-  assert.match(error, /El euro no lleva tipo de cambio/);
+  assert.match(error, /EUR no lleva tipo de cambio/);
+});
+
+test('con base en pesos, el euro sí puede llevar tipo de cambio', () => {
+  // Al revés que el test de arriba, y es el mismo código: lo que no lleva tipo
+  // es la base, no el euro. Sin esto, cambiar la base a pesos dejaba al usuario
+  // sin ninguna forma de cargar el tipo del euro — y los totales en cero.
+  const enPesos = { ...estadoLimpio(), preferencias: { moneda_base: 'UYU' } };
+
+  const { estado, error } = intentarGuardarCambio(enPesos, { moneda: 'EUR', mes: MES, unidadesPorEuro: '0,022222' });
+  assert.equal(error, undefined);
+  assert.equal(estado.tipos_cambio.length, 1);
+  assert.equal(estado.tipos_cambio[0].moneda, 'EUR');
+
+  assert.match(intentarGuardarCambio(enPesos, { moneda: 'UYU', mes: MES, unidadesPorEuro: '1' }).error,
+    /UYU no lleva tipo de cambio/);
 });
 
 test('intentarGuardarCambio nunca tira', () => {
@@ -262,8 +277,8 @@ test('el plural del conteo concuerda', () => {
 
 test('sin tipos de cambio, la pantalla explica que la app los va a pedir sola', () => {
   const html = dibujarCambios({ estado: estadoLimpio() });
-  assert.ok(html.includes('Todavía no hay ninguno'));
-  assert.ok(html.includes('te lo va a pedir sola'));
+  assert.ok(html.includes('Todavía no hay ninguno cargado'));
+  assert.match(html.replace(/\s+/g, ' '), /te lo va a pedir sola la primera vez/);
 });
 
 test('los tipos de cambio se listan del mes más nuevo al más viejo', () => {

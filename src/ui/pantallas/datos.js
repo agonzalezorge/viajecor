@@ -26,6 +26,7 @@ import { formatearEuros, formatearNumero, formatearRubro, formatearFecha, format
 import { DECIMALES_EURO } from '../../core/dinero.js';
 import { formatearFechaLarga } from '../../core/formato.js';
 import { hoy, TIPO_GASTO } from '../../core/modelo.js';
+import { monedaBaseDe } from '../../core/monedas.js';
 
 /** Un tamaño legible: 12 kB dice más que 12.283 bytes. */
 export function tamanoLegible(bytes) {
@@ -333,6 +334,7 @@ function dibujarPrevia(previa) {
  * se quedaría tranquilo con un archivo que no lo puede salvar.
  */
 export function dibujarPlanilla(vista) {
+  const base = monedaBaseDe(vista.estado);
   const cuantos = (vista.estado.movimientos ?? []).length;
   const planilla = cuantos === 0 ? null : crearPlanilla(vista.estado);
   const csv = cuantos === 0 ? null : prepararCsv(vista.estado);
@@ -349,8 +351,8 @@ export function dibujarPlanilla(vista) {
       ${planilla && planilla.sinConvertir > 0 ? `
       <p class="aviso-respaldo pendiente-respaldo" role="status">
         ${planilla.sinConvertir === 1
-          ? 'Hay 1 movimiento que no se puede pasar a euros porque falta su tipo de cambio.'
-          : `Hay ${planilla.sinConvertir} movimientos que no se pueden pasar a euros porque falta su tipo de cambio.`}
+          ? `Hay 1 movimiento que no se puede pasar a ${escapar(base)} porque falta su tipo de cambio.`
+          : `Hay ${planilla.sinConvertir} movimientos que no se pueden pasar a ${escapar(base)} porque falta su tipo de cambio.`}
         Entran igual en la planilla, con el monto vacío y el motivo escrito al lado.
       </p>` : ''}
 
@@ -373,7 +375,8 @@ export function dibujarPlanilla(vista) {
       <h3>Y en CSV, para hacer cuentas en otro lado</h3>
       <p class="suave">Una fila por movimiento, con todas las columnas: el monto
       original con su moneda, <strong>el tipo de cambio que se aplicó</strong> y el
-      importe en euros. La planilla lleva solo euros porque se mira; el CSV lleva
+      importe en ${escapar(base)}. La planilla lleva solo la moneda base porque se
+      mira; el CSV lleva
       las dos cosas porque es para procesar, y ahí perder el dato original duele.</p>
 
       <button type="button" class="secundario" data-accion="exportar-csv"${cuantos === 0 ? ' disabled' : ''}>
@@ -409,7 +412,7 @@ export function dibujarPlanillaVieja(vista) {
 
       ${vista.errorPlanillaVieja ? `<p class="error-carga" role="alert">${escapar(vista.errorPlanillaVieja)}</p>` : ''}
       ${vista.avisoPlanillaVieja ? `<p class="confirmacion" role="status">${escapar(vista.avisoPlanillaVieja)}</p>` : ''}
-      ${previa ? dibujarPreviaDePlanilla(previa, vista.estado?.monedas ?? []) : ''}
+      ${previa ? dibujarPreviaDePlanilla(previa, vista.estado?.monedas ?? [], monedaBaseDe(vista.estado)) : ''}
     </section>
   `;
 }
@@ -571,7 +574,7 @@ export function dibujarRubrosNuevos(planilla) {
   `;
 }
 
-function dibujarPreviaDePlanilla(planilla, monedas) {
+function dibujarPreviaDePlanilla(planilla, monedas, base) {
   const { movimientos, problemas, comprobaciones, yaEstan } = planilla;
   const nuevos = movimientos.length - yaEstan;
 
@@ -584,7 +587,7 @@ function dibujarPreviaDePlanilla(planilla, monedas) {
          ${nuevos === 1 ? 'entraría 1' : `entrarían ${nuevos}`}.`
       : 'Ninguno está todavía en la app.'}</p>`}
 
-    ${dibujarComprobaciones(comprobaciones)}
+    ${dibujarComprobaciones(comprobaciones, base)}
     ${dibujarProblemas(problemas)}
     ${dibujarPreviaDeAhorros(planilla)}
 
@@ -602,7 +605,7 @@ function dibujarPreviaDePlanilla(planilla, monedas) {
  * por **otra herramienta**: después de importar, la planilla se archiva. Si acá
  * no se mira, no se mira nunca.
  */
-function dibujarComprobaciones(comprobaciones) {
+function dibujarComprobaciones(comprobaciones, base) {
   if (comprobaciones.length === 0) return '';
   const difieren = comprobaciones.filter((c) => !c.coincide);
 
@@ -618,9 +621,9 @@ function dibujarComprobaciones(comprobaciones) {
   const deMenos = difieren.filter((c) => c.diferencia < 0);
 
   const linea = (c) => `<li>${escapar(c.mes)}: tu planilla dice
-    ${escapar(formatearEuros(c.enLaPlanilla))} y acá suman
-    ${escapar(formatearEuros(c.importado))}
-    <strong>(${c.diferencia > 0 ? '+' : ''}${escapar(formatearEuros(c.diferencia))})</strong></li>`;
+    ${escapar(formatearEuros(c.enLaPlanilla, base))} y acá suman
+    ${escapar(formatearEuros(c.importado, base))}
+    <strong>(${c.diferencia > 0 ? '+' : ''}${escapar(formatearEuros(c.diferencia, base))})</strong></li>`;
 
   return `
     <div class="aviso importante" role="alert">

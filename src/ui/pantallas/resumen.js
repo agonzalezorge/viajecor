@@ -33,6 +33,7 @@ import { formatearEuros, formatearMes, formatearRubro } from '../../core/formato
 import { claseDeRubro } from '../colores.js';
 import { dibujarTorta, dibujarAcumulado } from './graficos.js';
 import { TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../../core/modelo.js';
+import { monedaBaseDe } from '../../core/monedas.js';
 
 /** Un porcentaje para mostrar: sin decimales, que en un desglose no aportan. */
 function porcentaje(valor) {
@@ -46,23 +47,23 @@ function porcentaje(valor) {
  * distingue el verde del rojo tiene que poder leer si el mes cerró en más o en
  * menos.
  */
-export function dibujarTotales(totales) {
+export function dibujarTotales(totales, base) {
   const saldoPositivo = totales.saldo >= 0;
 
   return `
     <section class="tarjeta totales" aria-label="Totales del mes">
       <div class="total">
         <span class="etiqueta">Gastos</span>
-        <span class="cifra gasto">${escapar(formatearEuros(totales.gastos))}</span>
+        <span class="cifra gasto">${escapar(formatearEuros(totales.gastos, base))}</span>
       </div>
       <div class="total">
         <span class="etiqueta">Ingresos</span>
-        <span class="cifra ingreso">${escapar(formatearEuros(totales.ingresos))}</span>
+        <span class="cifra ingreso">${escapar(formatearEuros(totales.ingresos, base))}</span>
       </div>
       <div class="total saldo">
         <span class="etiqueta">Saldo</span>
         <span class="cifra ${saldoPositivo ? 'ingreso' : 'gasto'}">
-          ${escapar(formatearEuros(totales.saldo))}
+          ${escapar(formatearEuros(totales.saldo, base))}
         </span>
       </div>
     </section>
@@ -105,6 +106,7 @@ export function dibujarIncompleto(estado, totales) {
  * la paleta, no en el de la lista — el motivo está en `graficos.js`.
  */
 export function dibujarDesglose(estado, mes, tipo) {
+  const base = monedaBaseDe(estado);
   const filas = porRubro(estado, mes, tipo);
   if (filas.length === 0) return '';
 
@@ -133,7 +135,7 @@ export function dibujarDesglose(estado, mes, tipo) {
               <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
               ${escapar(formatearRubro(fila.rubro))}
             </span>
-            <span class="importe">${escapar(formatearEuros(fila.total))}</span>
+            <span class="importe">${escapar(formatearEuros(fila.total, base))}</span>
           </span>
         </button>
         <div class="rubro-pie suave">
@@ -146,7 +148,7 @@ export function dibujarDesglose(estado, mes, tipo) {
   return `
     <section class="tarjeta">
       <h2>${titulo}</h2>
-      ${dibujarTorta(filas, tipo)}
+      ${dibujarTorta(filas, tipo, base)}
       <ul class="rubros">${cuerpo}</ul>
     </section>
   `;
@@ -184,6 +186,7 @@ export function dibujarMesVacio(mes) {
 
 /** El promedio por día, que a mitad de mes es el número que dice cómo vas. */
 export function dibujarPromedio(estado, mes) {
+  const base = monedaBaseDe(estado);
   const { gastos, cuantos } = totalesDelMes(estado, mes);
   if (cuantos === 0 || gastos === 0) return '';
 
@@ -197,7 +200,7 @@ export function dibujarPromedio(estado, mes) {
 
   return `
     <p class="promedio suave">
-      <strong>${escapar(formatearEuros(promedio))}</strong> por día ${escapar(explicacion)}.
+      <strong>${escapar(formatearEuros(promedio, base))}</strong> por día ${escapar(explicacion)}.
     </p>
   `;
 }
@@ -241,10 +244,13 @@ export function dibujarResumen(vista) {
 
   return `
     ${dibujarIncompleto(estado, totales)}
-    ${dibujarTotales(totales)}
+    ${dibujarTotales(totales, monedaBaseDe(estado))}
     ${dibujarPromedio(estado, mes)}
     ${dibujarDesglose(estado, mes, TIPO_GASTO)}
-    ${dibujarAcumulado(porDia(estado, mes), { hasta: mes === mesDe(hoy()) ? Number(hoy().slice(8)) : undefined })}
+    ${dibujarAcumulado(porDia(estado, mes), {
+      hasta: mes === mesDe(hoy()) ? Number(hoy().slice(8)) : undefined,
+      base: monedaBaseDe(estado),
+    })}
     ${dibujarDesglose(estado, mes, TIPO_INGRESO)}
     ${dibujarIrAEvolucion()}
   `;

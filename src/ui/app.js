@@ -29,6 +29,8 @@ import { efectoDeRenombrar } from '../core/etiquetas.js';
 import { conectarSeries } from './series-interaccion.js';
 import { dibujarAjustes } from './pantallas/ajustes.js';
 import { dibujarRubros } from './pantallas/rubros.js';
+import { dibujarMonedaBase } from './pantallas/base.js';
+import { cambiarMonedaBase } from '../core/base.js';
 import { crearRubro, renombrarRubro, unirRubros, borrarRubro } from '../core/rubros.js';
 import { dibujarAhorros } from './pantallas/ahorros.js';
 import {
@@ -247,6 +249,15 @@ registrarPantalla('cambios', {
 // supermercado. `destacada` es lo que le da el aspecto distinto que ya tenía.
 // La quinta pestaña, pedida por el usuario (2026-08-31). Va última: es lo que
 // menos se toca, y en una barra el pulgar llega antes a lo de la izquierda.
+registrarPantalla('moneda-base', {
+  etiqueta: 'Moneda base',
+  icono: '＄',
+  conMes: false,
+  enBarra: false,
+  perfil: 'ambos',
+  dibujar: dibujarMonedaBase,
+});
+
 registrarPantalla('rubros', {
   etiqueta: 'Rubros',
   icono: '◑',
@@ -1868,6 +1879,27 @@ export function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, borrado: null };
+    } else if (accion === 'elegir-base') {
+      // No cambia nada todavía: muestra qué pasaría. Ver ui/pantallas/base.js.
+      vista = { ...vista, baseElegida: boton.dataset.moneda, error: null, avisoBase: null };
+    } else if (accion === 'cancelar-base') {
+      vista = { ...vista, baseElegida: null };
+    } else if (accion === 'confirmar-base') {
+      const nuevoEstado = cambiarMonedaBase(vista.estado, boton.dataset.moneda);
+      try {
+        guardarEstado(nuevoEstado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message, baseElegida: null };
+        pintar();
+        return;
+      }
+      vista = {
+        ...vista,
+        estado: nuevoEstado,
+        baseElegida: null,
+        error: null,
+        avisoBase: `Listo: los totales se muestran en ${boton.dataset.moneda}.`,
+      };
     } else if (accion === 'editar-rubro') {
       vista = { ...vista, rubroEditado: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
         rubroUnido: null, error: null, avisoRubro: null };

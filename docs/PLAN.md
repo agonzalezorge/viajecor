@@ -95,6 +95,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-047 | La pestaña de Ajustes | **Hecha** | T-046 |
 | T-048 | Rubros editables: crear, renombrar, unir | **Hecha** | T-047 |
 | T-049 | Veinte colores, y rubros nuevos al importar | **Hecha** | T-048 |
+| T-050 | Moneda base configurable | **Hecha** | T-047 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
@@ -2592,3 +2593,50 @@ porque al revés esos movimientos se caerían en la próxima lectura (T-048).
 inventados —farmacia, deporte, educación y clases particulares— y se importó.
 La previa los nombra uno por uno, no queda ninguna fila afuera, y después de
 recargar los cuatro están en Ajustes con su color.
+
+
+### T-050 · Moneda base configurable — **Hecha** (2026-09-03)
+
+**El pedido:** que el euro siga siendo la base al abrir, pero que en Ajustes se
+pueda elegir otra —el peso uruguayo, por ejemplo— para quien no vive en euros.
+
+**Lo que se hizo:** `core/base.js` con las dos funciones que importan,
+`efectoDeCambiarBase()` (cuenta, no cambia) y `cambiarMonedaBase()` (reexpresa
+los tipos de cambio dividiendo por la cotización de la base nueva). Una pantalla
+nueva en Ajustes que **muestra el efecto con números antes de confirmar**. Los
+movimientos no se tocan: hay un test que lo sostiene.
+
+**El aviso del usuario, que era un defecto real:** *"si vos ya ingresaste datos
+en euros y de repente pedís que el peso uruguayo pase a ser tu base, tendrías
+que meter retroactivamente el tipo de cambio en todos los meses en que hay
+datos"*. Mi primera versión de `efectoDeCambiarBase()` recorría los meses que ya
+tenían **tipos de cambio guardados** — y un historial entero en euros con base
+en euros no tiene ninguno, así que la vista previa habría dicho "no se pierde
+nada" mientras todos los meses quedaban sin poder calcularse. Ahora simula el
+cambio y pregunta **movimiento por movimiento** cuáles quedarían colgados, y
+descuenta los que ya hoy no se pueden convertir.
+
+**Dos bloqueos que solo aparecieron en el navegador:**
+
+1. Guardar el tipo de cambio del euro se rechazaba con "El euro no lleva tipo de
+   cambio": `intentarGuardarCambio()` comparaba contra `MONEDA_BASE` en vez de
+   contra la base elegida. Con base en pesos, el euro **sí** lleva tipo — y era
+   justo el único que faltaba.
+2. El aviso "Cargar el tipo de cambio" llevaba a una pantalla que decía "todavía
+   no hay ninguno, la app te lo va a pedir sola". Nunca lo iba a pedir: los
+   movimientos ya estaban cargados. Callejón sin salida. La pantalla de tipos de
+   cambio ahora lista **los que faltan** con un botón para cargar cada uno.
+
+**Los textos que decían "euros" a mano** —"1 EUR son…", "Lo que vale cada moneda
+en euros", "Los importes están en euros", "no se puede pasar a euros"— ahora
+nombran la base elegida. Un total en pesos rotulado "euros" es el peor error
+posible en una pantalla de plata, porque se lee y se cree.
+
+**Mutaciones:** 13 sembradas, 12 muertas. La única sobreviviente era prosa del
+aviso y se cubrió endureciendo el test que ya la miraba.
+
+**Recorrido en el navegador:** se cargaron dos gastos en euros en meses
+distintos, se pasó la base a pesos —el aviso nombra los dos meses y los dos
+movimientos que quedan colgados—, se canceló, se confirmó, se recargó (la base
+sobrevive), se cargó el tipo del euro desde la lista de faltantes y el total
+quedó en 9.000,09 UYU para 200 EUR a 0,022222, que es el número correcto.

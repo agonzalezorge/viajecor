@@ -1321,7 +1321,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.7.0";
+globalThis.__VIAJECOR_VERSION__ = "0.8.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -1989,11 +1989,29 @@ function validarMovimiento(movimiento, catalogo) {
 
 
 /**
- * El euro es distinto de todas las demás: es la moneda base (RN-04), todos los
- * totales se expresan en ella, y por eso no se puede borrar, ni ocultar, ni
- * cambiarle los decimales.
+ * La moneda base de fábrica — RN-04.
+ *
+ * **Es el punto de partida, no la verdad.** Desde T-050 la base la elige el
+ * usuario en Ajustes: hay gente que lleva sus cuentas en pesos uruguayos y para
+ * ella el euro es una moneda más. Quien manda es `monedaBaseDe(estado)`; esta
+ * constante es lo que vale mientras nadie haya elegido otra cosa.
  */
 const MONEDA_BASE = 'EUR';
+
+/**
+ * La moneda en la que se expresan todos los totales.
+ *
+ * Es la que **no lleva tipo de cambio** —vale 1 contra sí misma— y la que por
+ * eso no se puede borrar ni ocultar. Recibe el estado y no lo toma de ningún
+ * lado global: así una función que convierte dinero no puede depender de en qué
+ * pantalla está el usuario.
+ */
+function monedaBaseDe(estado) {
+  const elegida = estado?.preferencias?.moneda_base;
+  return typeof elegida === 'string' && /^[A-Za-z]{3}$/.test(elegida.trim())
+    ? elegida.trim().toUpperCase()
+    : MONEDA_BASE;
+}
 
 // Las cuatro que el usuario usa hoy (RN-04b). Son un punto de partida editable,
 // no una lista cerrada: se agregan y se ocultan desde la app (CU-15).
@@ -2089,13 +2107,13 @@ function agregarMoneda(monedas, entrada) {
  * avisarle al usuario cuántos movimientos cambian de significado — para eso está
  * `contarMovimientosDe()`.
  */
-function cambiarDecimalesDe(monedas, codigo, decimales) {
+function cambiarDecimalesDe(monedas, codigo, decimales, base = MONEDA_BASE) {
   const lista = listaDe(monedas);
   const moneda = exigirMoneda(lista, codigo);
 
-  if (moneda.codigo === MONEDA_BASE) {
+  if (moneda.codigo === base) {
     throw new Error(
-      'El euro es la moneda base y siempre usa dos decimales: todos los totales de la app se expresan en euros.'
+      `${moneda.codigo} es la moneda base y siempre usa dos decimales: todos los totales de la app se expresan en ella.`
     );
   }
   unidadMinima(decimales);
@@ -2116,12 +2134,12 @@ function contarMovimientosDe(movimientos, codigo) {
  *
  * Es la salida para "esta ya no la uso" sin perder el historial del viaje.
  */
-function ocultarMoneda(monedas, codigo) {
+function ocultarMoneda(monedas, codigo, base = MONEDA_BASE) {
   const lista = listaDe(monedas);
   const moneda = exigirMoneda(lista, codigo);
 
-  if (moneda.codigo === MONEDA_BASE) {
-    throw new Error('El euro no se puede ocultar: es la moneda en la que se expresan todos los totales.');
+  if (moneda.codigo === base) {
+    throw new Error(`${moneda.codigo} no se puede ocultar: es la moneda en la que se expresan todos los totales.`);
   }
   return lista.map((m) => (m === moneda ? { ...m, oculta: true } : m));
 }
@@ -2140,19 +2158,19 @@ function mostrarMoneda(monedas, codigo) {
  * pantalla podría mostrar bien y que ningún total podría sumar. Por eso la
  * respuesta no es "¿estás seguro?" sino "no, y en cambio podés ocultarla".
  */
-function borrarMoneda(monedas, codigo, movimientos = []) {
+function borrarMoneda(monedas, codigo, movimientos = [], base = MONEDA_BASE) {
   const lista = listaDe(monedas);
   const moneda = exigirMoneda(lista, codigo);
 
-  if (moneda.codigo === MONEDA_BASE) {
-    throw new Error('El euro no se puede borrar: es la moneda base de la app.');
+  if (moneda.codigo === base) {
+    throw new Error(`${moneda.codigo} no se puede borrar: es la moneda base de la app.`);
   }
 
   const cuantos = contarMovimientosDe(movimientos, moneda.codigo);
   if (cuantos > 0) {
     const plural = cuantos === 1 ? 'movimiento cargado' : 'movimientos cargados';
     throw new Error(
-      `${moneda.nombre} tiene ${cuantos} ${plural}: borrarla los dejaría sin forma de convertirse a euros. Ocultala en vez de borrarla.`
+      `${moneda.nombre} tiene ${cuantos} ${plural}: borrarla los dejaría sin forma de convertirse a la moneda base. Ocultala en vez de borrarla.`
     );
   }
   return lista.filter((m) => m !== moneda);
@@ -2198,7 +2216,12 @@ function exigirMoneda(lista, codigo) {
  * obligaría a pedirlo al usuario la primera vez que registre un gasto en euros,
  * que es el 90% de los casos.
  */
-const CAMBIO_EURO = 1;
+/**
+ * Lo que vale la moneda base contra sí misma. Se llamaba `CAMBIO_EURO` hasta
+ * T-050, cuando la base dejó de ser siempre el euro.
+ */
+const CAMBIO_BASE = 1;
+const CAMBIO_EURO = CAMBIO_BASE;
 
 const PATRON_MES = /^\d{4}-\d{2}$/;
 
@@ -2234,11 +2257,11 @@ function validarMes(mes) {
  * error. Al usuario se le puede preguntar en cualquiera de los dos sentidos
  * (CU-03) y la app invierte el número antes de guardarlo — ver `desdeUnidadesPorEuro`.
  */
-function crearCambio({ moneda, mes, euros_por_unidad } = {}, { creado } = {}) {
+function crearCambio({ moneda, mes, euros_por_unidad } = {}, { creado, base = MONEDA_BASE } = {}) {
   const codigo = normalizarMoneda(moneda);
 
-  if (codigo === MONEDA_BASE) {
-    throw new Error('El euro no lleva tipo de cambio: es la moneda en la que se expresan todos los totales.');
+  if (codigo === base) {
+    throw new Error(`${codigo} no lleva tipo de cambio: es la moneda en la que se expresan todos los totales.`);
   }
   if (!Number.isFinite(euros_por_unidad) || euros_por_unidad <= 0) {
     throw new Error('El tipo de cambio tiene que ser un número mayor que cero.');
@@ -2277,9 +2300,9 @@ function aUnidadesPorEuro(eurosPorUnidad) {
  *
  * Para el euro devuelve siempre 1 sin buscar nada.
  */
-function buscarCambio(cambios, moneda, mes) {
+function buscarCambio(cambios, moneda, mes, base = MONEDA_BASE) {
   const codigo = normalizarMoneda(moneda);
-  if (codigo === MONEDA_BASE) return CAMBIO_EURO;
+  if (codigo === base) return CAMBIO_BASE;
 
   validarMes(mes);
   if (!Array.isArray(cambios)) {
@@ -2312,12 +2335,12 @@ function guardarCambio(cambios, cambio) {
  * falta el tipo de cambio para la moneda de ese movimiento en su mes, hay que
  * pedirlo. Devuelve `null` si está todo bien, o un objeto que dice qué falta.
  */
-function faltaCambioPara(movimiento, cambios) {
+function faltaCambioPara(movimiento, cambios, base = MONEDA_BASE) {
   const moneda = normalizarMoneda(movimiento.moneda);
-  if (moneda === MONEDA_BASE) return null;
+  if (moneda === base) return null;
 
   const mes = mesDe(movimiento.fecha);
-  const cambio = buscarCambio(cambios, moneda, mes);
+  const cambio = buscarCambio(cambios, moneda, mes, base);
   return cambio === null ? { moneda, mes } : null;
 }
 
@@ -2329,21 +2352,21 @@ function faltaCambioPara(movimiento, cambios) {
  * dejar rastro: el total baja, no hay error, y nadie se entera. Quien llame
  * tiene que haber preguntado antes con `faltaCambioPara()`.
  */
-function movimientoEnEuros(movimiento, cambios, monedas) {
+function movimientoEnEuros(movimiento, cambios, monedas, base = MONEDA_BASE) {
   const moneda = normalizarMoneda(movimiento.moneda);
   const mes = mesDe(movimiento.fecha);
   const decimales = decimalesDe(monedas, moneda);
 
-  if (moneda === MONEDA_BASE) {
+  if (moneda === base) {
     // Ya está en euros: no se convierte ni se redondea. Redondear algo que no
     // hace falta convertir solo puede empeorarlo.
     return movimiento.monto;
   }
 
-  const cambio = buscarCambio(cambios, moneda, mes);
+  const cambio = buscarCambio(cambios, moneda, mes, base);
   if (cambio === null) {
     throw new Error(
-      `Falta el tipo de cambio de ${moneda} para ${mes}: sin él este movimiento no se puede expresar en euros.`
+      `Falta el tipo de cambio de ${moneda} para ${mes}: sin él este movimiento no se puede expresar en ${base}.`
     );
   }
   return convertirAEuros(movimiento.monto, decimales, cambio);
@@ -2360,11 +2383,11 @@ function movimientoEnEuros(movimiento, cambios, monedas) {
  *
  * No recibe ningún rango ni límite: recorre la lista entera (L-001).
  */
-function totalEnEuros(movimientos, cambios, monedas) {
+function totalEnEuros(movimientos, cambios, monedas, base = MONEDA_BASE) {
   if (!Array.isArray(movimientos)) {
     throw new Error('totalEnEuros() espera una lista de movimientos.');
   }
-  return sumar(movimientos.map((m) => movimientoEnEuros(m, cambios, monedas)));
+  return sumar(movimientos.map((m) => movimientoEnEuros(m, cambios, monedas, base)));
 }
 
 /**
@@ -2372,10 +2395,10 @@ function totalEnEuros(movimientos, cambios, monedas) {
  * movimientos, sin repetir. Sirve para avisar de una vez —"faltan CRC de marzo y
  * USD de abril"— en vez de ir descubriéndolos de a uno.
  */
-function cambiosQueFaltan(movimientos, cambios) {
+function cambiosQueFaltan(movimientos, cambios, base = MONEDA_BASE) {
   const vistos = new Map();
   for (const movimiento of movimientos) {
-    const falta = faltaCambioPara(movimiento, cambios);
+    const falta = faltaCambioPara(movimiento, cambios, base);
     if (falta) vistos.set(`${falta.moneda}|${falta.mes}`, falta);
   }
   return [...vistos.values()];
@@ -2607,7 +2630,10 @@ function textoDeMovimiento(estado, movimiento) {
     // Y su valor en euros, que es el número que se ve en las listas cuando el
     // gasto es en otra moneda.
     if (movimiento.moneda !== 'EUR' && !faltaCambioPara(movimiento, estado.tipos_cambio)) {
-      partes.push(formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas)));
+      partes.push(formatearEuros(
+        movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)),
+        monedaBaseDe(estado),
+      ));
     }
   } catch {
     partes.push(String(movimiento.monto));
@@ -2644,6 +2670,182 @@ function buscar(estado, texto) {
     .slice()
     .sort((a, b) => b.fecha.localeCompare(a.fecha)
       || String(b.creado).localeCompare(String(a.creado)));
+}
+
+// ── src/core/base.js ────────────────────────────────────────────
+// Cambiar la moneda base — T-050, CU-20.
+//
+// ── Qué es la moneda base y por qué cambiarla no es un ajuste más ────────────
+//
+// Es la moneda en la que se expresan **todos los totales**, la que vale 1 y la
+// única que no lleva tipo de cambio. Los movimientos guardan su propia moneda y
+// no se tocan nunca; lo que cambia es en qué se suman.
+//
+// Y ahí está el problema: **los tipos de cambio guardados están expresados en la
+// base vieja**. "0,0016" para el colón significa "0,0016 euros por colón", y si
+// la base pasa a ser el peso uruguayo ese número deja de querer decir nada.
+//
+// ── Cómo se reexpresan ───────────────────────────────────────────────────────
+//
+// Si para un mes existe el tipo de la moneda que va a ser la base nueva, todo lo
+// de ese mes se puede reexpresar dividiendo por él:
+//
+//     nuevo(moneda) = viejo(moneda) / viejo(baseNueva)
+//
+// Y la base vieja pasa a ser una moneda más, con su propio tipo:
+//
+//     nuevo(baseVieja) = 1 / viejo(baseNueva)
+//
+// **En los meses donde no existe el tipo de la base nueva no se puede.** Ahí los
+// tipos de ese mes se pierden —y hay que volver a cargarlos—, porque inventar
+// una cotización que el usuario no dio es exactamente lo que esta app no hace.
+//
+// ── Por qué el efecto se mide sobre los movimientos, no sobre los tipos ──────
+//
+// El caso que duele es justamente el que **no tiene ningún tipo cargado**: un
+// historial entero en euros, con base en euros, no necesita ninguna cotización.
+// Si mañana la base pasa a ser el peso, cada uno de esos movimientos pasa a
+// necesitar el tipo del euro **retroactivamente, en todos los meses en que hay
+// datos**, y contar los tipos guardados diría "no se pierde nada" mientras el
+// total de todos los meses se queda sin poder calcularse.
+//
+// Por eso `efectoDeCambiarBase()` simula el cambio y después pregunta, movimiento
+// por movimiento, cuáles quedarían sin poder convertirse — y descuenta los que ya
+// hoy no se pueden, para no culpar al cambio de base de un faltante anterior.
+//
+// Este archivo no toca el navegador: es lógica pura.
+
+
+
+/** El tipo de la moneda que va a ser la base nueva, para un mes. */
+function cotizacionDe(cambios, moneda, mes) {
+  const encontrado = (cambios ?? []).find(
+    (c) => c && normalizarMoneda(c.moneda) === moneda && c.mes === mes,
+  );
+  return encontrado ? encontrado.euros_por_unidad : null;
+}
+
+/**
+ * Los tipos de cambio de `cambios`, expresados en `destino` en vez de en
+ * `actual`. Los meses sin cotización de `destino` quedan afuera: no se pueden.
+ */
+function reexpresar(cambios, actual, destino) {
+  const salida = [];
+
+  for (const mes of [...new Set(cambios.map((c) => c.mes))]) {
+    const cotizacion = cotizacionDe(cambios, destino, mes);
+    if (cotizacion === null) continue;   // ese mes no se puede: se pierde
+
+    for (const cambio of cambios.filter((c) => c.mes === mes)) {
+      if (normalizarMoneda(cambio.moneda) === destino) continue;  // la nueva base no lleva tipo
+      salida.push({ ...cambio, euros_por_unidad: cambio.euros_por_unidad / cotizacion });
+    }
+
+    // La base vieja pasa a ser una moneda más y necesita su cotización.
+    salida.push({
+      moneda: actual,
+      mes,
+      euros_por_unidad: 1 / cotizacion,
+      creado: cambios.find((c) => c.mes === mes)?.creado ?? mes + '-01',
+    });
+  }
+
+  return salida;
+}
+
+/** Qué movimientos no se pueden convertir con estos tipos y esta base. */
+function sinConvertir(movimientos, cambios, base) {
+  const porMes = new Map();
+
+  for (const movimiento of movimientos) {
+    if (!movimiento || !movimiento.fecha) continue;
+    if (faltaCambioPara(movimiento, cambios, base) === null) continue;
+
+    const mes = mesDe(movimiento.fecha);
+    const monedas = porMes.get(mes) ?? new Set();
+    monedas.add(normalizarMoneda(movimiento.moneda));
+    porMes.set(mes, monedas);
+  }
+
+  return porMes;
+}
+
+/**
+ * Qué va a pasar si se cambia la base. **No cambia nada**: solo lo cuenta.
+ *
+ * Devuelve cuántos tipos de cambio se reexpresan, cuáles se pierden, y —lo que
+ * de verdad importa— en qué meses van a quedar movimientos sin poder convertirse
+ * porque falta la cotización de la moneda nueva.
+ */
+function efectoDeCambiarBase(estado, nueva) {
+  const destino = normalizarMoneda(nueva);
+  const actual = monedaBaseDe(estado);
+  const cambios = estado?.tipos_cambio ?? [];
+  const movimientos = estado?.movimientos ?? [];
+
+  if (destino === actual) {
+    return {
+      actual, destino, sinCambios: true, reexpresados: 0, perdidos: [], meses: [],
+      faltantes: [], movimientosSinConvertir: 0, movimientosSinConvertirAhora: 0,
+    };
+  }
+
+  const nuevos = reexpresar(cambios, actual, destino);
+  const mesesQueSobreviven = new Set(nuevos.map((c) => c.mes));
+
+  // Los tipos guardados que no se pueden reexpresar: hay que volver a cargarlos.
+  const perdidos = cambios
+    .filter((c) => !mesesQueSobreviven.has(c.mes))
+    .map((c) => ({ moneda: normalizarMoneda(c.moneda), mes: c.mes }));
+
+  // Lo que ya hoy no se puede convertir no lo causa este cambio: se descuenta.
+  const rotoAhora = sinConvertir(movimientos, cambios, actual);
+  const rotoDespues = sinConvertir(movimientos, nuevos, destino);
+
+  const faltantes = [...rotoDespues.entries()]
+    .map(([mes, monedas]) => ({
+      mes,
+      monedas: [...monedas].sort(),
+      nuevo: !rotoAhora.has(mes),
+    }))
+    .sort((a, b) => a.mes.localeCompare(b.mes));
+
+  const cuantos = (mapa) => movimientos.filter(
+    (m) => m && m.fecha && mapa.has(mesDe(m.fecha))
+      && mapa.get(mesDe(m.fecha)).has(normalizarMoneda(m.moneda)),
+  ).length;
+
+  return {
+    actual,
+    destino,
+    sinCambios: false,
+    reexpresados: nuevos.length,
+    perdidos,
+    meses: [...mesesQueSobreviven].sort(),
+    // Los meses en los que va a faltar la cotización de la moneda nueva, con las
+    // monedas que quedan colgadas en cada uno.
+    faltantes,
+    movimientosSinConvertir: cuantos(rotoDespues),
+    movimientosSinConvertirAhora: cuantos(rotoAhora),
+  };
+}
+
+/**
+ * Cambia la base y reexpresa los tipos de cambio que se puedan.
+ *
+ * Los movimientos **no se tocan**: cada uno sigue guardado en su moneda y con su
+ * monto. Lo único que cambia es en qué moneda se suman.
+ */
+function cambiarMonedaBase(estado, nueva) {
+  const destino = normalizarMoneda(nueva);
+  const actual = monedaBaseDe(estado);
+  if (destino === actual) return estado;
+
+  return {
+    ...estado,
+    tipos_cambio: reexpresar(estado?.tipos_cambio ?? [], actual, destino),
+    preferencias: { ...estado?.preferencias, moneda_base: destino },
+  };
 }
 
 // ── src/core/rubros.js ──────────────────────────────────────────
@@ -3080,6 +3282,7 @@ function ahorrosOrdenados(estado) {
 
 
 
+
 /** Los movimientos de un mes. Recorre la lista entera, sin ningún tope (L-001). */
 function movimientosDelMes(movimientos, mes) {
   if (!Array.isArray(movimientos)) return [];
@@ -3110,18 +3313,24 @@ function diasDelMes(mes) {
  * Cargar un movimiento así no debería ser posible (RN-04, T-012), pero puede
  * llegar desde un respaldo importado o desde datos editados a mano.
  */
-function separarConvertibles(movimientos, cambios) {
+function separarConvertibles(movimientos, cambios, base) {
   const convertibles = [];
   const sinConvertir = [];
   for (const movimiento of movimientos) {
-    if (faltaCambioPara(movimiento, cambios)) sinConvertir.push(movimiento);
+    if (faltaCambioPara(movimiento, cambios, base)) sinConvertir.push(movimiento);
     else convertibles.push(movimiento);
   }
   return { convertibles, sinConvertir };
 }
 
-function enEuros(movimientos, cambios, monedas) {
-  return movimientos.map((m) => movimientoEnEuros(m, cambios, monedas));
+/**
+ * Los importes de una lista, en la moneda base — T-050.
+ *
+ * Se sigue llamando "en euros" en muchos lados por historia; lo que devuelve es
+ * la moneda base que el usuario haya elegido, que de fábrica es el euro.
+ */
+function enEuros(movimientos, cambios, monedas, base) {
+  return movimientos.map((m) => movimientoEnEuros(m, cambios, monedas, base));
 }
 
 /**
@@ -3133,13 +3342,13 @@ function enEuros(movimientos, cambios, monedas) {
  */
 function totalesDelMes(estado, mes) {
   const delMes = movimientosDelMes(estado.movimientos, mes);
-  const { convertibles, sinConvertir } = separarConvertibles(delMes, estado.tipos_cambio);
+  const { convertibles, sinConvertir } = separarConvertibles(delMes, estado.tipos_cambio, monedaBaseDe(estado));
 
   const gastos = sumar(
-    enEuros(convertibles.filter((m) => m.tipo === TIPO_GASTO), estado.tipos_cambio, estado.monedas)
+    enEuros(convertibles.filter((m) => m.tipo === TIPO_GASTO), estado.tipos_cambio, estado.monedas, monedaBaseDe(estado))
   );
   const ingresos = sumar(
-    enEuros(convertibles.filter((m) => m.tipo === TIPO_INGRESO), estado.tipos_cambio, estado.monedas)
+    enEuros(convertibles.filter((m) => m.tipo === TIPO_INGRESO), estado.tipos_cambio, estado.monedas, monedaBaseDe(estado))
   );
 
   return {
@@ -3161,12 +3370,12 @@ function totalesDelMes(estado, mes) {
  */
 function porRubro(estado, mes, tipo) {
   const delMes = movimientosDelMes(estado.movimientos, mes);
-  const { convertibles } = separarConvertibles(delMes, estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(delMes, estado.tipos_cambio, monedaBaseDe(estado));
   const delTipo = convertibles.filter((m) => m.tipo === tipo);
 
   const acumulado = new Map();
   for (const movimiento of delTipo) {
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const anterior = acumulado.get(movimiento.rubro) ?? { rubro: movimiento.rubro, total: 0, cuantos: 0 };
     acumulado.set(movimiento.rubro, {
       rubro: movimiento.rubro,
@@ -3199,13 +3408,13 @@ function rubrosSinUsar(estado, mes, tipo) {
  */
 function porDia(estado, mes) {
   const delMes = movimientosDelMes(estado.movimientos, mes);
-  const { convertibles } = separarConvertibles(delMes, estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(delMes, estado.tipos_cambio, monedaBaseDe(estado));
 
   const gastoPorDia = new Map();
   const ingresoPorDia = new Map();
   for (const movimiento of convertibles) {
     const dia = Number(movimiento.fecha.slice(8));
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const donde = movimiento.tipo === TIPO_GASTO ? gastoPorDia : ingresoPorDia;
     donde.set(dia, (donde.get(dia) ?? 0) + euros);
   }
@@ -3403,13 +3612,13 @@ function hayFiltro(filtro) {
  */
 function acumuladoHistorico(estado) {
   const movimientos = estado?.movimientos ?? [];
-  const { convertibles } = separarConvertibles(movimientos, estado?.tipos_cambio);
+  const { convertibles } = separarConvertibles(movimientos, estado?.tipos_cambio, monedaBaseDe(estado));
   if (convertibles.length === 0) return [];
 
   const gastoPorFecha = new Map();
   const ingresoPorFecha = new Map();
   for (const movimiento of convertibles) {
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const donde = movimiento.tipo === TIPO_GASTO ? gastoPorFecha : ingresoPorFecha;
     donde.set(movimiento.fecha, (donde.get(movimiento.fecha) ?? 0) + euros);
   }
@@ -3492,7 +3701,7 @@ function promedioPorDia(estado, mes, hasta) {
  * lo que ves de un rubro**. Ver ADR-041.
  */
 function gastosFijos(estado) {
-  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio, monedaBaseDe(estado));
   const fijos = convertibles.filter(
     (m) => m.tipo === TIPO_GASTO && normalizarClave(m.rubro) === 'gastos fijos',
   );
@@ -3509,7 +3718,7 @@ function gastosFijos(estado) {
   let sinComentario = { cuantos: 0, total: 0 };
 
   for (const movimiento of fijos) {
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     if (!movimiento.comentario) {
       sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
       continue;
@@ -3553,7 +3762,7 @@ function gastosFijos(estado) {
  * la misma etiqueta.
  */
 function porEtiquetaDeGasto(estado) {
-  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio, monedaBaseDe(estado));
   const porClave = new Map();
 
   for (const movimiento of convertibles) {
@@ -3577,13 +3786,13 @@ function porEtiquetaDeGasto(estado) {
  */
 function porComentario(estado, mes) {
   const movimientos = mes ? movimientosDelMes(estado.movimientos, mes) : estado.movimientos;
-  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio, monedaBaseDe(estado));
 
   const acumulado = new Map();
   for (const movimiento of convertibles) {
     if (!movimiento.comentario) continue;
     const clave = normalizarClave(movimiento.comentario);
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const anterior = acumulado.get(clave);
     acumulado.set(clave, {
       clave,
@@ -3761,8 +3970,23 @@ function formatearEnSuMoneda(minimas, moneda, monedas) {
 }
 
 /** Un importe en céntimos de euro, que es la unidad de todos los totales. */
-function formatearEuros(centimos) {
-  return formatearMonto(centimos, DECIMALES_EURO, 'EUR');
+function formatearEuros(centimos, base = 'EUR') {
+  return formatearMonto(centimos, DECIMALES_EURO, base);
+}
+
+/**
+ * Un total, en la moneda base que el usuario haya elegido — T-050.
+ *
+ * Es `formatearEuros` con el nombre que corresponde desde que la base dejó de
+ * ser siempre el euro. El nombre viejo queda porque lo usan veintiséis lugares
+ * y renombrarlos todos de una es más riesgo que valor: los dos hacen lo mismo.
+ *
+ * **Siempre dos decimales**, sea cual sea la base. Los totales de la app se
+ * calculan en centésimas desde ADR-005 y cambiar eso tocaría cada cuenta del
+ * programa. Con euros y pesos uruguayos —las bases que hay— es exacto.
+ */
+function formatearEnBase(minimas, base = 'EUR') {
+  return formatearMonto(minimas, DECIMALES_EURO, base);
 }
 
 /**
@@ -3889,12 +4113,13 @@ function formatearMesCorto(mes) {
 /**
  * El tipo de cambio como el usuario lo conoce: "1 EUR = 630,25 CRC".
  *
- * Se muestra en el sentido de "cuántas unidades por euro" y no al revés, aunque
+ * Se muestra en el sentido de "cuántas unidades por unidad de la base" y no al
+ * revés, aunque
  * por dentro se guarde al revés (ADR: `core/cambio.js`). Un `0,001587` en
  * pantalla no le dice nada a nadie; `630,25` es el número que la persona vio en
  * la casa de cambio.
  */
-function formatearTipoDeCambio(eurosPorUnidad, moneda) {
+function formatearTipoDeCambio(eurosPorUnidad, moneda, base = 'EUR') {
   const codigo = normalizarMoneda(moneda);
   if (!Number.isFinite(eurosPorUnidad) || eurosPorUnidad <= 0) {
     throw new Error('El tipo de cambio tiene que ser un número mayor que cero.');
@@ -3911,7 +4136,7 @@ function formatearTipoDeCambio(eurosPorUnidad, moneda) {
     maximumFractionDigits: decimales,
   }).format(unidadesPorEuro);
 
-  return `1 EUR = ${numero} ${codigo}`;
+  return `1 ${normalizarMoneda(base)} = ${numero} ${codigo}`;
 }
 
 // ── src/core/paleta.js ──────────────────────────────────────────
@@ -4471,6 +4696,13 @@ function migrarEstado(guardado, incidencias = []) {
     // Que compartir no funciona en este teléfono (T-914). Sin esto, el botón
     // que ya falló una vez volvería a ofrecerse en cada recarga y volvería a
     // fallar igual.
+    // La moneda base elegida (T-050). Sin esto, los totales volverían a euros
+    // en cada recarga y el usuario vería sus números multiplicados por cuarenta.
+    const base = preferencias.moneda_base;
+    if (typeof base === 'string' && /^[A-Za-z]{3}$/.test(base.trim())) {
+      estado.preferencias.moneda_base = base.trim().toUpperCase();
+    }
+
     // En qué mitad de la app estaba (T-046). Sin esto, quien está poniendo al
     // día los ahorros vuelve a caer en los gastos cada vez que abre.
     if (preferencias.perfil === 'ahorros' || preferencias.perfil === 'cotidiana') {
@@ -7639,6 +7871,10 @@ function leerTipoDeCambio(entrada) {
  * Nunca tira: devuelve `{ estado, error }`, como el resto de las pantallas.
  */
 function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) {
+  // Contra la base elegida, no contra el euro (T-050): con base en pesos, el
+  // euro es una moneda más y **sí** lleva tipo de cambio. Comparar contra EUR
+  // acá dejaba al usuario sin poder cargar el único tipo que le faltaba.
+  const base = monedaBaseDe(estado);
   let codigo;
   try {
     codigo = normalizarMoneda(moneda);
@@ -7646,8 +7882,11 @@ function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) {
     return { estado, error: error.message };
   }
 
-  if (codigo === MONEDA_BASE) {
-    return { estado, error: 'El euro no lleva tipo de cambio: es la moneda en la que se expresan todos los totales.' };
+  if (codigo === base) {
+    return {
+      estado,
+      error: `${codigo} no lleva tipo de cambio: es la moneda en la que se expresan todos los totales.`,
+    };
   }
 
   let valor;
@@ -7659,7 +7898,7 @@ function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) {
 
   let cambio;
   try {
-    cambio = crearCambio({ moneda: codigo, mes, euros_por_unidad: desdeUnidadesPorEuro(valor) });
+    cambio = crearCambio({ moneda: codigo, mes, euros_por_unidad: desdeUnidadesPorEuro(valor) }, { base });
   } catch (error) {
     return { estado, error: error.message };
   }
@@ -7711,6 +7950,7 @@ function efectoDeCorregir(estado, moneda, mes, nuevasUnidadesPorEuro) {
  * lo interrumpimos nosotros— y tiene que entender en un vistazo por qué.
  */
 function dibujarPedido(vista) {
+  const base = monedaBaseDe(vista.estado);
   const falta = vista.faltaCambio;
   if (!falta) return '';
 
@@ -7719,19 +7959,19 @@ function dibujarPedido(vista) {
 
   // ¿Es la primera vez, o se está corrigiendo uno que ya se usó? No es lo
   // mismo: lo segundo cambia totales que el usuario ya vio (RN-05).
-  const actual = buscarCambio(vista.estado.tipos_cambio, falta.moneda, falta.mes);
+  const actual = buscarCambio(vista.estado.tipos_cambio, falta.moneda, falta.mes, base);
   const corrigiendo = actual !== null;
   const efecto = corrigiendo
     ? efectoDeCorregir(vista.estado, falta.moneda, falta.mes, vista.borradorCambio)
     : null;
 
   const explicacion = corrigiendo
-    ? `Ahora está cargado como <strong>${escapar(formatearTipoDeCambio(actual, falta.moneda))}</strong>.
+    ? `Ahora está cargado como <strong>${escapar(formatearTipoDeCambio(actual, falta.moneda, base))}</strong>.
        Corregirlo vuelve a calcular todos los movimientos de ${escapar(formatearMes(falta.mes))} en esa moneda.`
     : `Es el primer movimiento en ${escapar(falta.moneda)} de
        ${escapar(formatearMes(falta.mes))}, y sin el tipo de cambio no se puede
-       expresar en euros. Vale para todos los movimientos de ese mes, y después
-       se puede corregir.`;
+       expresar en ${escapar(base)}. Vale para todos los movimientos de ese mes,
+       y después se puede corregir.`;
 
   return `
     <form class="tarjeta formulario" data-formulario="cambio" novalidate>
@@ -7740,10 +7980,10 @@ function dibujarPedido(vista) {
       <p class="suave">${explicacion}</p>
 
       ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
-      <div data-aviso-correccion>${dibujarAvisoCorreccion(efecto, falta.moneda)}</div>
+      <div data-aviso-correccion>${dibujarAvisoCorreccion(efecto, falta.moneda, base)}</div>
 
       <label class="campo">
-        <span>1 EUR son…</span>
+        <span>1 ${escapar(base)} son…</span>
         <div class="monto-fila">
           <input name="unidadesPorEuro" class="importe" type="text" inputmode="decimal"
                  autocomplete="off" enterkeyhint="done" placeholder="630"
@@ -7774,16 +8014,43 @@ function dibujarPedido(vista) {
  */
 function dibujarCambios(vista) {
   const estado = vista.estado;
+  const base = monedaBaseDe(estado);
   const cambios = [...estado.tipos_cambio].sort(
     (a, b) => b.mes.localeCompare(a.mes) || a.moneda.localeCompare(b.moneda)
   );
 
+  // Los que faltan van primero y con un botón: es la única forma de cargarlos
+  // hacia atrás. La app los pide sola cuando el movimiento es nuevo, pero
+  // cuando lo que cambió fue la moneda base (T-050) los movimientos ya están
+  // guardados y nadie los va a volver a cargar — sin esta lista, el usuario
+  // queda mirando un total incompleto sin ninguna puerta para arreglarlo.
+  const faltantes = cambiosQueFaltan(estado.movimientos ?? [], estado.tipos_cambio, base)
+    .sort((a, b) => b.mes.localeCompare(a.mes) || a.moneda.localeCompare(b.moneda));
+
+  const pendientes = faltantes.length === 0 ? '' : `
+    <section class="aviso importante" role="alert">
+      <h2>${faltantes.length === 1 ? 'Falta un tipo de cambio' : `Faltan ${faltantes.length} tipos de cambio`}</h2>
+      <p>Sin ${faltantes.length === 1 ? 'él' : 'ellos'}, los movimientos de
+      ${faltantes.length === 1 ? 'ese mes' : 'esos meses'} no entran en ningún
+      total. Cargalos acá, uno por uno.</p>
+      <ul class="lineas">${faltantes.map((f) => `
+        <li class="linea-cambio">
+          <div>
+            <span class="mes-cambio">${escapar(formatearMes(f.mes))}</span>
+            <span class="suave">${escapar(f.moneda)}</span>
+          </div>
+          <button type="button" class="secundario chico" data-accion="corregir-cambio"
+                  data-moneda="${escapar(f.moneda)}" data-mes="${escapar(f.mes)}">Cargar</button>
+        </li>`).join('')}</ul>
+    </section>`;
+
   if (cambios.length === 0) {
     return `
+      ${pendientes}
       <section class="tarjeta">
         <h2>Tipos de cambio</h2>
-        <p class="suave">Todavía no hay ninguno. La app te lo va a pedir sola la
-        primera vez que cargues un gasto en otra moneda.</p>
+        <p class="suave">Todavía no hay ninguno cargado. La app te lo va a pedir
+        sola la primera vez que cargues un gasto en otra moneda.</p>
       </section>
     `;
   }
@@ -7805,7 +8072,7 @@ function dibujarCambios(vista) {
             <span class="suave">${escapar(cuantos)}</span>
           </div>
           <div class="valor-cambio">
-            <span class="importe">${escapar(formatearTipoDeCambio(c.euros_por_unidad, c.moneda))}</span>
+            <span class="importe">${escapar(formatearTipoDeCambio(c.euros_por_unidad, c.moneda, base))}</span>
             <button type="button" class="secundario chico"
                     data-accion="corregir-cambio"
                     data-moneda="${escapar(c.moneda)}" data-mes="${escapar(c.mes)}">Corregir</button>
@@ -7815,10 +8082,12 @@ function dibujarCambios(vista) {
     .join('');
 
   return `
+    ${pendientes}
     <section class="tarjeta">
       <h2>Tipos de cambio</h2>
-      <p class="suave">Cada uno vale para todos los movimientos de su mes (RN-04).
-      Corregir uno cambia los totales de ese mes.</p>
+      <p class="suave">Cada uno dice cuánto vale esa moneda en ${escapar(base)} y
+      vale para todos los movimientos de su mes (RN-04). Corregir uno cambia los
+      totales de ese mes.</p>
       <ul class="lineas">${filas}</ul>
     </section>
   `;
@@ -7828,7 +8097,7 @@ function dibujarCambios(vista) {
  * El aviso antes de aplicar una corrección: cuántos movimientos cambian y en
  * cuánto queda el total del mes. Sin esto, un número cambiaría solo.
  */
-function dibujarAvisoCorreccion(efecto, moneda) {
+function dibujarAvisoCorreccion(efecto, moneda, base) {
   if (!efecto || efecto.afectados === 0) return '';
   if (efecto.diferencia === undefined) {
     return `<p class="confirmacion">Este tipo de cambio lo usan ${efecto.afectados} movimientos.</p>`;
@@ -7840,8 +8109,8 @@ function dibujarAvisoCorreccion(efecto, moneda) {
   return `
     <p class="confirmacion" role="status">
       Afecta a ${cuantos} en ${escapar(normalizarMoneda(moneda))}.
-      El total de ese mes ${signo} de <strong>${escapar(formatearEuros(efecto.antes))}</strong>
-      a <strong>${escapar(formatearEuros(efecto.despues))}</strong>.
+      El total de ese mes ${signo} de <strong>${escapar(formatearEuros(efecto.antes, base))}</strong>
+      a <strong>${escapar(formatearEuros(efecto.despues, base))}</strong>.
     </p>
   `;
 }
@@ -8132,7 +8401,7 @@ function interiorDeSerie(serie, ventana = {}, seleccion = null) {
  * Sin punto elegido no queda en blanco: dice qué hacer. Un espacio vacío debajo
  * de un gráfico se lee como que algo no cargó.
  */
-function dibujarLectura(serie, seleccion) {
+function dibujarLectura(serie, seleccion, base) {
   if (seleccion === null || seleccion === undefined || !serie.puntos[seleccion]) {
     return '<span class="suave">Tocá el gráfico para ver los valores de ese momento.</span>';
   }
@@ -8141,7 +8410,7 @@ function dibujarLectura(serie, seleccion) {
   const valores = serie.series.map((s, n) => `
     <span class="valor-serie">
       <span class="marca-serie ${escapar(s.clase)}" aria-hidden="true"></span>
-      ${escapar(s.nombre)}: <strong>${escapar(formatearEuros(punto.valores[n]))}</strong>
+      ${escapar(s.nombre)}: <strong>${escapar(formatearEuros(punto.valores[n], base))}</strong>
     </span>`).join('');
 
   return `<strong class="cuando">${escapar(punto.cuando ?? punto.etiqueta)}</strong>${valores}`;
@@ -8180,7 +8449,7 @@ function dibujarSerie(serie) {
            aria-label="${escapar(serie.titulo)}, de ${escapar(serie.puntos[0].etiqueta)} a ${escapar(serie.puntos.at(-1).etiqueta)}"
            data-dibujo>${interiorDeSerie(serie, ventana)}</svg>
 
-      <p class="lectura" data-lectura role="status">${dibujarLectura(serie, null)}</p>
+      <p class="lectura" data-lectura role="status">${dibujarLectura(serie, null, serie.base)}</p>
 
       <div class="controles-grafico">
         <button type="button" class="secundario chico" data-accion="grafico-alejar"
@@ -8259,7 +8528,7 @@ function punto(grados, radio) {
  * Devuelve `''` si no hay nada que repartir: una torta de un solo color es un
  * círculo, y un círculo no dice nada que el importe no diga mejor.
  */
-function dibujarTorta(filas, tipo) {
+function dibujarTorta(filas, tipo, base) {
   if (filas.length < 2) return '';
 
   const total = filas.reduce((suma, fila) => suma + fila.total, 0);
@@ -8294,7 +8563,7 @@ function dibujarTorta(filas, tipo) {
       <g>
         <path class="porcion rubro-${franja}"
               d="M 0 0 L ${x1} ${y1} A ${RADIO} ${RADIO} 0 ${grande} 1 ${x2} ${y2} Z">
-          <title>${escapar(formatearRubro(fila.rubro))}: ${escapar(formatearEuros(fila.total))} (${Math.round(porcentaje)} %)</title>
+          <title>${escapar(formatearRubro(fila.rubro))}: ${escapar(formatearEuros(fila.total, base))} (${Math.round(porcentaje)} %)</title>
         </path>
         ${rotulo}
       </g>`;
@@ -8335,6 +8604,7 @@ function diasHasta(dias, hasta) {
  * mismo dibujo es la forma más común de mentir con un gráfico.
  */
 function dibujarLinea(dias, opciones = {}) {
+  const base = opciones.base;
   const visibles = diasHasta(dias, opciones.hasta);
   if (visibles.length < 2) return '';
 
@@ -8354,9 +8624,9 @@ function dibujarLinea(dias, opciones = {}) {
 
   return `
     <svg class="linea-acumulado" viewBox="-4 -18 ${ANCHO + 60} ${ALTO + 40}" role="img"
-         aria-label="${escapar(opciones.queEs ?? `Acumulado del mes hasta el día ${ultimo.dia}`)}: gastos ${escapar(formatearEuros(ultimo.gastoAcumulado))}, ingresos ${escapar(formatearEuros(ultimo.ingresoAcumulado))}">
+         aria-label="${escapar(opciones.queEs ?? `Acumulado del mes hasta el día ${ultimo.dia}`)}: gastos ${escapar(formatearEuros(ultimo.gastoAcumulado, base))}, ingresos ${escapar(formatearEuros(ultimo.ingresoAcumulado, base))}">
       <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
-      <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo))}</text>
+      <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo, base))}</text>
       <polyline class="traza ingreso" points="${linea('ingresoAcumulado')}" />
       <polyline class="traza gasto" points="${linea('gastoAcumulado')}" />
       <text class="rotulo-traza ingreso" x="${x(ultimo.dia) + 6}" y="${y(ultimo.ingresoAcumulado) + 4}">Ingresos</text>
@@ -8376,6 +8646,7 @@ function dibujarLinea(dias, opciones = {}) {
 
 /** La tarjeta entera de la línea, con su título. */
 function dibujarAcumulado(dias, opciones = {}) {
+  const base = opciones.base;
   const dibujo = dibujarLinea(dias, opciones);
   if (dibujo === '') return '';
 
@@ -8476,6 +8747,7 @@ function dibujarMesAMes(filas) {
 
 
 
+
 /** Un porcentaje para mostrar: sin decimales, que en un desglose no aportan. */
 function porcentaje(valor) {
   return `${Math.round(valor)} %`;
@@ -8488,23 +8760,23 @@ function porcentaje(valor) {
  * distingue el verde del rojo tiene que poder leer si el mes cerró en más o en
  * menos.
  */
-function dibujarTotales(totales) {
+function dibujarTotales(totales, base) {
   const saldoPositivo = totales.saldo >= 0;
 
   return `
     <section class="tarjeta totales" aria-label="Totales del mes">
       <div class="total">
         <span class="etiqueta">Gastos</span>
-        <span class="cifra gasto">${escapar(formatearEuros(totales.gastos))}</span>
+        <span class="cifra gasto">${escapar(formatearEuros(totales.gastos, base))}</span>
       </div>
       <div class="total">
         <span class="etiqueta">Ingresos</span>
-        <span class="cifra ingreso">${escapar(formatearEuros(totales.ingresos))}</span>
+        <span class="cifra ingreso">${escapar(formatearEuros(totales.ingresos, base))}</span>
       </div>
       <div class="total saldo">
         <span class="etiqueta">Saldo</span>
         <span class="cifra ${saldoPositivo ? 'ingreso' : 'gasto'}">
-          ${escapar(formatearEuros(totales.saldo))}
+          ${escapar(formatearEuros(totales.saldo, base))}
         </span>
       </div>
     </section>
@@ -8547,6 +8819,7 @@ function dibujarIncompleto(estado, totales) {
  * la paleta, no en el de la lista — el motivo está en `graficos.js`.
  */
 function dibujarDesglose(estado, mes, tipo) {
+  const base = monedaBaseDe(estado);
   const filas = porRubro(estado, mes, tipo);
   if (filas.length === 0) return '';
 
@@ -8575,7 +8848,7 @@ function dibujarDesglose(estado, mes, tipo) {
               <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
               ${escapar(formatearRubro(fila.rubro))}
             </span>
-            <span class="importe">${escapar(formatearEuros(fila.total))}</span>
+            <span class="importe">${escapar(formatearEuros(fila.total, base))}</span>
           </span>
         </button>
         <div class="rubro-pie suave">
@@ -8588,7 +8861,7 @@ function dibujarDesglose(estado, mes, tipo) {
   return `
     <section class="tarjeta">
       <h2>${titulo}</h2>
-      ${dibujarTorta(filas, tipo)}
+      ${dibujarTorta(filas, tipo, base)}
       <ul class="rubros">${cuerpo}</ul>
     </section>
   `;
@@ -8626,6 +8899,7 @@ function dibujarMesVacio(mes) {
 
 /** El promedio por día, que a mitad de mes es el número que dice cómo vas. */
 function dibujarPromedio(estado, mes) {
+  const base = monedaBaseDe(estado);
   const { gastos, cuantos } = totalesDelMes(estado, mes);
   if (cuantos === 0 || gastos === 0) return '';
 
@@ -8639,7 +8913,7 @@ function dibujarPromedio(estado, mes) {
 
   return `
     <p class="promedio suave">
-      <strong>${escapar(formatearEuros(promedio))}</strong> por día ${escapar(explicacion)}.
+      <strong>${escapar(formatearEuros(promedio, base))}</strong> por día ${escapar(explicacion)}.
     </p>
   `;
 }
@@ -8683,10 +8957,13 @@ function dibujarResumen(vista) {
 
   return `
     ${dibujarIncompleto(estado, totales)}
-    ${dibujarTotales(totales)}
+    ${dibujarTotales(totales, monedaBaseDe(estado))}
     ${dibujarPromedio(estado, mes)}
     ${dibujarDesglose(estado, mes, TIPO_GASTO)}
-    ${dibujarAcumulado(porDia(estado, mes), { hasta: mes === mesDe(hoy()) ? Number(hoy().slice(8)) : undefined })}
+    ${dibujarAcumulado(porDia(estado, mes), {
+      hasta: mes === mesDe(hoy()) ? Number(hoy().slice(8)) : undefined,
+      base: monedaBaseDe(estado),
+    })}
     ${dibujarDesglose(estado, mes, TIPO_INGRESO)}
     ${dibujarIrAEvolucion()}
   `;
@@ -9268,6 +9545,7 @@ function intentarBorrarEtiqueta(estado, campo, clave) {
 
 
 
+
 /** Un rango de fechas, o una sola si son la misma. */
 function dibujarRango(desde, hasta) {
   if (desde === hasta) return formatearFecha(desde);
@@ -9286,13 +9564,13 @@ function dibujarFechas(viaje) {
  * gasto por día va debajo y **solo si los días están escritos**: sin ellos, en
  * su lugar va el botón para escribirlos, que es la acción que falta.
  */
-function dibujarViaje(viaje) {
+function dibujarViaje(viaje, base) {
   const cuantos = viaje.cuantos === 1 ? '1 gasto' : `${viaje.cuantos} gastos`;
 
   const porDia = viaje.fechas === null
     ? `<button type="button" class="secundario chico" data-accion="fechas-viaje"
                data-clave="${escapar(viaje.clave)}">¿Cuándo fue?</button>`
-    : `<span><strong>${escapar(formatearEuros(viaje.porDia))}</strong> por día
+    : `<span><strong>${escapar(formatearEuros(viaje.porDia, base))}</strong> por día
          en ${viaje.dias} ${viaje.dias === 1 ? 'día' : 'días'}
          <button type="button" class="enlace" data-accion="fechas-viaje"
                  data-clave="${escapar(viaje.clave)}">${escapar(dibujarRango(viaje.fechas.desde, viaje.fechas.hasta))}</button></span>`;
@@ -9307,7 +9585,7 @@ function dibujarViaje(viaje) {
               data-comentario="${escapar(viaje.comentario)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(viaje.comentario)}</span>
-          <span class="importe">${escapar(formatearEuros(viaje.total))}</span>
+          <span class="importe">${escapar(formatearEuros(viaje.total, base))}</span>
         </span>
       </button>
       <div class="rubro-pie suave">
@@ -9384,6 +9662,7 @@ function dibujarDuracion(desde, hasta) {
 }
 
 function dibujarViajes(vista) {
+  const base = monedaBaseDe(vista.estado);
   if (vista.viajeEditado) return dibujarFechasDeViaje(vista);
 
   const lista = viajes(vista.estado);
@@ -9406,7 +9685,7 @@ function dibujarViajes(vista) {
       <h2>Gasto por viaje</h2>
       <p class="suave nota">El total incluye <strong>todos</strong> los rubros de
       ese viaje, no solo los del rubro «viajes». Tocá uno para ver sus gastos.</p>
-      <ul class="rubros">${lista.map(dibujarViaje).join('')}</ul>
+      <ul class="rubros">${lista.map((v) => dibujarViaje(v, base)).join('')}</ul>
     </section>
   `;
 }
@@ -9441,6 +9720,114 @@ function intentarBorrarFechas(estado, clave) {
   } catch (error) {
     return { error: error.message };
   }
+}
+
+// ── src/ui/pantallas/base.js ────────────────────────────────────
+// Elegir la moneda base — T-050, CU-20.
+//
+// ── Por qué esta pantalla pregunta dos veces ─────────────────────────────────
+//
+// Cambiar la base **reexpresa todos los tipos de cambio guardados** y, en los
+// meses donde no hay cotización de la moneda nueva, los pierde. No borra ningún
+// movimiento —los montos siguen en su moneda— pero sí puede dejar meses sin
+// forma de convertirse hasta que el usuario cargue las cotizaciones que faltan.
+//
+// Por eso el flujo es: elegir → **ver qué va a pasar, con números** → confirmar.
+// Un desplegable que cambia todo al soltarlo sería la forma más rápida de que
+// alguien pierda datos por curiosear.
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras.
+
+
+
+
+/** Lo que va a pasar, con números, antes de tocar nada. */
+function dibujarEfectoDeBase(efecto) {
+  if (!efecto || efecto.sinCambios) return '';
+
+  const perdidos = efecto.perdidos ?? [];
+  const meses = [...new Set(perdidos.map((p) => p.mes))].sort();
+  const faltantes = efecto.faltantes ?? [];
+  const monedasEnFalta = [...new Set(faltantes.flatMap((f) => f.monedas))].sort();
+
+  return `
+    <div class="aviso importante" role="alert">
+      <h2>Pasar los totales a ${escapar(efecto.destino)}</h2>
+
+      <p>Tus movimientos <strong>no se tocan</strong>: cada uno sigue guardado en
+      su moneda y con su monto. Lo que cambia es en qué moneda se suman.</p>
+
+      ${efecto.reexpresados > 0 ? `
+      <p class="suave">Se van a recalcular
+      <strong>${efecto.reexpresados}</strong> tipos de cambio para expresarlos en
+      ${escapar(efecto.destino)}. ${escapar(efecto.actual)} pasa a ser una moneda
+      más y va a tener su propia cotización.</p>` : ''}
+
+      ${perdidos.length > 0 ? `
+      <p class="suave">${perdidos.length === 1 ? 'Se pierde' : 'Se pierden'}
+      <strong>${perdidos.length}</strong> ${perdidos.length === 1 ? 'tipo de cambio guardado' : 'tipos de cambio guardados'}
+      (${escapar(meses.map(formatearMes).join(', '))}): en ${meses.length === 1 ? 'ese mes' : 'esos meses'}
+      no hay cotización de ${escapar(efecto.destino)} para poder reexpresarlo${perdidos.length === 1 ? '' : 's'}.</p>` : ''}
+
+      ${faltantes.length > 0 ? `
+      <p><strong>Ojo:</strong> te va a faltar la cotización de
+      ${escapar(monedasEnFalta.join(', '))} en
+      ${faltantes.length === 1 ? 'un mes' : `${faltantes.length} meses`}
+      —${escapar(faltantes.map((f) => formatearMes(f.mes)).join(', '))}—,
+      así que <strong>${efecto.movimientosSinConvertir}</strong>
+      ${efecto.movimientosSinConvertir === 1 ? 'movimiento no va' : 'movimientos no van'}
+      a poder contarse en los totales hasta que la cargues.</p>
+
+      <p class="suave">Los movimientos siguen ahí: lo que falta es el tipo de
+      cambio. Tenés que cargarlo <strong>hacia atrás, mes por mes</strong>, en
+      Tipos de cambio.
+      ${efecto.movimientosSinConvertirAhora > 0
+        ? `(${efecto.movimientosSinConvertirAhora} ya no se ${efecto.movimientosSinConvertirAhora === 1 ? 'puede' : 'pueden'} convertir hoy, antes de este cambio.)`
+        : ''}</p>` : ''}
+
+      <div class="botones">
+        <button type="button" class="peligro" data-accion="confirmar-base" data-moneda="${escapar(efecto.destino)}">
+          Sí, usar ${escapar(efecto.destino)}
+        </button>
+        <button type="button" class="secundario" data-accion="cancelar-base">Dejar como está</button>
+      </div>
+    </div>
+  `;
+}
+
+function dibujarMonedaBase(vista) {
+  const estado = vista.estado ?? {};
+  const actual = monedaBaseDe(estado);
+  const efecto = vista.baseElegida ? efectoDeCambiarBase(estado, vista.baseElegida) : null;
+
+  const opciones = monedasVisibles(estado.monedas ?? []).map((m) => `
+    <li class="fila-rubro">
+      <span class="rubro-cabeza">
+        <span class="nombre">${escapar(m.codigo)} — ${escapar(m.nombre)}</span>
+        ${m.codigo === actual
+          ? '<span class="suave">es la base</span>'
+          : `<button type="button" class="secundario chico" data-accion="elegir-base" data-moneda="${escapar(m.codigo)}">Usar esta</button>`}
+      </span>
+    </li>`).join('');
+
+  return `
+    ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
+    ${vista.avisoBase ? `<p class="confirmacion" role="status">${escapar(vista.avisoBase)}</p>` : ''}
+    ${dibujarEfectoDeBase(efecto)}
+
+    <section class="tarjeta">
+      <h2>Moneda base</h2>
+      <p class="suave nota">Es la moneda en la que se muestran <strong>todos los
+      totales</strong>: el resumen del mes, la evolución, los viajes. Es también
+      la única que no lleva tipo de cambio, porque vale 1 contra sí misma.</p>
+      <p class="suave">Ahora es <strong>${escapar(actual)}</strong>.</p>
+
+      <ul class="rubros">${opciones}</ul>
+
+      <p class="suave nota">Los ahorros conjuntos no usan la moneda base: ahí cada
+      moneda se muestra por separado y nunca se convierte.</p>
+    </section>
+  `;
 }
 
 // ── src/ui/pantallas/rubros.js ──────────────────────────────────
@@ -9624,8 +10011,10 @@ function dibujarRubros(vista) {
 // Igual que el resto de la interfaz (ADR-022), son funciones puras.
 
 
+
 function dibujarAjustes(vista) {
   const enCotidiana = (vista.perfil ?? PERFIL_COTIDIANA) === PERFIL_COTIDIANA;
+  const base = monedaBaseDe(vista.estado);
 
   return `
     ${enCotidiana ? `
@@ -9649,6 +10038,15 @@ function dibujarAjustes(vista) {
     </section>
 
     <section class="tarjeta">
+      <h2>Moneda base</h2>
+      <p class="suave">En qué moneda se muestran todos los totales. De fábrica es
+      el euro; se puede usar cualquiera de tus monedas.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="moneda-base">
+        Ver la moneda base
+      </button>
+    </section>
+
+    <section class="tarjeta">
       <h2>Monedas</h2>
       <p class="suave">Ver las que hay, agregar una nueva u ocultar las que ya no
       usás. Sirve para los dos lados de la app.</p>
@@ -9660,8 +10058,8 @@ function dibujarAjustes(vista) {
     ${enCotidiana ? `
     <section class="tarjeta">
       <h2>Tipos de cambio</h2>
-      <p class="suave">Lo que vale cada moneda en euros, mes por mes. Sin esto,
-      un gasto en otra moneda no puede entrar en ningún total.</p>
+      <p class="suave">Lo que vale cada moneda en ${escapar(base)}, mes por mes.
+      Sin esto, un gasto en otra moneda no puede entrar en ningún total.</p>
       <!-- Solo en vida cotidiana: los ahorros NO se convierten a euros nunca
            (CU-14), así que ahí un tipo de cambio no cambiaría ningún número. -->
       <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">
@@ -10355,6 +10753,7 @@ function intentarCambiarDecimales(estado, codigo, decimales) {
 
 
 
+
 /** Cuántos gastos, en cuántos meses y entre qué fechas. */
 function dibujarAlcance(grupo) {
   const cuantos = grupo.cuantos === 1 ? '1 gasto' : `${grupo.cuantos} gastos`;
@@ -10370,14 +10769,14 @@ function dibujarAlcance(grupo) {
   return `${cuantos} · ${cuando} · ${meses}`;
 }
 
-function dibujarGrupo(grupo) {
+function dibujarGrupo(grupo, base) {
   return `
     <li class="fila-rubro">
       <button type="button" class="fila-toque" data-accion="ver-comentario"
               data-comentario="${escapar(grupo.etiqueta)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(grupo.etiqueta)}</span>
-          <span class="importe">${escapar(formatearEuros(grupo.total))}</span>
+          <span class="importe">${escapar(formatearEuros(grupo.total, base))}</span>
         </span>
       </button>
       <div class="rubro-pie suave">
@@ -10388,6 +10787,7 @@ function dibujarGrupo(grupo) {
 }
 
 function dibujarGrupos(vista) {
+  const base = monedaBaseDe(vista.estado);
   const grupos = otrosGrupos(vista.estado);
 
   if (grupos.length === 0) {
@@ -10409,7 +10809,7 @@ function dibujarGrupos(vista) {
       El total incluye <strong>todos</strong> los rubros de esa etiqueta, así que
       puede ser mayor que lo que la misma etiqueta suma en la tarjeta de gastos
       fijos, que mira un rubro solo. Tocá uno para ver sus gastos.</p>
-      <ul class="rubros">${grupos.map(dibujarGrupo).join('')}</ul>
+      <ul class="rubros">${grupos.map((g) => dibujarGrupo(g, base)).join('')}</ul>
     </section>
   `;
 }
@@ -10435,6 +10835,7 @@ function dibujarGrupos(vista) {
 
 
 
+
 /** Cuántas veces se pagó y entre qué meses. */
 function dibujarCadencia(grupo) {
   const pagos = grupo.cuantos === 1 ? '1 pago' : `${grupo.cuantos} pagos`;
@@ -10452,7 +10853,7 @@ function dibujarCadencia(grupo) {
  * me sale?", no "¿cuánto llevo gastado?". El total está al lado porque es lo que
  * permite comprobar el promedio a mano, pero no es lo que se viene a buscar.
  */
-function dibujarGastoFijo(grupo) {
+function dibujarGastoFijo(grupo, base) {
   return `
     <li class="fila-rubro">
       <!-- Lleva a los pagos que componen ese promedio, en TODOS los meses: esta
@@ -10462,12 +10863,12 @@ function dibujarGastoFijo(grupo) {
               data-comentario="${escapar(grupo.comentario)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(grupo.comentario)}</span>
-          <span class="importe">${escapar(formatearEuros(grupo.promedio))}</span>
+          <span class="importe">${escapar(formatearEuros(grupo.promedio, base))}</span>
         </span>
       </button>
       <div class="rubro-pie suave">
         <span>${escapar(dibujarCadencia(grupo))}</span>
-        <span>${escapar(formatearEuros(grupo.total))} en total</span>
+        <span>${escapar(formatearEuros(grupo.total, base))} en total</span>
       </div>
       ${dibujarTambienEnOtrosGrupos(grupo)}
     </li>
@@ -10482,7 +10883,7 @@ function dibujarGastoFijo(grupo) {
  * el total del rubro** y el usuario no tendría cómo darse cuenta. Se dicen, y se
  * dice qué hacer para que entren.
  */
-function dibujarSinComentario(sinComentario) {
+function dibujarSinComentario(sinComentario, base) {
   if (sinComentario.cuantos === 0) return '';
 
   const cuantos = sinComentario.cuantos === 1
@@ -10491,7 +10892,7 @@ function dibujarSinComentario(sinComentario) {
 
   return `
     <p class="suave nota">
-      ${cuantos} en esta lista, por ${escapar(formatearEuros(sinComentario.total))}:
+      ${cuantos} en esta lista, por ${escapar(formatearEuros(sinComentario.total, base))}:
       no tienen etiqueta, y la etiqueta es lo que dice cuál gasto fijo son.
       Poniéndoles una —"Luz", "Gas"— entran solos.
     </p>
@@ -10520,10 +10921,11 @@ function dibujarTambienEnOtrosGrupos(grupo) {
 }
 
 function dibujarGastosFijos(estado) {
+  const base = monedaBaseDe(estado);
   const { grupos, sinComentario, total } = gastosFijos(estado);
   if (grupos.length === 0 && sinComentario.cuantos === 0) return '';
 
-  const cuerpo = grupos.map(dibujarGastoFijo).join('');
+  const cuerpo = grupos.map((g) => dibujarGastoFijo(g, base)).join('');
 
   const vacio = grupos.length > 0 ? '' : `
     <p class="suave">Ninguno de tus gastos fijos tiene etiqueta todavía, así que
@@ -10533,10 +10935,10 @@ function dibujarGastosFijos(estado) {
     <section class="tarjeta">
       <h2>Cuánto sale cada gasto fijo</h2>
       <p class="suave nota">El promedio por pago de cada uno. En total llevás
-      ${escapar(formatearEuros(total))} en gastos fijos.</p>
+      ${escapar(formatearEuros(total, base))} en gastos fijos.</p>
       ${vacio}
       <ul class="rubros">${cuerpo}</ul>
-      ${dibujarSinComentario(sinComentario)}
+      ${dibujarSinComentario(sinComentario, base)}
     </section>
   `;
 }
@@ -10568,6 +10970,7 @@ function dibujarGastosFijos(estado) {
 //
 // Igual que el resto de la interfaz (ADR-022), son funciones puras que
 // devuelven texto HTML.
+
 
 
 
@@ -10736,6 +11139,7 @@ function dibujarSinHistorial() {
  * el mes.
  */
 function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
+  const base = monedaBaseDe(vista.estado);
   const matriz = matrizMesRubro(vista.estado, mesActual);
   if (matriz.filas.length === 0) return dibujarSinHistorial();
 
@@ -10768,8 +11172,8 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
         </table>
       </div>
       <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros, los
-      de gasto y los de ingreso. Los importes están en euros, y tocando uno se ven
-      los movimientos que lo componen.</p>
+      de gasto y los de ingreso. Los importes están en ${escapar(base)}, y tocando
+      uno se ven los movimientos que lo componen.</p>
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
@@ -10844,10 +11248,14 @@ function importeDe(estado, movimiento) {
     const propio = formatearMonto(movimiento.monto, decimales, movimiento.moneda);
     if (movimiento.moneda === 'EUR') return { propio, enEuros: null };
 
-    if (faltaCambioPara(movimiento, estado.tipos_cambio)) {
+    if (faltaCambioPara(movimiento, estado.tipos_cambio, monedaBaseDe(estado))) {
       return { propio, enEuros: null, sinCambio: true };
     }
-    return { propio, enEuros: formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas)) };
+    const base = monedaBaseDe(estado);
+    return {
+      propio,
+      enEuros: formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, base), base),
+    };
   } catch {
     // Un dato que no se puede formatear se muestra crudo antes que no mostrarse:
     // el usuario tiene que poder verlo para poder corregirlo o borrarlo.
@@ -11064,7 +11472,7 @@ function dibujarResultados(vista) {
     </li>`).join('');
 
   return `
-    <p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total))}</strong>
+    <p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total, monedaBaseDe(vista.estado)))}</strong>
     en total, en todos los meses.</p>
     <ul class="resultados">${cuerpo}</ul>
   `;
@@ -11144,7 +11552,7 @@ function dibujarLista(vista) {
   // desarmar, y verlo repetido acá es la confirmación de que la lista de abajo
   // es de verdad lo que compone ese total.
   const encabezado = filtrada
-    ? `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total))}</strong></p>`
+    ? `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total, monedaBaseDe(estado)))}</strong></p>`
     : `<p class="cuantos suave">${cuantos} en ${escapar(formatearMes(mes))}.</p>`;
 
   return `
@@ -11176,6 +11584,7 @@ function dibujarLista(vista) {
 //
 // La segunda no es una curiosidad para programadores: es la red de contención de
 // la única red de contención que tiene el usuario.
+
 
 
 
@@ -11491,6 +11900,7 @@ function dibujarPrevia(previa) {
  * se quedaría tranquilo con un archivo que no lo puede salvar.
  */
 function dibujarPlanilla(vista) {
+  const base = monedaBaseDe(vista.estado);
   const cuantos = (vista.estado.movimientos ?? []).length;
   const planilla = cuantos === 0 ? null : crearPlanilla(vista.estado);
   const csv = cuantos === 0 ? null : prepararCsv(vista.estado);
@@ -11507,8 +11917,8 @@ function dibujarPlanilla(vista) {
       ${planilla && planilla.sinConvertir > 0 ? `
       <p class="aviso-respaldo pendiente-respaldo" role="status">
         ${planilla.sinConvertir === 1
-          ? 'Hay 1 movimiento que no se puede pasar a euros porque falta su tipo de cambio.'
-          : `Hay ${planilla.sinConvertir} movimientos que no se pueden pasar a euros porque falta su tipo de cambio.`}
+          ? `Hay 1 movimiento que no se puede pasar a ${escapar(base)} porque falta su tipo de cambio.`
+          : `Hay ${planilla.sinConvertir} movimientos que no se pueden pasar a ${escapar(base)} porque falta su tipo de cambio.`}
         Entran igual en la planilla, con el monto vacío y el motivo escrito al lado.
       </p>` : ''}
 
@@ -11531,7 +11941,8 @@ function dibujarPlanilla(vista) {
       <h3>Y en CSV, para hacer cuentas en otro lado</h3>
       <p class="suave">Una fila por movimiento, con todas las columnas: el monto
       original con su moneda, <strong>el tipo de cambio que se aplicó</strong> y el
-      importe en euros. La planilla lleva solo euros porque se mira; el CSV lleva
+      importe en ${escapar(base)}. La planilla lleva solo la moneda base porque se
+      mira; el CSV lleva
       las dos cosas porque es para procesar, y ahí perder el dato original duele.</p>
 
       <button type="button" class="secundario" data-accion="exportar-csv"${cuantos === 0 ? ' disabled' : ''}>
@@ -11567,7 +11978,7 @@ function dibujarPlanillaVieja(vista) {
 
       ${vista.errorPlanillaVieja ? `<p class="error-carga" role="alert">${escapar(vista.errorPlanillaVieja)}</p>` : ''}
       ${vista.avisoPlanillaVieja ? `<p class="confirmacion" role="status">${escapar(vista.avisoPlanillaVieja)}</p>` : ''}
-      ${previa ? dibujarPreviaDePlanilla(previa, vista.estado?.monedas ?? []) : ''}
+      ${previa ? dibujarPreviaDePlanilla(previa, vista.estado?.monedas ?? [], monedaBaseDe(vista.estado)) : ''}
     </section>
   `;
 }
@@ -11729,7 +12140,7 @@ function dibujarRubrosNuevos(planilla) {
   `;
 }
 
-function dibujarPreviaDePlanilla(planilla, monedas) {
+function dibujarPreviaDePlanilla(planilla, monedas, base) {
   const { movimientos, problemas, comprobaciones, yaEstan } = planilla;
   const nuevos = movimientos.length - yaEstan;
 
@@ -11742,7 +12153,7 @@ function dibujarPreviaDePlanilla(planilla, monedas) {
          ${nuevos === 1 ? 'entraría 1' : `entrarían ${nuevos}`}.`
       : 'Ninguno está todavía en la app.'}</p>`}
 
-    ${dibujarComprobaciones(comprobaciones)}
+    ${dibujarComprobaciones(comprobaciones, base)}
     ${dibujarProblemas(problemas)}
     ${dibujarPreviaDeAhorros(planilla)}
 
@@ -11760,7 +12171,7 @@ function dibujarPreviaDePlanilla(planilla, monedas) {
  * por **otra herramienta**: después de importar, la planilla se archiva. Si acá
  * no se mira, no se mira nunca.
  */
-function dibujarComprobaciones(comprobaciones) {
+function dibujarComprobaciones(comprobaciones, base) {
   if (comprobaciones.length === 0) return '';
   const difieren = comprobaciones.filter((c) => !c.coincide);
 
@@ -11776,9 +12187,9 @@ function dibujarComprobaciones(comprobaciones) {
   const deMenos = difieren.filter((c) => c.diferencia < 0);
 
   const linea = (c) => `<li>${escapar(c.mes)}: tu planilla dice
-    ${escapar(formatearEuros(c.enLaPlanilla))} y acá suman
-    ${escapar(formatearEuros(c.importado))}
-    <strong>(${c.diferencia > 0 ? '+' : ''}${escapar(formatearEuros(c.diferencia))})</strong></li>`;
+    ${escapar(formatearEuros(c.enLaPlanilla, base))} y acá suman
+    ${escapar(formatearEuros(c.importado, base))}
+    <strong>(${c.diferencia > 0 ? '+' : ''}${escapar(formatearEuros(c.diferencia, base))})</strong></li>`;
 
   return `
     <div class="aviso importante" role="alert">
@@ -12264,7 +12675,7 @@ function estadoDe(tarjeta) {
 function repintar(tarjeta) {
   const { serie, ventana, seleccion } = estadoDe(tarjeta);
   tarjeta.querySelector('[data-dibujo]').innerHTML = interiorDeSerie(serie, ventana, seleccion);
-  tarjeta.querySelector('[data-lectura]').innerHTML = dibujarLectura(serie, seleccion);
+  tarjeta.querySelector('[data-lectura]').innerHTML = dibujarLectura(serie, seleccion, serie.base);
 }
 
 /** De dónde se tocó al índice del punto más cercano. */
@@ -12410,6 +12821,8 @@ function conectarUna(tarjeta) {
 // La frontera importa: un error de "qué se muestra" se puede cazar con un test;
 // uno de "cómo se engancha un clic" solo se ve abriendo la app. Cuanto más de lo
 // primero y menos de lo segundo, más barato es equivocarse.
+
+
 
 
 
@@ -12635,6 +13048,15 @@ registrarPantalla('cambios', {
 // supermercado. `destacada` es lo que le da el aspecto distinto que ya tenía.
 // La quinta pestaña, pedida por el usuario (2026-08-31). Va última: es lo que
 // menos se toca, y en una barra el pulgar llega antes a lo de la izquierda.
+registrarPantalla('moneda-base', {
+  etiqueta: 'Moneda base',
+  icono: '＄',
+  conMes: false,
+  enBarra: false,
+  perfil: 'ambos',
+  dibujar: dibujarMonedaBase,
+});
+
 registrarPantalla('rubros', {
   etiqueta: 'Rubros',
   icono: '◑',
@@ -14256,6 +14678,27 @@ function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, borrado: null };
+    } else if (accion === 'elegir-base') {
+      // No cambia nada todavía: muestra qué pasaría. Ver ui/pantallas/base.js.
+      vista = { ...vista, baseElegida: boton.dataset.moneda, error: null, avisoBase: null };
+    } else if (accion === 'cancelar-base') {
+      vista = { ...vista, baseElegida: null };
+    } else if (accion === 'confirmar-base') {
+      const nuevoEstado = cambiarMonedaBase(vista.estado, boton.dataset.moneda);
+      try {
+        guardarEstado(nuevoEstado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message, baseElegida: null };
+        pintar();
+        return;
+      }
+      vista = {
+        ...vista,
+        estado: nuevoEstado,
+        baseElegida: null,
+        error: null,
+        avisoBase: `Listo: los totales se muestran en ${boton.dataset.moneda}.`,
+      };
     } else if (accion === 'editar-rubro') {
       vista = { ...vista, rubroEditado: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
         rubroUnido: null, error: null, avisoRubro: null };

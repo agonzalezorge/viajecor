@@ -265,7 +265,7 @@ export function interiorDeSerie(serie, ventana = {}, seleccion = null) {
  * Sin punto elegido no queda en blanco: dice qué hacer. Un espacio vacío debajo
  * de un gráfico se lee como que algo no cargó.
  */
-export function dibujarLectura(serie, seleccion) {
+export function dibujarLectura(serie, seleccion, base) {
   if (seleccion === null || seleccion === undefined || !serie.puntos[seleccion]) {
     return '<span class="suave">Tocá el gráfico para ver los valores de ese momento.</span>';
   }
@@ -274,7 +274,7 @@ export function dibujarLectura(serie, seleccion) {
   const valores = serie.series.map((s, n) => `
     <span class="valor-serie">
       <span class="marca-serie ${escapar(s.clase)}" aria-hidden="true"></span>
-      ${escapar(s.nombre)}: <strong>${escapar(formatearEuros(punto.valores[n]))}</strong>
+      ${escapar(s.nombre)}: <strong>${escapar(formatearEuros(punto.valores[n], base))}</strong>
     </span>`).join('');
 
   return `<strong class="cuando">${escapar(punto.cuando ?? punto.etiqueta)}</strong>${valores}`;
@@ -313,7 +313,7 @@ export function dibujarSerie(serie) {
            aria-label="${escapar(serie.titulo)}, de ${escapar(serie.puntos[0].etiqueta)} a ${escapar(serie.puntos.at(-1).etiqueta)}"
            data-dibujo>${interiorDeSerie(serie, ventana)}</svg>
 
-      <p class="lectura" data-lectura role="status">${dibujarLectura(serie, null)}</p>
+      <p class="lectura" data-lectura role="status">${dibujarLectura(serie, null, serie.base)}</p>
 
       <div class="controles-grafico">
         <button type="button" class="secundario chico" data-accion="grafico-alejar"

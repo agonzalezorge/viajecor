@@ -19,6 +19,7 @@
 import { sumar, redondear } from './dinero.js';
 import { mesDe, TIPO_GASTO, TIPO_INGRESO, rubrosDe, normalizarClave, normalizarTextoVisible, claveDeComentario } from './modelo.js';
 import { movimientoEnEuros, faltaCambioPara } from './cambio.js';
+import { monedaBaseDe } from './monedas.js';
 import { categoriaDeEtiqueta } from './agrupamientos.js';
 
 /** Los movimientos de un mes. Recorre la lista entera, sin ningún tope (L-001). */
@@ -51,18 +52,24 @@ export function diasDelMes(mes) {
  * Cargar un movimiento así no debería ser posible (RN-04, T-012), pero puede
  * llegar desde un respaldo importado o desde datos editados a mano.
  */
-export function separarConvertibles(movimientos, cambios) {
+export function separarConvertibles(movimientos, cambios, base) {
   const convertibles = [];
   const sinConvertir = [];
   for (const movimiento of movimientos) {
-    if (faltaCambioPara(movimiento, cambios)) sinConvertir.push(movimiento);
+    if (faltaCambioPara(movimiento, cambios, base)) sinConvertir.push(movimiento);
     else convertibles.push(movimiento);
   }
   return { convertibles, sinConvertir };
 }
 
-function enEuros(movimientos, cambios, monedas) {
-  return movimientos.map((m) => movimientoEnEuros(m, cambios, monedas));
+/**
+ * Los importes de una lista, en la moneda base — T-050.
+ *
+ * Se sigue llamando "en euros" en muchos lados por historia; lo que devuelve es
+ * la moneda base que el usuario haya elegido, que de fábrica es el euro.
+ */
+function enEuros(movimientos, cambios, monedas, base) {
+  return movimientos.map((m) => movimientoEnEuros(m, cambios, monedas, base));
 }
 
 /**
@@ -74,13 +81,13 @@ function enEuros(movimientos, cambios, monedas) {
  */
 export function totalesDelMes(estado, mes) {
   const delMes = movimientosDelMes(estado.movimientos, mes);
-  const { convertibles, sinConvertir } = separarConvertibles(delMes, estado.tipos_cambio);
+  const { convertibles, sinConvertir } = separarConvertibles(delMes, estado.tipos_cambio, monedaBaseDe(estado));
 
   const gastos = sumar(
-    enEuros(convertibles.filter((m) => m.tipo === TIPO_GASTO), estado.tipos_cambio, estado.monedas)
+    enEuros(convertibles.filter((m) => m.tipo === TIPO_GASTO), estado.tipos_cambio, estado.monedas, monedaBaseDe(estado))
   );
   const ingresos = sumar(
-    enEuros(convertibles.filter((m) => m.tipo === TIPO_INGRESO), estado.tipos_cambio, estado.monedas)
+    enEuros(convertibles.filter((m) => m.tipo === TIPO_INGRESO), estado.tipos_cambio, estado.monedas, monedaBaseDe(estado))
   );
 
   return {
@@ -102,12 +109,12 @@ export function totalesDelMes(estado, mes) {
  */
 export function porRubro(estado, mes, tipo) {
   const delMes = movimientosDelMes(estado.movimientos, mes);
-  const { convertibles } = separarConvertibles(delMes, estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(delMes, estado.tipos_cambio, monedaBaseDe(estado));
   const delTipo = convertibles.filter((m) => m.tipo === tipo);
 
   const acumulado = new Map();
   for (const movimiento of delTipo) {
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const anterior = acumulado.get(movimiento.rubro) ?? { rubro: movimiento.rubro, total: 0, cuantos: 0 };
     acumulado.set(movimiento.rubro, {
       rubro: movimiento.rubro,
@@ -140,13 +147,13 @@ export function rubrosSinUsar(estado, mes, tipo) {
  */
 export function porDia(estado, mes) {
   const delMes = movimientosDelMes(estado.movimientos, mes);
-  const { convertibles } = separarConvertibles(delMes, estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(delMes, estado.tipos_cambio, monedaBaseDe(estado));
 
   const gastoPorDia = new Map();
   const ingresoPorDia = new Map();
   for (const movimiento of convertibles) {
     const dia = Number(movimiento.fecha.slice(8));
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const donde = movimiento.tipo === TIPO_GASTO ? gastoPorDia : ingresoPorDia;
     donde.set(dia, (donde.get(dia) ?? 0) + euros);
   }
@@ -344,13 +351,13 @@ export function hayFiltro(filtro) {
  */
 export function acumuladoHistorico(estado) {
   const movimientos = estado?.movimientos ?? [];
-  const { convertibles } = separarConvertibles(movimientos, estado?.tipos_cambio);
+  const { convertibles } = separarConvertibles(movimientos, estado?.tipos_cambio, monedaBaseDe(estado));
   if (convertibles.length === 0) return [];
 
   const gastoPorFecha = new Map();
   const ingresoPorFecha = new Map();
   for (const movimiento of convertibles) {
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const donde = movimiento.tipo === TIPO_GASTO ? gastoPorFecha : ingresoPorFecha;
     donde.set(movimiento.fecha, (donde.get(movimiento.fecha) ?? 0) + euros);
   }
@@ -433,7 +440,7 @@ export function promedioPorDia(estado, mes, hasta) {
  * lo que ves de un rubro**. Ver ADR-041.
  */
 export function gastosFijos(estado) {
-  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio, monedaBaseDe(estado));
   const fijos = convertibles.filter(
     (m) => m.tipo === TIPO_GASTO && normalizarClave(m.rubro) === 'gastos fijos',
   );
@@ -450,7 +457,7 @@ export function gastosFijos(estado) {
   let sinComentario = { cuantos: 0, total: 0 };
 
   for (const movimiento of fijos) {
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     if (!movimiento.comentario) {
       sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
       continue;
@@ -494,7 +501,7 @@ export function gastosFijos(estado) {
  * la misma etiqueta.
  */
 export function porEtiquetaDeGasto(estado) {
-  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio, monedaBaseDe(estado));
   const porClave = new Map();
 
   for (const movimiento of convertibles) {
@@ -518,13 +525,13 @@ export function porEtiquetaDeGasto(estado) {
  */
 export function porComentario(estado, mes) {
   const movimientos = mes ? movimientosDelMes(estado.movimientos, mes) : estado.movimientos;
-  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio);
+  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio, monedaBaseDe(estado));
 
   const acumulado = new Map();
   for (const movimiento of convertibles) {
     if (!movimiento.comentario) continue;
     const clave = normalizarClave(movimiento.comentario);
-    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const anterior = acumulado.get(clave);
     acumulado.set(clave, {
       clave,

@@ -28,6 +28,7 @@
 import { escapar } from '../app.js';
 import { matrizMesRubro, acumuladoHistorico } from '../../core/calculos.js';
 import { DECIMALES_EURO } from '../../core/dinero.js';
+import { monedaBaseDe } from '../../core/monedas.js';
 import { formatearMesCorto, formatearNumero, formatearRubro } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
 import { dibujarGastosFijos } from './fijos.js';
@@ -194,6 +195,7 @@ export function dibujarSinHistorial() {
  * el mes.
  */
 export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
+  const base = monedaBaseDe(vista.estado);
   const matriz = matrizMesRubro(vista.estado, mesActual);
   if (matriz.filas.length === 0) return dibujarSinHistorial();
 
@@ -226,8 +228,8 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
         </table>
       </div>
       <p class="suave nota deslizar">Deslizá la tabla para ver todos los rubros, los
-      de gasto y los de ingreso. Los importes están en euros, y tocando uno se ven
-      los movimientos que lo componen.</p>
+      de gasto y los de ingreso. Los importes están en ${escapar(base)}, y tocando
+      uno se ven los movimientos que lo componen.</p>
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>

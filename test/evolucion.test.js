@@ -207,7 +207,17 @@ test('los importes no repiten el símbolo del euro noventa y nueve veces', () =>
     .map((m) => m[1].replace(/<[^>]*>/g, '').trim());
 
   assert.equal(celdas.filter((c) => c.includes('€')).length, 0);
-  assert.match(html.replace(/\s+/g, ' '), /Los importes están en euros/, 'y entonces hay que decirlo');
+  assert.match(html.replace(/\s+/g, ' '), /Los importes están en EUR/, 'y entonces hay que decirlo');
+});
+
+test('el pie de la tabla nombra la moneda base que el usuario eligió', () => {
+  // Sin esto la tabla diría "euros" con los totales en pesos: el peor error
+  // posible en una pantalla de plata, porque se lee y se cree.
+  const enPesos = { ...TRES_MESES, preferencias: { moneda_base: 'UYU' } };
+  const html = dibujarEvolucion({ estado: enPesos }, '2026-03').replace(/\s+/g, ' ');
+
+  assert.match(html, /Los importes están en UYU/);
+  assert.doesNotMatch(html, /están en EUR/);
 });
 
 test('los importes van con cifras de ancho fijo', () => {

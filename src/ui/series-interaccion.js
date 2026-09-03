@@ -41,7 +41,7 @@ function estadoDe(tarjeta) {
 function repintar(tarjeta) {
   const { serie, ventana, seleccion } = estadoDe(tarjeta);
   tarjeta.querySelector('[data-dibujo]').innerHTML = interiorDeSerie(serie, ventana, seleccion);
-  tarjeta.querySelector('[data-lectura]').innerHTML = dibujarLectura(serie, seleccion);
+  tarjeta.querySelector('[data-lectura]').innerHTML = dibujarLectura(serie, seleccion, serie.base);
 }
 
 /** De dónde se tocó al índice del punto más cercano. */

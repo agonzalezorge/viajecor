@@ -26,7 +26,7 @@
 
 import { TIPO_GASTO } from './modelo.js';
 import { formatearFecha, formatearMonto, formatearEuros, formatearRubro } from './formato.js';
-import { decimalesDe } from './monedas.js';
+import { decimalesDe, monedaBaseDe } from './monedas.js';
 import { movimientoEnEuros, faltaCambioPara } from './cambio.js';
 
 /**
@@ -93,7 +93,10 @@ export function textoDeMovimiento(estado, movimiento) {
     // Y su valor en euros, que es el número que se ve en las listas cuando el
     // gasto es en otra moneda.
     if (movimiento.moneda !== 'EUR' && !faltaCambioPara(movimiento, estado.tipos_cambio)) {
-      partes.push(formatearEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas)));
+      partes.push(formatearEuros(
+        movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)),
+        monedaBaseDe(estado),
+      ));
     }
   } catch {
     partes.push(String(movimiento.monto));

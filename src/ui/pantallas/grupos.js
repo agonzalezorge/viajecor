@@ -18,6 +18,7 @@
 import { escapar } from '../app.js';
 import { otrosGrupos } from '../../core/agrupamientos.js';
 import { formatearEuros, formatearFecha } from '../../core/formato.js';
+import { monedaBaseDe } from '../../core/monedas.js';
 
 /** Cuántos gastos, en cuántos meses y entre qué fechas. */
 export function dibujarAlcance(grupo) {
@@ -34,14 +35,14 @@ export function dibujarAlcance(grupo) {
   return `${cuantos} · ${cuando} · ${meses}`;
 }
 
-export function dibujarGrupo(grupo) {
+export function dibujarGrupo(grupo, base) {
   return `
     <li class="fila-rubro">
       <button type="button" class="fila-toque" data-accion="ver-comentario"
               data-comentario="${escapar(grupo.etiqueta)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(grupo.etiqueta)}</span>
-          <span class="importe">${escapar(formatearEuros(grupo.total))}</span>
+          <span class="importe">${escapar(formatearEuros(grupo.total, base))}</span>
         </span>
       </button>
       <div class="rubro-pie suave">
@@ -52,6 +53,7 @@ export function dibujarGrupo(grupo) {
 }
 
 export function dibujarGrupos(vista) {
+  const base = monedaBaseDe(vista.estado);
   const grupos = otrosGrupos(vista.estado);
 
   if (grupos.length === 0) {
@@ -73,7 +75,7 @@ export function dibujarGrupos(vista) {
       El total incluye <strong>todos</strong> los rubros de esa etiqueta, así que
       puede ser mayor que lo que la misma etiqueta suma en la tarjeta de gastos
       fijos, que mira un rubro solo. Tocá uno para ver sus gastos.</p>
-      <ul class="rubros">${grupos.map(dibujarGrupo).join('')}</ul>
+      <ul class="rubros">${grupos.map((g) => dibujarGrupo(g, base)).join('')}</ul>
     </section>
   `;
 }

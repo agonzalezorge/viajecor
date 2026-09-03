@@ -24,9 +24,10 @@ import {
   buscarCambio,
   desdeUnidadesPorEuro,
   movimientosAfectadosPor,
+  cambiosQueFaltan,
 } from '../../core/cambio.js';
 import { formatearMes, formatearMonto, formatearTipoDeCambio, formatearEuros, formatearRubro } from '../../core/formato.js';
-import { buscarMoneda, decimalesDe, MONEDA_BASE } from '../../core/monedas.js';
+import { buscarMoneda, decimalesDe, MONEDA_BASE, monedaBaseDe } from '../../core/monedas.js';
 import { convertirAEuros, aMinimas } from '../../core/dinero.js';
 import { normalizarMoneda } from '../../core/modelo.js';
 
@@ -74,6 +75,10 @@ export function leerTipoDeCambio(entrada) {
  * Nunca tira: devuelve `{ estado, error }`, como el resto de las pantallas.
  */
 export function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) {
+  // Contra la base elegida, no contra el euro (T-050): con base en pesos, el
+  // euro es una moneda más y **sí** lleva tipo de cambio. Comparar contra EUR
+  // acá dejaba al usuario sin poder cargar el único tipo que le faltaba.
+  const base = monedaBaseDe(estado);
   let codigo;
   try {
     codigo = normalizarMoneda(moneda);
@@ -81,8 +86,11 @@ export function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) 
     return { estado, error: error.message };
   }
 
-  if (codigo === MONEDA_BASE) {
-    return { estado, error: 'El euro no lleva tipo de cambio: es la moneda en la que se expresan todos los totales.' };
+  if (codigo === base) {
+    return {
+      estado,
+      error: `${codigo} no lleva tipo de cambio: es la moneda en la que se expresan todos los totales.`,
+    };
   }
 
   let valor;
@@ -94,7 +102,7 @@ export function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) 
 
   let cambio;
   try {
-    cambio = crearCambio({ moneda: codigo, mes, euros_por_unidad: desdeUnidadesPorEuro(valor) });
+    cambio = crearCambio({ moneda: codigo, mes, euros_por_unidad: desdeUnidadesPorEuro(valor) }, { base });
   } catch (error) {
     return { estado, error: error.message };
   }
@@ -146,6 +154,7 @@ export function efectoDeCorregir(estado, moneda, mes, nuevasUnidadesPorEuro) {
  * lo interrumpimos nosotros— y tiene que entender en un vistazo por qué.
  */
 export function dibujarPedido(vista) {
+  const base = monedaBaseDe(vista.estado);
   const falta = vista.faltaCambio;
   if (!falta) return '';
 
@@ -154,19 +163,19 @@ export function dibujarPedido(vista) {
 
   // ¿Es la primera vez, o se está corrigiendo uno que ya se usó? No es lo
   // mismo: lo segundo cambia totales que el usuario ya vio (RN-05).
-  const actual = buscarCambio(vista.estado.tipos_cambio, falta.moneda, falta.mes);
+  const actual = buscarCambio(vista.estado.tipos_cambio, falta.moneda, falta.mes, base);
   const corrigiendo = actual !== null;
   const efecto = corrigiendo
     ? efectoDeCorregir(vista.estado, falta.moneda, falta.mes, vista.borradorCambio)
     : null;
 
   const explicacion = corrigiendo
-    ? `Ahora está cargado como <strong>${escapar(formatearTipoDeCambio(actual, falta.moneda))}</strong>.
+    ? `Ahora está cargado como <strong>${escapar(formatearTipoDeCambio(actual, falta.moneda, base))}</strong>.
        Corregirlo vuelve a calcular todos los movimientos de ${escapar(formatearMes(falta.mes))} en esa moneda.`
     : `Es el primer movimiento en ${escapar(falta.moneda)} de
        ${escapar(formatearMes(falta.mes))}, y sin el tipo de cambio no se puede
-       expresar en euros. Vale para todos los movimientos de ese mes, y después
-       se puede corregir.`;
+       expresar en ${escapar(base)}. Vale para todos los movimientos de ese mes,
+       y después se puede corregir.`;
 
   return `
     <form class="tarjeta formulario" data-formulario="cambio" novalidate>
@@ -175,10 +184,10 @@ export function dibujarPedido(vista) {
       <p class="suave">${explicacion}</p>
 
       ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
-      <div data-aviso-correccion>${dibujarAvisoCorreccion(efecto, falta.moneda)}</div>
+      <div data-aviso-correccion>${dibujarAvisoCorreccion(efecto, falta.moneda, base)}</div>
 
       <label class="campo">
-        <span>1 EUR son…</span>
+        <span>1 ${escapar(base)} son…</span>
         <div class="monto-fila">
           <input name="unidadesPorEuro" class="importe" type="text" inputmode="decimal"
                  autocomplete="off" enterkeyhint="done" placeholder="630"
@@ -209,16 +218,43 @@ export function dibujarPedido(vista) {
  */
 export function dibujarCambios(vista) {
   const estado = vista.estado;
+  const base = monedaBaseDe(estado);
   const cambios = [...estado.tipos_cambio].sort(
     (a, b) => b.mes.localeCompare(a.mes) || a.moneda.localeCompare(b.moneda)
   );
 
+  // Los que faltan van primero y con un botón: es la única forma de cargarlos
+  // hacia atrás. La app los pide sola cuando el movimiento es nuevo, pero
+  // cuando lo que cambió fue la moneda base (T-050) los movimientos ya están
+  // guardados y nadie los va a volver a cargar — sin esta lista, el usuario
+  // queda mirando un total incompleto sin ninguna puerta para arreglarlo.
+  const faltantes = cambiosQueFaltan(estado.movimientos ?? [], estado.tipos_cambio, base)
+    .sort((a, b) => b.mes.localeCompare(a.mes) || a.moneda.localeCompare(b.moneda));
+
+  const pendientes = faltantes.length === 0 ? '' : `
+    <section class="aviso importante" role="alert">
+      <h2>${faltantes.length === 1 ? 'Falta un tipo de cambio' : `Faltan ${faltantes.length} tipos de cambio`}</h2>
+      <p>Sin ${faltantes.length === 1 ? 'él' : 'ellos'}, los movimientos de
+      ${faltantes.length === 1 ? 'ese mes' : 'esos meses'} no entran en ningún
+      total. Cargalos acá, uno por uno.</p>
+      <ul class="lineas">${faltantes.map((f) => `
+        <li class="linea-cambio">
+          <div>
+            <span class="mes-cambio">${escapar(formatearMes(f.mes))}</span>
+            <span class="suave">${escapar(f.moneda)}</span>
+          </div>
+          <button type="button" class="secundario chico" data-accion="corregir-cambio"
+                  data-moneda="${escapar(f.moneda)}" data-mes="${escapar(f.mes)}">Cargar</button>
+        </li>`).join('')}</ul>
+    </section>`;
+
   if (cambios.length === 0) {
     return `
+      ${pendientes}
       <section class="tarjeta">
         <h2>Tipos de cambio</h2>
-        <p class="suave">Todavía no hay ninguno. La app te lo va a pedir sola la
-        primera vez que cargues un gasto en otra moneda.</p>
+        <p class="suave">Todavía no hay ninguno cargado. La app te lo va a pedir
+        sola la primera vez que cargues un gasto en otra moneda.</p>
       </section>
     `;
   }
@@ -240,7 +276,7 @@ export function dibujarCambios(vista) {
             <span class="suave">${escapar(cuantos)}</span>
           </div>
           <div class="valor-cambio">
-            <span class="importe">${escapar(formatearTipoDeCambio(c.euros_por_unidad, c.moneda))}</span>
+            <span class="importe">${escapar(formatearTipoDeCambio(c.euros_por_unidad, c.moneda, base))}</span>
             <button type="button" class="secundario chico"
                     data-accion="corregir-cambio"
                     data-moneda="${escapar(c.moneda)}" data-mes="${escapar(c.mes)}">Corregir</button>
@@ -250,10 +286,12 @@ export function dibujarCambios(vista) {
     .join('');
 
   return `
+    ${pendientes}
     <section class="tarjeta">
       <h2>Tipos de cambio</h2>
-      <p class="suave">Cada uno vale para todos los movimientos de su mes (RN-04).
-      Corregir uno cambia los totales de ese mes.</p>
+      <p class="suave">Cada uno dice cuánto vale esa moneda en ${escapar(base)} y
+      vale para todos los movimientos de su mes (RN-04). Corregir uno cambia los
+      totales de ese mes.</p>
       <ul class="lineas">${filas}</ul>
     </section>
   `;
@@ -263,7 +301,7 @@ export function dibujarCambios(vista) {
  * El aviso antes de aplicar una corrección: cuántos movimientos cambian y en
  * cuánto queda el total del mes. Sin esto, un número cambiaría solo.
  */
-export function dibujarAvisoCorreccion(efecto, moneda) {
+export function dibujarAvisoCorreccion(efecto, moneda, base) {
   if (!efecto || efecto.afectados === 0) return '';
   if (efecto.diferencia === undefined) {
     return `<p class="confirmacion">Este tipo de cambio lo usan ${efecto.afectados} movimientos.</p>`;
@@ -275,8 +313,8 @@ export function dibujarAvisoCorreccion(efecto, moneda) {
   return `
     <p class="confirmacion" role="status">
       Afecta a ${cuantos} en ${escapar(normalizarMoneda(moneda))}.
-      El total de ese mes ${signo} de <strong>${escapar(formatearEuros(efecto.antes))}</strong>
-      a <strong>${escapar(formatearEuros(efecto.despues))}</strong>.
+      El total de ese mes ${signo} de <strong>${escapar(formatearEuros(efecto.antes, base))}</strong>
+      a <strong>${escapar(formatearEuros(efecto.despues, base))}</strong>.
     </p>
   `;
 }

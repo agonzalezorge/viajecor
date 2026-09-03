@@ -65,8 +65,23 @@ export function formatearEnSuMoneda(minimas, moneda, monedas) {
 }
 
 /** Un importe en céntimos de euro, que es la unidad de todos los totales. */
-export function formatearEuros(centimos) {
-  return formatearMonto(centimos, DECIMALES_EURO, 'EUR');
+export function formatearEuros(centimos, base = 'EUR') {
+  return formatearMonto(centimos, DECIMALES_EURO, base);
+}
+
+/**
+ * Un total, en la moneda base que el usuario haya elegido — T-050.
+ *
+ * Es `formatearEuros` con el nombre que corresponde desde que la base dejó de
+ * ser siempre el euro. El nombre viejo queda porque lo usan veintiséis lugares
+ * y renombrarlos todos de una es más riesgo que valor: los dos hacen lo mismo.
+ *
+ * **Siempre dos decimales**, sea cual sea la base. Los totales de la app se
+ * calculan en centésimas desde ADR-005 y cambiar eso tocaría cada cuenta del
+ * programa. Con euros y pesos uruguayos —las bases que hay— es exacto.
+ */
+export function formatearEnBase(minimas, base = 'EUR') {
+  return formatearMonto(minimas, DECIMALES_EURO, base);
 }
 
 /**
@@ -193,12 +208,13 @@ export function formatearMesCorto(mes) {
 /**
  * El tipo de cambio como el usuario lo conoce: "1 EUR = 630,25 CRC".
  *
- * Se muestra en el sentido de "cuántas unidades por euro" y no al revés, aunque
+ * Se muestra en el sentido de "cuántas unidades por unidad de la base" y no al
+ * revés, aunque
  * por dentro se guarde al revés (ADR: `core/cambio.js`). Un `0,001587` en
  * pantalla no le dice nada a nadie; `630,25` es el número que la persona vio en
  * la casa de cambio.
  */
-export function formatearTipoDeCambio(eurosPorUnidad, moneda) {
+export function formatearTipoDeCambio(eurosPorUnidad, moneda, base = 'EUR') {
   const codigo = normalizarMoneda(moneda);
   if (!Number.isFinite(eurosPorUnidad) || eurosPorUnidad <= 0) {
     throw new Error('El tipo de cambio tiene que ser un número mayor que cero.');
@@ -215,5 +231,5 @@ export function formatearTipoDeCambio(eurosPorUnidad, moneda) {
     maximumFractionDigits: decimales,
   }).format(unidadesPorEuro);
 
-  return `1 EUR = ${numero} ${codigo}`;
+  return `1 ${normalizarMoneda(base)} = ${numero} ${codigo}`;
 }

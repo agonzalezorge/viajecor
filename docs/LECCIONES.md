@@ -1047,3 +1047,33 @@ en que nace, y con su test. Y a la inversa: un test que compare el estado
 completo contra lo exportado habría encontrado esto solo — los tests de
 `exportar.js` miraban campo por campo, así que un campo nuevo simplemente no
 tenía a nadie que lo extrañara.
+
+
+## L-032 · Una función de aviso que mira lo que hay, no lo que va a hacer falta
+
+**Qué pasó.** `efectoDeCambiarBase()` avisaba qué se iba a perder al cambiar la
+moneda base recorriendo los meses que **ya tenían tipos de cambio guardados**.
+Parecía razonable hasta que el usuario preguntó por el caso obvio: un historial
+entero en euros, con base en euros, no tiene ningún tipo cargado. La lista
+estaba vacía, el aviso decía "no se pierde nada", y al confirmar todos los meses
+quedaban sin poder calcularse.
+
+**Por qué es fácil caer.** La función se llama "efecto de cambiar la base" y lo
+que la base gobierna, en el modelo, son los tipos de cambio. Mirar la tabla de
+tipos se siente como mirar lo afectado. Pero lo afectado no es la tabla: es
+**qué va a poder sumarse después**, y eso se mide sobre los movimientos.
+
+**La regla.** Un aviso de "esto se va a romper" se calcula **simulando el cambio
+y preguntando por el resultado**, no inspeccionando lo que hay hoy. Acá eso se
+escribe literal: se arman los tipos nuevos, se recorren los movimientos con
+`faltaCambioPara()` contra la base nueva y se compara con los que ya fallaban
+antes. Es más caro y es el único cálculo que no miente.
+
+**Hermana de esto:** los dos bloqueos que solo se vieron en el navegador
+(T-050). El validador que rechazaba cargar el tipo del euro comparaba contra la
+constante `MONEDA_BASE` y no contra la base elegida; y el botón "Cargar el tipo
+de cambio" llevaba a una pantalla que decía que la app lo iba a pedir sola,
+cuando los movimientos ya estaban cargados y nunca lo iba a pedir. **Una
+funcionalidad nueva no está terminada hasta que se recorre entera en el
+navegador**: los dos agujeros eran salidas cerradas, y ningún test los buscaba
+porque ningún test sabe cómo se camina una app.

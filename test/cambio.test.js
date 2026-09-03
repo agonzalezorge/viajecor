@@ -59,11 +59,25 @@ test('un movimiento en euros pasa entero, sin redondear de nuevo', () => {
   assert.equal(movimientoEnEuros(mov, [], MONEDAS), 1250);
 });
 
-test('no se puede cargar un tipo de cambio para el euro', () => {
+test('no se puede cargar un tipo de cambio para la moneda base', () => {
+  // Vale 1 contra sí misma. Desde T-050 la base la elige el usuario, así que el
+  // que no lleva cambio es el que él haya puesto de base, no siempre el euro.
   assert.throws(
     () => crearCambio({ moneda: 'EUR', mes: '2026-03', euros_por_unidad: 1.1 }),
-    /El euro no lleva tipo de cambio/
+    /EUR no lleva tipo de cambio/
   );
+  assert.throws(
+    () => crearCambio({ moneda: 'UYU', mes: '2026-03', euros_por_unidad: 1.1 }, { base: 'UYU' }),
+    /UYU no lleva tipo de cambio/
+  );
+});
+
+test('con otra base, el euro SÍ lleva tipo de cambio', () => {
+  // Es la vuelta de tuerca de T-050: para quien lleva sus cuentas en pesos, el
+  // euro es una moneda más y necesita su cotización como cualquier otra.
+  const cambio = crearCambio({ moneda: 'EUR', mes: '2026-03', euros_por_unidad: 45 }, { base: 'UYU' });
+  assert.equal(cambio.moneda, 'EUR');
+  assert.equal(cambio.euros_por_unidad, 45);
 });
 
 // ── El cálculo inverso (CU-03) ───────────────────────────────────────────────

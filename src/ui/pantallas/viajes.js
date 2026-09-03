@@ -21,6 +21,7 @@ import { escapar } from '../app.js';
 import { dibujarError } from './movimiento.js';
 import { viajes, fijarFechasDeViaje, duracionEnDias } from '../../core/viajes.js';
 import { formatearEuros, formatearFecha } from '../../core/formato.js';
+import { monedaBaseDe } from '../../core/monedas.js';
 
 /** Un rango de fechas, o una sola si son la misma. */
 export function dibujarRango(desde, hasta) {
@@ -40,13 +41,13 @@ export function dibujarFechas(viaje) {
  * gasto por día va debajo y **solo si los días están escritos**: sin ellos, en
  * su lugar va el botón para escribirlos, que es la acción que falta.
  */
-export function dibujarViaje(viaje) {
+export function dibujarViaje(viaje, base) {
   const cuantos = viaje.cuantos === 1 ? '1 gasto' : `${viaje.cuantos} gastos`;
 
   const porDia = viaje.fechas === null
     ? `<button type="button" class="secundario chico" data-accion="fechas-viaje"
                data-clave="${escapar(viaje.clave)}">¿Cuándo fue?</button>`
-    : `<span><strong>${escapar(formatearEuros(viaje.porDia))}</strong> por día
+    : `<span><strong>${escapar(formatearEuros(viaje.porDia, base))}</strong> por día
          en ${viaje.dias} ${viaje.dias === 1 ? 'día' : 'días'}
          <button type="button" class="enlace" data-accion="fechas-viaje"
                  data-clave="${escapar(viaje.clave)}">${escapar(dibujarRango(viaje.fechas.desde, viaje.fechas.hasta))}</button></span>`;
@@ -61,7 +62,7 @@ export function dibujarViaje(viaje) {
               data-comentario="${escapar(viaje.comentario)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(viaje.comentario)}</span>
-          <span class="importe">${escapar(formatearEuros(viaje.total))}</span>
+          <span class="importe">${escapar(formatearEuros(viaje.total, base))}</span>
         </span>
       </button>
       <div class="rubro-pie suave">
@@ -138,6 +139,7 @@ export function dibujarDuracion(desde, hasta) {
 }
 
 export function dibujarViajes(vista) {
+  const base = monedaBaseDe(vista.estado);
   if (vista.viajeEditado) return dibujarFechasDeViaje(vista);
 
   const lista = viajes(vista.estado);
@@ -160,7 +162,7 @@ export function dibujarViajes(vista) {
       <h2>Gasto por viaje</h2>
       <p class="suave nota">El total incluye <strong>todos</strong> los rubros de
       ese viaje, no solo los del rubro «viajes». Tocá uno para ver sus gastos.</p>
-      <ul class="rubros">${lista.map(dibujarViaje).join('')}</ul>
+      <ul class="rubros">${lista.map((v) => dibujarViaje(v, base)).join('')}</ul>
     </section>
   `;
 }

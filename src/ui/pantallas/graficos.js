@@ -64,7 +64,7 @@ function punto(grados, radio) {
  * Devuelve `''` si no hay nada que repartir: una torta de un solo color es un
  * círculo, y un círculo no dice nada que el importe no diga mejor.
  */
-export function dibujarTorta(filas, tipo) {
+export function dibujarTorta(filas, tipo, base) {
   if (filas.length < 2) return '';
 
   const total = filas.reduce((suma, fila) => suma + fila.total, 0);
@@ -99,7 +99,7 @@ export function dibujarTorta(filas, tipo) {
       <g>
         <path class="porcion rubro-${franja}"
               d="M 0 0 L ${x1} ${y1} A ${RADIO} ${RADIO} 0 ${grande} 1 ${x2} ${y2} Z">
-          <title>${escapar(formatearRubro(fila.rubro))}: ${escapar(formatearEuros(fila.total))} (${Math.round(porcentaje)} %)</title>
+          <title>${escapar(formatearRubro(fila.rubro))}: ${escapar(formatearEuros(fila.total, base))} (${Math.round(porcentaje)} %)</title>
         </path>
         ${rotulo}
       </g>`;
@@ -140,6 +140,7 @@ export function diasHasta(dias, hasta) {
  * mismo dibujo es la forma más común de mentir con un gráfico.
  */
 export function dibujarLinea(dias, opciones = {}) {
+  const base = opciones.base;
   const visibles = diasHasta(dias, opciones.hasta);
   if (visibles.length < 2) return '';
 
@@ -159,9 +160,9 @@ export function dibujarLinea(dias, opciones = {}) {
 
   return `
     <svg class="linea-acumulado" viewBox="-4 -18 ${ANCHO + 60} ${ALTO + 40}" role="img"
-         aria-label="${escapar(opciones.queEs ?? `Acumulado del mes hasta el día ${ultimo.dia}`)}: gastos ${escapar(formatearEuros(ultimo.gastoAcumulado))}, ingresos ${escapar(formatearEuros(ultimo.ingresoAcumulado))}">
+         aria-label="${escapar(opciones.queEs ?? `Acumulado del mes hasta el día ${ultimo.dia}`)}: gastos ${escapar(formatearEuros(ultimo.gastoAcumulado, base))}, ingresos ${escapar(formatearEuros(ultimo.ingresoAcumulado, base))}">
       <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
-      <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo))}</text>
+      <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo, base))}</text>
       <polyline class="traza ingreso" points="${linea('ingresoAcumulado')}" />
       <polyline class="traza gasto" points="${linea('gastoAcumulado')}" />
       <text class="rotulo-traza ingreso" x="${x(ultimo.dia) + 6}" y="${y(ultimo.ingresoAcumulado) + 4}">Ingresos</text>
@@ -181,6 +182,7 @@ export function dibujarLinea(dias, opciones = {}) {
 
 /** La tarjeta entera de la línea, con su título. */
 export function dibujarAcumulado(dias, opciones = {}) {
+  const base = opciones.base;
   const dibujo = dibujarLinea(dias, opciones);
   if (dibujo === '') return '';
 

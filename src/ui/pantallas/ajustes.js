@@ -19,9 +19,11 @@
 
 import { escapar } from '../app.js';
 import { PERFIL_COTIDIANA } from '../app.js';
+import { monedaBaseDe } from '../../core/monedas.js';
 
 export function dibujarAjustes(vista) {
   const enCotidiana = (vista.perfil ?? PERFIL_COTIDIANA) === PERFIL_COTIDIANA;
+  const base = monedaBaseDe(vista.estado);
 
   return `
     ${enCotidiana ? `
@@ -45,6 +47,15 @@ export function dibujarAjustes(vista) {
     </section>
 
     <section class="tarjeta">
+      <h2>Moneda base</h2>
+      <p class="suave">En qué moneda se muestran todos los totales. De fábrica es
+      el euro; se puede usar cualquiera de tus monedas.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="moneda-base">
+        Ver la moneda base
+      </button>
+    </section>
+
+    <section class="tarjeta">
       <h2>Monedas</h2>
       <p class="suave">Ver las que hay, agregar una nueva u ocultar las que ya no
       usás. Sirve para los dos lados de la app.</p>
@@ -56,8 +67,8 @@ export function dibujarAjustes(vista) {
     ${enCotidiana ? `
     <section class="tarjeta">
       <h2>Tipos de cambio</h2>
-      <p class="suave">Lo que vale cada moneda en euros, mes por mes. Sin esto,
-      un gasto en otra moneda no puede entrar en ningún total.</p>
+      <p class="suave">Lo que vale cada moneda en ${escapar(base)}, mes por mes.
+      Sin esto, un gasto en otra moneda no puede entrar en ningún total.</p>
       <!-- Solo en vida cotidiana: los ahorros NO se convierten a euros nunca
            (CU-14), así que ahí un tipo de cambio no cambiaría ningún número. -->
       <button type="button" class="secundario" data-accion="ir" data-pantalla="cambios">

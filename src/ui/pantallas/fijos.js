@@ -19,6 +19,7 @@
 import { escapar } from '../app.js';
 import { gastosFijos } from '../../core/calculos.js';
 import { formatearEuros, formatearMesCorto } from '../../core/formato.js';
+import { monedaBaseDe } from '../../core/monedas.js';
 
 /** Cuántas veces se pagó y entre qué meses. */
 export function dibujarCadencia(grupo) {
@@ -37,7 +38,7 @@ export function dibujarCadencia(grupo) {
  * me sale?", no "¿cuánto llevo gastado?". El total está al lado porque es lo que
  * permite comprobar el promedio a mano, pero no es lo que se viene a buscar.
  */
-export function dibujarGastoFijo(grupo) {
+export function dibujarGastoFijo(grupo, base) {
   return `
     <li class="fila-rubro">
       <!-- Lleva a los pagos que componen ese promedio, en TODOS los meses: esta
@@ -47,12 +48,12 @@ export function dibujarGastoFijo(grupo) {
               data-comentario="${escapar(grupo.comentario)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(grupo.comentario)}</span>
-          <span class="importe">${escapar(formatearEuros(grupo.promedio))}</span>
+          <span class="importe">${escapar(formatearEuros(grupo.promedio, base))}</span>
         </span>
       </button>
       <div class="rubro-pie suave">
         <span>${escapar(dibujarCadencia(grupo))}</span>
-        <span>${escapar(formatearEuros(grupo.total))} en total</span>
+        <span>${escapar(formatearEuros(grupo.total, base))} en total</span>
       </div>
       ${dibujarTambienEnOtrosGrupos(grupo)}
     </li>
@@ -67,7 +68,7 @@ export function dibujarGastoFijo(grupo) {
  * el total del rubro** y el usuario no tendría cómo darse cuenta. Se dicen, y se
  * dice qué hacer para que entren.
  */
-export function dibujarSinComentario(sinComentario) {
+export function dibujarSinComentario(sinComentario, base) {
   if (sinComentario.cuantos === 0) return '';
 
   const cuantos = sinComentario.cuantos === 1
@@ -76,7 +77,7 @@ export function dibujarSinComentario(sinComentario) {
 
   return `
     <p class="suave nota">
-      ${cuantos} en esta lista, por ${escapar(formatearEuros(sinComentario.total))}:
+      ${cuantos} en esta lista, por ${escapar(formatearEuros(sinComentario.total, base))}:
       no tienen etiqueta, y la etiqueta es lo que dice cuál gasto fijo son.
       Poniéndoles una —"Luz", "Gas"— entran solos.
     </p>
@@ -105,10 +106,11 @@ export function dibujarTambienEnOtrosGrupos(grupo) {
 }
 
 export function dibujarGastosFijos(estado) {
+  const base = monedaBaseDe(estado);
   const { grupos, sinComentario, total } = gastosFijos(estado);
   if (grupos.length === 0 && sinComentario.cuantos === 0) return '';
 
-  const cuerpo = grupos.map(dibujarGastoFijo).join('');
+  const cuerpo = grupos.map((g) => dibujarGastoFijo(g, base)).join('');
 
   const vacio = grupos.length > 0 ? '' : `
     <p class="suave">Ninguno de tus gastos fijos tiene etiqueta todavía, así que
@@ -118,10 +120,10 @@ export function dibujarGastosFijos(estado) {
     <section class="tarjeta">
       <h2>Cuánto sale cada gasto fijo</h2>
       <p class="suave nota">El promedio por pago de cada uno. En total llevás
-      ${escapar(formatearEuros(total))} en gastos fijos.</p>
+      ${escapar(formatearEuros(total, base))} en gastos fijos.</p>
       ${vacio}
       <ul class="rubros">${cuerpo}</ul>
-      ${dibujarSinComentario(sinComentario)}
+      ${dibujarSinComentario(sinComentario, base)}
     </section>
   `;
 }

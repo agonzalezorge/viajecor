@@ -272,6 +272,7 @@ qué existe.
 | CU-17 | Buscar un movimiento en todo el historial | **Hecho** (T-943) |
 | CU-18 | Ver los otros grupos de gastos | **Hecho** (T-946) |
 | CU-19 | Editar los rubros | **Hecho** (T-048) |
+| CU-20 | Elegir la moneda base | **Hecho** (T-050) |
 
 ---
 
@@ -662,6 +663,51 @@ otra persona que lleva su propio Excel con sus propios rubros.
 importando un respaldo de otro dispositivo con más rubros de los que entran—,
 la pantalla **lo dice** y deja unirlo: esos movimientos existen y no aparecen en
 ningún total por rubro.
+
+---
+
+### CU-20 — Elegir la moneda base
+
+**Para qué:** la app nació con el euro como denominador común porque su primer
+usuario vive en euros. No todo el mundo: alguien que gasta en pesos uruguayos y
+viaja de vez en cuando quiere ver sus totales en pesos, no convertidos a una
+moneda que no usa.
+
+**Qué es la moneda base:** la moneda en la que se muestran **todos los totales**
+—el resumen del mes, la evolución, los viajes, los grupos— y la única que no
+lleva tipo de cambio, porque vale 1 contra sí misma. **De fábrica sigue siendo
+el euro**; se cambia en Ajustes → Moneda base.
+
+**Los movimientos no se tocan nunca.** Cada uno sigue guardado en su moneda y
+con su monto: lo único que cambia es en qué moneda se suman. Un cambio de base
+que reescribiera montos sería la peor pérdida posible, porque no habría forma de
+saber cuál era el número original.
+
+**Lo que sí cambia son los tipos de cambio**, que estaban expresados en la base
+vieja. Donde hay cotización de la moneda nueva se reexpresan solos; donde no la
+hay, **se pierden y hay que volver a cargarlos**.
+
+**Antes de confirmar, la app dice qué va a pasar, con números:** cuántos tipos
+se recalculan, cuáles se pierden y —lo que más importa— **en qué meses van a
+quedar movimientos sin poder convertirse**. Ese aviso mira los meses que tienen
+movimientos, no solo los que tienen tipos guardados: el caso peor es
+precisamente el de un historial entero en euros con base en euros, que no
+necesita ninguna cotización hoy y las necesita todas mañana. Los faltantes que
+ya existían antes del cambio se cuentan aparte, para no acusar al cambio de base
+de un agujero anterior.
+
+**Y quedan cargables hacia atrás:** la pantalla de tipos de cambio lista los que
+faltan, mes por mes, con un botón para cargar cada uno. Sin eso el usuario
+quedaría mirando un total incompleto sin ninguna puerta para arreglarlo, porque
+la app solo pide el tipo de cambio cuando el movimiento es nuevo.
+
+**El tipo de cambio se escribe siempre en el mismo sentido: "1 <base> son N
+<moneda>".** Con base en pesos y un gasto en euros eso se escribe `0,022222`,
+que es incómodo de leer. Es una sola regla y no admite ambigüedad; si conviene
+más el otro sentido, es una decisión de producto a tomar aparte.
+
+**Los ahorros conjuntos no usan la moneda base**: ahí cada moneda se muestra por
+separado y nunca se convierte (CU-14).
 
 ---
 

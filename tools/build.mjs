@@ -29,6 +29,7 @@ const MODULOS = [
   'src/core/agrupamientos.js',
 
   'src/core/busqueda.js',
+  'src/core/base.js',
   'src/core/rubros.js',
   'src/core/ahorros.js',
   'src/core/calculos.js',
@@ -56,6 +57,7 @@ const MODULOS = [
   'src/core/viajes.js',
   'src/ui/pantallas/etiquetas.js',
   'src/ui/pantallas/viajes.js',
+  'src/ui/pantallas/base.js',
   'src/ui/pantallas/rubros.js',
   'src/ui/pantallas/ajustes.js',
   'src/ui/pantallas/ahorro.js',

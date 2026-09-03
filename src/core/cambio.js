@@ -24,7 +24,12 @@ import { MONEDA_BASE, decimalesDe } from './monedas.js';
  * obligaría a pedirlo al usuario la primera vez que registre un gasto en euros,
  * que es el 90% de los casos.
  */
-export const CAMBIO_EURO = 1;
+/**
+ * Lo que vale la moneda base contra sí misma. Se llamaba `CAMBIO_EURO` hasta
+ * T-050, cuando la base dejó de ser siempre el euro.
+ */
+export const CAMBIO_BASE = 1;
+export const CAMBIO_EURO = CAMBIO_BASE;
 
 const PATRON_MES = /^\d{4}-\d{2}$/;
 
@@ -60,11 +65,11 @@ export function validarMes(mes) {
  * error. Al usuario se le puede preguntar en cualquiera de los dos sentidos
  * (CU-03) y la app invierte el número antes de guardarlo — ver `desdeUnidadesPorEuro`.
  */
-export function crearCambio({ moneda, mes, euros_por_unidad } = {}, { creado } = {}) {
+export function crearCambio({ moneda, mes, euros_por_unidad } = {}, { creado, base = MONEDA_BASE } = {}) {
   const codigo = normalizarMoneda(moneda);
 
-  if (codigo === MONEDA_BASE) {
-    throw new Error('El euro no lleva tipo de cambio: es la moneda en la que se expresan todos los totales.');
+  if (codigo === base) {
+    throw new Error(`${codigo} no lleva tipo de cambio: es la moneda en la que se expresan todos los totales.`);
   }
   if (!Number.isFinite(euros_por_unidad) || euros_por_unidad <= 0) {
     throw new Error('El tipo de cambio tiene que ser un número mayor que cero.');
@@ -103,9 +108,9 @@ export function aUnidadesPorEuro(eurosPorUnidad) {
  *
  * Para el euro devuelve siempre 1 sin buscar nada.
  */
-export function buscarCambio(cambios, moneda, mes) {
+export function buscarCambio(cambios, moneda, mes, base = MONEDA_BASE) {
   const codigo = normalizarMoneda(moneda);
-  if (codigo === MONEDA_BASE) return CAMBIO_EURO;
+  if (codigo === base) return CAMBIO_BASE;
 
   validarMes(mes);
   if (!Array.isArray(cambios)) {
@@ -138,12 +143,12 @@ export function guardarCambio(cambios, cambio) {
  * falta el tipo de cambio para la moneda de ese movimiento en su mes, hay que
  * pedirlo. Devuelve `null` si está todo bien, o un objeto que dice qué falta.
  */
-export function faltaCambioPara(movimiento, cambios) {
+export function faltaCambioPara(movimiento, cambios, base = MONEDA_BASE) {
   const moneda = normalizarMoneda(movimiento.moneda);
-  if (moneda === MONEDA_BASE) return null;
+  if (moneda === base) return null;
 
   const mes = mesDe(movimiento.fecha);
-  const cambio = buscarCambio(cambios, moneda, mes);
+  const cambio = buscarCambio(cambios, moneda, mes, base);
   return cambio === null ? { moneda, mes } : null;
 }
 
@@ -155,21 +160,21 @@ export function faltaCambioPara(movimiento, cambios) {
  * dejar rastro: el total baja, no hay error, y nadie se entera. Quien llame
  * tiene que haber preguntado antes con `faltaCambioPara()`.
  */
-export function movimientoEnEuros(movimiento, cambios, monedas) {
+export function movimientoEnEuros(movimiento, cambios, monedas, base = MONEDA_BASE) {
   const moneda = normalizarMoneda(movimiento.moneda);
   const mes = mesDe(movimiento.fecha);
   const decimales = decimalesDe(monedas, moneda);
 
-  if (moneda === MONEDA_BASE) {
+  if (moneda === base) {
     // Ya está en euros: no se convierte ni se redondea. Redondear algo que no
     // hace falta convertir solo puede empeorarlo.
     return movimiento.monto;
   }
 
-  const cambio = buscarCambio(cambios, moneda, mes);
+  const cambio = buscarCambio(cambios, moneda, mes, base);
   if (cambio === null) {
     throw new Error(
-      `Falta el tipo de cambio de ${moneda} para ${mes}: sin él este movimiento no se puede expresar en euros.`
+      `Falta el tipo de cambio de ${moneda} para ${mes}: sin él este movimiento no se puede expresar en ${base}.`
     );
   }
   return convertirAEuros(movimiento.monto, decimales, cambio);
@@ -186,11 +191,11 @@ export function movimientoEnEuros(movimiento, cambios, monedas) {
  *
  * No recibe ningún rango ni límite: recorre la lista entera (L-001).
  */
-export function totalEnEuros(movimientos, cambios, monedas) {
+export function totalEnEuros(movimientos, cambios, monedas, base = MONEDA_BASE) {
   if (!Array.isArray(movimientos)) {
     throw new Error('totalEnEuros() espera una lista de movimientos.');
   }
-  return sumar(movimientos.map((m) => movimientoEnEuros(m, cambios, monedas)));
+  return sumar(movimientos.map((m) => movimientoEnEuros(m, cambios, monedas, base)));
 }
 
 /**
@@ -198,10 +203,10 @@ export function totalEnEuros(movimientos, cambios, monedas) {
  * movimientos, sin repetir. Sirve para avisar de una vez —"faltan CRC de marzo y
  * USD de abril"— en vez de ir descubriéndolos de a uno.
  */
-export function cambiosQueFaltan(movimientos, cambios) {
+export function cambiosQueFaltan(movimientos, cambios, base = MONEDA_BASE) {
   const vistos = new Map();
   for (const movimiento of movimientos) {
-    const falta = faltaCambioPara(movimiento, cambios);
+    const falta = faltaCambioPara(movimiento, cambios, base);
     if (falta) vistos.set(`${falta.moneda}|${falta.mes}`, falta);
   }
   return [...vistos.values()];

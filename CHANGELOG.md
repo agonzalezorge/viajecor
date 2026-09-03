@@ -3,6 +3,39 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.8.0 — 2026-09-03
+
+### Agregado
+- **La moneda base se elige.** Sigue siendo el euro al abrir, pero en Ajustes →
+  Moneda base se puede pasar a cualquier otra —el peso uruguayo, por ejemplo— y
+  todos los totales se muestran ahí: el resumen del mes, la evolución, los
+  viajes, los grupos.
+
+  **Tus movimientos no se tocan**: cada uno sigue guardado en su moneda y con su
+  monto. Lo que cambia es en qué se suman. Los tipos de cambio, que estaban
+  expresados en euros, se recalculan solos donde hay cotización de la moneda
+  nueva.
+
+  **Antes de confirmar, la app dice qué va a pasar con números**, incluidos los
+  meses en los que van a quedar movimientos sin poder convertirse. Ese aviso
+  mira los meses que tienen movimientos, no solo los que tienen tipos cargados:
+  si tu historial está entero en euros no hay ningún tipo guardado, y pasar a
+  pesos te los pide **todos, hacia atrás**.
+
+- **La pantalla de tipos de cambio ahora lista los que faltan**, mes por mes,
+  con un botón para cargar cada uno. Antes la app solo pedía el tipo cuando el
+  movimiento era nuevo, así que después de cambiar la base no había forma de
+  cargarlos.
+
+### Arreglado
+- **No se podía guardar el tipo de cambio del euro con otra base elegida.** La
+  app respondía "el euro no lleva tipo de cambio" — cierto solo cuando el euro
+  es la base. Con base en pesos, el euro es una moneda más y sí lo lleva.
+- **Varias pantallas decían "euros" escrito a mano**: el formulario del tipo de
+  cambio ("1 EUR son…"), el pie de la tabla de evolución, la sección de tipos de
+  cambio en Ajustes y los avisos de la exportación. Ahora nombran la moneda base
+  que tengas elegida.
+
 ## 0.7.0 — 2026-08-31
 
 ### Cambiado
