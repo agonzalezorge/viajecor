@@ -3,6 +3,23 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.9.0 — 2026-09-03
+
+### Agregado
+- **Dos tortas nuevas en la evolución mes a mes**: el reparto por rubro de todo
+  el período, una para los gastos ("En qué se fue") y otra para los ingresos
+  ("De dónde vino"). Suman los mismos meses que la tabla y lo dicen arriba, con
+  el total.
+
+  Son dos y no una porque son dos repartos distintos: mezclar lo que entró con
+  lo que salió daría porcentajes que no contestan ninguna pregunta.
+
+  Debajo de cada torta va la lista de mayor a menor, con el importe y el
+  porcentaje, y **tocar una fila abre esos movimientos de todos los meses** — no
+  del mes en curso, porque el número que tocaste es de todo el período. Si a
+  algún mes le falta un tipo de cambio, la torta lo avisa: repartir el 100 % de
+  un total incompleto es una mentira redonda.
+
 ## 0.8.0 — 2026-09-03
 
 ### Agregado

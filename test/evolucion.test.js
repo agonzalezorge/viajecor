@@ -334,3 +334,84 @@ test('la banda de cada bloque va alineada a la izquierda', async () => {
 
   assert.match(banda.slice(0, banda.indexOf('}')), /text-align: left/);
 });
+
+
+// ── El reparto por rubro de todo el período (T-051) ──────────────────────────
+//
+// La tabla contesta "cuánto, mes por mes". No contesta "en qué se me va": para
+// eso hay que leer la fila Total de punta a punta comparando números de cinco
+// cifras. Las dos tortas contestan eso de un vistazo — y la lista de abajo es
+// la que permite compararlo con precisión, porque el color no es un número.
+
+test('hay dos repartos, uno de gastos y otro de ingresos', () => {
+  const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-03').replace(/\s+/g, ' ');
+
+  assert.match(html, /<h2>En qué se fue, en todo el período<\/h2>/);
+  assert.match(html, /<h2>De dónde vino, en todo el período<\/h2>/);
+});
+
+test('los porcentajes del reparto son sobre el total de SU tipo', () => {
+  // 600 de viajes y 40 de salud son 640 de gastos: 94 % y 6 %. Si los gastos y
+  // los ingresos se repartieran juntos, sobre 1.540, darían 39 % y 3 % — dos
+  // números que no contestan ninguna pregunta que alguien se haga.
+  const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-03').replace(/\s+/g, ' ');
+  const gastos = html.slice(html.indexOf('En qué se fue'), html.indexOf('De dónde vino'));
+
+  assert.match(gastos, /Viajes.*?600,00 €/);
+  assert.match(gastos, /94 %/);
+  assert.match(gastos, /6 %/);
+  assert.match(html.slice(html.indexOf('De dónde vino')), /Trabajo.*?900,00 €.*?100 %/);
+});
+
+test('el reparto suma los meses de la tabla y lo dice', () => {
+  const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-03').replace(/\s+/g, ' ');
+  assert.match(html, /Los 3 meses de la tabla, sumados: 640,00 €/);
+});
+
+test('los rubros sin nada no aparecen en el reparto', () => {
+  // Ocho rubros de gasto, dos usados: una torta con seis porciones de cero es
+  // seis colores en la leyenda que no corresponden a ninguna plata.
+  const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-03');
+  const gastos = html.slice(html.indexOf('En qué se fue'), html.indexOf('De dónde vino'));
+
+  assert.equal((gastos.match(/data-accion="ver-rubro"/g) ?? []).length, 2);
+  assert.equal(gastos.includes('Supermercado'), false);
+});
+
+test('tocar una fila del reparto lleva a todos los meses, no al mes en curso', () => {
+  // El número que se acaba de tocar es de todo el período. Abrir un solo mes
+  // mostraría una parte de él sin decir que es una parte.
+  const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-03').replace(/\s+/g, ' ');
+
+  assert.match(html, /data-accion="ver-rubro" data-tipo="G" data-rubro="viajes" data-todos-los-meses="si"/);
+});
+
+test('el reparto avisa cuando falta plata por un tipo de cambio', () => {
+  // Sin esto, la torta de un mes incompleto es una mentira redonda: reparte el
+  // 100 % de un total que no es el total.
+  const conFaltante = estadoCon([
+    ...TRES_MESES.movimientos,
+    mov({ monto: '500', fecha: '2026-03-12', rubro: 'salud', moneda: 'USD' }),
+  ]);
+  const html = dibujarEvolucion({ estado: conFaltante }, '2026-03').replace(/\s+/g, ' ');
+
+  assert.match(html, /<strong>Falta plata acá<\/strong>/);
+});
+
+test('sin ingresos no se dibuja la torta de ingresos', () => {
+  const soloGastos = estadoCon([mov({ monto: '100', fecha: '2026-01-10', rubro: 'viajes' })]);
+  const html = dibujarEvolucion({ estado: soloGastos }, '2026-01');
+
+  assert.equal(html.includes('De dónde vino'), false);
+  assert.equal(html.includes('En qué se fue'), true, 'el de gastos sí');
+});
+
+test('el reparto va de mayor a menor', () => {
+  // De arriba abajo se lee "en esto se me va la plata". Ordenado por el orden
+  // del catálogo, el rubro más caro puede quedar sexto y hay que buscarlo.
+  const html = dibujarEvolucion({ estado: TRES_MESES }, '2026-03');
+  const gastos = html.slice(html.indexOf('En qué se fue'), html.indexOf('De dónde vino'));
+  const nombres = [...gastos.matchAll(/data-rubro="([^"]+)"/g)].map((m) => m[1]);
+
+  assert.deepEqual(nombres, ['viajes', 'salud'], '600 antes que 40');
+});

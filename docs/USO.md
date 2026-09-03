@@ -248,6 +248,14 @@ propósito: es cómo estás mirando, no un dato tuyo. Al final está el
 botón *"Ver la evolución y los gastos fijos"*, que lleva a la matriz mes × rubro
 y a cuánto sale cada gasto fijo.
 
+**Debajo de la matriz están las dos tortas**: *"En qué se fue"* y *"De dónde
+vino"*, el reparto por rubro de **todos los meses de la tabla**. Son dos y no
+una porque son dos repartos distintos —lo que salió y lo que entró—, y
+mezclarlos daría porcentajes que no significan nada. La lista de abajo va de
+mayor a menor, y tocando una fila ves esos movimientos **de todos los meses**.
+Si a algún mes le falta un tipo de cambio, la torta te lo avisa: ahí falta
+plata.
+
 **Cualquier total se puede tocar y ver de qué se compone.** Una fila del
 desglose, un gasto fijo, una celda de la matriz o un mes entero: te llevan a la
 lista con solo esos movimientos, con el total repetido arriba para que veas que

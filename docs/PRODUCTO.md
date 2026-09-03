@@ -495,6 +495,26 @@ un punto para ver **en qué momento estás y cuánto valía cada línea ahí**.
   historial. Lo que se mira ahí no es la altura sino si las dos líneas se
   separan o se juntan.
 
+**Y el reparto por rubro de todo el período** (T-051), en **dos tortas
+separadas: una de gastos y otra de ingresos**. La tabla contesta "cuánto, mes
+por mes"; para saber en qué se va la plata hay que leer la fila Total de punta a
+punta comparando números de cinco cifras. La torta contesta eso de un vistazo.
+
+- Son dos y no una porque son **dos repartos de dos totales distintos**:
+  juntarlos daría porcentajes sobre la suma de lo que entró y lo que salió, un
+  número que no significa nada.
+- Suman **los mismos meses que la tabla**, y lo dicen arriba con el total.
+- **Debajo va siempre la lista** con el nombre, el importe y el porcentaje, de
+  mayor a menor: es donde se compara con precisión y donde el rubro se
+  identifica por su nombre, porque con veinte rubros el color ya no alcanza
+  (ADR-049). Tocar una fila abre esos movimientos **de todos los meses**, no del
+  mes en curso, porque el número que se tocó es de todo el período.
+- Los rubros **sin nada no aparecen**: una porción de cero es un color en la
+  lista que no corresponde a ninguna plata.
+- Si algún mes está incompleto por falta de un tipo de cambio, **la torta lo
+  avisa**: repartir el 100 % de un total que no es el total es una mentira
+  redonda.
+
 **Reglas, escritas porque en el Excel no lo estaban (L-006, ADR-031):**
 - Están **todos los rubros siempre** —los ocho de gasto y los cuatro de
   ingreso—, aunque un mes no tenga ninguno.

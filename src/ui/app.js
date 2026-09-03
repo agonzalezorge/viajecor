@@ -1708,9 +1708,15 @@ export function iniciar(documento, almacen) {
       return;
     } else if (accion === 'ver-rubro') {
       // Tocar una fila del desglose lleva a los movimientos que la componen,
-      // en el mes que se está mirando (T-026).
+      // en el mes que se está mirando (T-026) — salvo que la fila hable de todo
+      // el período, como el reparto de la evolución (T-051): ahí mostrar un mes
+      // sería una parte del número que se acaba de tocar.
       vista = { ...vista, pantalla: 'movimientos', error: null,
-        filtro: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro } };
+        filtro: {
+          tipo: boton.dataset.tipo,
+          rubro: boton.dataset.rubro,
+          ...(boton.dataset.todosLosMeses ? { todosLosMeses: true } : {}),
+        } };
     } else if (accion === 'ver-comentario') {
       // El comentario mira TODOS los meses: la tarjeta de gastos fijos habla de
       // todo el historial, y mostrar solo el mes en curso sería una parte del

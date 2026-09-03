@@ -96,6 +96,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-048 | Rubros editables: crear, renombrar, unir | **Hecha** | T-047 |
 | T-049 | Veinte colores, y rubros nuevos al importar | **Hecha** | T-048 |
 | T-050 | Moneda base configurable | **Hecha** | T-047 |
+| T-051 | El reparto por rubro en la evolución | **Hecha** | T-021 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
@@ -2640,3 +2641,42 @@ distintos, se pasó la base a pesos —el aviso nombra los dos meses y los dos
 movimientos que quedan colgados—, se canceló, se confirmó, se recargó (la base
 sobrevive), se cargó el tipo del euro desde la lista de faltantes y el total
 quedó en 9.000,09 UYU para 200 EUR a 0,022222, que es el número correcto.
+
+
+### T-051 · El reparto por rubro en la evolución — **Hecha** (2026-09-03)
+
+**El pedido:** *"podés agregarme en la parte de evolución mes a mes gráficos de
+torta de la distribución por rubro de gastos e ingresos (o sea, una torta pa
+cada uno)?"*
+
+**Lo que se hizo:** dos tarjetas nuevas debajo de la tabla —"En qué se fue" y
+"De dónde vino"—, cada una con su torta y su lista. Reusan `dibujarTorta()`, que
+ya existía para el resumen del mes: mismo componente, misma paleta, mismos
+rótulos con la tinta elegida por color (T-049). Lo único nuevo es de dónde salen
+los datos: `matriz.total.rubros` y `matriz.total.rubrosIngreso`, que la tabla ya
+calculaba para su fila Total.
+
+**Dos tortas y no una.** Son dos repartos de dos totales distintos. Con todo
+junto, los 550 € de viajes serían el 8 % de "gastos más ingresos", un número que
+no contesta ninguna pregunta. Hay un test que fija los porcentajes por tipo
+justamente para que nadie lo "simplifique" después.
+
+**Decisiones chicas que se tomaron mirando:**
+- **De mayor a menor**, no en el orden del catálogo: de arriba abajo se lee "en
+  esto se me va la plata".
+- **Los rubros en cero no entran**: seis colores en la lista sin plata detrás.
+- **Se toca la fila, no la porción** (como en el resumen del mes) y abre **todos
+  los meses**, no el mes en curso: el número que se tocó es de todo el período.
+- **Si falta un tipo de cambio, la torta lo dice**: repartir el 100 % de un
+  total incompleto es una mentira redonda.
+
+**Mutaciones:** 10 sembradas, 9 muertas. La sobreviviente —que el `dataset` del
+botón llegue al filtro— es de la capa de eventos, que este proyecto prueba
+abriendo la app (encabezado de `test/app.test.js`); quedó cubierta en el
+recorrido.
+
+**Recorrido en el navegador:** tres meses con cuatro rubros de gasto y dos de
+ingreso. Las dos tortas aparecen entre la tabla y los gráficos de línea, con 4 y
+2 porciones; los importes cierran con la fila Total (1.240 € y 5.400 €); tocar
+"Viajes" abre los 2 movimientos de todos los meses por 550 €; y después de
+recargar sigue todo igual.

@@ -29,10 +29,10 @@ import { escapar } from '../app.js';
 import { matrizMesRubro, acumuladoHistorico } from '../../core/calculos.js';
 import { DECIMALES_EURO } from '../../core/dinero.js';
 import { monedaBaseDe } from '../../core/monedas.js';
-import { formatearMesCorto, formatearNumero, formatearRubro } from '../../core/formato.js';
+import { formatearEuros, formatearMesCorto, formatearNumero, formatearRubro } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
 import { dibujarGastosFijos } from './fijos.js';
-import { dibujarAcumuladoHistorico, dibujarMesAMes } from './graficos.js';
+import { dibujarAcumuladoHistorico, dibujarMesAMes, dibujarTorta } from './graficos.js';
 import { TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../../core/modelo.js';
 
 /**
@@ -174,6 +174,75 @@ export function dibujarNotaDelPromedio(matriz) {
   `;
 }
 
+/**
+ * El reparto por rubro de TODO el período que muestra la tabla — T-051.
+ *
+ * ── Por qué acá y por qué dos ───────────────────────────────────────────────
+ *
+ * La tabla de arriba contesta "cuánto, mes por mes". Contesta mal, en cambio,
+ * "en qué se va lo mío": para saberlo hay que leer la fila Total de punta a
+ * punta comparando números de cinco cifras, que es justo lo que una persona no
+ * hace bien. La torta contesta eso de un vistazo.
+ *
+ * Van **dos tortas separadas, gastos e ingresos**, y no una sola con todo: son
+ * dos repartos de dos totales distintos. Juntarlos daría porcentajes sobre la
+ * suma de la plata que entró y la que salió, un número que no significa nada.
+ *
+ * **La torta nunca va sola.** Debajo va la lista con el nombre, el importe y el
+ * porcentaje, que es donde se compara con precisión — y donde el rubro se
+ * identifica por su nombre y no por su color, que con veinte rubros ya no
+ * alcanza (ADR-049). Se toca la fila y no la porción: una porción del 1 % en un
+ * teléfono son dos milímetros.
+ */
+function dibujarRepartoDe(matriz, tipo, base, incompletos) {
+  const nombres = tipo === TIPO_GASTO ? matriz.rubros : matriz.rubrosIngreso;
+  const importes = tipo === TIPO_GASTO ? matriz.total.rubros : matriz.total.rubrosIngreso;
+
+  const filas = nombres
+    .map((rubro, i) => ({ rubro, total: importes[i] }))
+    .filter((f) => f.total > 0)
+    .sort((a, b) => b.total - a.total);
+
+  const total = filas.reduce((suma, f) => suma + f.total, 0);
+  if (total <= 0) return '';
+
+  const titulo = tipo === TIPO_GASTO
+    ? 'En qué se fue, en todo el período'
+    : 'De dónde vino, en todo el período';
+
+  const cuerpo = filas.map((f) => `
+    <li class="fila-rubro">
+      <button type="button" class="fila-toque" data-accion="ver-rubro"
+              data-tipo="${escapar(tipo)}" data-rubro="${escapar(f.rubro)}"
+              data-todos-los-meses="si">
+        <span class="rubro-cabeza">
+          <span class="nombre">
+            <span class="punto-rubro ${claseDeRubro(tipo, f.rubro)}" aria-hidden="true"></span>
+            ${escapar(formatearRubro(f.rubro))}
+          </span>
+          <span class="importe">${escapar(formatearEuros(f.total, base))}</span>
+        </span>
+      </button>
+      <div class="rubro-pie suave">
+        <span>${Math.round((f.total / total) * 100)} %</span>
+      </div>
+    </li>`).join('');
+
+  return `
+    <section class="tarjeta">
+      <h2>${titulo}</h2>
+      <p class="suave nota">${matriz.filas.length === 1
+        ? 'El único mes con movimientos'
+        : `Los ${matriz.filas.length} meses de la tabla, sumados`}:
+        ${escapar(formatearEuros(total, base))}.${incompletos > 0
+        ? ' <strong>Falta plata acá</strong>: hay meses sin tipo de cambio y sus movimientos no están sumados.'
+        : ''}</p>
+      ${dibujarTorta(filas, tipo, base)}
+      <ul class="rubros">${cuerpo}</ul>
+    </section>
+  `;
+}
+
 /** Lo que se ve cuando todavía no hay nada que comparar. */
 export function dibujarSinHistorial() {
   return `
@@ -233,6 +302,8 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
+    ${dibujarRepartoDe(matriz, TIPO_GASTO, base, incompletos)}
+    ${dibujarRepartoDe(matriz, TIPO_INGRESO, base, incompletos)}
     ${dibujarMesAMes(matriz.filas)}
     ${dibujarAcumuladoHistorico(acumuladoHistorico(vista.estado))}
     ${dibujarGastosFijos(vista.estado)}
