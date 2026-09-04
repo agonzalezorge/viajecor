@@ -282,7 +282,8 @@ qué existe.
 segundos y sin conexión.
 
 **Pasos:**
-1. El usuario abre la app y toca "Nuevo movimiento".
+1. El usuario abre la app, que **arranca en Cargar** (T-055): es lo que más se
+   hace y muchas veces lo único que se viene a hacer.
 2. La app propone: fecha = hoy, tipo = gasto, moneda = la última que usó.
 3. El usuario escribe el monto y elige el rubro.
 4. Opcionalmente escribe un comentario (`Roma`, `Luz`) y un detalle.
@@ -502,6 +503,20 @@ un punto para ver **en qué momento estás y cuánto valía cada línea ahí**.
 - **Todo lo que llevás gastado y cobrado:** el acumulado día por día de todo el
   historial. Lo que se mira ahí no es la altura sino si las dos líneas se
   separan o se juntan.
+
+**Se puede recortar a un período** (T-054): dos listas, *Desde* y *Hasta*, con
+**los meses que tienen movimientos** —dejar elegir un mes vacío solo consigue una
+pantalla vacía que no explica por qué—. Al elegirlas, **todo lo de abajo se
+recalcula**: la tabla, el total, el promedio, las dos tortas, los dos gráficos y
+los gastos fijos. La pantalla dice qué período está mirando y cuántos
+movimientos quedaron afuera, y ofrece volver a todo el historial.
+
+- **De fábrica no hay recorte**: la pantalla es la de siempre.
+- El período **no se guarda**: es cómo estás mirando, no un dato tuyo (igual que
+  el zoom de los gráficos). Sobrevive a cambiar de pantalla, no a cerrar la app.
+- Un período **al revés** —de marzo a enero— se da vuelta en vez de rechazarse:
+  es evidente qué se quiso decir, y una tabla vacía con un cartel de error no le
+  sirve a nadie.
 
 **Y el reparto por rubro de todo el período** (T-051), en **dos tortas
 separadas: una de gastos y otra de ingresos**. La tabla contesta "cuánto, mes

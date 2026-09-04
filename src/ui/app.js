@@ -497,11 +497,23 @@ export function dibujarApp(vista) {
  */
 export function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false, riesgoDeGuardado = null } = {}) {
   return {
-    pantalla: 'mes',
+    // Al abrir, la app aterriza en **Cargar** — T-055, pedido del usuario. Es lo
+    // que más se hace y muchas veces es lo único que se viene a hacer: anotar el
+    // gasto parado en la caja. Empezar en "Mes" costaba un toque en cada carga y
+    // ahorraba cero en la única pantalla que se abre para mirar.
+    //
+    // Con el perfil de ahorros recordado, `dibujarApp()` la cambia sola por la
+    // de ese perfil: "nuevo" no es una pantalla suya.
+    pantalla: 'nuevo',
     // El perfil elegido se recuerda entre visitas: quien está poniendo al día
     // los ahorros de un mes abre la app tres veces seguidas para eso mismo.
     perfil: estado?.preferencias?.perfil === PERFIL_AHORROS ? PERFIL_AHORROS : PERFIL_COTIDIANA,
     mes: mes ?? mesDe(hoy()),
+    // El período de la evolución (T-054) arranca sin recortar y **no se
+    // guarda**: es cómo estás mirando, no un dato tuyo. Sobrevive a cambiar de
+    // pantalla —volver de Movimientos y encontrar el recorte deshecho sería
+    // peor— pero no a cerrar la app.
+    periodo: null,
     estado,
     incidencias,
     // Datos del entorno, no del usuario: se preguntan una vez al arrancar y
@@ -1291,6 +1303,15 @@ export function iniciar(documento, almacen) {
   }
 
   raiz.addEventListener('change', (evento) => {
+    // El período de la evolución — T-054. Se lee de los dos selectores a la vez,
+    // porque cambiar uno solo con el otro sin leer daría un rango a medias.
+    if (!evento.target.matches('[data-accion-cambio="periodo"]')) return;
+    const valor = (nombre) => raiz.querySelector(`select[name="${nombre}"]`)?.value ?? null;
+    vista = { ...vista, periodo: { desde: valor('periodo-desde'), hasta: valor('periodo-hasta') } };
+    pintar();
+  });
+
+  raiz.addEventListener('change', (evento) => {
     // El aviso de "esto reinterpreta N movimientos" tiene que moverse con el
     // número elegido: mostrarlo con el valor viejo sería peor que no mostrarlo.
     if (!evento.target.matches('[data-accion-cambio="decimales-elegidos"]')) return;
@@ -1988,6 +2009,9 @@ export function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, ahorroBorrado: null };
+    } else if (accion === 'periodo-todo') {
+      // Volver a todo el historial, que es el estado predeterminado (T-054).
+      vista = { ...vista, periodo: null };
     } else if (accion === 'fecha-hoy') {
       // Traer la fecha a hoy sin perder lo que ya está escrito: por eso se lee
       // el formulario antes de reemplazarla (T-052).

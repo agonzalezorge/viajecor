@@ -203,7 +203,8 @@ identificador derivado de su fila, así que no se duplican. Te va a decir "entra
 ## 4. El día a día
 
 **Cargar** es la primera pestaña porque es lo que más se hace, muchas veces
-parado en la caja del supermercado.
+parado en la caja del supermercado — y es también **la que se abre al arrancar
+la app**.
 
 - **Monto y moneda.** Si gastaste en otra moneda, la elegís acá. La app te va a
   pedir el tipo de cambio del mes la primera vez, y lo reusa para todos los
@@ -252,6 +253,13 @@ eso el número del techo cambia. Y el zoom se pierde si cambiás de pantalla, a
 propósito: es cómo estás mirando, no un dato tuyo. Al final está el
 botón *"Ver la evolución y los gastos fijos"*, que lleva a la matriz mes × rubro
 y a cuánto sale cada gasto fijo.
+
+**Arriba de la matriz podés recortar el período**: dos listas, *Desde* y
+*Hasta*, con los meses en los que cargaste algo. Al elegirlas se recalcula todo
+lo de esa pantalla —la tabla, el total, el promedio, las dos tortas, los dos
+gráficos y los gastos fijos—, y arriba te dice qué estás mirando y cuántos
+movimientos quedaron afuera. *"Ver todo el historial"* lo deshace. **El recorte
+no se guarda**: al cerrar la app volvés a ver todo.
 
 **Debajo de la matriz están las dos tortas**: *"En qué se fue"* y *"De dónde
 vino"*, el reparto por rubro de **todos los meses de la tabla**. Son dos y no

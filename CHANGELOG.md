@@ -3,6 +3,22 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.11.0 — 2026-09-04
+
+### Agregado
+- **La evolución se puede recortar a un período.** Arriba de la tabla hay dos
+  listas, *Desde* y *Hasta*, con los meses en los que tenés movimientos. Al
+  elegirlas se recalcula **todo lo de abajo**: la tabla, el total, el promedio,
+  las dos tortas, los dos gráficos y los gastos fijos.
+
+  De fábrica no hay recorte: la pantalla es la de siempre. El período no se
+  guarda —es cómo estás mirando, no un dato tuyo—, la pantalla te dice cuántos
+  movimientos quedaron afuera y tenés un botón para volver a todo el historial.
+
+### Cambiado
+- **La app abre en Cargar**, no en Mes. Es lo que más se hace, y muchas veces lo
+  único que se viene a hacer.
+
 ## 0.10.1 — 2026-09-04
 
 ### Cambiado

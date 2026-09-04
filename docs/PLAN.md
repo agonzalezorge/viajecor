@@ -97,6 +97,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-049 | Veinte colores, y rubros nuevos al importar | **Hecha** | T-048 |
 | T-050 | Moneda base configurable | **Hecha** | T-047 |
 | T-051 | El reparto por rubro en la evolución | **Hecha** | T-021 |
+| T-054 | Recortar la evolución a un período | **Hecha** | T-021 |
+| T-055 | La app abre en Cargar | **Hecha** | T-010 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
@@ -2730,3 +2732,52 @@ su porqué escrito al lado, para que no se lea como una regresión.
 
 La nota que explica sobre cuántos meses promedia sigue debajo de la tabla, que
 es donde se lee el número (L-006).
+
+
+### T-054 · Recortar la evolución a un período — **Hecha** (2026-09-04)
+
+**El pedido:** *"podes dejarla predeterminado como está ahora, pero poner una
+opción en la que pueda poner un mes de inicio y un mes final y que recalcule todo
+lo que hay ahí para solo ese periodo?"*.
+
+**La decisión que define la tarea: se recorta el historial, no cada cuenta.** La
+pantalla muestra seis cosas —tabla, total, promedio, dos tortas, dos gráficos y
+gastos fijos— y todas salen de la misma lista de movimientos. Pasarle un
+"desde/hasta" a cada una habría sido **seis oportunidades de que una se quede
+atrás** y muestre once meses al lado de otras cinco mostrando tres: dos números
+correctos que no hablan del mismo tiempo, y nada en la pantalla que lo delate.
+
+En vez de eso, `estadoDelPeriodo()` recorta la lista una sola vez y todo lo demás
+se calcula igual que siempre. Debajo de esa línea, ninguna cuenta sabe que hay un
+período. Los tipos de cambio, las monedas y los rubros **no** se recortan: son el
+catálogo con el que se leen los movimientos, no movimientos.
+
+**Decisiones chicas:**
+- **Dos listas, no dos calendarios**: solo se ofrecen los meses con movimientos,
+  así cualquier combinación devuelve algo.
+- **No se guarda**: es cómo estás mirando (precedente: el zoom de T-942).
+  Sobrevive a cambiar de pantalla, no a cerrar la app.
+- **Un período al revés se da vuelta**, no se rechaza.
+- La pantalla **dice cuántos movimientos quedaron afuera**: un total recortado
+  que no avisa que está recortado es la misma mentira que un total incompleto.
+
+**Mutaciones:** 13 sembradas, 13 muertas. La primera vuelta dejó viva la de los
+gastos fijos —la tarjeta que se dibuja desde el estado y no desde la matriz, o
+sea justo la más fácil de olvidar—; se cubrió con su test.
+
+**Recorrido en el navegador:** cuatro meses cargados. Recortando a junio–julio,
+la tabla pasa de cuatro meses a dos, el total de 1.600 € a 400 €, la torta de
+ingresos **desaparece** (el único ingreso era de agosto) y los gastos fijos pasan
+de dos pagos a uno al recortar a junio solo. "Ver todo el historial" devuelve
+exactamente los números del principio, comparados uno a uno.
+
+### T-055 · La app abre en Cargar — **Hecha** (2026-09-04)
+
+Pedido del usuario a mitad de T-054. Una línea en `vistaInicial()`: la pantalla
+de arranque pasa de `mes` a `nuevo`. Cargar es lo que más se hace y muchas veces
+lo único que se viene a hacer; mirar el mes es una visita, no la rutina.
+
+Con el perfil de ahorros recordado no hace falta nada más: `dibujarApp()` ya cae
+sola en la pantalla de inicio del perfil cuando la pedida no es suya. Hay un test
+nuevo que lo comprueba, porque es la clase de detalle que un cambio de una línea
+rompe sin ruido.

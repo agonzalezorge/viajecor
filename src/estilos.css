@@ -339,6 +339,12 @@ body {
 /* La fila de la fecha: el calendario ocupa lo que puede y el botón "Hoy"
    —que solo está cuando la fecha no es la de hoy (T-052)— va a su lado sin
    estirarse. */
+/* Los dos selectores del período (T-054), lado a lado: son una sola pregunta
+   —"entre cuándo y cuándo"— y separados en dos filas se leen como dos. */
+.periodo { display: flex; gap: 0.75rem; }
+.periodo .campo { flex: 1; min-width: 0; }
+.periodo select { width: 100%; }
+
 .fecha-fila { display: flex; gap: 0.5rem; align-items: center; }
 .fecha-fila input { flex: 1; min-width: 0; }
 .fecha-fila button { flex: none; }

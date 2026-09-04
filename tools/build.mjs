@@ -33,6 +33,7 @@ const MODULOS = [
   'src/core/rubros.js',
   'src/core/ahorros.js',
   'src/core/calculos.js',
+  'src/core/periodo.js',
   'src/core/formato.js',
   'src/core/paleta.js',
   'src/datos/almacenamiento.js',

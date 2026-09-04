@@ -27,11 +27,13 @@
 
 import { escapar } from '../app.js';
 import { matrizMesRubro, acumuladoHistorico } from '../../core/calculos.js';
+import { mesesElegibles, normalizarPeriodo, estadoDelPeriodo, movimientosFuera } from '../../core/periodo.js';
 import { DECIMALES_EURO } from '../../core/dinero.js';
 import { monedaBaseDe } from '../../core/monedas.js';
-import { formatearEuros, formatearMesCorto, formatearNumero, formatearRubro } from '../../core/formato.js';
+import { formatearEuros, formatearMes, formatearMesCorto, formatearNumero, formatearRubro } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
 import { dibujarGastosFijos } from './fijos.js';
+import { opciones } from './movimiento.js';
 import { dibujarAcumuladoHistorico, dibujarMesAMes, dibujarTorta } from './graficos.js';
 import { TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../../core/modelo.js';
 
@@ -179,6 +181,57 @@ export function dibujarNotaDelPromedio(matriz) {
 }
 
 /**
+ * El selector de período — T-054.
+ *
+ * ── Dos decisiones que valen la pena explicar ───────────────────────────────
+ *
+ * **Son dos listas y no dos calendarios.** Un `type="month"` deja elegir agosto
+ * de 2019, donde no hay nada, y la respuesta a eso es una pantalla vacía que no
+ * explica nada. Las listas ofrecen **solo los meses que tienen movimientos**, así
+ * que cualquier combinación devuelve algo.
+ *
+ * **El período no se guarda.** Vive mientras estás mirando y se pierde al salir,
+ * igual que el zoom de los gráficos (T-942): es cómo estás mirando, no un dato
+ * tuyo. Si se guardara, abrir la app en enero mostraría el recorte que elegiste
+ * en septiembre y los totales parecerían haber encogido solos.
+ */
+export function dibujarPeriodo(vista) {
+  const meses = mesesElegibles(vista.estado);
+  if (meses.length < 2) return '';   // con un mes solo no hay nada que recortar
+
+  const periodo = normalizarPeriodo(vista.periodo);
+  const desde = periodo?.desde ?? meses[0];
+  const hasta = periodo?.hasta ?? meses[meses.length - 1];
+  const comoOpcion = (m) => ({ valor: m, texto: formatearMes(m) });
+  const fuera = movimientosFuera(vista.estado, periodo);
+
+  return `
+    <section class="tarjeta">
+      <h2>Período</h2>
+      <div class="periodo">
+        <label class="campo">
+          <span>Desde</span>
+          <select name="periodo-desde" data-accion-cambio="periodo">${opciones(meses.map(comoOpcion), desde)}</select>
+        </label>
+        <label class="campo">
+          <span>Hasta</span>
+          <select name="periodo-hasta" data-accion-cambio="periodo">${opciones(meses.map(comoOpcion), hasta)}</select>
+        </label>
+      </div>
+      ${periodo === null ? `
+      <p class="suave nota">Estás viendo <strong>todo tu historial</strong>: los
+      ${meses.length} meses con movimientos.</p>` : `
+      <p class="nota">Todo lo de abajo —la tabla, el reparto por rubro, los
+      gráficos y los gastos fijos— está calculado <strong>solo sobre
+      ${escapar(formatearMes(periodo.desde ?? meses[0]))} a
+      ${escapar(formatearMes(periodo.hasta ?? meses[meses.length - 1]))}</strong>.
+      ${fuera === 1 ? 'Queda 1 movimiento afuera.' : `Quedan ${fuera} movimientos afuera.`}</p>
+      <button type="button" class="secundario" data-accion="periodo-todo">Ver todo el historial</button>`}
+    </section>
+  `;
+}
+
+/**
  * El reparto por rubro de TODO el período que muestra la tabla — T-051.
  *
  * ── Por qué acá y por qué dos ───────────────────────────────────────────────
@@ -269,8 +322,16 @@ export function dibujarSinHistorial() {
  */
 export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
   const base = monedaBaseDe(vista.estado);
-  const matriz = matrizMesRubro(vista.estado, mesActual);
-  if (matriz.filas.length === 0) return dibujarSinHistorial();
+
+  // Todo lo de esta pantalla sale de la misma lista de movimientos, así que el
+  // período se aplica UNA vez, acá, recortando el historial (T-054). Abajo de
+  // esta línea nada sabe que hay un período: las cuentas son las de siempre y no
+  // pueden quedar desincronizadas entre sí.
+  const recortado = estadoDelPeriodo(vista.estado, vista.periodo);
+  const selector = dibujarPeriodo(vista);
+
+  const matriz = matrizMesRubro(recortado, mesActual);
+  if (matriz.filas.length === 0) return selector + dibujarSinHistorial();
 
   const incompletos = matriz.filas.filter((f) => f.incompleto).length;
   const aviso = incompletos === 0 ? '' : `
@@ -291,6 +352,7 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
   const filas = matriz.filas.map((f) => dibujarFilaMes(f, matriz.rubros, matriz.rubrosIngreso)).join('');
 
   return `
+    ${selector}
     <section class="tarjeta">
       <h2>Evolución mes a mes</h2>
       <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gastos e ingresos por mes y por rubro">
@@ -309,7 +371,7 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
     ${dibujarRepartoDe(matriz, TIPO_GASTO, base, incompletos)}
     ${dibujarRepartoDe(matriz, TIPO_INGRESO, base, incompletos)}
     ${dibujarMesAMes(matriz.filas)}
-    ${dibujarAcumuladoHistorico(acumuladoHistorico(vista.estado))}
-    ${dibujarGastosFijos(vista.estado)}
+    ${dibujarAcumuladoHistorico(acumuladoHistorico(recortado))}
+    ${dibujarGastosFijos(recortado)}
   `;
 }

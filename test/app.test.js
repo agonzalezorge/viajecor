@@ -344,9 +344,21 @@ test('la app no contiene ninguna dirección de internet (RN-06)', () => {
 
 // ── El estado de la vista ────────────────────────────────────────────────────
 
-test('la vista arranca en el mes de hoy', () => {
+test('la vista arranca en el mes de hoy y en la pantalla de cargar', () => {
+  // La pantalla de arranque la cambió el usuario el 2026-09-04: era "mes" y
+  // ahora es "nuevo". Cargar es lo que más se hace y muchas veces es lo único
+  // que se viene a hacer; mirar el mes es una visita, no la rutina.
   assert.equal(vistaInicial().mes, mesDe(hoy()));
-  assert.equal(vistaInicial().pantalla, 'mes');
+  assert.equal(vistaInicial().pantalla, 'nuevo');
+});
+
+test('con el perfil de ahorros recordado, no arranca en una pantalla ajena', () => {
+  // "nuevo" no es una pantalla del perfil de ahorros: dibujarApp() tiene que
+  // caer sola en la de ese perfil, o la barra de abajo señalaría otra cosa.
+  const html = dibujarApp({ ...VISTA, ...vistaInicial({ estado: VISTA.estado }), perfil: PERFIL_AHORROS });
+
+  assert.ok(html.includes('Ahorros conjuntos'));
+  assert.equal(html.includes('data-formulario="movimiento"'), false);
 });
 
 test('moverse de mes no modifica la vista anterior', () => {

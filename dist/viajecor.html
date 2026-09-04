@@ -353,6 +353,12 @@ body {
 /* La fila de la fecha: el calendario ocupa lo que puede y el botón "Hoy"
    —que solo está cuando la fecha no es la de hoy (T-052)— va a su lado sin
    estirarse. */
+/* Los dos selectores del período (T-054), lado a lado: son una sola pregunta
+   —"entre cuándo y cuándo"— y separados en dos filas se leen como dos. */
+.periodo { display: flex; gap: 0.75rem; }
+.periodo .campo { flex: 1; min-width: 0; }
+.periodo select { width: 100%; }
+
 .fecha-fila { display: flex; gap: 0.5rem; align-items: center; }
 .fecha-fila input { flex: 1; min-width: 0; }
 .fecha-fila button { flex: none; }
@@ -1328,7 +1334,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.10.1";
+globalThis.__VIAJECOR_VERSION__ = "0.11.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -3909,6 +3915,103 @@ function sugerenciasPara(escrito, usados, limite = 5) {
   }
 
   return [...empiezan, ...contienen].slice(0, limite);
+}
+
+// ── src/core/periodo.js ─────────────────────────────────────────
+// Mirar la evolución en un período recortado — T-054, CU-10.
+//
+// ── Por qué recortando el historial y no filtrando cada cuenta ──────────────
+//
+// La pantalla de evolución muestra seis cosas —la tabla mes × rubro, el total,
+// el promedio, las dos tortas del reparto, los dos gráficos y los gastos
+// fijos— y **todas se derivan de la misma lista de movimientos**. Agregarle un
+// parámetro "desde/hasta" a cada una de esas cuentas sería seis oportunidades de
+// que una se quede atrás y muestre el período entero al lado de las otras cinco
+// recortadas: el peor resultado posible, porque los números se ven bien y no
+// hablan del mismo tiempo.
+//
+// En vez de eso, acá se recorta **el historial** una sola vez y todo lo demás se
+// calcula igual que siempre. Lo que la pantalla recibe es un estado que tiene
+// esos movimientos y no otros; ninguna cuenta sabe que hay un período.
+//
+// ── Lo que el recorte NO toca ───────────────────────────────────────────────
+//
+// Los tipos de cambio, las monedas y los rubros quedan enteros: son el catálogo
+// con el que se leen los movimientos, no movimientos. Sacar el tipo de cambio de
+// un mes que quedó fuera del período no cambiaría ningún total, pero dejaría a
+// los movimientos de ese mes sin poder convertirse si alguna cuenta los mirara.
+//
+// Este archivo no toca el navegador: es lógica pura.
+
+/** Un texto `AAAA-MM` válido, o `null`. */
+function mesValido(valor) {
+  return typeof valor === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(valor) ? valor : null;
+}
+
+/**
+ * Los meses que tienen movimientos, del más viejo al más nuevo.
+ *
+ * Es la lista que la pantalla ofrece para elegir: dejar elegir un mes en el que
+ * no hay nada solo sirve para que la tabla salga vacía sin explicar por qué.
+ */
+function mesesElegibles(estado) {
+  const movimientos = estado?.movimientos ?? [];
+  return [...new Set(movimientos.map((m) => mesDe(m.fecha)))].sort();
+}
+
+/**
+ * El período que hay que usar, a partir de lo que el usuario eligió.
+ *
+ * Devuelve `null` cuando hay que mostrar **todo**, que es el estado
+ * predeterminado: sin nada elegido, la pantalla sigue siendo la de siempre.
+ *
+ * Un período al revés —desde marzo hasta enero— se da vuelta en vez de
+ * rechazarse: es evidente qué quiso decir quien lo eligió, y una tabla vacía con
+ * un cartel de error no le sirve a nadie.
+ */
+function normalizarPeriodo(periodo) {
+  const desde = mesValido(periodo?.desde);
+  const hasta = mesValido(periodo?.hasta);
+  if (desde === null && hasta === null) return null;
+
+  // Con una sola punta elegida, la otra queda abierta: "desde marzo" es una
+  // pregunta razonable y no hay por qué obligar a contestar las dos.
+  if (desde !== null && hasta !== null && desde > hasta) return { desde: hasta, hasta: desde };
+  return { desde, hasta };
+}
+
+/** ¿Este mes cae dentro del período? */
+function mesEnPeriodo(mes, periodo) {
+  if (periodo === null) return true;
+  if (periodo.desde !== null && mes < periodo.desde) return false;
+  if (periodo.hasta !== null && mes > periodo.hasta) return false;
+  return true;
+}
+
+/**
+ * El mismo estado con **solo los movimientos del período**.
+ *
+ * Sin período devuelve el estado tal cual —el mismo objeto—, para que el camino
+ * de siempre no pague nada por esta función.
+ */
+function estadoDelPeriodo(estado, periodo) {
+  const rango = normalizarPeriodo(periodo);
+  if (rango === null) return estado;
+
+  return {
+    ...estado,
+    movimientos: (estado?.movimientos ?? []).filter((m) => m && m.fecha && mesEnPeriodo(mesDe(m.fecha), rango)),
+  };
+}
+
+/**
+ * Cuántos movimientos quedaron afuera. La pantalla lo dice: un total recortado
+ * que no avisa que está recortado es la misma mentira que un total incompleto.
+ */
+function movimientosFuera(estado, periodo) {
+  const rango = normalizarPeriodo(periodo);
+  if (rango === null) return 0;
+  return (estado?.movimientos ?? []).length - estadoDelPeriodo(estado, rango).movimientos.length;
 }
 
 // ── src/core/formato.js ─────────────────────────────────────────
@@ -10986,6 +11089,8 @@ function dibujarGastosFijos(estado) {
 
 
 
+
+
 /**
  * Un importe de celda.
  *
@@ -11130,6 +11235,57 @@ function dibujarNotaDelPromedio(matriz) {
 }
 
 /**
+ * El selector de período — T-054.
+ *
+ * ── Dos decisiones que valen la pena explicar ───────────────────────────────
+ *
+ * **Son dos listas y no dos calendarios.** Un `type="month"` deja elegir agosto
+ * de 2019, donde no hay nada, y la respuesta a eso es una pantalla vacía que no
+ * explica nada. Las listas ofrecen **solo los meses que tienen movimientos**, así
+ * que cualquier combinación devuelve algo.
+ *
+ * **El período no se guarda.** Vive mientras estás mirando y se pierde al salir,
+ * igual que el zoom de los gráficos (T-942): es cómo estás mirando, no un dato
+ * tuyo. Si se guardara, abrir la app en enero mostraría el recorte que elegiste
+ * en septiembre y los totales parecerían haber encogido solos.
+ */
+function dibujarPeriodo(vista) {
+  const meses = mesesElegibles(vista.estado);
+  if (meses.length < 2) return '';   // con un mes solo no hay nada que recortar
+
+  const periodo = normalizarPeriodo(vista.periodo);
+  const desde = periodo?.desde ?? meses[0];
+  const hasta = periodo?.hasta ?? meses[meses.length - 1];
+  const comoOpcion = (m) => ({ valor: m, texto: formatearMes(m) });
+  const fuera = movimientosFuera(vista.estado, periodo);
+
+  return `
+    <section class="tarjeta">
+      <h2>Período</h2>
+      <div class="periodo">
+        <label class="campo">
+          <span>Desde</span>
+          <select name="periodo-desde" data-accion-cambio="periodo">${opciones(meses.map(comoOpcion), desde)}</select>
+        </label>
+        <label class="campo">
+          <span>Hasta</span>
+          <select name="periodo-hasta" data-accion-cambio="periodo">${opciones(meses.map(comoOpcion), hasta)}</select>
+        </label>
+      </div>
+      ${periodo === null ? `
+      <p class="suave nota">Estás viendo <strong>todo tu historial</strong>: los
+      ${meses.length} meses con movimientos.</p>` : `
+      <p class="nota">Todo lo de abajo —la tabla, el reparto por rubro, los
+      gráficos y los gastos fijos— está calculado <strong>solo sobre
+      ${escapar(formatearMes(periodo.desde ?? meses[0]))} a
+      ${escapar(formatearMes(periodo.hasta ?? meses[meses.length - 1]))}</strong>.
+      ${fuera === 1 ? 'Queda 1 movimiento afuera.' : `Quedan ${fuera} movimientos afuera.`}</p>
+      <button type="button" class="secundario" data-accion="periodo-todo">Ver todo el historial</button>`}
+    </section>
+  `;
+}
+
+/**
  * El reparto por rubro de TODO el período que muestra la tabla — T-051.
  *
  * ── Por qué acá y por qué dos ───────────────────────────────────────────────
@@ -11220,8 +11376,16 @@ function dibujarSinHistorial() {
  */
 function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
   const base = monedaBaseDe(vista.estado);
-  const matriz = matrizMesRubro(vista.estado, mesActual);
-  if (matriz.filas.length === 0) return dibujarSinHistorial();
+
+  // Todo lo de esta pantalla sale de la misma lista de movimientos, así que el
+  // período se aplica UNA vez, acá, recortando el historial (T-054). Abajo de
+  // esta línea nada sabe que hay un período: las cuentas son las de siempre y no
+  // pueden quedar desincronizadas entre sí.
+  const recortado = estadoDelPeriodo(vista.estado, vista.periodo);
+  const selector = dibujarPeriodo(vista);
+
+  const matriz = matrizMesRubro(recortado, mesActual);
+  if (matriz.filas.length === 0) return selector + dibujarSinHistorial();
 
   const incompletos = matriz.filas.filter((f) => f.incompleto).length;
   const aviso = incompletos === 0 ? '' : `
@@ -11242,6 +11406,7 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
   const filas = matriz.filas.map((f) => dibujarFilaMes(f, matriz.rubros, matriz.rubrosIngreso)).join('');
 
   return `
+    ${selector}
     <section class="tarjeta">
       <h2>Evolución mes a mes</h2>
       <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gastos e ingresos por mes y por rubro">
@@ -11260,8 +11425,8 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
     ${dibujarRepartoDe(matriz, TIPO_GASTO, base, incompletos)}
     ${dibujarRepartoDe(matriz, TIPO_INGRESO, base, incompletos)}
     ${dibujarMesAMes(matriz.filas)}
-    ${dibujarAcumuladoHistorico(acumuladoHistorico(vista.estado))}
-    ${dibujarGastosFijos(vista.estado)}
+    ${dibujarAcumuladoHistorico(acumuladoHistorico(recortado))}
+    ${dibujarGastosFijos(recortado)}
   `;
 }
 
@@ -13389,11 +13554,23 @@ function dibujarApp(vista) {
  */
 function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = false, riesgoDeGuardado = null } = {}) {
   return {
-    pantalla: 'mes',
+    // Al abrir, la app aterriza en **Cargar** — T-055, pedido del usuario. Es lo
+    // que más se hace y muchas veces es lo único que se viene a hacer: anotar el
+    // gasto parado en la caja. Empezar en "Mes" costaba un toque en cada carga y
+    // ahorraba cero en la única pantalla que se abre para mirar.
+    //
+    // Con el perfil de ahorros recordado, `dibujarApp()` la cambia sola por la
+    // de ese perfil: "nuevo" no es una pantalla suya.
+    pantalla: 'nuevo',
     // El perfil elegido se recuerda entre visitas: quien está poniendo al día
     // los ahorros de un mes abre la app tres veces seguidas para eso mismo.
     perfil: estado?.preferencias?.perfil === PERFIL_AHORROS ? PERFIL_AHORROS : PERFIL_COTIDIANA,
     mes: mes ?? mesDe(hoy()),
+    // El período de la evolución (T-054) arranca sin recortar y **no se
+    // guarda**: es cómo estás mirando, no un dato tuyo. Sobrevive a cambiar de
+    // pantalla —volver de Movimientos y encontrar el recorte deshecho sería
+    // peor— pero no a cerrar la app.
+    periodo: null,
     estado,
     incidencias,
     // Datos del entorno, no del usuario: se preguntan una vez al arrancar y
@@ -14183,6 +14360,15 @@ function iniciar(documento, almacen) {
   }
 
   raiz.addEventListener('change', (evento) => {
+    // El período de la evolución — T-054. Se lee de los dos selectores a la vez,
+    // porque cambiar uno solo con el otro sin leer daría un rango a medias.
+    if (!evento.target.matches('[data-accion-cambio="periodo"]')) return;
+    const valor = (nombre) => raiz.querySelector(`select[name="${nombre}"]`)?.value ?? null;
+    vista = { ...vista, periodo: { desde: valor('periodo-desde'), hasta: valor('periodo-hasta') } };
+    pintar();
+  });
+
+  raiz.addEventListener('change', (evento) => {
     // El aviso de "esto reinterpreta N movimientos" tiene que moverse con el
     // número elegido: mostrarlo con el valor viejo sería peor que no mostrarlo.
     if (!evento.target.matches('[data-accion-cambio="decimales-elegidos"]')) return;
@@ -14880,6 +15066,9 @@ function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, ahorroBorrado: null };
+    } else if (accion === 'periodo-todo') {
+      // Volver a todo el historial, que es el estado predeterminado (T-054).
+      vista = { ...vista, periodo: null };
     } else if (accion === 'fecha-hoy') {
       // Traer la fecha a hoy sin perder lo que ya está escrito: por eso se lee
       // el formulario antes de reemplazarla (T-052).
