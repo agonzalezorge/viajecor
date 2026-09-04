@@ -3,6 +3,20 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.10.0 — 2026-09-04
+
+### Agregado
+- **Un botón "Hoy" al lado de la fecha**, en el formulario de carga. Aparece
+  solo cuando la fecha puesta no es la de hoy: te la trae de un toque y, de
+  paso, te avisa de que no estás cargando con la fecha de hoy — que es lo que
+  pasaba después de corregir un movimiento viejo.
+
+  Tocarlo **no borra lo que ya escribiste**: el monto, el rubro y el detalle
+  quedan como estaban.
+
+  El formulario sigue conservando la fecha del último movimiento, que es lo que
+  te deja cargar tres gastos del mismo sábado sin repetirla.
+
 ## 0.9.0 — 2026-09-03
 
 ### Agregado

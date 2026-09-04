@@ -350,6 +350,13 @@ body {
 /* La fecha en palabras, debajo del calendario del sistema. El formato de ese
    control lo elige el navegador según su idioma —puede mostrar 08/25/2026— y no
    hay forma de decidirlo desde la app. Esto lo vuelve irrelevante. Ver L-013. */
+/* La fila de la fecha: el calendario ocupa lo que puede y el botón "Hoy"
+   —que solo está cuando la fecha no es la de hoy (T-052)— va a su lado sin
+   estirarse. */
+.fecha-fila { display: flex; gap: 0.5rem; align-items: center; }
+.fecha-fila input { flex: 1; min-width: 0; }
+.fecha-fila button { flex: none; }
+
 .fecha-legible {
   font-size: 0.875rem;
   color: var(--texto-suave);
@@ -1321,7 +1328,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.9.0";
+globalThis.__VIAJECOR_VERSION__ = "0.10.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -12660,7 +12667,18 @@ function dibujarNuevo(vista) {
 
       <label class="campo">
         <span>Fecha</span>
-        <input name="fecha" type="date" value="${escapar(borrador.fecha)}">
+        <div class="fecha-fila">
+          <input name="fecha" type="date" value="${escapar(borrador.fecha)}">
+          <!-- El botón aparece SOLO cuando la fecha no es la de hoy. Así hace
+               dos cosas con un mismo gesto: la trae a hoy de un toque, y su sola
+               presencia avisa que la puesta no es la de hoy. Uno siempre visible
+               sería un adorno el 90 % de las veces y no avisaría nada. Lo pidió
+               el usuario (2026-09-04): después de editar un movimiento viejo, la
+               fecha quedaba en la de ese movimiento. -->
+          ${borrador.fecha === hoy() ? '' : `
+          <button type="button" class="secundario chico" data-accion="fecha-hoy"
+                  data-fecha-hoy>Hoy</button>`}
+        </div>
         <!-- El calendario de "type=date" lo dibuja el SISTEMA, no la app, y cada
              navegador elige el formato según su propio idioma: puede mostrar
              25/08/2026 o 08/25/2026 y no hay forma de decidirlo desde acá.
@@ -14858,6 +14876,10 @@ function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, ahorroBorrado: null };
+    } else if (accion === 'fecha-hoy') {
+      // Traer la fecha a hoy sin perder lo que ya está escrito: por eso se lee
+      // el formulario antes de reemplazarla (T-052).
+      vista = { ...vista, borrador: { ...leerFormulario(), fecha: hoy() }, error: null };
     } else if (accion === 'tipo') {
       // Cambiar de gasto a ingreso cambia la lista de rubros (RN-02), así que hay
       // que volver a dibujar. Lo escrito no se pierde porque se lee antes; el

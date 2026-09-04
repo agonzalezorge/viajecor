@@ -291,6 +291,14 @@ segundos y sin conexión.
 6. El usuario guarda. El movimiento aparece en la lista del mes y los totales se
    actualizan.
 
+**Después de guardar, el formulario se vacía pero conserva la fecha**: cargar
+tres gastos del sábado no puede obligar a poner la fecha tres veces. Editar un
+movimiento viejo la conserva igual, y ahí esa comodidad se da vuelta — el gasto
+siguiente se anotaría en marzo sin que nadie lo note. Por eso, **cuando la fecha
+puesta no es la de hoy, aparece un botón "Hoy" al lado del calendario** (T-052,
+pedido del usuario). Está solo en ese caso: sirve de atajo y, al mismo tiempo, de
+aviso de que la fecha no es la de hoy. Traerla a hoy **no borra lo ya escrito**.
+
 **Reglas que aplican:** RN-01, RN-02, RN-03, RN-04.
 
 **Qué puede salir mal:**

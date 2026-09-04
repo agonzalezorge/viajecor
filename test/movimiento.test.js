@@ -446,3 +446,41 @@ test('las comillas en un comentario no rompen la sugerencia', () => {
   assert.ok(html.includes('&quot;raro&quot;'));
   assert.equal(html.includes('data-texto="Viaje "raro"'), false);
 });
+
+
+// ── El botón "Hoy" (T-052) ───────────────────────────────────────────────────
+//
+// El formulario conserva la fecha del último movimiento cargado, y eso es a
+// propósito: cargar tres gastos del sábado no puede obligar a poner la fecha
+// tres veces. Pero **editar un movimiento viejo también la deja puesta**, y ahí
+// la comodidad se da vuelta: el próximo gasto se anota en marzo sin que nadie
+// se dé cuenta. Lo reportó el usuario (2026-09-04).
+
+test('con la fecha de hoy no hay botón: no habría nada que hacer', () => {
+  const html = dibujarNuevo({ estado: estadoLimpio(), borrador: borradorDe({ fecha: hoy() }) });
+
+  assert.equal(html.includes('data-accion="fecha-hoy"'), false);
+});
+
+test('con otra fecha aparece el botón para traerla a hoy', () => {
+  const html = dibujarNuevo({ estado: estadoLimpio(), borrador: borradorDe({ fecha: '2026-03-14' }) });
+
+  assert.match(html.replace(/\s+/g, ' '), /data-accion="fecha-hoy"[^>]*>Hoy<\/button>/);
+});
+
+test('el botón está al lado del calendario, no debajo de la fecha en palabras', () => {
+  // Tiene que verse junto al campo que corrige. Debajo del texto en español ya
+  // es otra parte de la pantalla y deja de leerse como "esta fecha no es hoy".
+  const html = dibujarNuevo({ estado: estadoLimpio(), borrador: borradorDe({ fecha: '2026-03-14' }) })
+    .replace(/\s+/g, ' ');
+  const fila = html.slice(html.indexOf('<div class="fecha-fila">'), html.indexOf('fecha-legible'));
+
+  assert.match(fila, /name="fecha"/);
+  assert.match(fila, /data-accion="fecha-hoy"/);
+});
+
+test('el formulario nuevo sigue viniendo con la fecha del último movimiento', () => {
+  // La otra mitad del acuerdo: el botón es una salida, no un cambio de regla.
+  assert.equal(borradorNuevo({ estado: estadoLimpio(), fecha: '2026-03-14' }).fecha, '2026-03-14');
+  assert.equal(borradorNuevo({ estado: estadoLimpio() }).fecha, hoy());
+});

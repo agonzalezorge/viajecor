@@ -210,6 +210,11 @@ parado en la caja del supermercado.
   gastos de ese mes.
 - **Rubro.** El campo se pinta del color del rubro elegido: es la confirmación de
   que quedó puesto el que querías, sin tener que releerlo.
+- **Fecha.** Después de guardar, el formulario se queda con la fecha del último
+  movimiento: así cargás tres gastos del mismo sábado sin ponerla tres veces.
+  Cuando esa fecha **no es la de hoy** —típicamente, después de corregir un
+  movimiento viejo— aparece un botón **"Hoy"** al lado del calendario. Que esté
+  ahí ya es el aviso; tocarlo la trae a hoy sin borrar lo que hayas escrito.
 - **Detalle** — una nota para acordarte. No agrupa nada.
 - **Etiqueta (agrupar por)** — **esto sí agrupa.** Es lo que junta los gastos de
   un viaje o de un gasto fijo. Por eso la app te ofrece las que ya usaste:

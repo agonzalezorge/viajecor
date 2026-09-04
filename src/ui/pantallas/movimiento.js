@@ -341,7 +341,18 @@ export function dibujarNuevo(vista) {
 
       <label class="campo">
         <span>Fecha</span>
-        <input name="fecha" type="date" value="${escapar(borrador.fecha)}">
+        <div class="fecha-fila">
+          <input name="fecha" type="date" value="${escapar(borrador.fecha)}">
+          <!-- El botón aparece SOLO cuando la fecha no es la de hoy. Así hace
+               dos cosas con un mismo gesto: la trae a hoy de un toque, y su sola
+               presencia avisa que la puesta no es la de hoy. Uno siempre visible
+               sería un adorno el 90 % de las veces y no avisaría nada. Lo pidió
+               el usuario (2026-09-04): después de editar un movimiento viejo, la
+               fecha quedaba en la de ese movimiento. -->
+          ${borrador.fecha === hoy() ? '' : `
+          <button type="button" class="secundario chico" data-accion="fecha-hoy"
+                  data-fecha-hoy>Hoy</button>`}
+        </div>
         <!-- El calendario de "type=date" lo dibuja el SISTEMA, no la app, y cada
              navegador elige el formato según su propio idioma: puede mostrar
              25/08/2026 o 08/25/2026 y no hay forma de decidirlo desde acá.

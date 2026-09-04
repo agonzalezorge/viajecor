@@ -97,6 +97,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-049 | Veinte colores, y rubros nuevos al importar | **Hecha** | T-048 |
 | T-050 | Moneda base configurable | **Hecha** | T-047 |
 | T-051 | El reparto por rubro en la evolución | **Hecha** | T-021 |
+| T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
 | T-025 | Ver, renombrar y borrar los comentarios y detalles que ya existen | **Hecha** | T-015 |
@@ -2680,3 +2681,38 @@ ingreso. Las dos tortas aparecen entre la tabla y los gráficos de línea, con 4
 2 porciones; los importes cierran con la fila Total (1.240 € y 5.400 €); tocar
 "Viajes" abre los 2 movimientos de todos los meses por 550 €; y después de
 recargar sigue todo igual.
+
+
+### T-052 · El botón "Hoy" en la fecha — **Hecha** (2026-09-04)
+
+**El pedido:** *"muchas veces edito un movimiento viejo y la fecha para cargar
+movimientos queda puesta en ese día... o que haya un botón al lado que me
+permita traerla a hoy. si es posible, la segunda opción es mejor"*.
+
+**Lo que se hizo:** un botón `Hoy` al lado del calendario, en la misma fila.
+Aparece **solo cuando la fecha puesta no es la de hoy**, que es lo que lo hace
+valer doble: es el atajo y, a la vez, la señal de que la fecha no es la de hoy.
+Uno siempre visible sería un adorno el 90 % de las veces y no avisaría nada.
+
+**Lo que NO se cambió, a propósito:** el formulario sigue conservando la fecha
+del último movimiento. Es la mitad buena del comportamiento —cargar tres gastos
+del sábado sin repetir la fecha tres veces— y el usuario pidió expresamente esa
+opción antes que fijarla siempre en hoy. Hay un test que la sostiene, para que
+el botón no se lea después como permiso para cambiar la regla.
+
+**El detalle que importa:** tocar `Hoy` **lee el formulario antes de redibujar**,
+igual que el botón Gasto/Ingreso. Sin eso, cambiar la fecha habría borrado el
+monto, el rubro y el detalle ya escritos — el arreglo habría costado más tiempo
+del que ahorra.
+
+**Un test que ya existía casi lo frena:** el que prohíbe que una pantalla
+prometa una tarea (`— T-0NN.`) falló porque mi comentario HTML llevaba el número
+de la tarea adentro del `<template>` y viajaba al HTML. Se reescribió el
+comentario. El test hizo exactamente lo que tenía que hacer.
+
+**Recorrido en el navegador:** el formulario recién abierto no muestra el botón;
+se carga un gasto del 14 de marzo, se vuelve a Cargar y el botón está; se
+escriben monto, rubro y detalle, se toca `Hoy` y la fecha pasa a hoy **sin
+perder nada de lo escrito**; se guarda y el movimiento queda con la fecha de
+hoy. Y el caso del pedido: después de **editar** el movimiento de marzo, el
+formulario queda en marzo y el botón está ahí.

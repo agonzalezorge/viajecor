@@ -1988,6 +1988,10 @@ export function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, ahorroBorrado: null };
+    } else if (accion === 'fecha-hoy') {
+      // Traer la fecha a hoy sin perder lo que ya está escrito: por eso se lee
+      // el formulario antes de reemplazarla (T-052).
+      vista = { ...vista, borrador: { ...leerFormulario(), fecha: hoy() }, error: null };
     } else if (accion === 'tipo') {
       // Cambiar de gasto a ingreso cambia la lista de rubros (RN-02), así que hay
       // que volver a dibujar. Lo escrito no se pierde porque se lee antes; el
