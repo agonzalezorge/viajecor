@@ -147,7 +147,11 @@ export function dibujarPieMatriz(matriz) {
     </tr>
   `;
 
-  return fila('Total', matriz.total) + fila('Promedio', matriz.promedio);
+  // Promedio arriba y total abajo, por pedido del usuario (2026-09-04). Estaba
+  // al revés, copiando a `Analisis1`. El total es el número más grande de la
+  // tabla y cierra mejor abajo de todo, pegado al borde: es donde el ojo lo
+  // busca en cualquier planilla.
+  return fila('Promedio', matriz.promedio) + fila('Total', matriz.total);
 }
 
 /**

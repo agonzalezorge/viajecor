@@ -2716,3 +2716,17 @@ escriben monto, rubro y detalle, se toca `Hoy` y la fecha pasa a hoy **sin
 perder nada de lo escrito**; se guarda y el movimiento queda con la fecha de
 hoy. Y el caso del pedido: después de **editar** el movimiento de marzo, el
 formulario queda en marzo y el botón está ahí.
+
+
+### T-053 · Promedio arriba, total abajo — **Hecha** (2026-09-04)
+
+**El pedido:** *"podés invertir el orden de las filas de promedio y total en la
+tabla de mes a mes?"*.
+
+Una línea en `dibujarPieMatriz()`. El orden anterior venía de copiar a
+`Analisis1`; el nuevo deja el total pegado al borde de abajo, que es donde se lo
+busca en cualquier planilla. El test que fijaba el orden viejo se dio vuelta con
+su porqué escrito al lado, para que no se lea como una regresión.
+
+La nota que explica sobre cuántos meses promedia sigue debajo de la tabla, que
+es donde se lee el número (L-006).

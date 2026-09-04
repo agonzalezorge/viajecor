@@ -3,6 +3,13 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.10.1 — 2026-09-04
+
+### Cambiado
+- **En la tabla de evolución, el promedio va arriba y el total abajo.** Al revés
+  de como estaba: el total es el número más grande de la tabla y cierra mejor
+  pegado al borde.
+
 ## 0.10.0 — 2026-09-04
 
 ### Agregado

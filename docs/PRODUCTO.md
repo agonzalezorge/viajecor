@@ -492,7 +492,7 @@ desde el almacenamiento del dispositivo, todos los casos de uso funcionan igual.
 
 **Muestra:** una fila por mes con el gasto de cada rubro de gasto, el total de
 gastos, **lo que entró por cada rubro de ingreso**, el total de ingresos y el
-saldo; más una fila de **total** y una de **promedio**.
+saldo; más una fila de **promedio** y, cerrando la tabla, la de **total**.
 
 **Y los dos gráficos de `Analisis1`** (T-940), que **se pueden recorrer**
 (T-942): acercar con los botones o pellizcando, arrastrar para moverse, y tocar
@@ -531,8 +531,10 @@ punta comparando números de cinco cifras. La torta contesta eso de un vistazo.
   por rubro **y por tipo**, y el cartel dice cuál: "Otros (ingresos)".
 - Los meses van **seguidos**: un mes sin movimientos aparece en cero, no se
   saltea.
-- Van **del más viejo al más nuevo**, con el total y el promedio abajo, como
-  `Analisis1` y como la hoja del `.xlsx` (decidido por el usuario, 2026-08-28).
+- Van **del más viejo al más nuevo** (decidido por el usuario, 2026-08-28), y el
+  pie va **promedio y después total** (2026-09-04): el total es el número más
+  grande de la tabla y cierra abajo de todo, que es donde el ojo lo busca en
+  cualquier planilla.
 - El **total incluye** el mes en curso; el **promedio, no** —un mes empezado
   arrastra el promedio para abajo—. La pantalla dice sobre cuántos meses promedió
   y cuál dejó afuera.

@@ -121,7 +121,7 @@ test('cada columna de rubro lleva el color que ese rubro tiene en el resumen', (
   }
 });
 
-test('los meses van del más viejo al más nuevo, y el total va abajo', () => {
+test('los meses van del más viejo al más nuevo, y el total cierra la tabla', () => {
   // Este test pedía lo contrario hasta el 2026-08-28. Lo dio vuelta el usuario:
   // la tabla no se lee para mirar un mes, se lee para seguir una línea de
   // tiempo, y una línea de tiempo va para adelante. Es además el orden de
@@ -131,9 +131,11 @@ test('los meses van del más viejo al más nuevo, y el total va abajo', () => {
   const meses = [...html.matchAll(/data-accion="ver-mes"[^>]*>([a-z]{3} \d{2})</g)].map((m) => m[1]);
 
   assert.deepEqual(meses, ['ene 26', 'feb 26', 'mar 26']);
-  // Y el último mes queda pegado al total: es la antepenúltima fila.
-  assert.ok(html.indexOf('mar 26') < html.indexOf('>Total<'));
-  assert.ok(html.indexOf('>Total<') < html.indexOf('>Promedio<'));
+  // Y el pie va promedio y después total, dado vuelta por el usuario el
+  // 2026-09-04: el total es el número más grande de la tabla y cierra abajo de
+  // todo, que es donde el ojo lo busca en cualquier planilla.
+  assert.ok(html.indexOf('mar 26') < html.indexOf('>Promedio<'));
+  assert.ok(html.indexOf('>Promedio<') < html.indexOf('>Total<'));
 });
 
 test('un mes vacío en el medio aparece igual, en ceros', () => {
