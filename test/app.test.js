@@ -29,6 +29,7 @@ import {
 } from '../src/ui/app.js';
 
 import { mesAnterior, mesSiguiente, mesDe, hoy } from '../src/core/modelo.js';
+import { intentarGuardar } from '../src/ui/pantallas/movimiento.js';
 import { estadoInicial } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
 
@@ -382,4 +383,68 @@ test('ir a una pantalla que no existe no cambia nada', () => {
 test('la pantalla registrada se puede consultar por nombre', () => {
   assert.equal(pantalla('mes').etiqueta, 'Mes');
   assert.equal(pantalla('inventada'), null);
+});
+
+
+// ── La vista inicial trae lo que su pantalla necesita (L-033) ────────────────
+//
+// El 2026-09-06 la app quedó trancada al cargar un gasto: el botón no hacía
+// nada. La causa fue que la pantalla de arranque pasó a ser "nuevo" (T-055) y
+// el borrador lo creaba `irA('nuevo')` — o sea, solo al TOCAR la pestaña. Quien
+// abría la app y cargaba directo enviaba un formulario sin borrador detrás, y el
+// movimiento salía sin `tipo`.
+//
+// Lo peor: la pantalla se dibujaba perfecta, porque el dibujo tiene su propio
+// respaldo. El agujero solo se veía al guardar.
+
+test('la vista inicial trae el borrador de la pantalla en la que arranca', () => {
+  const vista = vistaInicial({ estado: estadoInicial({ monedas: monedasIniciales() }) });
+
+  assert.equal(vista.pantalla, 'nuevo');
+  assert.ok(vista.borrador, 'sin borrador, guardar desde el arranque no funciona');
+  assert.equal(vista.borrador.tipo, 'G');
+  assert.equal(vista.borrador.fecha, hoy());
+});
+
+test('lo que trae la vista inicial alcanza para guardar un movimiento', () => {
+  // Este es el test que faltaba: no comprueba que la pantalla se dibuje —eso ya
+  // andaba— sino que lo que arranca puesto **sirva para lo que la pantalla
+  // existe**, que es guardar.
+  const estado = estadoInicial({ monedas: monedasIniciales() });
+  const borrador = { ...vistaInicial({ estado }).borrador, monto: '25,50', rubro: 'supermercado' };
+
+  const { estado: guardado, error } = intentarGuardar(estado, borrador);
+
+  assert.equal(error, undefined, 'guardar desde el arranque tiene que andar');
+  assert.equal(guardado.movimientos.length, 1);
+  assert.equal(guardado.movimientos[0].tipo, 'G');
+  assert.equal(guardado.movimientos[0].monto, 2550);
+});
+
+test('un borrador sin tipo no se guarda en silencio: se rechaza con un error', () => {
+  // El modelo ya lo hacía, y tiene que seguir haciéndolo: un movimiento sin tipo
+  // no entra en ningún total y desaparecería sin dejar rastro.
+  const estado = estadoInicial({ monedas: monedasIniciales() });
+  const sinTipo = { ...vistaInicial({ estado }).borrador, monto: '10', rubro: 'salud', tipo: undefined };
+  const { estado: despues, error } = intentarGuardar(estado, sinTipo);
+
+  assert.match(error, /tipo/i);
+  assert.equal(despues.movimientos.length, 0);
+});
+
+test('pero el formulario se dibuja igual con un borrador roto', () => {
+  // Ésta es la mitad que convirtió un error en un cuelgue mudo. `intentarGuardar`
+  // hizo lo correcto —no guardó y devolvió el error—, pero al repintar, el
+  // formulario TIRABA con ese mismo borrador. La excepción se llevaba puesto el
+  // repintado entero: no aparecía el error, no cambiaba nada, el botón parecía
+  // muerto. Una pantalla que no se dibuja no puede ni contar qué pasó.
+  const estado = estadoInicial({ monedas: monedasIniciales() });
+
+  for (const roto of [{ tipo: undefined }, { tipo: null }, { tipo: 'X' }]) {
+    const borrador = { ...vistaInicial({ estado }).borrador, ...roto };
+    const html = dibujarApp({ ...VISTA, pantalla: 'nuevo', estado, borrador });
+
+    assert.ok(html.includes('data-formulario="movimiento"'), JSON.stringify(roto));
+    assert.ok(html.includes('Supermercado'), 'con la lista de rubros de gasto');
+  }
 });

@@ -1077,3 +1077,53 @@ cuando los movimientos ya estaban cargados y nunca lo iba a pedir. **Una
 funcionalidad nueva no está terminada hasta que se recorre entera en el
 navegador**: los dos agujeros eran salidas cerradas, y ningún test los buscaba
 porque ningún test sabe cómo se camina una app.
+
+
+## L-033 · Cambiar la pantalla de arranque movió una precondición que nadie había escrito
+
+**Qué pasó.** El 2026-09-06 el usuario reportó que **la carga de gastos quedaba
+trancada**: completaba los campos, tocaba Guardar y no pasaba nada. Ni el
+movimiento, ni un error, ni un parpadeo. Lo más grave que le puede pasar a esta
+app: lo único que hace todos los días, roto y mudo.
+
+**La causa.** Dos días antes, T-055 cambió la pantalla de arranque de `mes` a
+`nuevo`. El borrador del formulario —el objeto que lleva el tipo, la fecha y la
+moneda predeterminada— lo creaba `irA('nuevo')`, o sea **solo al tocar la
+pestaña**. Nadie lo había escrito en ningún lado porque hasta ese día era cierto
+por construcción: a esa pantalla no se llegaba de otra forma.
+
+Quien abría la app y cargaba directo enviaba el formulario sin borrador detrás:
+`leerFormulario()` esparcía `undefined` y el movimiento salía sin `tipo`.
+
+**Por qué quedó mudo en vez de dar error.** Ahí está la segunda mitad, y es la
+que convierte un bug en un cuelgue:
+
+1. `intentarGuardar()` hizo lo correcto: no guardó y devolvió el error.
+2. La app puso ese borrador en la vista y llamó a `pintar()`.
+3. `dibujarNuevo()` **tiró** con ese mismo borrador, porque preguntaba
+   `rubrosDe(borrador.tipo)` dos líneas después de haber decidido, con ese mismo
+   dato, que era un gasto.
+4. La excepción se llevó puesto el repintado entero. **No se dibujó el error
+   porque no se dibujó nada.**
+
+**Las dos reglas que quedan.**
+
+- **Cambiar dónde arranca algo cambia qué precondiciones se cumplen solas.** Al
+  mover una pantalla de arranque, de estado inicial o de orden de carga, hay que
+  preguntarse qué venía preparando el camino que se salteó. Acá la respuesta
+  estaba escrita a la vista: `leerFormularioDeAhorro()` ya tenía el respaldo
+  ("el borrador **puede no existir todavía**: la vista inicial no lo trae") y
+  `leerFormulario()` no, por la única razón de que hasta entonces no hacía falta.
+- **Lo que dibuja no puede tirar.** Una pantalla que se niega a dibujarse no
+  puede ni contar qué pasó, y deja la app congelada con el botón muerto. Validar
+  es tarea de quien guarda —y sigue siéndolo—; quien dibuja tiene que poder
+  mostrar hasta un estado roto, aunque sea para que se vea el error.
+
+**Y por qué el recorrido en el navegador no lo encontró.** Esa es la parte
+incómoda. T-055 **sí** se probó en el navegador, pero el guion de prueba cargaba
+los gastos con un ayudante que empieza tocando la pestaña *Cargar* — el mismo
+camino que crea el borrador. Probé el arranque (¿abre en Cargar?) y probé la
+carga (¿guarda?), nunca **la carga desde el arranque**, que era justo lo que el
+cambio había estrenado. La regla: cuando un cambio estrena un camino, el
+recorrido tiene que empezar en ese camino, no pasar por el de siempre para llegar
+al mismo lugar.

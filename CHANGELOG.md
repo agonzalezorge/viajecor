@@ -3,6 +3,22 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.11.1 — 2026-09-06
+
+### Arreglado
+- **La carga de gastos quedaba trancada.** Si abrías la app y cargabas
+  directamente —sin tocar antes ninguna pestaña—, el botón de guardar no hacía
+  nada: ni el movimiento, ni un mensaje de error. Lo rompió el cambio de la
+  versión anterior, el que hace que la app abra en *Cargar*.
+
+  Nada de lo cargado se perdió: los movimientos que sí entraron están intactos, y
+  los que no entraron nunca llegaron a guardarse a medias.
+
+  Quedó arreglado en tres puntos: la app arranca con el formulario listo, la
+  lectura del formulario tiene su respaldo, y **la pantalla ahora se dibuja
+  aunque algo venga mal** — que es la parte que convirtió un error en un cuelgue
+  mudo, porque una pantalla que no se dibuja tampoco puede mostrar el error.
+
 ## 0.11.0 — 2026-09-04
 
 ### Agregado

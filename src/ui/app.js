@@ -505,6 +505,12 @@ export function vistaInicial({ estado, incidencias = [], mes, puedeCompartir = f
     // Con el perfil de ahorros recordado, `dibujarApp()` la cambia sola por la
     // de ese perfil: "nuevo" no es una pantalla suya.
     pantalla: 'nuevo',
+    // Y por eso **trae el borrador puesto**. Hasta T-055 lo creaba `irA('nuevo')`
+    // y alcanzaba, porque a esa pantalla solo se llegaba tocando la pestaña.
+    // Arrancar ahí sin borrador dejaba la carga trancada: el formulario se
+    // dibujaba igual —tiene su propio respaldo— pero al guardar, `leerFormulario`
+    // esparcía `undefined` y el movimiento salía sin `tipo`. Ver L-033.
+    borrador: borradorNuevo({ estado }),
     // El perfil elegido se recuerda entre visitas: quien está poniendo al día
     // los ahorros de un mes abre la app tres veces seguidas para eso mismo.
     perfil: estado?.preferencias?.perfil === PERFIL_AHORROS ? PERFIL_AHORROS : PERFIL_COTIDIANA,
@@ -678,12 +684,17 @@ export function iniciar(documento, almacen) {
    * aplicada a un formulario.
    */
   function leerFormulario() {
+    // El borrador **puede no existir**, igual que en el de ahorros: alcanza con
+    // que alguien haga que la app arranque en esta pantalla (T-055) para que
+    // `vista.borrador` llegue vacío. Sin este respaldo, lo que sale de acá no
+    // tiene `tipo` y el movimiento no se puede ni construir ni dibujar (L-033).
+    const actual = vista.borrador ?? borradorNuevo({ estado: vista.estado });
     const formulario = raiz.querySelector('[data-formulario="movimiento"]');
-    if (!formulario) return vista.borrador;
+    if (!formulario) return actual;
 
     const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
     return {
-      ...vista.borrador,
+      ...actual,
       fecha: campo('fecha'),
       monto: campo('monto'),
       moneda: campo('moneda'),

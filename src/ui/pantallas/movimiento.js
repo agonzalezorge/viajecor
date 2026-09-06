@@ -282,6 +282,13 @@ export function dibujarNuevo(vista) {
     return dibujarMovimientoEnEspera(estado, borrador) + dibujarPedido(vista);
   }
   const esGasto = borrador.tipo !== TIPO_INGRESO;
+  // El tipo que el formulario está mostrando, que es el que tienen que usar el
+  // color y la lista de rubros. Preguntarle otra vez a `borrador.tipo` —como
+  // estaba— hacía que la pantalla decidiera "es gasto" en una línea y dos líneas
+  // después **tirara** por ese mismo dato si venía mal. Y una pantalla que no se
+  // dibuja no muestra ni el error: la app queda trancada sin decir nada, que es
+  // exactamente lo que pasó el 2026-09-06 (L-033).
+  const tipo = esGasto ? TIPO_GASTO : TIPO_INGRESO;
 
   // Solo el código, no "EUR — Euro": el nombre completo no entra al lado del
   // monto en una pantalla de celular y se corta a la mitad, que es peor que no
@@ -327,12 +334,12 @@ export function dibujarNuevo(vista) {
         <!-- El campo se pinta del color del rubro elegido: es la confirmación
              de que quedó puesto el que se quería, sin volver a leerlo. El mismo
              color que va a tener después en el resumen del mes. -->
-        <div class="campo-rubro ${borrador.rubro ? claseDeRubro(borrador.tipo, borrador.rubro, estado.rubros) : 'sin-elegir'}"
+        <div class="campo-rubro ${borrador.rubro ? claseDeRubro(tipo, borrador.rubro, estado.rubros) : 'sin-elegir'}"
              data-campo-rubro>
           <select name="rubro">
             <option value=""${borrador.rubro ? '' : ' selected'} disabled>Elegí un rubro</option>
             ${opciones(
-              rubrosDe(borrador.tipo, estado.rubros).map((r) => ({ valor: r, texto: formatearRubro(r) })),
+              rubrosDe(tipo, estado.rubros).map((r) => ({ valor: r, texto: formatearRubro(r) })),
               borrador.rubro
             )}
           </select>

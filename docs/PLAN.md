@@ -99,6 +99,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-051 | El reparto por rubro en la evolución | **Hecha** | T-021 |
 | T-054 | Recortar la evolución a un período | **Hecha** | T-021 |
 | T-055 | La app abre en Cargar | **Hecha** | T-010 |
+| T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
 | T-900 | README de uso | **Hecha** | — |
@@ -2781,3 +2782,44 @@ Con el perfil de ahorros recordado no hace falta nada más: `dibujarApp()` ya ca
 sola en la pantalla de inicio del perfil cuando la pedida no es suya. Hay un test
 nuevo que lo comprueba, porque es la clase de detalle que un cambio de una línea
 rompe sin ruido.
+
+
+### T-056 · Arreglo: la carga quedaba trancada al arrancar — **Hecha** (2026-09-06)
+
+**Lo que reportó el usuario:** *"está habiendo un glitch al cargar gastos. esto
+es muy grave. completo todos los campos y al hacer click en el botón de cargar,
+no carga, queda trancado sin reacción"*.
+
+**Reproducido en el navegador antes de tocar nada**, con la consola abierta:
+
+    Error: El tipo de un movimiento es "G" (gasto) o "I" (ingreso), y llegó undefined.
+      at rubrosDe → dibujarNuevo
+
+**La causa: T-055.** Al mover la pantalla de arranque a `nuevo`, la app empezó a
+abrir en un formulario cuyo borrador lo creaba `irA('nuevo')` — o sea, solo al
+**tocar la pestaña**. Quien abría la app y cargaba directo enviaba el formulario
+sin borrador detrás, y el movimiento salía sin `tipo`.
+
+**Por qué quedó mudo y no dio error**, que es lo que lo volvió un cuelgue:
+`intentarGuardar()` hizo lo correcto —no guardó y devolvió el error—, pero al
+repintar, `dibujarNuevo()` **tiró** con ese mismo borrador. La excepción se llevó
+puesto el repintado entero: no se dibujó el error porque no se dibujó nada.
+
+**Arreglado en los tres lugares**, que son tres capas distintas de la misma cosa:
+1. `vistaInicial()` trae el borrador puesto — la raíz.
+2. `leerFormulario()` tiene el mismo respaldo que ya tenía el de ahorros.
+3. `dibujarNuevo()` usa el tipo que **está mostrando** en vez de volver a
+   preguntarle al dato crudo: ahora dibuja aunque el borrador venga roto, que es
+   la condición para que un error se pueda ver.
+
+**Los tests que faltaban.** Los 1.223 pasaban con el bug adentro: comprobaban que
+la pantalla se **dibujara**, nunca que lo que arranca puesto **sirviera para
+guardar**. Los tres nuevos se verificaron revirtiendo cada arreglo por separado:
+sin la raíz caen tres, sin el dibujo tolerante cae el suyo.
+
+**Y por qué el recorrido de T-055 no lo encontró** (ver L-033): el guion cargaba
+los gastos con un ayudante que empieza tocando la pestaña *Cargar*, el mismo
+camino que creaba el borrador. Se probó el arranque y se probó la carga, nunca
+**la carga desde el arranque**, que era lo único que T-055 estrenaba. El
+recorrido nuevo (`arranque.mjs`) empieza en el camino nuevo y comprueba también
+que un error de validación **se vea**.
