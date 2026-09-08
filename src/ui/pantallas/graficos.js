@@ -234,12 +234,11 @@ export function dibujarMesAMes(filas) {
   return dibujarSerie({
     id: 'mes-a-mes',
     titulo: 'Mes a mes',
-    nota: `Lo que entró, lo que salió y lo que quedó, mes por mes. Cada mes es un
-    tramo del ancho del gráfico, así que <strong>el área pintada bajo el saldo es
-    proporcional a la plata</strong>: verde la que sobró, roja la que faltó.`,
-    // Mesetas, no líneas entre puntos: un mes no es un instante y el área tiene
-    // que valer lo que valió el mes (T-057). El relleno va bajo el saldo.
-    forma: 'meseta',
+    nota: `Lo que entró, lo que salió y lo que quedó, mes por mes. Bajo el saldo
+    se pinta <strong>verde lo que sobró y rojo lo que faltó</strong>.`,
+    // Curva monótona, no líneas rectas ni escalones (T-057). El relleno va bajo
+    // el saldo.
+    forma: 'curva',
     rellenar: 'saldo',
     series: [
       { clase: 'ingreso', nombre: 'Ingresos' },

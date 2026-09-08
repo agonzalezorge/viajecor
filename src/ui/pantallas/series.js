@@ -112,78 +112,72 @@ export function etiquetaDeImporte(centimos, paso) {
 const cortoEnSerie = (n) => Math.round(n * 100) / 100;
 
 /**
- * Qué parte del ancho de un mes ocupa la transición entre una meseta y la
- * siguiente. Ver `caminoDeMesetas()`.
+ * El camino de una serie dibujada como **curva** — T-057.
+ *
+ * ── Qué curva, y por qué esa ───────────────────────────────────────────────
+ *
+ * Una spline monótona por tramos (PCHIP), pasada a Béziers cúbicas. La clave es
+ * lo de **monótona**: la curva pasa por todos los puntos y **no se pasa de
+ * largo** entre uno y el siguiente. La alternativa fácil —Catmull-Rom, que es lo
+ * que sale cuando uno "suaviza" una polilínea— sí se pasa: con un mes de saldo
+ * +1.500 seguido de uno de +100, la curva baja hasta −200 antes de subir de
+ * nuevo, y el gráfico dibuja un mes en rojo que en los datos no existe. En un
+ * gráfico de plata eso no es un defecto estético.
+ *
+ * Las pendientes se calculan **en píxeles**, sobre los puntos ya proyectados: la
+ * proyección es lineal en los dos ejes, así que la monotonía se conserva y no
+ * hay que arrastrar dos sistemas de unidades.
+ *
+ * ── Lo que esto cuesta, dicho de frente ───────────────────────────────────
+ *
+ * El área que queda bajo la curva **no es proporcional a los saldos**, y no hay
+ * curva que pase por los puntos que lo consiga (ADR-051). El usuario lo eligió
+ * así el 2026-09-08, sabiendo el precio: la primera versión sí conservaba el
+ * área y se veía como escalones. El área pintada dice **de un vistazo si el mes
+ * cerró para arriba o para abajo, y más o menos cuánto**; para el número exacto
+ * está la tabla, que es donde se leen los números.
  */
-export const CURVA_DE_MESETA = 0.25;
-
-/**
- * El camino de una serie dibujada como **mesetas redondeadas** — T-057.
- *
- * ── Por qué mesetas y no una curva que pase por los puntos ──────────────────
- *
- * El usuario pidió tres cosas para el gráfico mes a mes: líneas curvas, el área
- * bajo el saldo pintada de verde o rojo, y —lo difícil— que **esas áreas fueran
- * proporcionales a los saldos**. Lo tercero no lo cumple ninguna línea que una
- * los puntos, ni recta ni curva, y la diferencia no es un detalle: con saldos
- * `+100 −50 +200 +300 −120` la proporción real entre lo verde y lo rojo es 3,5 a
- * 1 y la que encierra la línea recta de antes es **15,4 a 1**. Entre dos meses,
- * una línea cuenta el promedio de los dos, no el saldo de cada uno.
- *
- * Un mes no es un instante: "en marzo gasté 300" habla del mes entero. Así que
- * cada mes es un **intervalo de ancho 1** y su valor una meseta plana a lo
- * ancho. El área de esa meseta es exactamente el saldo del mes, y su altura
- * también — que es lo que la otra solución posible (interpolar la acumulada y
- * dibujar su derivada) tiene que sacrificar: ahí la curva vale 390 donde el
- * saldo es 300.
- *
- * ── Por qué el redondeo no arruina el área ─────────────────────────────────
- *
- * El salto entre dos mesetas se dibuja con una Bézier cúbica cuyos dos puntos de
- * control están a media transición, en horizontal. Eso la hace **antisimétrica
- * respecto del borde del mes**: lo que le saca a un lado se lo da al otro, y el
- * área de cada mes queda intacta. Verificado numéricamente en `test/`.
- *
- * La única fuga aparece cuando la curva **cruza el cero** al pasar de un mes
- * positivo a uno negativo. Ahí las dos áreas se achican a la vez: el escalón
- * puro pasaría de +100 a −50 de golpe, y la curva se demora cruzando, así que
- * pinta menos verde antes del cruce y menos rojo después. No es un traspaso de
- * un color al otro: **las dos pierden**, y es inevitable en cualquier curva
- * continua que cruce el cero.
- *
- * Cuánto pierden depende del ancho de la transición, y está **medido en el
- * navegador** (`test/mesetas.test.js` y el guion `medir.mjs`), no razonado: con
- * los saldos del ejemplo, la proporción verdadera es 3,53 y sale
- *
- *     0,15 → 3,65     0,25 → 3,74     0,40 → 3,88     0,60 → 4,10
- *
- * contra el **15,44** de la línea recta que había antes. Se eligió `0,25`: es el
- * punto donde la curva todavía se ve curva y el error del área queda en 2 % del
- * verde. Bajarlo la endereza; subirlo miente más.
- */
-export function caminoDeMesetas(valores, x, y, curva = CURVA_DE_MESETA) {
+export function caminoDeCurva(valores, x, y) {
   if (valores.length === 0) return '';
+  const puntos = valores.map((v, i) => [x(i), y(v)]);
+  if (puntos.length === 1) return `M ${puntos[0][0]},${puntos[0][1]}`;
 
-  const mitad = curva / 2;
-  const punto = (i, dentro) => cortoEnSerie(x(i + dentro));
-  const partes = [`M ${punto(0, 0)},${cortoEnSerie(y(valores[0]))}`];
-
-  for (let i = 0; i < valores.length; i += 1) {
-    const altura = cortoEnSerie(y(valores[i]));
-    // La meseta: plana desde donde terminó de entrar hasta donde empieza a salir.
-    const finDeMeseta = i === valores.length - 1 ? punto(i, 1) : punto(i, 1 - mitad);
-    partes.push(`L ${finDeMeseta},${altura}`);
-
-    if (i === valores.length - 1) break;
-
-    // La transición al mes siguiente, centrada en el borde entre los dos.
-    const empieza = punto(i, 1 - mitad);
-    const termina = punto(i + 1, mitad);
-    const control = cortoEnSerie((empieza + termina) / 2);
-    const siguiente = cortoEnSerie(y(valores[i + 1]));
-    partes.push(`C ${control},${altura} ${control},${siguiente} ${termina},${siguiente}`);
+  // Pendiente de cada tramo, y la de cada punto (Fritsch–Carlson): en un pico o
+  // un valle la pendiente es cero —por eso la curva no se pasa—, y en el resto
+  // es la media armónica de sus dos vecinas, que es la que respeta al vecino más
+  // chico en vez de promediarlo.
+  const anchos = [], pendientes = [];
+  for (let i = 0; i < puntos.length - 1; i += 1) {
+    const h = puntos[i + 1][0] - puntos[i][0];
+    anchos.push(h);
+    pendientes.push(h === 0 ? 0 : (puntos[i + 1][1] - puntos[i][1]) / h);
   }
 
+  const m = new Array(puntos.length);
+  m[0] = pendientes[0];
+  m[puntos.length - 1] = pendientes.at(-1);
+  for (let i = 1; i < puntos.length - 1; i += 1) {
+    if (pendientes[i - 1] * pendientes[i] <= 0) {
+      m[i] = 0;
+    } else {
+      const w1 = 2 * anchos[i] + anchos[i - 1];
+      const w2 = anchos[i] + 2 * anchos[i - 1];
+      m[i] = (w1 + w2) / (w1 / pendientes[i - 1] + w2 / pendientes[i]);
+    }
+  }
+
+  const partes = [`M ${cortoEnSerie(puntos[0][0])},${cortoEnSerie(puntos[0][1])}`];
+  for (let i = 0; i < puntos.length - 1; i += 1) {
+    // Hermite → Bézier: los dos controles caen a un tercio del tramo, sobre la
+    // recta tangente de cada punta.
+    const h = anchos[i] / 3;
+    const c1x = puntos[i][0] + h;
+    const c1y = puntos[i][1] + m[i] * h;
+    const c2x = puntos[i + 1][0] - h;
+    const c2y = puntos[i + 1][1] - m[i + 1] * h;
+    partes.push(`C ${cortoEnSerie(c1x)},${cortoEnSerie(c1y)} ${cortoEnSerie(c2x)},${cortoEnSerie(c2y)} `
+      + `${cortoEnSerie(puntos[i + 1][0])},${cortoEnSerie(puntos[i + 1][1])}`);
+  }
   return partes.join(' ');
 }
 
@@ -301,20 +295,21 @@ export function interiorDeSerie(serie, ventana = {}, seleccion = null) {
   const piso = Math.min(...valores, 0);
   const alto = techo === piso ? 1 : techo - piso;
 
-  // Con mesetas (T-057) cada punto **ocupa un tramo**, no es un instante: n meses
-  // son n tramos de ancho 1 y el mes vive en el medio del suyo. Con líneas, los
-  // puntos son instantes y el primero y el último tocan los bordes.
-  const esMeseta = serie.forma === 'meseta';
-  const tramos = hasta - desde + (esMeseta ? 1 : 0);
-  const x = (t) => cortoEnSerie(((t - desde) / tramos) * ANCHO);
-  const centro = (i) => x(i + (esMeseta ? 0.5 : 0));
+  const x = (i) => cortoEnSerie(((i - desde) / (hasta - desde)) * ANCHO);
+  const centro = (i) => x(i);
   const y = (valor) => cortoEnSerie(ALTO - ((valor - piso) / alto) * ALTO);
+
+  // Curva o polilínea. La curva es para los pocos puntos del mes a mes; el
+  // acumulado día por día trae trescientos sesenta y cinco, donde cada tramo mide
+  // menos de un píxel y suavizar no cambia nada de lo que se ve.
+  const esCurva = serie.forma === 'curva';
+  const enPixeles = (i) => x(desde + i);
 
   const lineas = series.map((s, n) => {
     const suyos = visibles.map((p) => p.valores[n]);
-    if (esMeseta) {
+    if (esCurva) {
       return `<path class="traza ${escapar(s.clase)}" fill="none"
-                    d="${caminoDeMesetas(suyos, (t) => x(desde + t), y)}" />`;
+                    d="${caminoDeCurva(suyos, enPixeles, y)}" />`;
     }
     const trazo = suyos.map((v, i) => `${centro(desde + i)},${y(v)}`).join(' ');
     return `<polyline class="traza ${escapar(s.clase)}" points="${trazo}" />`;
@@ -327,8 +322,8 @@ export function interiorDeSerie(serie, ventana = {}, seleccion = null) {
   // resolver una cúbica — y una raíz mal calculada deja una banda de color del
   // lado equivocado, que es justo lo que este gráfico no puede hacer.
   const nRelleno = serie.rellenar === undefined ? -1 : series.findIndex((s) => s.clase === serie.rellenar);
-  const relleno = !esMeseta || nRelleno < 0 ? '' : (() => {
-    const camino = caminoDeMesetas(visibles.map((p) => p.valores[nRelleno]), (t) => x(desde + t), y);
+  const relleno = !esCurva || nRelleno < 0 ? '' : (() => {
+    const camino = caminoDeCurva(visibles.map((p) => p.valores[nRelleno]), enPixeles, y);
     const cero = y(0);
     const cerrado = `${camino} L ${ANCHO},${cero} L 0,${cero} Z`;
     const id = escapar(serie.id);

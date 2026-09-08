@@ -262,10 +262,11 @@ movimientos quedaron afuera. *"Ver todo el historial"* lo deshace. **El recorte
 no se guarda**: al cerrar la app volvés a ver todo.
 
 **El gráfico "Mes a mes"** pinta de verde lo que sobró cada mes y de rojo lo que
-faltó. El área está dibujada para que sea **proporcional a la plata**: cada mes
-ocupa un tramo del ancho y su altura es el saldo, así que un vistazo te dice si
-los meses buenos compensan a los malos. Por eso las líneas van por mesetas y no
-en diagonal — un mes no es un instante, es un mes entero.
+faltó, con curvas suaves que pasan por todos los meses. El color es para leer de
+un vistazo si venís para arriba o para abajo; **para los números exactos está la
+tabla**, porque el área de una curva no es proporcional a la plata. Lo que sí
+está asegurado es que la curva no se pasa de largo entre dos meses: nunca vas a
+ver rojo en un mes que cerró en verde.
 
 **Debajo de la matriz están las dos tortas**: *"En qué se fue"* y *"De dónde
 vino"*, el reparto por rubro de **todos los meses de la tabla**. Son dos y no

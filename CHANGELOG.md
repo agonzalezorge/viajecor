@@ -3,6 +3,23 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.13.0 — 2026-09-08
+
+### Cambiado
+- **Las líneas del gráfico "Mes a mes" ahora son curvas de verdad.** La versión
+  anterior las dibujaba por mesetas para que el área fuera exacta, y quedaban
+  como escalones. Ahora son curvas suaves que pasan por todos los puntos, con el
+  área bajo el saldo pintada igual que antes: verde lo que sobró, rojo lo que
+  faltó.
+
+  A cambio, **el área pasa a ser orientativa**: te dice de un vistazo si el mes
+  cerró para arriba o para abajo y más o menos cuánto, no la proporción exacta.
+  Para los números exactos está la tabla de arriba. La app ya no promete lo
+  contrario.
+
+  Lo que sí está garantizado: **la curva nunca se pasa de largo** entre dos
+  meses, así que no puede aparecer rojo en un mes que cerró en verde.
+
 ## 0.12.0 — 2026-09-08
 
 ### Cambiado

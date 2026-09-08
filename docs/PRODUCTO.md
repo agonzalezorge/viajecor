@@ -499,11 +499,14 @@ saldo; más una fila de **promedio** y, cerrando la tabla, la de **total**.
 (T-942): acercar con los botones o pellizcando, arrastrar para moverse, y tocar
 un punto para ver **en qué momento estás y cuánto valía cada línea ahí**.
 - **Mes a mes:** ingresos, gastos y saldo de cada mes, en un solo eje, con la
-  línea del cero cuando algún saldo es negativo. Las tres se dibujan como
-  **mesetas redondeadas** —cada mes ocupa un tramo del ancho, porque un mes no es
-  un instante— y **bajo el saldo se pinta el área**: verde lo que sobró, roja lo
-  que faltó. Esa área es proporcional a la plata (T-057, ADR-051): la altura de
-  cada meseta es exactamente el saldo del mes y su ancho es el mes entero.
+  línea del cero cuando algún saldo es negativo. Las tres son **curvas suaves que
+  pasan por todos los puntos**, y **bajo el saldo se pinta el área**: verde lo que
+  sobró, roja lo que faltó (T-057, ADR-051).
+
+  El área es **orientativa, no proporcional**: dice de un vistazo si el mes cerró
+  para arriba o para abajo y más o menos cuánto. Los números exactos están en la
+  tabla. Sí está garantizado que **la curva no se pase de largo** entre dos meses:
+  nunca aparece rojo en un mes que cerró en verde.
 - **Todo lo que llevás gastado y cobrado:** el acumulado día por día de todo el
   historial. Lo que se mira ahí no es la altura sino si las dos líneas se
   separan o se juntan.

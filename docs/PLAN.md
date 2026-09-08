@@ -2865,3 +2865,32 @@ transición (0,25 → proporción 3,74 contra 3,53 real).
 claro y en oscuro, con zoom. Las dos áreas aparecen, las tres líneas son caminos
 (ya no quedan polilíneas), las etiquetas del eje no se pisan, y al tocar un mes
 la lectura da el saldo exacto **que es la altura de la meseta que se ve**.
+
+
+### T-057 (segunda vuelta) · Curvas de verdad — **Hecha** (2026-09-08)
+
+El usuario miró las mesetas y las rechazó: *"no son curvas, en realidad son como
+escalones… y si perdemos un poco de la proporcionalidad de las áreas, no pasa
+nada"*. Tenía razón, y la decisión es suya: yo le había ofrecido tres opciones y
+le vendí como buena la que se ve mal.
+
+**Ahora es una spline PCHIP** (Fritsch–Carlson) pasada a Béziers cúbicas. Pasa
+por todos los puntos —que es lo que hace que el número al tocar un mes coincida
+con lo que se ve— y **es monótona por tramos**, que acá no es un lujo: con
+Catmull-Rom, un mes alto seguido de uno bajo hace que la curva baje de más, y si
+eso cruza el cero el gráfico pinta de rojo un mes que cerró en verde.
+
+**La nota del gráfico dejó de prometer que el área es proporcional**, porque dejó
+de serlo (3,53 real → 3,74 con mesetas → 12,43 con curva, medido). Hay un test
+que falla si alguien vuelve a escribir esa promesa.
+
+**Mutaciones:** 17 sembradas, 14 muertas. Las tres vivas —exagerar la pendiente
+de los extremos ×3 y aflojar la tensión de las Béziers a la mitad— resultaron
+**equivalentes**: se comprobó que ×3,1 y `h/1,5` sí mueren, o sea que el test
+protege la propiedad hasta su límite matemático exacto (3× es el borde del
+criterio de Fritsch–Carlson). Lo que sobrevive cambia la tensión visual de la
+curva, no su corrección, y eso se valida mirando.
+
+**Recorrido en el navegador:** seis meses con saldos de los dos signos. Las
+curvas son curvas, el verde y el rojo quedan donde tienen que quedar, y las
+etiquetas del eje siguen sin pisarse.

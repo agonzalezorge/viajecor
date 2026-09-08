@@ -1866,3 +1866,31 @@ corto. Contra el 15,44 de antes, es otra cosa.
 tramo y no en el borde: `n` meses son `n` tramos, no `n−1`. El gráfico del
 acumulado día por día **no** cambia: ahí cada punto es un stock en un instante,
 no un flujo, y su línea sigue tocando las dos puntas del dibujo.
+
+### Revisado el mismo día: el usuario vio las mesetas y las rechazó
+
+*"no me gusta nada cómo se ven esas curvas, porque no son curvas, en realidad son
+como escalones. Yo quiero curvas, de verdad… y si perdemos un poco de la
+proporcionalidad de las áreas, no pasa nada".*
+
+**Se hizo lo que pidió: curvas de verdad.** Es la salida 1 de la lista de arriba,
+descartada por mí por no cumplir lo del área y elegida por él viéndola dibujada.
+La decisión es suya y es la correcta: el área es lo segundo que ese gráfico
+comunica, y el primero —cómo viene la cosa mes a mes— se lee mucho mejor en una
+curva. Los números exactos están en la tabla de arriba, que es donde se leen los
+números.
+
+**Qué se pierde, con el número medido**: con los saldos del ejemplo, la
+proporción entre verde y rojo era 3,53 de verdad, 3,74 con mesetas y **12,43 con
+la curva**. Por eso la nota del gráfico **dejó de prometer proporcionalidad** —hay
+un test que lo exige— y ahora solo dice "verde lo que sobró, rojo lo que faltó".
+Un gráfico que promete una precisión que no tiene es peor que uno que no promete
+nada.
+
+**Pero la curva no puede ser cualquiera: tiene que ser monótona.** Suavizar una
+polilínea de la forma fácil (Catmull-Rom) hace que la curva **se pase de largo**
+entre dos puntos: con un mes de saldo alto seguido de uno bajo, baja de más antes
+de enderezarse, y si eso cruza el cero, **el gráfico pinta de rojo un mes que
+cerró en verde**. Eso ya no es estética: es plata que no existe. Por eso es una
+spline PCHIP (Fritsch–Carlson), que pasa por todos los puntos y se aplana en los
+picos y los valles en vez de rebotar.
