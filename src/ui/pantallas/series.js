@@ -36,6 +36,9 @@ export const MINIMO_VISIBLE = 2;
 /** Cuántas etiquetas del eje entran sin pisarse en la pantalla de un teléfono. */
 const MAXIMO_ETIQUETAS = 5;
 
+/** Cuánto espacio necesita una etiqueta del eje para no pisar a la de al lado. */
+const SEPARACION_MINIMA = 56;
+
 /** Cuántas marcas se apunta a poner en el eje de los importes. */
 const MARCAS_DE_IMPORTE = 5;
 
@@ -107,6 +110,82 @@ export function etiquetaDeImporte(centimos, paso) {
 }
 
 const cortoEnSerie = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Qué parte del ancho de un mes ocupa la transición entre una meseta y la
+ * siguiente. Ver `caminoDeMesetas()`.
+ */
+export const CURVA_DE_MESETA = 0.25;
+
+/**
+ * El camino de una serie dibujada como **mesetas redondeadas** — T-057.
+ *
+ * ── Por qué mesetas y no una curva que pase por los puntos ──────────────────
+ *
+ * El usuario pidió tres cosas para el gráfico mes a mes: líneas curvas, el área
+ * bajo el saldo pintada de verde o rojo, y —lo difícil— que **esas áreas fueran
+ * proporcionales a los saldos**. Lo tercero no lo cumple ninguna línea que una
+ * los puntos, ni recta ni curva, y la diferencia no es un detalle: con saldos
+ * `+100 −50 +200 +300 −120` la proporción real entre lo verde y lo rojo es 3,5 a
+ * 1 y la que encierra la línea recta de antes es **15,4 a 1**. Entre dos meses,
+ * una línea cuenta el promedio de los dos, no el saldo de cada uno.
+ *
+ * Un mes no es un instante: "en marzo gasté 300" habla del mes entero. Así que
+ * cada mes es un **intervalo de ancho 1** y su valor una meseta plana a lo
+ * ancho. El área de esa meseta es exactamente el saldo del mes, y su altura
+ * también — que es lo que la otra solución posible (interpolar la acumulada y
+ * dibujar su derivada) tiene que sacrificar: ahí la curva vale 390 donde el
+ * saldo es 300.
+ *
+ * ── Por qué el redondeo no arruina el área ─────────────────────────────────
+ *
+ * El salto entre dos mesetas se dibuja con una Bézier cúbica cuyos dos puntos de
+ * control están a media transición, en horizontal. Eso la hace **antisimétrica
+ * respecto del borde del mes**: lo que le saca a un lado se lo da al otro, y el
+ * área de cada mes queda intacta. Verificado numéricamente en `test/`.
+ *
+ * La única fuga aparece cuando la curva **cruza el cero** al pasar de un mes
+ * positivo a uno negativo. Ahí las dos áreas se achican a la vez: el escalón
+ * puro pasaría de +100 a −50 de golpe, y la curva se demora cruzando, así que
+ * pinta menos verde antes del cruce y menos rojo después. No es un traspaso de
+ * un color al otro: **las dos pierden**, y es inevitable en cualquier curva
+ * continua que cruce el cero.
+ *
+ * Cuánto pierden depende del ancho de la transición, y está **medido en el
+ * navegador** (`test/mesetas.test.js` y el guion `medir.mjs`), no razonado: con
+ * los saldos del ejemplo, la proporción verdadera es 3,53 y sale
+ *
+ *     0,15 → 3,65     0,25 → 3,74     0,40 → 3,88     0,60 → 4,10
+ *
+ * contra el **15,44** de la línea recta que había antes. Se eligió `0,25`: es el
+ * punto donde la curva todavía se ve curva y el error del área queda en 2 % del
+ * verde. Bajarlo la endereza; subirlo miente más.
+ */
+export function caminoDeMesetas(valores, x, y, curva = CURVA_DE_MESETA) {
+  if (valores.length === 0) return '';
+
+  const mitad = curva / 2;
+  const punto = (i, dentro) => cortoEnSerie(x(i + dentro));
+  const partes = [`M ${punto(0, 0)},${cortoEnSerie(y(valores[0]))}`];
+
+  for (let i = 0; i < valores.length; i += 1) {
+    const altura = cortoEnSerie(y(valores[i]));
+    // La meseta: plana desde donde terminó de entrar hasta donde empieza a salir.
+    const finDeMeseta = i === valores.length - 1 ? punto(i, 1) : punto(i, 1 - mitad);
+    partes.push(`L ${finDeMeseta},${altura}`);
+
+    if (i === valores.length - 1) break;
+
+    // La transición al mes siguiente, centrada en el borde entre los dos.
+    const empieza = punto(i, 1 - mitad);
+    const termina = punto(i + 1, mitad);
+    const control = cortoEnSerie((empieza + termina) / 2);
+    const siguiente = cortoEnSerie(y(valores[i + 1]));
+    partes.push(`C ${control},${altura} ${control},${siguiente} ${termina},${siguiente}`);
+  }
+
+  return partes.join(' ');
+}
 
 /**
  * Acomoda una ventana para que siempre sea válida: dentro de la serie, con al
@@ -185,10 +264,23 @@ export function indicesConEtiqueta(desde, hasta, maximo = MAXIMO_ETIQUETAS) {
   if (cuantos <= maximo) {
     return Array.from({ length: cuantos }, (_, i) => desde + i);
   }
-  const paso = (cuantos - 1) / (maximo - 1);
-  const indices = Array.from({ length: maximo }, (_, i) => desde + Math.round(i * paso));
-  return [...new Set(indices)];
+
+  // Repartir `maximo` etiquetas parejo no alcanza: al redondear a índices
+  // enteros, dos pueden caer en puntos vecinos. Con seis meses eso las deja a
+  // 50 px una de otra y "abr 26" mide cuarenta — se pisan y no se lee ninguna.
+  //
+  // Así que primero se calcula **cada cuántos puntos** hay lugar para una
+  // etiqueta, y recién después cuántas entran. Menos etiquetas legibles es mejor
+  // que cinco encimadas.
+  const anchoDeTramo = ANCHO / cuantos;
+  const cadaCuantos = Math.max(1, Math.ceil(SEPARACION_MINIMA / anchoDeTramo));
+  const cuantas = Math.min(maximo, Math.floor((cuantos - 1) / cadaCuantos) + 1);
+  if (cuantas <= 1) return [desde, hasta];
+
+  const paso = (cuantos - 1) / (cuantas - 1);
+  return [...new Set(Array.from({ length: cuantas }, (_, i) => desde + Math.round(i * paso)))];
 }
+
 
 /**
  * El interior del gráfico para una ventana: ejes, marcas, líneas y la guía del
@@ -209,25 +301,57 @@ export function interiorDeSerie(serie, ventana = {}, seleccion = null) {
   const piso = Math.min(...valores, 0);
   const alto = techo === piso ? 1 : techo - piso;
 
-  const x = (i) => cortoEnSerie(((i - desde) / (hasta - desde)) * ANCHO);
+  // Con mesetas (T-057) cada punto **ocupa un tramo**, no es un instante: n meses
+  // son n tramos de ancho 1 y el mes vive en el medio del suyo. Con líneas, los
+  // puntos son instantes y el primero y el último tocan los bordes.
+  const esMeseta = serie.forma === 'meseta';
+  const tramos = hasta - desde + (esMeseta ? 1 : 0);
+  const x = (t) => cortoEnSerie(((t - desde) / tramos) * ANCHO);
+  const centro = (i) => x(i + (esMeseta ? 0.5 : 0));
   const y = (valor) => cortoEnSerie(ALTO - ((valor - piso) / alto) * ALTO);
 
   const lineas = series.map((s, n) => {
-    const trazo = visibles.map((p, i) => `${x(desde + i)},${y(p.valores[n])}`).join(' ');
+    const suyos = visibles.map((p) => p.valores[n]);
+    if (esMeseta) {
+      return `<path class="traza ${escapar(s.clase)}" fill="none"
+                    d="${caminoDeMesetas(suyos, (t) => x(desde + t), y)}" />`;
+    }
+    const trazo = suyos.map((v, i) => `${centro(desde + i)},${y(v)}`).join(' ');
     return `<polyline class="traza ${escapar(s.clase)}" points="${trazo}" />`;
   }).join('');
+
+  // El área entre la línea elegida y el cero, verde arriba y roja abajo — T-057.
+  // Es UN solo camino relleno, recortado dos veces: la mitad de arriba del cero
+  // se pinta de un color y la de abajo del otro. Dibujar dos caminos distintos
+  // obligaría a calcular dónde cruza la curva el cero, que en una Bézier es
+  // resolver una cúbica — y una raíz mal calculada deja una banda de color del
+  // lado equivocado, que es justo lo que este gráfico no puede hacer.
+  const nRelleno = serie.rellenar === undefined ? -1 : series.findIndex((s) => s.clase === serie.rellenar);
+  const relleno = !esMeseta || nRelleno < 0 ? '' : (() => {
+    const camino = caminoDeMesetas(visibles.map((p) => p.valores[nRelleno]), (t) => x(desde + t), y);
+    const cero = y(0);
+    const cerrado = `${camino} L ${ANCHO},${cero} L 0,${cero} Z`;
+    const id = escapar(serie.id);
+    return `
+      <defs>
+        <clipPath id="sobre-cero-${id}"><rect x="0" y="0" width="${ANCHO}" height="${Math.max(cero, 0)}" /></clipPath>
+        <clipPath id="bajo-cero-${id}"><rect x="0" y="${cero}" width="${ANCHO}" height="${Math.max(ALTO - cero, 0)}" /></clipPath>
+      </defs>
+      <path class="area ingreso" d="${cerrado}" clip-path="url(#sobre-cero-${id})" />
+      <path class="area gasto" d="${cerrado}" clip-path="url(#bajo-cero-${id})" />`;
+  })();
 
   // Una marca por punto visible mientras entren; si no, solo las etiquetadas.
   const conEtiqueta = indicesConEtiqueta(desde, hasta);
   const marcas = (hasta - desde + 1 <= 32 ? visibles.map((_, i) => desde + i) : conEtiqueta)
-    .map((i) => `<line class="marca" x1="${x(i)}" y1="${ALTO}" x2="${x(i)}" y2="${ALTO + 4}" />`)
+    .map((i) => `<line class="marca" x1="${centro(i)}" y1="${ALTO}" x2="${centro(i)}" y2="${ALTO + 4}" />`)
     .join('');
 
   const etiquetas = conEtiqueta.map((i, n) => {
     // La primera pegada a la izquierda y la última a la derecha: centradas se
     // salen del dibujo por la mitad de su ancho.
     const donde = n === 0 ? 'inicio' : n === conEtiqueta.length - 1 ? 'fin' : 'medio';
-    return `<text class="marca-eje ${donde}" x="${x(i)}" y="${ALTO + 16}">${escapar(puntos[i].etiqueta)}</text>`;
+    return `<text class="marca-eje ${donde}" x="${centro(i)}" y="${ALTO + 16}">${escapar(puntos[i].etiqueta)}</text>`;
   }).join('');
 
   // Las marcas de importe: una línea fina que cruza el dibujo y su número a la
@@ -244,11 +368,12 @@ export function interiorDeSerie(serie, ventana = {}, seleccion = null) {
   // número no va acá sino en el texto de abajo — en un teléfono, un cartel
   // flotante queda debajo del dedo que lo pidió.
   const elegido = seleccion === null || seleccion < desde || seleccion > hasta ? '' : `
-    <line class="guia" x1="${x(seleccion)}" y1="0" x2="${x(seleccion)}" y2="${ALTO}" />
-    ${series.map((s, n) => `<circle class="punto ${escapar(s.clase)}" cx="${x(seleccion)}"
+    <line class="guia" x1="${centro(seleccion)}" y1="0" x2="${centro(seleccion)}" y2="${ALTO}" />
+    ${series.map((s, n) => `<circle class="punto ${escapar(s.clase)}" cx="${centro(seleccion)}"
         cy="${y(puntos[seleccion].valores[n])}" r="4" />`).join('')}`;
 
   return `
+    ${relleno}
     ${marcasDeY}
     <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
     ${marcas}

@@ -99,6 +99,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-051 | El reparto por rubro en la evolución | **Hecha** | T-021 |
 | T-054 | Recortar la evolución a un período | **Hecha** | T-021 |
 | T-055 | La app abre en Cargar | **Hecha** | T-010 |
+| T-057 | Mesetas y área bajo el saldo | **Hecha** | T-942 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -2823,3 +2824,44 @@ camino que creaba el borrador. Se probó el arranque y se probó la carga, nunca
 **la carga desde el arranque**, que era lo único que T-055 estrenaba. El
 recorrido nuevo (`arranque.mjs`) empieza en el camino nuevo y comprueba también
 que un error de validación **se vea**.
+
+
+### T-057 · Mesetas y área bajo el saldo — **Hecha** (2026-09-08)
+
+**El pedido:** curvas en vez de rectas, el área bajo el saldo pintada de verde o
+rojo, y **que esas áreas fueran proporcionales a los saldos**.
+
+**Lo tercero es el pedido de fondo y no lo cumplía ninguna línea.** Se midió
+antes de escribir nada: con `+100 −50 +200 +300 −120`, la proporción verdadera
+entre verde y rojo es 3,53 y la línea recta encerraba **15,44**. La decisión y
+las tres salidas posibles están en ADR-051; el usuario eligió las mesetas, con
+las tres líneas.
+
+**Lo que se hizo:** `caminoDeMesetas()` en `pantallas/series.js` —pura y
+testeable—, la geometría del mes como tramo en `interiorDeSerie()`, y el relleno
+como **un solo camino recortado dos veces** (arriba y abajo del cero) para no
+tener que resolver dónde cruza el cero una Bézier: una raíz mal calculada deja
+una banda de color del lado equivocado, que es lo único que este relleno no puede
+hacer.
+
+**Un arreglo que salió al mirar:** las etiquetas del eje se pisaban. Con mesetas
+los centros quedan más juntos (`ANCHO/n` en vez de `ANCHO/(n−1)`) y con seis
+meses "abr 26" y "may 26" se encimaban. `indicesConEtiqueta()` ahora calcula
+primero **cada cuántos puntos entra una etiqueta** y recién después cuántas
+entran: menos etiquetas legibles antes que cinco encimadas. Hay un test que
+recorre de 2 a 400 puntos exigiendo 55 px de separación.
+
+**Mutaciones:** 16 sembradas, 16 muertas. La primera vuelta dejó 7 vivas, todas
+en el relleno y la geometría del SVG entero —tenía tests del camino y ninguno de
+la pantalla—; se cubrieron una por una.
+
+**Lo que se midió y no se razonó (L-034):** la fuga del área en los cruces del
+cero. Se midió pintando el camino en un navegador y contando qué puntos caen
+adentro, y desmintió mi razonamiento: no hay traspaso entre verde y rojo, **las
+dos se achican**. Esa medición dio además el número para elegir el ancho de la
+transición (0,25 → proporción 3,74 contra 3,53 real).
+
+**Recorrido en el navegador:** seis meses con saldos positivos y negativos, en
+claro y en oscuro, con zoom. Las dos áreas aparecen, las tres líneas son caminos
+(ya no quedan polilíneas), las etiquetas del eje no se pisan, y al tocar un mes
+la lectura da el saldo exacto **que es la altura de la meseta que se ve**.

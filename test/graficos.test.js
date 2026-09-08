@@ -384,13 +384,14 @@ test('las tres comparten una sola escala', () => {
   // Dos escalas en un mismo dibujo hacen que la línea de abajo parezca alcanzar
   // a la de arriba. Es la forma más común de mentir con un gráfico.
   const svg = dibujarMesAMes(MESES);
-  const puntos = (clase) => svg.match(new RegExp(`class="traza ${clase}" points="([^"]*)"`))[1]
-    .split(' ').map((p) => Number(p.split(',')[1]));
+  // Desde T-057 las series son mesetas (un `path`), no polilíneas: las alturas
+  // se leen de las coordenadas del camino.
+  const alturas = (clase) => [...svg.match(new RegExp(`class="traza ${clase}"[^>]*d="([^"]*)"`))[1]
+    .matchAll(/-?[\d.]+,(-?[\d.]+)/g)].map((m) => Number(m[1]));
 
   // El techo es 250000 (los gastos de noviembre) y el piso -40000 (su saldo).
-  // Noviembre es el segundo punto de cada línea.
-  assert.equal(puntos('gasto')[1], 0, 'el valor más alto va arriba de todo');
-  assert.equal(puntos('saldo')[1], 150, 'el más bajo va abajo de todo');
+  assert.equal(Math.min(...alturas('gasto')), 0, 'el valor más alto va arriba de todo');
+  assert.equal(Math.max(...alturas('saldo')), 150, 'el más bajo va abajo de todo');
 });
 
 test('con saldo negativo se dibuja la línea del cero', () => {

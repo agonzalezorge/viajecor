@@ -261,6 +261,12 @@ gráficos y los gastos fijos—, y arriba te dice qué estás mirando y cuántos
 movimientos quedaron afuera. *"Ver todo el historial"* lo deshace. **El recorte
 no se guarda**: al cerrar la app volvés a ver todo.
 
+**El gráfico "Mes a mes"** pinta de verde lo que sobró cada mes y de rojo lo que
+faltó. El área está dibujada para que sea **proporcional a la plata**: cada mes
+ocupa un tramo del ancho y su altura es el saldo, así que un vistazo te dice si
+los meses buenos compensan a los malos. Por eso las líneas van por mesetas y no
+en diagonal — un mes no es un instante, es un mes entero.
+
 **Debajo de la matriz están las dos tortas**: *"En qué se fue"* y *"De dónde
 vino"*, el reparto por rubro de **todos los meses de la tabla**. Son dos y no
 una porque son dos repartos distintos —lo que salió y lo que entró—, y

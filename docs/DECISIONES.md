@@ -1817,3 +1817,52 @@ tomó.
 **Dos decimales para cualquier base.** Los totales se calculan en centésimas
 desde ADR-005 y cambiar eso tocaría cada cuenta del programa. Con euros y pesos
 uruguayos es exacto.
+
+
+## ADR-051 · El saldo mes a mes se dibuja como mesetas, para que el área valga lo que valió el mes
+
+**Contexto.** El usuario pidió tres cosas para el gráfico mes a mes: líneas
+curvas, el área bajo el saldo pintada de verde o rojo, y **que esas áreas fueran
+proporcionales a los saldos**. Lo tercero es el pedido de fondo: quiere ver de un
+vistazo cuánta plata sobró contra cuánta faltó.
+
+**El problema.** Ninguna línea que una los puntos cumple eso, ni recta ni curva.
+Entre dos meses, una línea cuenta el promedio de los dos y no el saldo de cada
+uno. No es un detalle: con saldos `+100 −50 +200 +300 −120` la proporción real
+entre lo verde y lo rojo es **3,53** y la que encerraba la línea recta era
+**15,44** — casi cinco veces.
+
+**Las tres salidas posibles, y por qué se eligió la tercera.**
+
+1. *Curva suave que pasa por los puntos.* Cumple lo lindo y no lo pedido: el área
+   sigue sin ser proporcional.
+2. *Interpolar la acumulada y dibujar su derivada* (una "histospline"). El área
+   de cada mes queda **exacta**, y se probó que funciona. Pero la curva **deja de
+   pasar por los puntos**: donde el saldo es 300 la curva vale 390. El gráfico
+   dejaría de mentir sobre el área para empezar a mentir sobre la altura, y la
+   app muestra el número al tocar el punto — no puede decir 300 donde se ve 390.
+3. **Mesetas redondeadas.** Un mes **no es un instante**: "en marzo gasté 300"
+   habla del mes entero. Así que cada mes ocupa un tramo de ancho 1 y su valor es
+   una meseta plana. El área de la meseta es el saldo y su altura también.
+
+Se eligió la 3 y el usuario la confirmó (2026-09-08), con las tres líneas —no
+solo el saldo— porque las tres son flujos mensuales y dos gramáticas en un mismo
+dibujo se leen peor.
+
+**El redondeo no arruina el área.** El salto entre dos mesetas se dibuja con una
+Bézier cúbica de controles horizontales a media transición: es antisimétrica
+respecto del borde del mes, así que lo que le saca a un mes se lo da al otro.
+
+**Lo que sí se pierde, medido y no razonado.** Cuando la curva **cruza el cero**
+al pasar de un mes positivo a uno negativo, las dos áreas se achican a la vez —
+el escalón puro cruzaría de golpe y la curva se demora, pintando menos verde
+antes y menos rojo después. Es inevitable en cualquier curva continua que cruce
+el cero. El ancho de la transición decide cuánto: medido en el navegador, con
+proporción verdadera 3,53 sale `0,15 → 3,65`, `0,25 → 3,74`, `0,40 → 3,88`,
+`0,60 → 4,10`. Se eligió **0,25**: la curva se ve curva y el verde queda 2,2 %
+corto. Contra el 15,44 de antes, es otra cosa.
+
+**Consecuencia en la geometría.** Con mesetas, el punto vive en el **medio** de su
+tramo y no en el borde: `n` meses son `n` tramos, no `n−1`. El gráfico del
+acumulado día por día **no** cambia: ahí cada punto es un stock en un instante,
+no un flujo, y su línea sigue tocando las dos puntas del dibujo.

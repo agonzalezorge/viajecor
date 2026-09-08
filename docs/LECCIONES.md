@@ -1127,3 +1127,37 @@ carga (¿guarda?), nunca **la carga desde el arranque**, que era justo lo que el
 cambio había estrenado. La regla: cuando un cambio estrena un camino, el
 recorrido tiene que empezar en ese camino, no pasar por el de siempre para llegar
 al mismo lugar.
+
+
+## L-034 · Una propiedad geométrica razonada, y medida, no dan lo mismo
+
+**Qué pasó.** Al diseñar las mesetas del gráfico mes a mes (T-057) razoné que la
+transición entre dos mesetas, por ser antisimétrica respecto del borde, no
+cambiaría el área: lo que le saca a un mes se lo da al otro. Se lo dije al
+usuario con esas palabras, agregando que la única pérdida sería un ~4 % que **se
+traspasaría** de un color al otro en los cruces del cero.
+
+**Lo que pasa de verdad**, medido pintando el camino en un navegador y contando
+qué puntos caen adentro: en los cruces del cero **las dos áreas se achican a la
+vez**. No hay traspaso. El escalón puro pasaría de +100 a −50 de golpe; la curva
+se demora cruzando, así que pinta menos verde antes del cruce y menos rojo
+después. Con la transición elegida, el verde queda 2,2 % corto y el rojo 7,6 %
+—el rojo pierde más en porcentaje porque es el área chica y la fuga absoluta es
+la misma—.
+
+**La parte razonada estaba bien** (el área **con signo** sí se conserva) y la
+conclusión que saqué de ella estaba mal, porque el reparto entre positivo y
+negativo no es una función lineal del área con signo. Es exactamente el tipo de
+error que no se ve pensando más fuerte: los dos enunciados suenan igual de
+razonables.
+
+**La regla.** Una propiedad geométrica se **mide**, aunque la demostración parezca
+obvia — y se mide sobre lo que se dibuja, no sobre la fórmula que uno cree estar
+dibujando. Acá eso se hizo dos veces y las dos sirvieron: `isPointInFill` del
+navegador para el área pintada, e integrar el camino SVG en `test/mesetas.test.js`
+para que quede comprobado en cada corrida. La medición también dio el número con
+el que se eligió el ancho de la transición, que si no se habría elegido a ojo.
+
+**Y un corolario para lo que se le dice al usuario:** el "~4 % que se traspasa"
+se lo conté antes de medirlo. La medición lo corrigió a tiempo, pero salió de mi
+boca como un hecho cuando era una deducción.

@@ -3,6 +3,26 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.12.0 — 2026-09-08
+
+### Cambiado
+- **El gráfico "Mes a mes" ahora pinta el área bajo el saldo**: verde lo que
+  sobró, roja lo que faltó. Y las tres líneas dejaron de ser rectas entre puntos:
+  cada mes es un tramo del ancho del gráfico, con su meseta redondeada.
+
+  El cambio no es estético. **Así el área es proporcional a la plata**: la altura
+  de cada mes es su saldo y su ancho es el mes entero. Con la línea de antes no
+  lo era ni de lejos — en un ejemplo de cinco meses, lo verde y lo rojo se veían
+  en proporción 15 a 1 cuando la real era 3,5 a 1, porque entre dos meses una
+  línea recta cuenta el promedio de los dos y no lo de cada uno.
+
+  Queda una diferencia chica cuando la curva cruza el cero (el verde se pinta un
+  2 % corto): es inevitable en cualquier curva que cruce, y está medido.
+
+### Arreglado
+- **Las etiquetas del eje del tiempo se pisaban** cuando había seis o siete
+  meses. Ahora la app calcula cuántas entran sin encimarse y muestra esas.
+
 ## 0.11.1 — 2026-09-06
 
 ### Arreglado

@@ -122,10 +122,25 @@ test('con pocos puntos, todos llevan etiqueta', () => {
   assert.deepEqual(indicesConEtiqueta(0, 4), [0, 1, 2, 3, 4]);
 });
 
-test('con muchos puntos, cinco repartidas parejo', () => {
+test('con muchos puntos, hasta cinco repartidas parejo', () => {
   // Once fechas en 300 píxeles se pisan y no se lee ninguna.
-  assert.deepEqual(indicesConEtiqueta(0, 10), [0, 3, 5, 8, 10]);
+  assert.deepEqual(indicesConEtiqueta(0, 10), [0, 3, 7, 10]);
   assert.deepEqual(indicesConEtiqueta(0, 300).length, 5);
+});
+
+test('ninguna etiqueta cae tan cerca de la de al lado como para pisarla', () => {
+  // Cinco repartidas parejo pueden caer en puntos VECINOS al redondear: con seis
+  // meses eso las dejaba a 50 px y "abr 26" mide cuarenta. Se vio en el
+  // navegador (T-057), no en un test: por eso ahora hay uno.
+  for (let cuantos = 2; cuantos <= 400; cuantos += 1) {
+    const indices = indicesConEtiqueta(0, cuantos - 1);
+    const anchoDeTramo = 300 / cuantos;
+
+    for (let i = 1; i < indices.length; i += 1) {
+      const separacion = (indices[i] - indices[i - 1]) * anchoDeTramo;
+      assert.ok(separacion >= 55, `con ${cuantos} puntos quedan a ${separacion.toFixed(1)} px`);
+    }
+  }
 });
 
 test('la primera y la última SIEMPRE llevan etiqueta', () => {

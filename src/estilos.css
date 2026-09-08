@@ -561,6 +561,13 @@ body {
    confundirlo con un gasto o un ingreso sería no leer su rótulo, que está
    escrito donde la línea termina. */
 .linea-acumulado .traza.saldo { stroke: var(--texto); stroke-dasharray: 5 3; }
+
+/* El área entre el saldo y el cero (T-057). Va MUY translúcida a propósito: es
+   el fondo del gráfico, no una cuarta serie, y por encima tienen que seguir
+   leyéndose las tres líneas y las guías del eje. */
+.linea-acumulado .area { stroke: none; }
+.linea-acumulado .area.ingreso { fill: var(--ingreso); opacity: 0.16; }
+.linea-acumulado .area.gasto { fill: var(--gasto); opacity: 0.16; }
 .linea-acumulado .rotulo-traza.saldo { fill: var(--texto); }
 
 /* ── La lupa y los resultados (T-943) ─────────────────────────────────────── */
