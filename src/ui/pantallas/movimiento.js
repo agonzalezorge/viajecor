@@ -196,8 +196,8 @@ export function dibujarError(error) {
 
 /**
  * Los últimos movimientos cargados, para responder "¿se guardó?" sin cambiar de
- * pantalla. No es la lista de verdad —esa es T-015, con editar y borrar—: son
- * cinco líneas de confirmación.
+ * pantalla. No es la lista de verdad: son cinco líneas de confirmación, y el
+ * botón del final lleva a la lista, que es donde se corrige y se borra.
  */
 function dibujarUltimos(estado) {
   const ultimos = estado.movimientos.slice(-5).reverse();
@@ -227,7 +227,14 @@ function dibujarUltimos(estado) {
     <section class="tarjeta">
       <h2>Últimos cargados</h2>
       <ul class="lineas">${filas}</ul>
-      <p class="suave">Corregir y borrar llega con T-015.</p>
+      <!-- Acá decía "Corregir y borrar llega con T-015" desde que esa tarea no
+           estaba hecha. Se hizo hace meses y el cartel quedó, prometiendo como
+           futuro algo que ya andaba (lo vio el usuario, 2026-09-08). Lo que
+           ocupa su lugar contesta la misma pregunta —"¿y si me equivoqué?"— pero
+           llevando adonde se arregla. -->
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="movimientos">
+        Ver todos y corregir
+      </button>
     </section>
   `;
 }

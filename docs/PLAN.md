@@ -2894,3 +2894,24 @@ curva, no su corrección, y eso se valida mirando.
 **Recorrido en el navegador:** seis meses con saldos de los dos signos. Las
 curvas son curvas, el verde y el rojo quedan donde tienen que quedar, y las
 etiquetas del eje siguen sin pisarse.
+
+
+### T-058 · Un cartel que prometía algo ya hecho — **Hecha** (2026-09-08)
+
+Lo encontró el usuario: la tarjeta *Últimos cargados* decía **"Corregir y borrar
+llega con T-015"**. T-015 se hizo hace meses. El cartel anunciaba como futuro
+algo que él usaba todos los días, y de paso le mostraba un número de tarea que no
+significa nada fuera de este repositorio.
+
+En su lugar va un botón a la lista de movimientos: la pregunta que el cartel
+contestaba —"¿y si me equivoqué?"— sigue siendo buena; lo que estaba mal era la
+respuesta.
+
+**Cómo se evita que vuelva a pasar.** El test nuevo no busca ese texto sino el
+patrón, y sobre el **texto visible** —los comentarios del HTML sí nombran tareas,
+a propósito, para quien lee el archivo—: ningún `T-0NN` ni ninguna promesa a
+futuro puede llegar a la pantalla. Se barrieron además las 30 combinaciones de
+pantalla y perfil buscando lo mismo, y no había otro.
+
+Hermano de L-018: un cartel que describe el estado del proyecto envejece solo, y
+nadie vuelve a mirarlo porque no da error.

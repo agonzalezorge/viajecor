@@ -3,6 +3,18 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.13.1 — 2026-09-08
+
+### Arreglado
+- **"Corregir y borrar llega con T-015"**, decía la tarjeta de *Últimos
+  cargados*. Esa tarea se hizo hace meses: el cartel anunciaba como futuro algo
+  que ya venías usando, y encima con un número interno que no significa nada
+  para nadie. En su lugar hay un botón que te lleva a la lista, que es donde se
+  corrige y se borra.
+
+  Se revisaron de paso las 30 combinaciones de pantalla y perfil: no quedan otros
+  carteles viejos, y hay un test nuevo que falla si vuelve a aparecer uno.
+
 ## 0.13.0 — 2026-09-08
 
 ### Cambiado

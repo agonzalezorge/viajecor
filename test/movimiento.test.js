@@ -484,3 +484,32 @@ test('el formulario nuevo sigue viniendo con la fecha del último movimiento', (
   assert.equal(borradorNuevo({ estado: estadoLimpio(), fecha: '2026-03-14' }).fecha, '2026-03-14');
   assert.equal(borradorNuevo({ estado: estadoLimpio() }).fecha, hoy());
 });
+
+
+test('la tarjeta de últimos cargados no promete nada para más adelante', () => {
+  // Decía "Corregir y borrar llega con T-015" desde antes de que esa tarea
+  // existiera. Se hizo hace meses y el cartel quedó ahí, anunciando como futuro
+  // algo que el usuario ya venía usando. Lo encontró él (2026-09-08).
+  //
+  // Mira el TEXTO VISIBLE, no el código: los comentarios del HTML nombran tareas
+  // a propósito y son para quien lee el archivo. Lo que no puede pasar es que un
+  // número de tarea —o una promesa a futuro— le llegue al usuario.
+  const { estado } = intentarGuardar(estadoLimpio(), borradorDe());
+  const visible = dibujarNuevo({ estado })
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<[^>]*>/g, ' ');
+
+  assert.ok(visible.includes('Últimos cargados'), 'la tarjeta sigue estando');
+  assert.equal(/T-\d+/.test(visible), false, `una tarea a la vista: ${visible.match(/.{0,40}T-\d+.{0,20}/)}`);
+  assert.equal(/llega con|próximamente|más adelante/i.test(visible), false, 'ni una promesa a futuro');
+});
+
+test('desde los últimos cargados se llega a la lista, que es donde se corrige', () => {
+  // La pregunta que el cartel viejo contestaba —"¿y si me equivoqué?"— sigue
+  // siendo buena; lo que estaba mal era la respuesta.
+  const { estado } = intentarGuardar(estadoLimpio(), borradorDe());
+  const html = dibujarNuevo({ estado });
+
+  assert.match(html.replace(/\s+/g, ' '),
+    /data-accion="ir" data-pantalla="movimientos"[^>]*> Ver todos y corregir/);
+});
