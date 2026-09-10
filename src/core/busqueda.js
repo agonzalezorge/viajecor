@@ -90,12 +90,15 @@ export function textoDeMovimiento(estado, movimiento) {
     // `1.250,00 €`.
     partes.push(String(movimiento.monto));
 
-    // Y su valor en euros, que es el número que se ve en las listas cuando el
-    // gasto es en otra moneda.
-    if (movimiento.moneda !== 'EUR' && !faltaCambioPara(movimiento, estado.tipos_cambio)) {
+    // Y su valor en la moneda base, que es el número que se ve en las listas
+    // cuando el gasto es en otra moneda. Contra la base elegida y no contra el
+    // euro (T-059): con base en pesos, buscar "1.500" no encontraba los gastos
+    // en pesos porque acá se los daba por no convertibles.
+    const base = monedaBaseDe(estado);
+    if (movimiento.moneda !== base && !faltaCambioPara(movimiento, estado.tipos_cambio, base)) {
       partes.push(formatearEuros(
-        movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)),
-        monedaBaseDe(estado),
+        movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, base),
+        base,
       ));
     }
   } catch {

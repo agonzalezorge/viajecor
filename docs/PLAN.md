@@ -100,6 +100,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-054 | Recortar la evolución a un período | **Hecha** | T-021 |
 | T-055 | La app abre en Cargar | **Hecha** | T-010 |
 | T-057 | Mesetas y área bajo el saldo | **Hecha** | T-942 |
+| T-059 | Arreglo: la app entera con una base que no es el euro | **Hecha** | T-050 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -2915,3 +2916,51 @@ pantalla y perfil buscando lo mismo, y no había otro.
 
 Hermano de L-018: un cartel que describe el estado del proyecto envejece solo, y
 nadie vuelve a mirarlo porque no da error.
+
+
+### T-059 · La app entera con una base que no es el euro — **Hecha** (2026-09-10)
+
+**Lo que reportó el usuario**, de parte de su madre: con el peso uruguayo como
+base, cargar un gasto en pesos pedía "la cotización del peso contra el peso"; con
+1 contestaba que el peso no lleva cotización; con "ahora no" volvía al
+formulario. No se podía cargar **nada**.
+
+**Reproducido en el navegador antes de tocar nada**, los tres síntomas.
+
+**La causa, y su tamaño real (L-035):** el `base = MONEDA_BASE` que T-050 dejó
+por defecto. **Once** llamadas no pasaban la base y convertían contra el euro en
+silencio. Solo una se notaba:
+
+| dónde | qué hacía mal |
+|---|---|
+| `movimiento.js` | pedía la cotización del peso contra el peso — el bug reportado |
+| `busqueda.js` | no encontraba gastos en pesos por su importe |
+| `viajes.js` (×2) | el costo de un viaje, mal |
+| `agrupamientos.js` | el total de un grupo de gastos, mal |
+| `lista.js` (×2) | el total de una lista filtrada, mal |
+| `xlsx.js` (×2) | exportaba los gastos con el importe vacío |
+| `csv.js` (×2) | lo mismo, y la columna de cotización |
+
+**Además**, dos cosas que hacían fea la vida a quien cambia la base: el formulario
+seguía ofreciendo euros (el borrador se arma al arrancar y sobrevive al cambio), y
+la moneda predeterminada quedaba en euros. Las dos arregladas, sin pisar una
+elección explícita del usuario.
+
+**Para que no vuelva a pasar:** `tools/moneda-base.mjs`, una guardia como la de
+privacidad. Cuenta los argumentos de cada llamada a las seis funciones que
+deciden contra qué moneda se convierte, y **la construcción falla** si alguna se
+olvidó de la base. Se probó rompiendo a propósito la llamada original: la
+construcción se detiene y nombra archivo, línea y función.
+
+**Por qué no se quitó el default, que sería lo obvio:** rompe 364 tests que
+prueban legítimamente el caso del euro, y ese ruido habría escondido las once
+llamadas de verdad.
+
+**Mutaciones:** 14 sembradas, 14 muertas. La primera vuelta dejó 5 vivas —entre
+ellas dos que apagaban la guardia misma— y cada una señaló un test que faltaba.
+
+**Recorrido en el navegador**, con la base en pesos: se carga un gasto y un
+ingreso en pesos sin que pida nada; un gasto en euros **sí** pide su cotización
+(contra el peso); los totales dan 3.583,33 UYU (1.500 + 50 € a 0,024); el
+buscador encuentra el gasto en pesos; la exportación no dice que falte nada; y
+todo sobrevive a recargar.

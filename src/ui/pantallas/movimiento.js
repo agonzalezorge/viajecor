@@ -13,6 +13,7 @@
 import { crearMovimiento, rubrosDe, TIPO_GASTO, TIPO_INGRESO, hoy } from '../../core/modelo.js';
 import { monedasVisibles, decimalesDe } from '../../core/monedas.js';
 import { faltaCambioPara } from '../../core/cambio.js';
+import { monedaBaseDe } from '../../core/monedas.js';
 import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana, formatearMes, formatearRubro, formatearNumero } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
 import { escapar } from '../app.js';
@@ -32,7 +33,10 @@ export function borradorNuevo({ estado, fecha } = {}) {
     fecha: fecha ?? hoy(),
     tipo: TIPO_GASTO,
     monto: '',
-    moneda: estado?.preferencias?.moneda_predeterminada ?? 'EUR',
+    // Sin ninguna usada todavía, la moneda base: quien puso el peso como base
+    // gasta en pesos, y ofrecerle euros lo obliga a corregir el campo en cada
+    // carga. Antes decía 'EUR' a secas, de cuando la base era siempre el euro.
+    moneda: estado?.preferencias?.moneda_predeterminada ?? monedaBaseDe(estado),
     rubro: '',
     comentario: '',
     detalle: '',
@@ -96,9 +100,13 @@ export function intentarGuardar(estado, borrador) {
   }
 
   // RN-04: no se guarda un movimiento en moneda extranjera sin tipo de cambio,
-  // porque no habría forma de expresarlo en euros y quedaría fuera de todos los
-  // totales sin que nada lo delate.
-  const falta = faltaCambioPara(movimiento, estado.tipos_cambio);
+  // porque no habría forma de expresarlo en la moneda base y quedaría fuera de
+  // todos los totales sin que nada lo delate.
+  //
+  // **Contra la base elegida, no contra el euro** (T-059). Sin esto, con la base
+  // en pesos la app le pedía al usuario la cotización del peso contra el peso y
+  // no lo dejaba guardar nada.
+  const falta = faltaCambioPara(movimiento, estado.tipos_cambio, monedaBaseDe(estado));
   if (falta) {
     return {
       estado,

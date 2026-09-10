@@ -30,7 +30,7 @@
 import { movimientosDelMes, mesesConMovimientos } from '../core/calculos.js';
 import { movimientoEnEuros, faltaCambioPara, buscarCambio, aUnidadesPorEuro } from '../core/cambio.js';
 import { mesDe, hoy } from '../core/modelo.js';
-import { decimalesDe } from '../core/monedas.js';
+import { decimalesDe, monedaBaseDe } from '../core/monedas.js';
 import { formatearRubro } from '../core/formato.js';
 
 export const TIPO_CSV = 'text/csv;charset=utf-8';
@@ -96,6 +96,7 @@ export function comoImporte(minimas, decimales) {
  * en euros es un número que no se puede volver a comprobar.
  */
 export function filasDelCsv(estado) {
+  const base = monedaBaseDe(estado);
   const meses = mesesConMovimientos(estado.movimientos ?? []).slice().sort();
   const filas = [];
 
@@ -106,8 +107,8 @@ export function filasDelCsv(estado) {
 
     for (const movimiento of movimientos) {
       const decimales = decimalesDe(estado.monedas, movimiento.moneda);
-      const falta = faltaCambioPara(movimiento, estado.tipos_cambio);
-      const cambio = falta ? null : buscarCambio(estado.tipos_cambio, movimiento.moneda, mesDe(movimiento.fecha));
+      const falta = faltaCambioPara(movimiento, estado.tipos_cambio, base);
+      const cambio = falta ? null : buscarCambio(estado.tipos_cambio, movimiento.moneda, mesDe(movimiento.fecha), base);
 
       filas.push({
         fecha: movimiento.fecha,
@@ -119,14 +120,14 @@ export function filasDelCsv(estado) {
         detalle: movimiento.detalle ?? '',
         moneda: movimiento.moneda,
         monto: comoImporte(movimiento.monto, decimales),
-        // El euro no tiene "unidades por euro" que decir: es 1 y decirlo sería
-        // ruido en el 90 % de las filas.
-        unidades_por_euro: cambio === null || movimiento.moneda === 'EUR'
+        // La moneda base no tiene "unidades por unidad de la base" que decir: es
+        // 1 y decirlo sería ruido en el 90 % de las filas.
+        unidades_por_euro: cambio === null || movimiento.moneda === base
           ? ''
           : comoImporte(Math.round(aUnidadesPorEuro(cambio) * 100), 2),
         euros: falta
           ? ''
-          : comoImporte(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas), 2),
+          : comoImporte(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, base), 2),
       });
     }
   }

@@ -1923,6 +1923,7 @@ export function iniciar(documento, almacen) {
     } else if (accion === 'cancelar-base') {
       vista = { ...vista, baseElegida: null };
     } else if (accion === 'confirmar-base') {
+      const baseVieja = monedaBaseDe(vista.estado);
       const nuevoEstado = cambiarMonedaBase(vista.estado, boton.dataset.moneda);
       try {
         guardarEstado(nuevoEstado, almacen);
@@ -1934,6 +1935,14 @@ export function iniciar(documento, almacen) {
       vista = {
         ...vista,
         estado: nuevoEstado,
+        // El borrador del formulario se arma al arrancar y sobrevive a esto, así
+        // que se queda con la moneda de antes: quien pone el peso como base se
+        // encontraba el formulario ofreciéndole euros (T-059). Solo se cambia si
+        // tenía puesta la base vieja — si el usuario había elegido otra moneda a
+        // propósito, esa elección es suya.
+        borrador: vista.borrador && vista.borrador.moneda === baseVieja
+          ? { ...vista.borrador, moneda: monedaBaseDe(nuevoEstado) }
+          : vista.borrador,
         baseElegida: null,
         error: null,
         avisoBase: `Listo: los totales se muestran en ${boton.dataset.moneda}.`,

@@ -3,6 +3,29 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.14.0 — 2026-09-10
+
+### Arreglado
+- **Con una moneda base que no fuera el euro, no se podía cargar nada.** Al
+  guardar un gasto en pesos con el peso como base, la app pedía "la cotización
+  del peso contra el peso" y no había forma de salir: con 1 contestaba que el
+  peso no lleva cotización, y con "ahora no" volvía al formulario.
+
+  El mismo error afectaba, en silencio, a **otros diez lugares**: el buscador no
+  encontraba los gastos por su importe, el costo de un viaje y el total de un
+  grupo se calculaban mal, el total de una lista filtrada también, y la planilla
+  y el CSV los exportaban con el importe vacío. Todos convertían contra el euro
+  sin decirlo. Están los once arreglados.
+
+  **Ningún dato se perdió ni se guardó mal**: lo que fallaba era el cálculo al
+  mostrar y exportar, no lo guardado. Los importes que ya estaban cargados
+  estaban bien y ahora se muestran bien.
+
+### Cambiado
+- **Al elegir una moneda base, esa pasa a ser la que viene puesta al cargar.**
+  Antes seguía ofreciendo euros y había que corregir el campo en cada gasto. Si
+  ya habías elegido otra moneda a propósito, esa se respeta.
+
 ## 0.13.1 — 2026-09-08
 
 ### Arreglado

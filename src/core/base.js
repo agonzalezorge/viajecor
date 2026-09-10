@@ -171,6 +171,14 @@ export function cambiarMonedaBase(estado, nueva) {
   return {
     ...estado,
     tipos_cambio: reexpresar(estado?.tipos_cambio ?? [], actual, destino),
-    preferencias: { ...estado?.preferencias, moneda_base: destino },
+    preferencias: {
+      ...estado?.preferencias,
+      moneda_base: destino,
+      // Y la moneda que viene puesta al cargar pasa a ser la nueva base: quien
+      // pone el peso como base gasta en pesos. Si no, el formulario seguiría
+      // ofreciendo euros y habría que corregirlo en cada carga hasta el primer
+      // gasto guardado. Se recalibra sola con la última usada, como siempre.
+      moneda_predeterminada: destino,
+    },
   };
 }

@@ -45,6 +45,7 @@
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
 import { TIPO_GASTO, normalizarClave, mesDe } from './modelo.js';
+import { monedaBaseDe } from './monedas.js';
 import { porEtiquetaDeGasto } from './calculos.js';
 import { movimientoEnEuros } from './cambio.js';
 import { RUBRO_VIAJE } from './viajes.js';
@@ -97,7 +98,7 @@ export function otrosGrupos(estado) {
     const etiqueta = movimientos[0].comentario;
 
     const total = movimientos.reduce(
-      (suma, m) => suma + movimientoEnEuros(m, estado.tipos_cambio, estado.monedas), 0,
+      (suma, m) => suma + movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)), 0,
     );
     const fechas = movimientos.map((m) => m.fecha).sort();
 

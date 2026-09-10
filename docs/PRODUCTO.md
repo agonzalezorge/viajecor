@@ -758,6 +758,17 @@ la app solo pide el tipo de cambio cuando el movimiento es nuevo.
 que es incómodo de leer. Es una sola regla y no admite ambigüedad; si conviene
 más el otro sentido, es una decisión de producto a tomar aparte.
 
+**Todo lo que convierte plata usa la base elegida**, no el euro: la carga (qué
+cotización hace falta y cuál no), los totales, el buscador, los viajes, los
+grupos, las listas filtradas y las dos exportaciones. Suena obvio y no lo fue:
+once lugares seguían convirtiendo contra el euro en silencio y dejaron a una
+persona sin poder cargar un solo gasto (T-059, L-035). Hoy lo comprueba una
+guardia de construcción, `tools/moneda-base.mjs`.
+
+**Al elegir una base, esa pasa a ser la moneda que viene puesta al cargar** —
+quien pone el peso como base gasta en pesos—, salvo que ya hubiera una elegida a
+propósito.
+
 **Los ahorros conjuntos no usan la moneda base**: ahí cada moneda se muestra por
 separado y nunca se convierte (CU-14).
 

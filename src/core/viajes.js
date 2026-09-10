@@ -39,6 +39,7 @@
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
 import { normalizarClave, TIPO_GASTO, mesDe, validarFecha } from './modelo.js';
+import { monedaBaseDe } from './monedas.js';
 import { redondear } from './dinero.js';
 import { separarConvertibles } from './calculos.js';
 import { movimientoEnEuros } from './cambio.js';
@@ -111,7 +112,7 @@ export function fijarFechasDeViaje(estado, clave, desde, hasta) {
  */
 export function viajes(estado) {
   const todos = estado?.movimientos ?? [];
-  const { convertibles, sinConvertir } = separarConvertibles(todos, estado?.tipos_cambio);
+  const { convertibles, sinConvertir } = separarConvertibles(todos, estado?.tipos_cambio, monedaBaseDe(estado));
 
   // Primero, qué comentarios son viajes: los que tienen algún gasto de `viajes`.
   const esViaje = new Set();
@@ -132,7 +133,7 @@ export function viajes(estado) {
     const clave = normalizarClave(comentario);
     if (!esViaje.has(clave)) continue;
 
-    const euros = movimientoEnEuros(m, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const antes = acumulado.get(clave);
     if (!antes) {
       acumulado.set(clave, {

@@ -1161,3 +1161,51 @@ el que se eligió el ancho de la transición, que si no se habría elegido a ojo
 **Y un corolario para lo que se le dice al usuario:** el "~4 % que se traspasa"
 se lo conté antes de medirlo. La medición lo corrigió a tiempo, pero salió de mi
 boca como un hecho cuando era una deducción.
+
+
+## L-035 · Un parámetro nuevo con valor por defecto no migra el código: lo deja atrás en silencio
+
+**Qué pasó.** La madre del usuario puso el peso uruguayo como moneda base y **no
+pudo cargar un solo gasto**. La app le pedía "la cotización del peso contra el
+peso"; si contestaba 1, le respondía que el peso no lleva cotización porque es la
+base; si decía "ahora no", volvía al formulario. Un callejón cerrado, en lo único
+que la app hace todos los días.
+
+**La causa.** Cuando la base dejó de ser siempre el euro (T-050), las funciones
+que convierten plata recibieron un parámetro nuevo:
+
+    export function faltaCambioPara(movimiento, cambios, base = MONEDA_BASE)
+
+Ese `= MONEDA_BASE` parecía prudencia —"que las llamadas viejas sigan
+andando"— y era exactamente lo contrario. **Once** llamadas se quedaron sin pasar
+la base, y ninguna falló: siguieron convirtiendo contra el euro sin decirlo. Una
+rompía la carga; las otras diez hacían daño más callado —el buscador no
+encontraba gastos en pesos, la planilla los exportaba con el importe vacío, el
+costo de un viaje se calculaba mal— y **nadie las habría encontrado nunca**,
+porque no dan error: dan un número.
+
+Dos de esas once ni siquiera llamaban a una función de conversión:
+`separarConvertibles(movs, cambios)` le pasaba `undefined` como base a
+`faltaCambioPara`, y el default se colaba un piso más abajo.
+
+**La regla.** Un valor por defecto convierte *"me olvidé de pasar el dato"* en
+*"el dato vale lo de antes"*, que es justo lo que el cambio venía a dejar de
+suponer. Cuando un parámetro nuevo **decide qué significa un número**, no puede
+tener default: hay que romper todas las llamadas a propósito y arreglarlas de a
+una. Lo incómodo es la parte que funciona.
+
+**Lo que se hizo acá, y por qué no fue quitar el default.** Quitarlo rompía 364
+tests que legítimamente prueban el caso del euro, y ese ruido habría escondido
+las once llamadas de verdad. Así que la regla se comprueba donde importa:
+`tools/moneda-base.mjs` cuenta los argumentos de cada llamada en `src/` y **la
+construcción falla** si alguna se olvidó de la base, igual que la guardia de
+privacidad. Con su propio test, porque un guardián sin tests es una promesa tan
+frágil como la que vino a reemplazar — y de hecho tenía dos errores que sus tests
+encontraron: contaba un argumento en `f()` y señalaba la línea de arriba.
+
+**Y la parte más incómoda.** T-050 **sí** tenía tests con la base en pesos, y
+pasaban: probaban la conversión. Ninguno recorría **lo que hace una persona** —
+cargar un gasto, buscarlo, exportarlo— con la base cambiada. Se probó la pieza
+nueva y no el camino viejo pasando por ella. Por eso ahora existe
+`test/base-uyu.test.js`, que recorre cada camino que tocaba una de esas once
+llamadas.

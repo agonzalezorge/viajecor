@@ -1341,7 +1341,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.13.1";
+globalThis.__VIAJECOR_VERSION__ = "0.14.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -2490,6 +2490,7 @@ function movimientosAfectadosPor(movimientos, moneda, mes) {
 
 
 
+
 /** El rubro cuyos gastos, solos, hacen que una etiqueta sea un gasto fijo. */
 const RUBRO_FIJO = 'gastos fijos';
 
@@ -2538,7 +2539,7 @@ function otrosGrupos(estado) {
     const etiqueta = movimientos[0].comentario;
 
     const total = movimientos.reduce(
-      (suma, m) => suma + movimientoEnEuros(m, estado.tipos_cambio, estado.monedas), 0,
+      (suma, m) => suma + movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)), 0,
     );
     const fechas = movimientos.map((m) => m.fecha).sort();
 
@@ -2647,12 +2648,15 @@ function textoDeMovimiento(estado, movimiento) {
     // `1.250,00 €`.
     partes.push(String(movimiento.monto));
 
-    // Y su valor en euros, que es el número que se ve en las listas cuando el
-    // gasto es en otra moneda.
-    if (movimiento.moneda !== 'EUR' && !faltaCambioPara(movimiento, estado.tipos_cambio)) {
+    // Y su valor en la moneda base, que es el número que se ve en las listas
+    // cuando el gasto es en otra moneda. Contra la base elegida y no contra el
+    // euro (T-059): con base en pesos, buscar "1.500" no encontraba los gastos
+    // en pesos porque acá se los daba por no convertibles.
+    const base = monedaBaseDe(estado);
+    if (movimiento.moneda !== base && !faltaCambioPara(movimiento, estado.tipos_cambio, base)) {
       partes.push(formatearEuros(
-        movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)),
-        monedaBaseDe(estado),
+        movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, base),
+        base,
       ));
     }
   } catch {
@@ -2864,7 +2868,15 @@ function cambiarMonedaBase(estado, nueva) {
   return {
     ...estado,
     tipos_cambio: reexpresar(estado?.tipos_cambio ?? [], actual, destino),
-    preferencias: { ...estado?.preferencias, moneda_base: destino },
+    preferencias: {
+      ...estado?.preferencias,
+      moneda_base: destino,
+      // Y la moneda que viene puesta al cargar pasa a ser la nueva base: quien
+      // pone el peso como base gasta en pesos. Si no, el formulario seguiría
+      // ofreciendo euros y habría que corregirlo en cada carga hasta el primer
+      // gasto guardado. Se recalibra sola con la última usada, como siempre.
+      moneda_predeterminada: destino,
+    },
   };
 }
 
@@ -5936,6 +5948,7 @@ function unir(partes) {
 
 
 
+
 const NS_HOJA = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const NS_RELACIONES = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const NS_PAQUETE = 'http://schemas.openxmlformats.org/package/2006/relationships';
@@ -6104,6 +6117,7 @@ const COL_RESUMEN = 9;
  * la app (L-001).
  */
 function escribirMes(rejilla, estado, mes, desde) {
+  const base = monedaBaseDe(estado);
   const movimientos = movimientosDelMes(estado.movimientos, mes)
     .slice()
     // Por fecha y, a igual fecha, por orden de carga: el mismo criterio con el
@@ -6137,13 +6151,16 @@ function escribirMes(rejilla, estado, mes, desde) {
   let sinConvertir = 0;
 
   for (const movimiento of movimientos) {
-    const falta = faltaCambioPara(movimiento, estado.tipos_cambio);
+    // Contra la base elegida (T-059): con base en pesos, esto marcaba todos los
+    // gastos en pesos como "sin tipo de cambio" y los exportaba con el importe
+    // vacío — una planilla sin la mitad de los números y sin decir por qué.
+    const falta = faltaCambioPara(movimiento, estado.tipos_cambio, base);
     let euros = null;
 
     if (falta) {
       sinConvertir += 1;
     } else {
-      euros = aEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas));
+      euros = aEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, base));
       if (movimiento.tipo === TIPO_GASTO) acumulado += euros;
     }
 
@@ -6662,6 +6679,7 @@ function comoImporte(minimas, decimales) {
  * en euros es un número que no se puede volver a comprobar.
  */
 function filasDelCsv(estado) {
+  const base = monedaBaseDe(estado);
   const meses = mesesConMovimientos(estado.movimientos ?? []).slice().sort();
   const filas = [];
 
@@ -6672,8 +6690,8 @@ function filasDelCsv(estado) {
 
     for (const movimiento of movimientos) {
       const decimales = decimalesDe(estado.monedas, movimiento.moneda);
-      const falta = faltaCambioPara(movimiento, estado.tipos_cambio);
-      const cambio = falta ? null : buscarCambio(estado.tipos_cambio, movimiento.moneda, mesDe(movimiento.fecha));
+      const falta = faltaCambioPara(movimiento, estado.tipos_cambio, base);
+      const cambio = falta ? null : buscarCambio(estado.tipos_cambio, movimiento.moneda, mesDe(movimiento.fecha), base);
 
       filas.push({
         fecha: movimiento.fecha,
@@ -6685,14 +6703,14 @@ function filasDelCsv(estado) {
         detalle: movimiento.detalle ?? '',
         moneda: movimiento.moneda,
         monto: comoImporte(movimiento.monto, decimales),
-        // El euro no tiene "unidades por euro" que decir: es 1 y decirlo sería
-        // ruido en el 90 % de las filas.
-        unidades_por_euro: cambio === null || movimiento.moneda === 'EUR'
+        // La moneda base no tiene "unidades por unidad de la base" que decir: es
+        // 1 y decirlo sería ruido en el 90 % de las filas.
+        unidades_por_euro: cambio === null || movimiento.moneda === base
           ? ''
           : comoImporte(Math.round(aUnidadesPorEuro(cambio) * 100), 2),
         euros: falta
           ? ''
-          : comoImporte(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas), 2),
+          : comoImporte(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, base), 2),
       });
     }
   }
@@ -8044,7 +8062,7 @@ function efectoDeCorregir(estado, moneda, mes, nuevasUnidadesPorEuro) {
     return { afectados };
   }
 
-  const viejoValor = buscarCambio(estado.tipos_cambio, codigo, mes);
+  const viejoValor = buscarCambio(estado.tipos_cambio, codigo, mes, monedaBaseDe(estado));
   if (viejoValor === null) return { afectados };
 
   const decimales = decimalesDe(estado.monedas, codigo);
@@ -9408,6 +9426,7 @@ function borrarEtiqueta(movimientos, campo, clave) {
 
 
 
+
 /** El rubro que marca a un comentario como viaje. */
 const RUBRO_VIAJE = 'viajes';
 
@@ -9476,7 +9495,7 @@ function fijarFechasDeViaje(estado, clave, desde, hasta) {
  */
 function viajes(estado) {
   const todos = estado?.movimientos ?? [];
-  const { convertibles, sinConvertir } = separarConvertibles(todos, estado?.tipos_cambio);
+  const { convertibles, sinConvertir } = separarConvertibles(todos, estado?.tipos_cambio, monedaBaseDe(estado));
 
   // Primero, qué comentarios son viajes: los que tienen algún gasto de `viajes`.
   const esViaje = new Set();
@@ -9497,7 +9516,7 @@ function viajes(estado) {
     const clave = normalizarClave(comentario);
     if (!esViaje.has(clave)) continue;
 
-    const euros = movimientoEnEuros(m, estado.tipos_cambio, estado.monedas);
+    const euros = movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
     const antes = acumulado.get(clave);
     if (!antes) {
       acumulado.set(clave, {
@@ -11682,8 +11701,10 @@ function ultimoPrimero(movimientos) {
  * forma de saber cuál de los dos creer.
  */
 function totalDe(estado, movimientos) {
-  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio);
-  return sumar(convertibles.map((m) => movimientoEnEuros(m, estado.tipos_cambio, estado.monedas)));
+  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio, monedaBaseDe(estado));
+  return sumar(convertibles.map(
+    (m) => movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)),
+  ));
 }
 
 function dibujarMovimiento(estado, movimiento, vista) {
@@ -12646,6 +12667,7 @@ function dibujarProblemas(problemas) {
 
 
 
+
 /**
  * Los campos vacíos de un formulario nuevo.
  *
@@ -12659,7 +12681,10 @@ function borradorNuevo({ estado, fecha } = {}) {
     fecha: fecha ?? hoy(),
     tipo: TIPO_GASTO,
     monto: '',
-    moneda: estado?.preferencias?.moneda_predeterminada ?? 'EUR',
+    // Sin ninguna usada todavía, la moneda base: quien puso el peso como base
+    // gasta en pesos, y ofrecerle euros lo obliga a corregir el campo en cada
+    // carga. Antes decía 'EUR' a secas, de cuando la base era siempre el euro.
+    moneda: estado?.preferencias?.moneda_predeterminada ?? monedaBaseDe(estado),
     rubro: '',
     comentario: '',
     detalle: '',
@@ -12723,9 +12748,13 @@ function intentarGuardar(estado, borrador) {
   }
 
   // RN-04: no se guarda un movimiento en moneda extranjera sin tipo de cambio,
-  // porque no habría forma de expresarlo en euros y quedaría fuera de todos los
-  // totales sin que nada lo delate.
-  const falta = faltaCambioPara(movimiento, estado.tipos_cambio);
+  // porque no habría forma de expresarlo en la moneda base y quedaría fuera de
+  // todos los totales sin que nada lo delate.
+  //
+  // **Contra la base elegida, no contra el euro** (T-059). Sin esto, con la base
+  // en pesos la app le pedía al usuario la cotización del peso contra el peso y
+  // no lo dejaba guardar nada.
+  const falta = faltaCambioPara(movimiento, estado.tipos_cambio, monedaBaseDe(estado));
   if (falta) {
     return {
       estado,
@@ -15126,6 +15155,7 @@ function iniciar(documento, almacen) {
     } else if (accion === 'cancelar-base') {
       vista = { ...vista, baseElegida: null };
     } else if (accion === 'confirmar-base') {
+      const baseVieja = monedaBaseDe(vista.estado);
       const nuevoEstado = cambiarMonedaBase(vista.estado, boton.dataset.moneda);
       try {
         guardarEstado(nuevoEstado, almacen);
@@ -15137,6 +15167,14 @@ function iniciar(documento, almacen) {
       vista = {
         ...vista,
         estado: nuevoEstado,
+        // El borrador del formulario se arma al arrancar y sobrevive a esto, así
+        // que se queda con la moneda de antes: quien pone el peso como base se
+        // encontraba el formulario ofreciéndole euros (T-059). Solo se cambia si
+        // tenía puesta la base vieja — si el usuario había elegido otra moneda a
+        // propósito, esa elección es suya.
+        borrador: vista.borrador && vista.borrador.moneda === baseVieja
+          ? { ...vista.borrador, moneda: monedaBaseDe(nuevoEstado) }
+          : vista.borrador,
         baseElegida: null,
         error: null,
         avisoBase: `Listo: los totales se muestran en ${boton.dataset.moneda}.`,

@@ -131,7 +131,7 @@ export function efectoDeCorregir(estado, moneda, mes, nuevasUnidadesPorEuro) {
     return { afectados };
   }
 
-  const viejoValor = buscarCambio(estado.tipos_cambio, codigo, mes);
+  const viejoValor = buscarCambio(estado.tipos_cambio, codigo, mes, monedaBaseDe(estado));
   if (viejoValor === null) return { afectados };
 
   const decimales = decimalesDe(estado.monedas, codigo);

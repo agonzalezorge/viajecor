@@ -127,8 +127,10 @@ function ultimoPrimero(movimientos) {
  * forma de saber cuál de los dos creer.
  */
 function totalDe(estado, movimientos) {
-  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio);
-  return sumar(convertibles.map((m) => movimientoEnEuros(m, estado.tipos_cambio, estado.monedas)));
+  const { convertibles } = separarConvertibles(movimientos, estado.tipos_cambio, monedaBaseDe(estado));
+  return sumar(convertibles.map(
+    (m) => movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)),
+  ));
 }
 
 function dibujarMovimiento(estado, movimiento, vista) {

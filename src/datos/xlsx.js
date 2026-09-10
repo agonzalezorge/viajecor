@@ -37,6 +37,7 @@ import { crearZip } from './zip.js';
 import { mesesConMovimientos, movimientosDelMes, porRubro, porDia, totalesDelMes,
   matrizMesRubro } from '../core/calculos.js';
 import { movimientoEnEuros, faltaCambioPara } from '../core/cambio.js';
+import { monedaBaseDe } from '../core/monedas.js';
 import { TIPO_GASTO, TIPO_INGRESO, mesDe, hoy, rubrosDe } from '../core/modelo.js';
 import { formatearMes, formatearMesCorto, formatearRubro } from '../core/formato.js';
 import { FONDOS_RUBRO, franjaDeRubro } from '../core/paleta.js';
@@ -209,6 +210,7 @@ const COL_RESUMEN = 9;
  * la app (L-001).
  */
 function escribirMes(rejilla, estado, mes, desde) {
+  const base = monedaBaseDe(estado);
   const movimientos = movimientosDelMes(estado.movimientos, mes)
     .slice()
     // Por fecha y, a igual fecha, por orden de carga: el mismo criterio con el
@@ -242,13 +244,16 @@ function escribirMes(rejilla, estado, mes, desde) {
   let sinConvertir = 0;
 
   for (const movimiento of movimientos) {
-    const falta = faltaCambioPara(movimiento, estado.tipos_cambio);
+    // Contra la base elegida (T-059): con base en pesos, esto marcaba todos los
+    // gastos en pesos como "sin tipo de cambio" y los exportaba con el importe
+    // vacío — una planilla sin la mitad de los números y sin decir por qué.
+    const falta = faltaCambioPara(movimiento, estado.tipos_cambio, base);
     let euros = null;
 
     if (falta) {
       sinConvertir += 1;
     } else {
-      euros = aEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas));
+      euros = aEuros(movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, base));
       if (movimiento.tipo === TIPO_GASTO) acumulado += euros;
     }
 

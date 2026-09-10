@@ -12,6 +12,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buscarFugas, buscarFugasDelServicio } from './privacidad.mjs';
+import { llamadasSinBase } from './moneda-base.mjs';
 import { buscarErrorDeSintaxis } from './sintaxis.mjs';
 import { iconoComoDataUri, pngDelIcono } from './icono.mjs';
 import { manifiesto } from './manifiesto.mjs';
@@ -129,11 +130,13 @@ async function construir() {
 
   const partes = [];
   const vistos = new Map();
+  const fuentes = new Map();
 
   const enLaLista = new Set(MODULOS);
 
   for (const ruta of MODULOS) {
     const original = await readFile(join(RAIZ, ruta), 'utf8');
+    fuentes.set(ruta, original);
 
     for (const importada of importaciones(original, ruta)) {
       if (!enLaLista.has(importada)) {
@@ -158,6 +161,11 @@ async function construir() {
 
     partes.push(`// ── ${ruta} ${'─'.repeat(Math.max(0, 60 - ruta.length))}\n${codigo.trim()}`);
   }
+
+  // Nadie convierte plata sin decir contra qué moneda — T-059. La guardia vive
+  // en tools/moneda-base.mjs y el test usa la misma función, igual que las otras.
+  const sinBase = llamadasSinBase(fuentes);
+  if (sinBase.length > 0) throw new Error(sinBase.map((p) => p.mensaje).join('\n'));
 
   const guion = [
     `'use strict';`,
