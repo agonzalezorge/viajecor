@@ -3084,3 +3084,14 @@ que la regla exista (no alcanza con poner la clase).
 **Recorrido en el navegador:** un viaje que quedó 200 € a favor en 4 días sale
 `+200,00 €` y `+50,00 €` por día, los dos en verde; los viajes normales siguen
 sin ningún signo, que es lo que hace que el `+` signifique algo.
+
+
+### T-064 · "que te ingresaron", no "que te devolvieron" — **Hecha** (2026-09-19)
+
+Corrección de texto del usuario. "Devolvieron" presupone un reintegro, y lo que
+entra en un viaje puede ser cualquier cosa: un pago que cobraste estando ahí,
+algo que vendiste. El texto de la app no puede decidir qué fue — solo sabe que
+entró plata con esa etiqueta.
+
+Hay un test que fija la palabra, porque es la clase de cambio que se revierte
+solo cuando alguien reescribe la frase sin conocer el motivo.

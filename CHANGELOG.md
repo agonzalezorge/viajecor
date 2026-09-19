@@ -3,6 +3,13 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.15.3 — 2026-09-19
+
+### Cambiado
+- En el desglose de un viaje con ingresos, ahora dice **"que te ingresaron"** en
+  vez de "que te devolvieron": lo que entró durante un viaje no tiene por qué ser
+  un reintegro.
+
 ## 0.15.2 — 2026-09-19
 
 ### Cambiado

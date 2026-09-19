@@ -358,3 +358,14 @@ test('el CSS pinta los importes que no son costos, no solo les pone la clase', (
   assert.match(css, /\.rubro-cabeza \.importe\.ingreso \{[^}]*var\(--ingreso\)/);
   assert.match(css, /\.rubro-cabeza \.importe\.gasto \{[^}]*var\(--gasto\)/);
 });
+
+test('el desglose del viaje dice "que te ingresaron", no "que te devolvieron"', () => {
+  // Lo corrigió el usuario (2026-09-19): "devolvieron" presupone un reintegro, y
+  // el ingreso de un viaje puede ser cualquier cosa — un pago que cobraste
+  // estando ahí, algo que vendiste. El texto no puede decidir qué fue.
+  const html = dibujarViaje(viajes(VIAJE_DE_TRABAJO()).find((v) => v.clave === 'roma'))
+    .replace(/\s+/g, ' ');
+
+  assert.match(html, /que te ingresaron/);
+  assert.equal(html.includes('devolvieron'), false);
+});

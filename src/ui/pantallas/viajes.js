@@ -95,7 +95,7 @@ export function dibujarViaje(viaje, base) {
       ${viaje.mixto ? `
       <div class="rubro-pie suave">
         <span>${viaje.aFavor ? 'te quedó a favor, ya' : 'ya'} descontados
-        ${escapar(formatearEuros(viaje.ingresos, base))} que te devolvieron</span>
+        ${escapar(formatearEuros(viaje.ingresos, base))} que te ingresaron</span>
       </div>` : ''}
       <div class="rubro-pie suave">${porDia}</div>
       ${aviso}
