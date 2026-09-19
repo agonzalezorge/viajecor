@@ -3125,3 +3125,18 @@ porque una pared de texto en un teléfono no se lee, se cierra.
 **Recorrido en el navegador:** Instrucciones aparece primero en Ajustes, el
 índice son ocho títulos con solo el primero abierto, las secciones se abren y se
 cierran, y todo funciona igual en el perfil de ahorros conjuntos.
+
+
+### T-066 · La sección de datos nombra su pestaña — **Hecha** (2026-09-19)
+
+Lo vio el usuario: la sección se llamaba *"Respaldos: lo único importante de esta
+pantalla"* y todas las demás nombran la pestaña de la que hablan —Cargar, Mes,
+Movimientos—. Esa no, y encima cubre también importar y exportar. Ahora es
+**"Datos: respaldos, importar y exportar"**.
+
+Lo de *"lo único importante"* era un guiño mío y además falso: las otras
+secciones también importan. El aviso fuerte sobre perder los datos sigue donde
+tiene que estar, dentro del cuerpo, y el test que lo exige sigue en pie.
+
+Hay un test nuevo que comprueba que las secciones **nombren sus pestañas**: es lo
+que mantiene el patrón cuando alguien agregue la novena.

@@ -3,6 +3,14 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.16.1 — 2026-09-19
+
+### Cambiado
+- En las instrucciones, la sección de respaldos ahora se llama **"Datos:
+  respaldos, importar y exportar"**. Antes decía "Respaldos: lo único importante
+  de esta pantalla", que no nombraba la pestaña —como sí hacen las demás— y
+  dejaba afuera la mitad de lo que esa sección explica.
+
 ## 0.16.0 — 2026-09-19
 
 ### Agregado

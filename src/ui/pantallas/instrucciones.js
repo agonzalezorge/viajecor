@@ -131,11 +131,12 @@ export function dibujarInstrucciones(vista) {
         número que mañana es otro.</p>
       `)}
 
-      ${seccion('6 · Respaldos: lo único importante de esta pantalla', `
+      ${seccion('6 · Datos: respaldos, importar y exportar', `
         <p class="nota"><strong>Los datos viven en este dispositivo y en ningún
         otro lado.</strong> Se pierden si borrás los datos del navegador, si
         desinstalás la app, o si el teléfono se rompe o se pierde.</p>
-        <p>En <strong>Datos</strong> tenés <strong>Bajar un respaldo</strong>: un
+        <p>En la pestaña <strong>Datos</strong> tenés <strong>Bajar un
+        respaldo</strong>: un
         archivo con todo —movimientos, monedas, tipos de cambio, rubros y
         ajustes— que podés volver a cargar acá o en otro dispositivo. Hacelo cada
         tanto y guardalo en otro lado.</p>

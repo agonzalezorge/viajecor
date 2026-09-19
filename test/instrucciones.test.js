@@ -132,3 +132,17 @@ test('el texto del usuario no puede inyectar HTML', () => {
 
   assert.equal(h.includes('<img'), false);
 });
+
+test('cada sección del recorrido nombra la pestaña de la que habla', () => {
+  // La sección de datos se llamaba "Respaldos: lo único importante de esta
+  // pantalla" — un guiño mío que rompía el patrón de todas las demás (que
+  // nombran la pestaña: Cargar, Mes, Movimientos) y que además era falso: las
+  // otras secciones también importan. Lo vio el usuario (2026-09-19).
+  const titulos = [...html().matchAll(/<summary>([^<]*)<\/summary>/g)].map((m) => m[1].trim());
+
+  for (const pestaña of ['Datos']) {
+    assert.ok(titulos.some((t) => t.includes(pestaña)),
+      `ninguna sección nombra la pestaña ${pestaña}: ${titulos.join(' / ')}`);
+  }
+  assert.equal(titulos.some((t) => /lo único importante/i.test(t)), false);
+});
