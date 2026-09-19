@@ -17,7 +17,8 @@ import { escapar } from '../app.js';
 import { catalogoDe, usoDeRubros, rubrosHuerfanos, TOPE_DE_RUBROS } from '../../core/rubros.js';
 import { claseDeRubro } from '../colores.js';
 import { formatearRubro } from '../../core/formato.js';
-import { TIPO_GASTO, TIPO_INGRESO } from '../../core/modelo.js';
+import { TIPO_GASTO, TIPO_INGRESO, rubrosDe } from '../../core/modelo.js';
+import { COLORES, franjaDeRubro, colorElegido } from '../../core/paleta.js';
 
 const NOMBRE_DEL_TIPO = { [TIPO_GASTO]: 'gasto', [TIPO_INGRESO]: 'ingreso' };
 
@@ -31,6 +32,7 @@ export function dibujarUso(cuantos) {
 export function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
   const editando = vista.rubroEditado?.tipo === tipo && vista.rubroEditado?.rubro === rubro;
   const uniendo = vista.rubroUnido?.tipo === tipo && vista.rubroUnido?.rubro === rubro;
+  const pintando = vista.rubroPintado?.tipo === tipo && vista.rubroPintado?.rubro === rubro;
   const otros = catalogo.filter((r) => r !== rubro);
 
   return `
@@ -74,10 +76,14 @@ export function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
         </div>
       </form>` : ''}
 
-      ${editando || uniendo ? '' : `
+      ${pintando ? dibujarElegirColor(rubro, tipo, vista) : ''}
+
+      ${editando || uniendo || pintando ? '' : `
       <div class="movimiento-acciones">
         <button type="button" class="secundario chico" data-accion="editar-rubro"
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Renombrar</button>
+        <button type="button" class="secundario chico" data-accion="pintar-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Color</button>
         ${otros.length > 0 ? `
         <button type="button" class="secundario chico" data-accion="unir-desde"
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Unir con otro</button>` : ''}
@@ -86,6 +92,60 @@ export function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Sacar</button>` : ''}
       </div>`}
     </li>
+  `;
+}
+
+/**
+ * Elegir el color de un rubro — T-061.
+ *
+ * ── Los veinte de la paleta y no un color libre ─────────────────────────────
+ *
+ * Lo eligió el usuario sabiendo el precio. Esos veinte están **medidos**: se
+ * distinguen entre sí, se leen en claro y en oscuro, y los primeros se
+ * distinguen mejor que los últimos (ADR-049). Un selector libre deja elegir dos
+ * azules casi iguales o un amarillo ilegible, y la app no puede impedirlo sin
+ * volverse molesta.
+ *
+ * **Se avisa cuándo un color ya lo usa otro rubro, pero no se prohíbe.** Si
+ * alguien quiere sus dos rubros de comida del mismo verde, es su planilla. Lo
+ * que no puede pasar es que lo haga sin enterarse.
+ */
+export function dibujarElegirColor(rubro, tipo, vista = {}) {
+  const catalogo = catalogoDe(vista.estado ?? {});
+  const ahora = franjaDeRubro(tipo, rubro, catalogo);
+  const propio = colorElegido(catalogo, tipo, rubro) !== undefined;
+
+  // Qué rubro usa cada franja, para poder avisar. Se mira el mismo tipo: el
+  // color de "otros" de ingreso no compite con el de "otros" de gasto, que están
+  // en listas y pantallas distintas.
+  const dueño = new Map();
+  for (const otro of rubrosDe(tipo, vista.estado?.rubros)) {
+    if (otro === rubro) continue;
+    dueño.set(franjaDeRubro(tipo, otro, catalogo), otro);
+  }
+
+  const casillas = Array.from({ length: COLORES }, (_, i) => i + 1).map((franja) => {
+    const ocupado = dueño.get(franja);
+    const etiqueta = ocupado ? `Color ${franja}, lo usa ${formatearRubro(ocupado)}` : `Color ${franja}`;
+    return `
+      <button type="button" class="casilla-color rubro-${franja}${franja === ahora ? ' puesto' : ''}"
+              data-accion="elegir-color" data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}"
+              data-franja="${franja}" aria-pressed="${franja === ahora}"
+              title="${escapar(etiqueta)}" aria-label="${escapar(etiqueta)}">${ocupado ? '·' : ''}</button>`;
+  }).join('');
+
+  return `
+    <div class="formulario-linea">
+      <p class="suave nota">Elegí un color. Los que tienen un punto ya los usa
+      otro rubro — se puede igual, pero después cuesta distinguirlos.</p>
+      <div class="colores-rubro">${casillas}</div>
+      <div class="botones">
+        ${propio ? `
+        <button type="button" class="secundario chico" data-accion="elegir-color"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Volver al de siempre</button>` : ''}
+        <button type="button" class="secundario chico" data-accion="cancelar-rubro">Listo</button>
+      </div>
+    </div>
   `;
 }
 

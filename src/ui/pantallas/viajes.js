@@ -42,7 +42,10 @@ export function dibujarFechas(viaje) {
  * su lugar va el botón para escribirlos, que es la acción que falta.
  */
 export function dibujarViaje(viaje, base) {
-  const cuantos = viaje.cuantos === 1 ? '1 gasto' : `${viaje.cuantos} gastos`;
+  // "gastos" solo si son todos gastos: en un viaje de trabajo hay reintegros, y
+  // llamarle gasto a un cobro dice lo contrario de lo que pasó (T-060).
+  const nombre = viaje.mixto ? 'movimiento' : 'gasto';
+  const cuantos = viaje.cuantos === 1 ? `1 ${nombre}` : `${viaje.cuantos} ${nombre}s`;
 
   const porDia = viaje.fechas === null
     ? `<button type="button" class="secundario chico" data-accion="fechas-viaje"
@@ -62,12 +65,24 @@ export function dibujarViaje(viaje, base) {
               data-comentario="${escapar(viaje.comentario)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(viaje.comentario)}</span>
-          <span class="importe">${escapar(formatearEuros(viaje.total, base))}</span>
+          <!-- En un viaje mixto el número grande es el SALDO: en un viaje de
+               trabajo lo que se viene a mirar es si terminaste poniendo plata,
+               no cuánto pasó por tus manos. El detalle de los dos lados va
+               abajo, porque un saldo de cero puede ser "no gasté nada" o
+               "gasté mil y me devolvieron mil". -->
+          <span class="importe ${viaje.mixto && viaje.saldo >= 0 ? 'ingreso' : ''}">
+            ${escapar(formatearEuros(viaje.mixto ? viaje.saldo : viaje.total, base))}
+          </span>
         </span>
       </button>
       <div class="rubro-pie suave">
         <span>${escapar(cuantos)} · ${escapar(dibujarFechas(viaje))}</span>
       </div>
+      ${viaje.mixto ? `
+      <div class="rubro-pie suave">
+        <span>${escapar(formatearEuros(viaje.total, base))} salieron ·
+        ${escapar(formatearEuros(viaje.ingresos, base))} entraron</span>
+      </div>` : ''}
       <div class="rubro-pie suave">${porDia}</div>
       ${aviso}
     </li>

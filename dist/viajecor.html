@@ -1328,6 +1328,58 @@ body {
 }
 .formulario-linea .botones { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .formulario-linea .campo { margin: 0; }
+
+/* ── Elegir el color de un rubro (T-061) ─────────────────────────────────── */
+
+/* Cada casilla se pinta con la MISMA variable que el punto del rubro: dos
+   listas de veinte colores serían dos listas que se separan. */
+.casilla-color.rubro-1 { background: var(--rubro-1); }
+.casilla-color.rubro-2 { background: var(--rubro-2); }
+.casilla-color.rubro-3 { background: var(--rubro-3); }
+.casilla-color.rubro-4 { background: var(--rubro-4); }
+.casilla-color.rubro-5 { background: var(--rubro-5); }
+.casilla-color.rubro-6 { background: var(--rubro-6); }
+.casilla-color.rubro-7 { background: var(--rubro-7); }
+.casilla-color.rubro-8 { background: var(--rubro-8); }
+.casilla-color.rubro-9 { background: var(--rubro-9); }
+.casilla-color.rubro-10 { background: var(--rubro-10); }
+.casilla-color.rubro-11 { background: var(--rubro-11); }
+.casilla-color.rubro-12 { background: var(--rubro-12); }
+.casilla-color.rubro-13 { background: var(--rubro-13); }
+.casilla-color.rubro-14 { background: var(--rubro-14); }
+.casilla-color.rubro-15 { background: var(--rubro-15); }
+.casilla-color.rubro-16 { background: var(--rubro-16); }
+.casilla-color.rubro-17 { background: var(--rubro-17); }
+.casilla-color.rubro-18 { background: var(--rubro-18); }
+.casilla-color.rubro-19 { background: var(--rubro-19); }
+.casilla-color.rubro-20 { background: var(--rubro-20); }
+
+.colores-rubro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.casilla-color {
+  /* Grandes: se tocan con el dedo, y el color hay que poder verlo antes de
+     elegirlo. Veinte cuadraditos de 20 px no se distinguen en un teléfono. */
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid transparent;
+  border-radius: var(--radio);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--fondo);
+}
+
+/* El que está puesto se marca con un borde de contraste y no con un tilde de
+   color: sobre veinte fondos distintos, ningún color de tilde se ve siempre. */
+.casilla-color.puesto {
+  border-color: var(--texto);
+  box-shadow: 0 0 0 2px var(--fondo) inset;
+}
 </style>
 
 <div id="app" class="app">
@@ -1341,7 +1393,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.14.0";
+globalThis.__VIAJECOR_VERSION__ = "0.15.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -1667,9 +1719,17 @@ function rubrosDe(tipo, catalogo) {
   return normalizado === TIPO_GASTO ? RUBROS_GASTO : RUBROS_INGRESO;
 }
 
-/** Los rubros de fábrica, para arrancar un catálogo nuevo. */
+/**
+ * Los rubros de fábrica, para arrancar un catálogo nuevo.
+ *
+ * `colores` viene vacío: cada rubro usa el que le toca por su posición hasta que
+ * el usuario elija otro (T-061). Va **acá adentro** y no en un campo aparte del
+ * estado para que las cincuenta llamadas que ya reciben el catálogo reciban los
+ * colores sin tocarlas — un parámetro nuevo con valor por defecto es lo que
+ * causó L-035.
+ */
 function rubrosIniciales() {
-  return { gasto: [...RUBROS_GASTO], ingreso: [...RUBROS_INGRESO] };
+  return { gasto: [...RUBROS_GASTO], ingreso: [...RUBROS_INGRESO], colores: {} };
 }
 
 // ── Normalización de texto (RN-03, L-002) ────────────────────────────────────
@@ -1714,6 +1774,61 @@ function normalizarClave(texto) {
 /** El comentario es lo que agrupa un viaje o un gasto fijo. Se agrupa por esto. */
 function claveDeComentario(comentario) {
   return normalizarClave(comentario);
+}
+
+/**
+ * Las etiquetas de un movimiento — T-060.
+ *
+ * ── Un movimiento puede llevar VARIAS ───────────────────────────────────────
+ *
+ * Lo pidió el usuario (2026-09-18) con un caso que la app no sabía contestar:
+ * un viaje de trabajo lleva la etiqueta del viaje **y** la del trabajo, y hasta
+ * ahora había que elegir una y perder la otra pregunta.
+ *
+ * Se escriben separadas por coma: `Roma, Trabajo`. La coma queda reservada como
+ * separador y una etiqueta no puede llevarla adentro; era la alternativa a un
+ * campo de fichas, y el usuario eligió la coma sabiendo el precio.
+ *
+ * ── Por qué el dato guardado NO cambia ──────────────────────────────────────
+ *
+ * Sigue siendo el mismo texto en el mismo campo. Lo que cambió es cómo se lee.
+ * Eso vale más que cualquier estructura más linda: **los respaldos viejos se
+ * siguen leyendo**, la columna `Comentarios` del Excel del usuario sigue
+ * sirviendo igual en los dos sentidos, y un movimiento de antes —"Roma"— tiene
+ * exactamente una etiqueta sin que nadie migre nada.
+ *
+ * Devuelve los textos **como se escribieron**, para mostrarlos. Para agrupar hay
+ * que usar `clavesDeEtiquetas()`, igual que antes con `claveDeComentario()`.
+ */
+function etiquetasDe(comentario) {
+  if (typeof comentario !== 'string' || comentario.trim() === '') return [];
+
+  const vistas = new Set();
+  const etiquetas = [];
+
+  for (const parte of comentario.split(',')) {
+    const visible = normalizarTextoVisible(parte);
+    if (visible === '') continue;          // "Roma,,Trabajo" o una coma al final
+
+    // Sin repetir: "Roma, roma" es una etiqueta escrita dos veces, y contarla
+    // dos veces haría que su total se duplique en su propio grupo.
+    const clave = normalizarClave(visible);
+    if (vistas.has(clave)) continue;
+    vistas.add(clave);
+    etiquetas.push(visible);
+  }
+
+  return etiquetas;
+}
+
+/** Las claves con las que agrupan las etiquetas de un movimiento, sin repetir. */
+function clavesDeEtiquetas(comentario) {
+  return etiquetasDe(comentario).map(normalizarClave);
+}
+
+/** ¿Este movimiento lleva esta etiqueta? Compara por clave (RN-03). */
+function tieneEtiqueta(movimiento, clave) {
+  return clavesDeEtiquetas(String(movimiento?.comentario ?? '')).includes(normalizarClave(clave));
 }
 
 function normalizarTipo(tipo) {
@@ -2491,6 +2606,7 @@ function movimientosAfectadosPor(movimientos, moneda, mes) {
 
 
 
+
 /** El rubro cuyos gastos, solos, hacen que una etiqueta sea un gasto fijo. */
 const RUBRO_FIJO = 'gastos fijos';
 
@@ -2534,27 +2650,64 @@ function categoriaDeEtiqueta(movimientos) {
 function otrosGrupos(estado) {
   const grupos = [];
 
-  for (const [clave, movimientos] of porEtiquetaDeGasto(estado)) {
-    if (categoriaDeEtiqueta(movimientos) !== 'otro') continue;
-    const etiqueta = movimientos[0].comentario;
+  // TODAS las etiquetas, no solo las de gastos (T-060). Un grupo puede ser de
+  // ingresos —el usuario nombró los reintegros y los trabajos sueltos— y hasta
+  // ahora no aparecía en ninguna pantalla: existía en los datos y no se podía
+  // mirar, que es exactamente lo que CU-18 vino a arreglar para los gastos.
+  for (const [clave, movimientos] of porEtiqueta(estado)) {
+    const gastos = movimientos.filter((m) => m.tipo === TIPO_GASTO);
+    const ingresos = movimientos.filter((m) => m.tipo !== TIPO_GASTO);
 
-    const total = movimientos.reduce(
-      (suma, m) => suma + movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)), 0,
-    );
+    // La cascada decide si la etiqueta es un gasto fijo o un viaje, y esas dos
+    // preguntas son sobre gastos: `categoriaDeEtiqueta()` ya filtra por dentro y
+    // ya contesta 'otro' cuando no hay ninguno. Por eso un grupo de solo
+    // ingresos cae acá sin que haya que preguntarlo aparte.
+    if (categoriaDeEtiqueta(movimientos) !== 'otro') continue;
+
+    const enBase = (m) => movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
+    const total = gastos.reduce((suma, m) => suma + enBase(m), 0);
+    const entradas = ingresos.reduce((suma, m) => suma + enBase(m), 0);
     const fechas = movimientos.map((m) => m.fecha).sort();
+    const meses = new Set(movimientos.map((m) => mesDe(m.fecha))).size;
 
     grupos.push({
       clave,
-      etiqueta,
+      etiqueta: movimientos[0].comentario ? etiquetaVisible(movimientos, clave) : clave,
       total,
+      ingresos: entradas,
+      // Qué clase de grupo es, para que la pantalla sepa qué número destacar:
+      // el que gasta muestra lo que costó; el que solo cobra, lo que entró; y el
+      // que hace las dos cosas, el saldo — que es el caso del viaje de trabajo.
+      clase: gastos.length === 0 ? 'ingreso' : ingresos.length === 0 ? 'gasto' : 'mixto',
+      saldo: entradas - total,
       cuantos: movimientos.length,
+      cuantosGastos: gastos.length,
+      cuantosIngresos: ingresos.length,
       desde: fechas[0],
       hasta: fechas[fechas.length - 1],
-      meses: new Set(movimientos.map((m) => mesDe(m.fecha))).size,
+      meses,
+      // La media MENSUAL, que es la que pidió el usuario para los ingresos: lo
+      // que entró dividido los meses en que apareció, no los movimientos. Con
+      // tres cobros en un mismo mes, "la media" por movimiento diría un tercio
+      // de lo que de verdad entra por mes.
+      mediaMensual: redondear((gastos.length === 0 ? entradas : total) / Math.max(1, meses)),
     });
   }
 
-  return grupos.sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
+  return grupos.sort((a, b) => {
+    const suyo = (g) => (g.clase === 'ingreso' ? g.ingresos : g.total);
+    return suyo(b) - suyo(a) || a.clave.localeCompare(b.clave);
+  });
+}
+
+/** Cómo se escribió esa etiqueta la primera vez, para mostrarla. */
+function etiquetaVisible(movimientos, clave) {
+  for (const m of movimientos) {
+    for (const etiqueta of etiquetasDe(String(m.comentario ?? ''))) {
+      if (normalizarClave(etiqueta) === clave) return etiqueta;
+    }
+  }
+  return clave;
 }
 
 // ── src/core/busqueda.js ────────────────────────────────────────
@@ -2926,6 +3079,9 @@ function catalogoDe(estado) {
   return {
     gasto: rubrosDe(TIPO_GASTO, estado?.rubros),
     ingreso: rubrosDe(TIPO_INGRESO, estado?.rubros),
+    // Los colores elegidos viajan con el catálogo (T-061): quien lo recibe para
+    // saber qué rubros hay, recibe también de qué color son.
+    colores: estado?.rubros?.colores ?? {},
   };
 }
 
@@ -3619,7 +3775,9 @@ function movimientosFiltrados(estado, mes, filtro = {}) {
   return base.filter((m) => {
     if (filtro.tipo !== undefined && m.tipo !== filtro.tipo) return false;
     if (filtro.rubro !== undefined && !igual(m.rubro, filtro.rubro)) return false;
-    if (filtro.comentario !== undefined && !igual(m.comentario, filtro.comentario)) return false;
+    // Por etiqueta y no por el comentario entero (T-060): tocar el grupo
+    // "Trabajo" tiene que traer también los gastos etiquetados "Roma, Trabajo".
+    if (filtro.comentario !== undefined && !tieneEtiqueta(m, filtro.comentario)) return false;
     return true;
   });
 }
@@ -3751,25 +3909,29 @@ function gastosFijos(estado) {
 
   for (const movimiento of fijos) {
     const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
-    if (!movimiento.comentario) {
+    const suyas = etiquetasDe(String(movimiento.comentario ?? ''));
+    if (suyas.length === 0) {
       sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
       continue;
     }
 
-    const clave = normalizarClave(movimiento.comentario);
-    const anterior = acumulado.get(clave);
-    const mes = mesDe(movimiento.fecha);
-    acumulado.set(clave, {
-      clave,
-      comentario: anterior?.comentario ?? movimiento.comentario,
-      total: (anterior?.total ?? 0) + euros,
-      cuantos: (anterior?.cuantos ?? 0) + 1,
-      // Entre qué meses se pagó. Es lo que deja ver la cadencia: ocho pagos en
-      // once meses no es lo mismo que ocho pagos en ocho meses, y el promedio
-      // por pago solo, sin eso, se lee como si fuera mensual.
-      desde: anterior === undefined || mes < anterior.desde ? mes : anterior.desde,
-      hasta: anterior === undefined || mes > anterior.hasta ? mes : anterior.hasta,
-    });
+    // Un gasto fijo etiquetado "Luz, Casa" cuenta en los dos grupos (T-060).
+    for (const etiqueta of suyas) {
+      const clave = normalizarClave(etiqueta);
+      const anterior = acumulado.get(clave);
+      const mes = mesDe(movimiento.fecha);
+      acumulado.set(clave, {
+        clave,
+        comentario: anterior?.comentario ?? etiqueta,
+        total: (anterior?.total ?? 0) + euros,
+        cuantos: (anterior?.cuantos ?? 0) + 1,
+        // Entre qué meses se pagó. Es lo que deja ver la cadencia: ocho pagos en
+        // once meses no es lo mismo que ocho pagos en ocho meses, y el promedio
+        // por pago solo, sin eso, se lee como si fuera mensual.
+        desde: anterior === undefined || mes < anterior.desde ? mes : anterior.desde,
+        hasta: anterior === undefined || mes > anterior.hasta ? mes : anterior.hasta,
+      });
+    }
   }
 
   const grupos = [...acumulado.values()]
@@ -3794,17 +3956,31 @@ function gastosFijos(estado) {
  * la misma etiqueta.
  */
 function porEtiquetaDeGasto(estado) {
+  return porEtiqueta(estado, (m) => m.tipo === TIPO_GASTO);
+}
+
+/**
+ * Los movimientos agrupados por etiqueta — T-060.
+ *
+ * **Un movimiento con dos etiquetas entra en los dos grupos.** Es lo que el
+ * usuario pidió y es lo correcto para la pregunta que cada grupo contesta —el
+ * viaje de trabajo costó eso, y el trabajo costó eso—, pero tiene una
+ * consecuencia que hay que decir en pantalla: **los totales de los grupos ya no
+ * suman el total del mes**. Sumarían de más. La app lo avisa donde se ven esos
+ * números; callarlo sería dejar que alguien intente cuadrarlos y crea que algo
+ * está roto.
+ */
+function porEtiqueta(estado, incluir = () => true) {
   const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio, monedaBaseDe(estado));
   const porClave = new Map();
 
   for (const movimiento of convertibles) {
-    if (movimiento.tipo !== TIPO_GASTO) continue;
-    const texto = String(movimiento.comentario ?? '');
-    if (texto === '') continue;
+    if (!incluir(movimiento)) continue;
 
-    const clave = normalizarClave(texto);
-    if (!porClave.has(clave)) porClave.set(clave, []);
-    porClave.get(clave).push(movimiento);
+    for (const clave of clavesDeEtiquetas(String(movimiento.comentario ?? ''))) {
+      if (!porClave.has(clave)) porClave.set(clave, []);
+      porClave.get(clave).push(movimiento);
+    }
   }
   return porClave;
 }
@@ -3822,16 +3998,19 @@ function porComentario(estado, mes) {
 
   const acumulado = new Map();
   for (const movimiento of convertibles) {
-    if (!movimiento.comentario) continue;
-    const clave = normalizarClave(movimiento.comentario);
     const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
-    const anterior = acumulado.get(clave);
-    acumulado.set(clave, {
-      clave,
-      comentario: anterior?.comentario ?? movimiento.comentario,
-      total: (anterior?.total ?? 0) + euros,
-      cuantos: (anterior?.cuantos ?? 0) + 1,
-    });
+
+    // Cada etiqueta por separado (T-060): "Roma, Trabajo" suma en los dos.
+    for (const etiqueta of etiquetasDe(String(movimiento.comentario ?? ''))) {
+      const clave = normalizarClave(etiqueta);
+      const anterior = acumulado.get(clave);
+      acumulado.set(clave, {
+        clave,
+        comentario: anterior?.comentario ?? etiqueta,
+        total: (anterior?.total ?? 0) + euros,
+        cuantos: (anterior?.cuantos ?? 0) + 1,
+      });
+    }
   }
 
   return [...acumulado.values()]
@@ -3877,12 +4056,19 @@ function textosUsados(movimientos, campo) {
   const porClave = new Map();
 
   for (const movimiento of movimientos) {
-    const texto = normalizarTextoVisible(movimiento?.[campo] ?? '');
+    const crudo = String(movimiento?.[campo] ?? '');
+    if (crudo.trim() === '') continue;
+
+    // Una entrada por ETIQUETA y no por comentario entero (T-060): escribir
+    // "Trab" tiene que ofrecer "Trabajo" aunque solo exista dentro de
+    // "Roma, Trabajo". Sugerir el comentario entero pondría las dos etiquetas de
+    // golpe, que casi nunca es lo que se quiere.
+    const cuando = movimiento.fecha ?? '';
+    for (const texto of campo === 'comentario' ? etiquetasDe(crudo) : [normalizarTextoVisible(crudo)]) {
     if (texto === '') continue;
 
     const clave = claveDeComentario(texto);
     const visto = porClave.get(clave);
-    const cuando = movimiento.fecha ?? '';
 
     if (!visto) {
       porClave.set(clave, { texto, ultima: cuando });
@@ -3891,11 +4077,37 @@ function textosUsados(movimientos, campo) {
       // escritura que se muestra sigue siendo la primera que apareció.
       visto.ultima = cuando;
     }
+    }
   }
 
   return [...porClave.values()]
     .sort((a, b) => b.ultima.localeCompare(a.ultima) || a.texto.localeCompare(b.texto))
     .map((c) => c.texto);
+}
+
+/**
+ * Lo que se está escribiendo AHORA en un campo de etiquetas: lo que hay después
+ * de la última coma — T-060.
+ *
+ * Con "Roma, Trab" a medio escribir, lo que hay que autocompletar es `Trab`. Sin
+ * esto, la sugerencia buscaría el texto entero y no ofrecería nada nunca en
+ * cuanto hubiera una coma.
+ */
+function etiquetaEnCurso(escrito) {
+  const texto = String(escrito ?? '');
+  return texto.slice(texto.lastIndexOf(',') + 1);
+}
+
+/**
+ * Lo escrito, con la etiqueta en curso reemplazada por la elegida — T-060.
+ *
+ * Tocar una sugerencia con "Roma, Trab" escrito tiene que dejar "Roma, Trabajo",
+ * no "Trabajo": reemplazar todo borraría la etiqueta que el usuario ya puso.
+ */
+function conEtiquetaElegida(escrito, elegida) {
+  const texto = String(escrito ?? '');
+  const coma = texto.lastIndexOf(',');
+  return coma === -1 ? elegida : `${texto.slice(0, coma + 1)} ${elegida}`;
 }
 
 /**
@@ -4444,6 +4656,21 @@ const FONDOS_RUBRO = Object.freeze([
 function franjaDeRubro(tipo, rubro, catalogo) {
   const clave = normalizarClave(String(rubro ?? ''));
 
+  // ── El color elegido a mano gana, si lo hay — T-061 ────────────────────────
+  //
+  // Lo pidió el usuario (2026-09-19): que los colores de los rubros se puedan
+  // cambiar. Se eligen **entre los veinte de la paleta** y no libres, porque
+  // esos veinte están medidos para distinguirse entre sí y para leerse en claro
+  // y en oscuro (ADR-049); con un selector libre cualquiera puede elegir dos
+  // azules casi iguales y la app no lo puede impedir sin volverse molesta.
+  //
+  // Los colores elegidos viven **dentro del catálogo**, que es el mismo objeto
+  // que ya recibían las cincuenta llamadas a esta función. Agregar un cuarto
+  // parámetro habría sido repetir exactamente L-035: las llamadas que no lo
+  // pasaran seguirían andando, pintando con el color viejo y sin decirlo.
+  const elegida = colorElegido(catalogo, tipo, clave);
+  if (elegida !== undefined) return elegida;
+
   if (tipo !== TIPO_GASTO) {
     // Los ingresos no siguen su posición en la lista sino un mapa propio, para
     // que también hereden los colores de la planilla: ahí el usuario tiene
@@ -4464,6 +4691,36 @@ function franjaDeRubro(tipo, rubro, catalogo) {
   // de un dato viejo se le da la última franja en vez de romper la pantalla.
   return posicion === -1 ? COLORES : posicion + 1;
 }
+
+/** Con qué nombre se guarda el color de un rubro. El tipo va adentro porque
+ *  `otros` existe en las dos listas y son dos rubros distintos (RN-02). */
+function claveDeColor(tipo, rubro) {
+  return `${normalizarTipo(tipo)}:${normalizarClave(String(rubro ?? ''))}`;
+}
+
+/** La franja que el usuario eligió para un rubro, o `undefined` si no eligió. */
+function colorElegido(catalogo, tipo, rubro) {
+  const guardado = catalogo?.colores?.[claveDeColor(tipo, rubro)];
+  return Number.isInteger(guardado) && guardado >= 1 && guardado <= COLORES ? guardado : undefined;
+}
+
+/**
+ * El catálogo con el color de un rubro cambiado. Con `undefined` lo devuelve al
+ * que le tocaba por su posición, que es la salida para deshacer sin tener que
+ * acordarse de cuál era.
+ */
+function elegirColor(catalogo, tipo, rubro, franja) {
+  const colores = { ...(catalogo?.colores ?? {}) };
+  const clave = claveDeColor(tipo, rubro);
+
+  if (franja === undefined || franja === null) delete colores[clave];
+  else if (!Number.isInteger(franja) || franja < 1 || franja > COLORES) {
+    throw new Error(`El color tiene que ser un número del 1 al ${COLORES}, y llegó ${JSON.stringify(franja)}.`);
+  } else colores[clave] = franja;
+
+  return { ...catalogo, colores };
+}
+
 
 /**
  * Qué color le toca a cada rubro de ingreso.
@@ -4540,6 +4797,7 @@ function franjasConTintaClara(paleta = COLORES_RUBRO) {
 // app abra igual, pero AVISA que lo hizo y GUARDA APARTE lo que no pudo leer. Lo
 // que nunca hace es pisar en silencio un dato que no entendió: un dato ilegible
 // todavía se puede rescatar a mano; uno sobrescrito, no.
+
 
 
 const CLAVE_DATOS = 'viajecor:datos:v1';
@@ -5107,7 +5365,42 @@ function leerCatalogoDeRubros(guardado, incidencias = []) {
   return {
     gasto: limpiar(guardado.gasto, inicial.gasto, 'gasto'),
     ingreso: limpiar(guardado.ingreso, inicial.ingreso, 'ingreso'),
+    colores: leerColoresDeRubro(guardado.colores, incidencias),
   };
+}
+
+/**
+ * Los colores que el usuario le puso a sus rubros — T-061.
+ *
+ * Se descarta en silencio lo que no sea una franja válida —un respaldo editado a
+ * mano, una versión futura con más colores— en vez de rechazar el archivo
+ * entero: un color raro no vale perder los movimientos, y sin él el rubro
+ * simplemente vuelve al que le tocaba por su posición.
+ */
+function leerColoresDeRubro(guardado, incidencias = []) {
+  if (guardado === undefined || guardado === null) return {};
+  if (typeof guardado !== 'object' || Array.isArray(guardado)) {
+    incidencias.push('Los colores de los rubros no se entendieron; se usaron los de siempre.');
+    return {};
+  }
+
+  const colores = {};
+  let descartados = 0;
+
+  for (const [clave, franja] of Object.entries(guardado)) {
+    if (!/^[GI]:.+$/.test(clave) || !Number.isInteger(franja) || franja < 1 || franja > COLORES) {
+      descartados += 1;
+      continue;
+    }
+    colores[clave] = franja;
+  }
+
+  if (descartados > 0) {
+    incidencias.push(descartados === 1
+      ? 'Un color de rubro guardado no se entendió; ese rubro volvió al color de siempre.'
+      : `${descartados} colores de rubro guardados no se entendieron; esos rubros volvieron al color de siempre.`);
+  }
+  return colores;
 }
 
 // ── src/datos/exportar.js ───────────────────────────────────────
@@ -9500,34 +9793,45 @@ function viajes(estado) {
   // Primero, qué comentarios son viajes: los que tienen algún gasto de `viajes`.
   const esViaje = new Set();
   for (const m of todos) {
-    if (m.tipo === TIPO_GASTO
-      && normalizarClave(String(m.rubro ?? '')) === RUBRO_VIAJE
-      && String(m.comentario ?? '') !== '') {
-      esViaje.add(normalizarClave(m.comentario));
-    }
+    if (m.tipo !== TIPO_GASTO) continue;
+    if (normalizarClave(String(m.rubro ?? '')) !== RUBRO_VIAJE) continue;
+    // Cada etiqueta del gasto por separado (T-060): un pasaje etiquetado
+    // "Roma, Trabajo" hace que Roma sea un viaje, y también Trabajo si alguna
+    // vez lleva un gasto de ese rubro.
+    for (const clave of clavesDeEtiquetas(String(m.comentario ?? ''))) esViaje.add(clave);
   }
   if (esViaje.size === 0) return [];
 
   const acumulado = new Map();
   for (const m of convertibles) {
-    if (m.tipo !== TIPO_GASTO) continue;
-    const comentario = String(m.comentario ?? '');
-    if (comentario === '') continue;
-    const clave = normalizarClave(comentario);
-    if (!esViaje.has(clave)) continue;
-
     const euros = movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
-    const antes = acumulado.get(clave);
-    if (!antes) {
-      acumulado.set(clave, {
-        clave, comentario, total: euros, cuantos: 1,
-        desde: m.fecha, hasta: m.fecha,
-      });
-    } else {
-      antes.total += euros;
-      antes.cuantos += 1;
-      if (m.fecha < antes.desde) antes.desde = m.fecha;
-      if (m.fecha > antes.hasta) antes.hasta = m.fecha;
+    const esGasto = m.tipo === TIPO_GASTO;
+
+    for (const etiqueta of etiquetasDe(String(m.comentario ?? ''))) {
+      const clave = normalizarClave(etiqueta);
+      if (!esViaje.has(clave)) continue;
+
+      // Los INGRESOS del viaje también entran (T-060). Un viaje de trabajo tiene
+      // los dos lados —lo que costó y lo que te reintegraron— y mostrar solo uno
+      // contesta media pregunta. Se guardan separados para no mezclarlos nunca
+      // en un mismo número: el total de gastos sigue siendo el total de gastos.
+      const antes = acumulado.get(clave);
+      if (!antes) {
+        acumulado.set(clave, {
+          clave,
+          comentario: etiqueta,
+          total: esGasto ? euros : 0,
+          ingresos: esGasto ? 0 : euros,
+          cuantos: 1,
+          desde: m.fecha,
+          hasta: m.fecha,
+        });
+      } else {
+        if (esGasto) antes.total += euros; else antes.ingresos += euros;
+        antes.cuantos += 1;
+        if (m.fecha < antes.desde) antes.desde = m.fecha;
+        if (m.fecha > antes.hasta) antes.hasta = m.fecha;
+      }
     }
   }
 
@@ -9535,8 +9839,9 @@ function viajes(estado) {
   // que le falta un gasto y que no lo dice es peor que no mostrar ningún total.
   const incompletos = new Set();
   for (const m of sinConvertir) {
-    const clave = normalizarClave(String(m.comentario ?? ''));
-    if (esViaje.has(clave)) incompletos.add(clave);
+    for (const clave of clavesDeEtiquetas(String(m.comentario ?? ''))) {
+      if (esViaje.has(clave)) incompletos.add(clave);
+    }
   }
 
   return [...acumulado.values()]
@@ -9549,6 +9854,10 @@ function viajes(estado) {
         fechas,
         dias,
         porDia: dias === null ? null : redondear(v.total / dias),
+        // El saldo solo tiene sentido cuando hay de los dos: en un viaje normal
+        // —solo gastos— sería el total en negativo, un número repetido.
+        mixto: v.ingresos > 0 && v.total > 0,
+        saldo: v.ingresos - v.total,
         // Por cuándo terminó, que es el orden que pidió el usuario. Un viaje sin
         // fechas escritas se ordena por su último gasto: es lo más parecido que
         // se sabe, y sin eso todos los viajes sin fechas se amontonarían juntos
@@ -9826,7 +10135,10 @@ function dibujarFechas(viaje) {
  * su lugar va el botón para escribirlos, que es la acción que falta.
  */
 function dibujarViaje(viaje, base) {
-  const cuantos = viaje.cuantos === 1 ? '1 gasto' : `${viaje.cuantos} gastos`;
+  // "gastos" solo si son todos gastos: en un viaje de trabajo hay reintegros, y
+  // llamarle gasto a un cobro dice lo contrario de lo que pasó (T-060).
+  const nombre = viaje.mixto ? 'movimiento' : 'gasto';
+  const cuantos = viaje.cuantos === 1 ? `1 ${nombre}` : `${viaje.cuantos} ${nombre}s`;
 
   const porDia = viaje.fechas === null
     ? `<button type="button" class="secundario chico" data-accion="fechas-viaje"
@@ -9846,12 +10158,24 @@ function dibujarViaje(viaje, base) {
               data-comentario="${escapar(viaje.comentario)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(viaje.comentario)}</span>
-          <span class="importe">${escapar(formatearEuros(viaje.total, base))}</span>
+          <!-- En un viaje mixto el número grande es el SALDO: en un viaje de
+               trabajo lo que se viene a mirar es si terminaste poniendo plata,
+               no cuánto pasó por tus manos. El detalle de los dos lados va
+               abajo, porque un saldo de cero puede ser "no gasté nada" o
+               "gasté mil y me devolvieron mil". -->
+          <span class="importe ${viaje.mixto && viaje.saldo >= 0 ? 'ingreso' : ''}">
+            ${escapar(formatearEuros(viaje.mixto ? viaje.saldo : viaje.total, base))}
+          </span>
         </span>
       </button>
       <div class="rubro-pie suave">
         <span>${escapar(cuantos)} · ${escapar(dibujarFechas(viaje))}</span>
       </div>
+      ${viaje.mixto ? `
+      <div class="rubro-pie suave">
+        <span>${escapar(formatearEuros(viaje.total, base))} salieron ·
+        ${escapar(formatearEuros(viaje.ingresos, base))} entraron</span>
+      </div>` : ''}
       <div class="rubro-pie suave">${porDia}</div>
       ${aviso}
     </li>
@@ -10111,6 +10435,7 @@ function dibujarMonedaBase(vista) {
 
 
 
+
 const NOMBRE_DEL_TIPO = { [TIPO_GASTO]: 'gasto', [TIPO_INGRESO]: 'ingreso' };
 
 /** Cuántos movimientos usa un rubro, escrito para leer. */
@@ -10123,6 +10448,7 @@ function dibujarUso(cuantos) {
 function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
   const editando = vista.rubroEditado?.tipo === tipo && vista.rubroEditado?.rubro === rubro;
   const uniendo = vista.rubroUnido?.tipo === tipo && vista.rubroUnido?.rubro === rubro;
+  const pintando = vista.rubroPintado?.tipo === tipo && vista.rubroPintado?.rubro === rubro;
   const otros = catalogo.filter((r) => r !== rubro);
 
   return `
@@ -10166,10 +10492,14 @@ function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
         </div>
       </form>` : ''}
 
-      ${editando || uniendo ? '' : `
+      ${pintando ? dibujarElegirColor(rubro, tipo, vista) : ''}
+
+      ${editando || uniendo || pintando ? '' : `
       <div class="movimiento-acciones">
         <button type="button" class="secundario chico" data-accion="editar-rubro"
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Renombrar</button>
+        <button type="button" class="secundario chico" data-accion="pintar-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Color</button>
         ${otros.length > 0 ? `
         <button type="button" class="secundario chico" data-accion="unir-desde"
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Unir con otro</button>` : ''}
@@ -10178,6 +10508,60 @@ function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Sacar</button>` : ''}
       </div>`}
     </li>
+  `;
+}
+
+/**
+ * Elegir el color de un rubro — T-061.
+ *
+ * ── Los veinte de la paleta y no un color libre ─────────────────────────────
+ *
+ * Lo eligió el usuario sabiendo el precio. Esos veinte están **medidos**: se
+ * distinguen entre sí, se leen en claro y en oscuro, y los primeros se
+ * distinguen mejor que los últimos (ADR-049). Un selector libre deja elegir dos
+ * azules casi iguales o un amarillo ilegible, y la app no puede impedirlo sin
+ * volverse molesta.
+ *
+ * **Se avisa cuándo un color ya lo usa otro rubro, pero no se prohíbe.** Si
+ * alguien quiere sus dos rubros de comida del mismo verde, es su planilla. Lo
+ * que no puede pasar es que lo haga sin enterarse.
+ */
+function dibujarElegirColor(rubro, tipo, vista = {}) {
+  const catalogo = catalogoDe(vista.estado ?? {});
+  const ahora = franjaDeRubro(tipo, rubro, catalogo);
+  const propio = colorElegido(catalogo, tipo, rubro) !== undefined;
+
+  // Qué rubro usa cada franja, para poder avisar. Se mira el mismo tipo: el
+  // color de "otros" de ingreso no compite con el de "otros" de gasto, que están
+  // en listas y pantallas distintas.
+  const dueño = new Map();
+  for (const otro of rubrosDe(tipo, vista.estado?.rubros)) {
+    if (otro === rubro) continue;
+    dueño.set(franjaDeRubro(tipo, otro, catalogo), otro);
+  }
+
+  const casillas = Array.from({ length: COLORES }, (_, i) => i + 1).map((franja) => {
+    const ocupado = dueño.get(franja);
+    const etiqueta = ocupado ? `Color ${franja}, lo usa ${formatearRubro(ocupado)}` : `Color ${franja}`;
+    return `
+      <button type="button" class="casilla-color rubro-${franja}${franja === ahora ? ' puesto' : ''}"
+              data-accion="elegir-color" data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}"
+              data-franja="${franja}" aria-pressed="${franja === ahora}"
+              title="${escapar(etiqueta)}" aria-label="${escapar(etiqueta)}">${ocupado ? '·' : ''}</button>`;
+  }).join('');
+
+  return `
+    <div class="formulario-linea">
+      <p class="suave nota">Elegí un color. Los que tienen un punto ya los usa
+      otro rubro — se puede igual, pero después cuesta distinguirlos.</p>
+      <div class="colores-rubro">${casillas}</div>
+      <div class="botones">
+        ${propio ? `
+        <button type="button" class="secundario chico" data-accion="elegir-color"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Volver al de siempre</button>` : ''}
+        <button type="button" class="secundario chico" data-accion="cancelar-rubro">Listo</button>
+      </div>
+    </div>
   `;
 }
 
@@ -10995,11 +11379,26 @@ function intentarCambiarDecimales(estado, codigo, decimales) {
 }
 
 // ── src/ui/pantallas/grupos.js ──────────────────────────────────
-// Otros grupos de gastos — CU-18, T-946.
+// Otros grupos — CU-18, T-946, y grupos de ingresos y mixtos en T-060.
 //
 // La etiqueta sirve para agrupar cualquier cosa, no solo viajes y gastos fijos:
 // una mudanza, unos regalos, el arreglo del auto. Hasta ahora esos grupos no
 // aparecían en ninguna pantalla — existían en los datos y no se podían ver.
+//
+// ── Ya no son "de gastos" ───────────────────────────────────────────────────
+//
+// Lo pidió el usuario (2026-09-18). Una etiqueta puede juntar **ingresos** —un
+// trabajo suelto, unos reintegros— y eso quedaba fuera de la app por el mismo
+// motivo por el que estaban fuera los grupos de gastos antes de T-946: nadie
+// había escrito la pantalla. Cada grupo dice ahora de qué clase es:
+//
+//   · **gasto**   — lo de siempre: cuánto costó.
+//   · **ingreso** — cuánto entró, y **la media por mes**, que es lo que se
+//                   quiere saber de algo que cobra: tres cobros en un mes no son
+//                   tres meses de ingreso.
+//   · **mixto**   — tiene de los dos, así que lo que importa es el **saldo**.
+//                   Es el viaje de trabajo: lo que gastaste y lo que te
+//                   reintegraron, y si terminaste poniendo plata o no.
 //
 // **Qué llega acá lo decide `core/agrupamientos.js`**, en cascada: si todos sus
 // gastos son del rubro `gastos fijos` su grupo vive en la pantalla de gastos
@@ -11015,9 +11414,12 @@ function intentarCambiarDecimales(estado, codigo, decimales) {
 
 
 
-/** Cuántos gastos, en cuántos meses y entre qué fechas. */
+/** Cuántos movimientos, en cuántos meses y entre qué fechas. */
 function dibujarAlcance(grupo) {
-  const cuantos = grupo.cuantos === 1 ? '1 gasto' : `${grupo.cuantos} gastos`;
+  // "gastos" solo cuando son todos gastos: en un grupo mixto o de ingresos,
+  // llamarle gasto a un cobro es decir lo contrario de lo que pasó.
+  const nombre = grupo.clase === 'gasto' ? 'gasto' : 'movimiento';
+  const cuantos = grupo.cuantos === 1 ? `1 ${nombre}` : `${grupo.cuantos} ${nombre}s`;
   const cuando = grupo.desde === grupo.hasta
     ? formatearFecha(grupo.desde)
     : `${formatearFecha(grupo.desde)} → ${formatearFecha(grupo.hasta)}`;
@@ -11031,17 +11433,38 @@ function dibujarAlcance(grupo) {
 }
 
 function dibujarGrupo(grupo, base) {
+  // Qué número va grande, a la derecha del nombre: el que contesta la pregunta
+  // de ese grupo. En el mixto es el saldo, y lleva su signo y su color — que
+  // terminaras poniendo plata o cobrándola es justo lo que se viene a mirar.
+  const destacado = grupo.clase === 'ingreso' ? grupo.ingresos
+    : grupo.clase === 'gasto' ? grupo.total
+      : grupo.saldo;
+  const color = grupo.clase === 'ingreso' || (grupo.clase === 'mixto' && grupo.saldo >= 0)
+    ? 'ingreso' : 'gasto';
+
+  // El desglose del mixto: los dos lados, porque el saldo solo no dice de qué
+  // tamaño fue el movimiento de plata. Y la media mensual del de ingresos.
+  const detalle = grupo.clase === 'mixto'
+    ? `<span>${escapar(formatearEuros(grupo.ingresos, base))} entraron ·
+       ${escapar(formatearEuros(grupo.total, base))} salieron</span>`
+    : grupo.clase === 'ingreso' && grupo.meses > 1
+      ? `<span>${escapar(formatearEuros(grupo.mediaMensual, base))} por mes</span>`
+      : '';
+
   return `
     <li class="fila-rubro">
       <button type="button" class="fila-toque" data-accion="ver-comentario"
               data-comentario="${escapar(grupo.etiqueta)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(grupo.etiqueta)}</span>
-          <span class="importe">${escapar(formatearEuros(grupo.total, base))}</span>
+          <span class="importe ${grupo.clase === 'gasto' ? '' : color}">
+            ${escapar(formatearEuros(destacado, base))}
+          </span>
         </span>
       </button>
       <div class="rubro-pie suave">
         <span>${escapar(dibujarAlcance(grupo))}</span>
+        ${detalle}
       </div>
     </li>
   `;
@@ -11054,22 +11477,26 @@ function dibujarGrupos(vista) {
   if (grupos.length === 0) {
     return `
       <section class="tarjeta">
-        <h2>Otros grupos de gastos</h2>
+        <h2>Otros grupos</h2>
         <p class="suave">Todavía no hay ninguno. Acá aparecen las etiquetas que
         no son ni un gasto fijo ni un viaje: una mudanza, unos regalos, el
-        arreglo del auto. Poniéndole la misma etiqueta a varios gastos, se juntan
-        solos.</p>
+        arreglo del auto, un trabajo suelto. Poniéndole la misma etiqueta a
+        varios movimientos, se juntan solos.</p>
       </section>
     `;
   }
 
   return `
     <section class="tarjeta">
-      <h2>Otros grupos de gastos</h2>
-      <p class="suave nota">Las etiquetas que no son ni un gasto fijo ni un viaje.
-      El total incluye <strong>todos</strong> los rubros de esa etiqueta, así que
-      puede ser mayor que lo que la misma etiqueta suma en la tarjeta de gastos
-      fijos, que mira un rubro solo. Tocá uno para ver sus gastos.</p>
+      <h2>Otros grupos</h2>
+      <p class="suave nota">Las etiquetas que no son ni un gasto fijo ni un viaje
+      — de gastos, de ingresos, o de los dos. El total incluye <strong>todos</strong>
+      los rubros de esa etiqueta, así que puede ser mayor que lo que la misma
+      etiqueta suma en la tarjeta de gastos fijos, que mira un rubro solo. Tocá
+      uno para ver sus movimientos.</p>
+      <p class="suave nota">Un movimiento con <strong>varias etiquetas suma en
+      todos sus grupos</strong>, así que estos totales no se pueden sumar entre
+      sí: darían de más.</p>
       <ul class="rubros">${grupos.map((g) => dibujarGrupo(g, base)).join('')}</ul>
     </section>
   `;
@@ -13045,12 +13472,17 @@ function dibujarNuevo(vista) {
            los totales. Ofrecer lo que ya existe es la forma más barata de que
            elijas la escritura que ya tenés en vez de inventar una nueva. -->
       <label class="campo">
-        <span>Etiqueta <em class="suave">(agrupar por)</em></span>
+        <span>Etiquetas <em class="suave">(agrupar por)</em></span>
+        <!-- El placeholder de antes decía "Roma, Luz…" y se leía como un ejemplo
+             de dos cosas distintas. Ahora la coma SEPARA de verdad (T-060), así
+             que el ejemplo tiene que ser uno que de verdad lleve las dos. -->
         <input name="comentario" type="text" autocomplete="off"
-               placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
+               placeholder="Roma, Trabajo…" value="${escapar(borrador.comentario)}">
         <div class="sugerencias" data-sugerencias="comentario">${
-          dibujarSugerencias('comentario', borrador.comentario, usados.comentario)
+          dibujarSugerencias('comentario', etiquetaEnCurso(borrador.comentario), usados.comentario)
         }</div>
+        <span class="fecha-legible">Podés poner varias, separadas por coma: un
+        viaje de trabajo lleva la del viaje y la del trabajo.</span>
       </label>
 
       <button type="submit" class="principal" data-accion="guardar">
@@ -13254,6 +13686,8 @@ function conectarUna(tarjeta) {
 // La frontera importa: un error de "qué se muestra" se puede cazar con un test;
 // uno de "cómo se engancha un clic" solo se ve abriendo la app. Cuanto más de lo
 // primero y menos de lo segundo, más barato es equivocarse.
+
+
 
 
 
@@ -14542,7 +14976,10 @@ function iniciar(documento, almacen) {
   function refrescarSugerencias(campo, escrito) {
     const donde = raiz.querySelector(`[data-sugerencias="${campo}"]`);
     if (!donde) return;
-    donde.innerHTML = dibujarSugerencias(campo, escrito, usadosDe(vista.estado)[campo] ?? []);
+    // Lo que se autocompleta es la etiqueta que se está escribiendo ahora, no el
+    // campo entero: con "Roma, Trab" hay que buscar "Trab" (T-060).
+    const buscando = campo === 'comentario' ? etiquetaEnCurso(escrito) : escrito;
+    donde.innerHTML = dibujarSugerencias(campo, buscando, usadosDe(vista.estado)[campo] ?? []);
   }
 
   raiz.addEventListener('change', (evento) => {
@@ -15060,10 +15497,17 @@ function iniciar(documento, almacen) {
       const campo = boton.dataset.campo;
       const donde = raiz.querySelector(`input[name="${campo}"]`);
       if (donde) {
-        donde.value = boton.dataset.texto;
+        // La elegida reemplaza SOLO la etiqueta en curso (T-060): con
+        // "Roma, Trab" escrito tiene que quedar "Roma, Trabajo" y no "Trabajo",
+        // que borraría la etiqueta que el usuario ya había puesto.
+        donde.value = campo === 'comentario'
+          ? conEtiquetaElegida(donde.value, boton.dataset.texto)
+          : boton.dataset.texto;
         donde.focus();
+        // Y el cursor al final, listo para escribir una coma más.
+        donde.setSelectionRange(donde.value.length, donde.value.length);
       }
-      refrescarSugerencias(campo, boton.dataset.texto);
+      refrescarSugerencias(campo, donde ? donde.value : boton.dataset.texto);
       return;
     } else if (accion === 'importar-planilla') {
       traerPlanillaVieja();
@@ -15186,7 +15630,7 @@ function iniciar(documento, almacen) {
       vista = { ...vista, rubroUnido: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
         rubroEditado: null, error: null, avisoRubro: null };
     } else if (accion === 'cancelar-rubro') {
-      vista = { ...vista, rubroEditado: null, rubroUnido: null, error: null };
+      vista = { ...vista, rubroEditado: null, rubroUnido: null, rubroPintado: null, error: null };
     } else if (accion === 'borrar-rubro') {
       // Sin confirmación, y a propósito: este botón solo aparece en los rubros
       // que **no tiene ningún movimiento**, así que no hay nada que perder. Los
@@ -15261,6 +15705,25 @@ function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, ahorroBorrado: null };
+    } else if (accion === 'pintar-rubro') {
+      vista = { ...vista, rubroPintado: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
+        rubroEditado: null, rubroUnido: null, error: null, aviso: null };
+    } else if (accion === 'elegir-color') {
+      // Sin `data-franja` es "volver al de siempre": el color elegido se saca y
+      // el rubro vuelve al que le toca por su posición.
+      const franja = boton.dataset.franja === undefined ? undefined : Number(boton.dataset.franja);
+      const estado = {
+        ...vista.estado,
+        rubros: elegirColor(catalogoDe(vista.estado), boton.dataset.tipo, boton.dataset.rubro, franja),
+      };
+      try {
+        guardarEstado(estado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado, error: null };
     } else if (accion === 'periodo-todo') {
       // Volver a todo el historial, que es el estado predeterminado (T-054).
       vista = { ...vista, periodo: null };

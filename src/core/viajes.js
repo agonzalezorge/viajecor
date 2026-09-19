@@ -38,7 +38,7 @@
 //
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
-import { normalizarClave, TIPO_GASTO, mesDe, validarFecha } from './modelo.js';
+import { normalizarClave, TIPO_GASTO, mesDe, validarFecha, clavesDeEtiquetas, etiquetasDe } from './modelo.js';
 import { monedaBaseDe } from './monedas.js';
 import { redondear } from './dinero.js';
 import { separarConvertibles } from './calculos.js';
@@ -117,34 +117,45 @@ export function viajes(estado) {
   // Primero, qué comentarios son viajes: los que tienen algún gasto de `viajes`.
   const esViaje = new Set();
   for (const m of todos) {
-    if (m.tipo === TIPO_GASTO
-      && normalizarClave(String(m.rubro ?? '')) === RUBRO_VIAJE
-      && String(m.comentario ?? '') !== '') {
-      esViaje.add(normalizarClave(m.comentario));
-    }
+    if (m.tipo !== TIPO_GASTO) continue;
+    if (normalizarClave(String(m.rubro ?? '')) !== RUBRO_VIAJE) continue;
+    // Cada etiqueta del gasto por separado (T-060): un pasaje etiquetado
+    // "Roma, Trabajo" hace que Roma sea un viaje, y también Trabajo si alguna
+    // vez lleva un gasto de ese rubro.
+    for (const clave of clavesDeEtiquetas(String(m.comentario ?? ''))) esViaje.add(clave);
   }
   if (esViaje.size === 0) return [];
 
   const acumulado = new Map();
   for (const m of convertibles) {
-    if (m.tipo !== TIPO_GASTO) continue;
-    const comentario = String(m.comentario ?? '');
-    if (comentario === '') continue;
-    const clave = normalizarClave(comentario);
-    if (!esViaje.has(clave)) continue;
-
     const euros = movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
-    const antes = acumulado.get(clave);
-    if (!antes) {
-      acumulado.set(clave, {
-        clave, comentario, total: euros, cuantos: 1,
-        desde: m.fecha, hasta: m.fecha,
-      });
-    } else {
-      antes.total += euros;
-      antes.cuantos += 1;
-      if (m.fecha < antes.desde) antes.desde = m.fecha;
-      if (m.fecha > antes.hasta) antes.hasta = m.fecha;
+    const esGasto = m.tipo === TIPO_GASTO;
+
+    for (const etiqueta of etiquetasDe(String(m.comentario ?? ''))) {
+      const clave = normalizarClave(etiqueta);
+      if (!esViaje.has(clave)) continue;
+
+      // Los INGRESOS del viaje también entran (T-060). Un viaje de trabajo tiene
+      // los dos lados —lo que costó y lo que te reintegraron— y mostrar solo uno
+      // contesta media pregunta. Se guardan separados para no mezclarlos nunca
+      // en un mismo número: el total de gastos sigue siendo el total de gastos.
+      const antes = acumulado.get(clave);
+      if (!antes) {
+        acumulado.set(clave, {
+          clave,
+          comentario: etiqueta,
+          total: esGasto ? euros : 0,
+          ingresos: esGasto ? 0 : euros,
+          cuantos: 1,
+          desde: m.fecha,
+          hasta: m.fecha,
+        });
+      } else {
+        if (esGasto) antes.total += euros; else antes.ingresos += euros;
+        antes.cuantos += 1;
+        if (m.fecha < antes.desde) antes.desde = m.fecha;
+        if (m.fecha > antes.hasta) antes.hasta = m.fecha;
+      }
     }
   }
 
@@ -152,8 +163,9 @@ export function viajes(estado) {
   // que le falta un gasto y que no lo dice es peor que no mostrar ningún total.
   const incompletos = new Set();
   for (const m of sinConvertir) {
-    const clave = normalizarClave(String(m.comentario ?? ''));
-    if (esViaje.has(clave)) incompletos.add(clave);
+    for (const clave of clavesDeEtiquetas(String(m.comentario ?? ''))) {
+      if (esViaje.has(clave)) incompletos.add(clave);
+    }
   }
 
   return [...acumulado.values()]
@@ -166,6 +178,10 @@ export function viajes(estado) {
         fechas,
         dias,
         porDia: dias === null ? null : redondear(v.total / dias),
+        // El saldo solo tiene sentido cuando hay de los dos: en un viaje normal
+        // —solo gastos— sería el total en negativo, un número repetido.
+        mixto: v.ingresos > 0 && v.total > 0,
+        saldo: v.ingresos - v.total,
         // Por cuándo terminó, que es el orden que pidió el usuario. Un viaje sin
         // fechas escritas se ordena por su último gasto: es lo más parecido que
         // se sabe, y sin eso todos los viajes sin fechas se amontonarían juntos

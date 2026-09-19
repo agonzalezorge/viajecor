@@ -45,6 +45,9 @@ export function catalogoDe(estado) {
   return {
     gasto: rubrosDe(TIPO_GASTO, estado?.rubros),
     ingreso: rubrosDe(TIPO_INGRESO, estado?.rubros),
+    // Los colores elegidos viajan con el catálogo (T-061): quien lo recibe para
+    // saber qué rubros hay, recibe también de qué color son.
+    colores: estado?.rubros?.colores ?? {},
   };
 }
 

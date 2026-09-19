@@ -1894,3 +1894,52 @@ de enderezarse, y si eso cruza el cero, **el gráfico pinta de rojo un mes que
 cerró en verde**. Eso ya no es estética: es plata que no existe. Por eso es una
 spline PCHIP (Fritsch–Carlson), que pasa por todos los puntos y se aplana en los
 picos y los valles en vez de rebotar.
+
+
+## ADR-052 · Varias etiquetas por movimiento, guardadas en el mismo texto de siempre
+
+**Contexto.** El usuario pidió poder poner más de una etiqueta a un movimiento,
+con un caso que la app no sabía contestar: un viaje de trabajo lleva la etiqueta
+del viaje **y** la del trabajo, y había que elegir una y perder la otra pregunta.
+
+**Decisión.** Se escriben **separadas por coma** en el mismo campo, y el dato
+guardado **no cambia**: sigue siendo un texto en `comentario`. Lo que cambió es
+cómo se lee, con `etiquetasDe()`.
+
+**Por qué no una lista en el modelo**, que sería lo "correcto" en un diseño
+nuevo: los respaldos viejos se siguen leyendo sin migrar nada, la columna
+`Comentarios` del Excel del usuario sigue sirviendo en los dos sentidos, y un
+movimiento de antes —"Roma"— tiene exactamente una etiqueta sin tocar un byte.
+Una migración de datos es la operación más cara que tiene esta app: la hace el
+usuario solo, en su teléfono, sin nadie que la revise.
+
+**El precio, elegido por el usuario:** la coma queda reservada como separador y
+una etiqueta no puede llevarla adentro. La alternativa era un campo de fichas; se
+le ofrecieron las dos con su costo y eligió la coma.
+
+**La consecuencia que hay que decir en pantalla:** un movimiento con dos
+etiquetas **entra en los dos grupos**, así que los totales de los grupos ya no
+suman el total del mes — sumarían de más. Es lo correcto para la pregunta que
+cada grupo contesta, y callarlo sería dejar que alguien intente cuadrarlos y crea
+que algo está roto.
+
+## ADR-053 · El color de un rubro se elige entre los veinte, no libre
+
+**Contexto.** El color salía de la posición del rubro en la lista (ADR-049). El
+usuario pidió poder cambiarlo.
+
+**Decisión.** Se elige **entre los veinte de la paleta**. Esos veinte están
+medidos: se distinguen entre sí, se leen en claro y en oscuro, y está escrito
+cuánto se distinguen los últimos. Un selector libre deja elegir dos azules casi
+iguales o un amarillo ilegible sobre fondo claro, y la app no puede impedirlo sin
+volverse molesta. Se le ofrecieron las dos opciones con ese costo y eligió los
+veinte.
+
+**Se avisa cuáles colores ya usa otro rubro, pero no se prohíben.** Si alguien
+quiere sus dos rubros de comida del mismo verde, es su planilla; lo que no puede
+pasar es que lo haga sin enterarse.
+
+**Dónde viven los colores elegidos: dentro del catálogo de rubros**, que es el
+objeto que las cincuenta llamadas a `franjaDeRubro()` ya reciben. Agregar un
+cuarto parámetro habría sido repetir exactamente L-035 — las llamadas que no lo
+pasaran seguirían pintando con el color viejo, sin fallar y sin decirlo.

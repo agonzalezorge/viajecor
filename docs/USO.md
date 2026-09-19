@@ -217,7 +217,9 @@ la app**.
   movimiento viejo— aparece un botón **"Hoy"** al lado del calendario. Que esté
   ahí ya es el aviso; tocarlo la trae a hoy sin borrar lo que hayas escrito.
 - **Detalle** — una nota para acordarte. No agrupa nada.
-- **Etiqueta (agrupar por)** — **esto sí agrupa.** Es lo que junta los gastos de
+- **Etiquetas (agrupar por)** — **esto sí agrupa.** Podés poner **varias,
+  separadas por coma**: un viaje de trabajo va con `Roma, Trabajo` y cuenta en
+  los dos grupos. El autocompletado te ofrece cada etiqueta por separado. Es lo que junta los gastos de
   un viaje o de un gasto fijo. Por eso la app te ofrece las que ya usaste:
   `Barcelona26` y `barcelona 26` son **dos grupos distintos** en los totales, y
   elegir la que ya existe es la forma más barata de que no se te parta un total

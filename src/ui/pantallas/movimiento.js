@@ -18,7 +18,7 @@ import { formatearMonto, formatearFecha, formatearFechaLarga, formatearDiaSemana
 import { claseDeRubro } from '../colores.js';
 import { escapar } from '../app.js';
 import { dibujarPedido, dibujarMovimientoEnEspera } from './cambio.js';
-import { comentariosUsados, sugerenciasPara } from '../../core/calculos.js';
+import { comentariosUsados, sugerenciasPara, etiquetaEnCurso } from '../../core/calculos.js';
 
 /**
  * Los campos vacíos de un formulario nuevo.
@@ -397,12 +397,17 @@ export function dibujarNuevo(vista) {
            los totales. Ofrecer lo que ya existe es la forma más barata de que
            elijas la escritura que ya tenés en vez de inventar una nueva. -->
       <label class="campo">
-        <span>Etiqueta <em class="suave">(agrupar por)</em></span>
+        <span>Etiquetas <em class="suave">(agrupar por)</em></span>
+        <!-- El placeholder de antes decía "Roma, Luz…" y se leía como un ejemplo
+             de dos cosas distintas. Ahora la coma SEPARA de verdad (T-060), así
+             que el ejemplo tiene que ser uno que de verdad lleve las dos. -->
         <input name="comentario" type="text" autocomplete="off"
-               placeholder="Roma, Luz…" value="${escapar(borrador.comentario)}">
+               placeholder="Roma, Trabajo…" value="${escapar(borrador.comentario)}">
         <div class="sugerencias" data-sugerencias="comentario">${
-          dibujarSugerencias('comentario', borrador.comentario, usados.comentario)
+          dibujarSugerencias('comentario', etiquetaEnCurso(borrador.comentario), usados.comentario)
         }</div>
+        <span class="fecha-legible">Podés poner varias, separadas por coma: un
+        viaje de trabajo lleva la del viaje y la del trabajo.</span>
       </label>
 
       <button type="submit" class="principal" data-accion="guardar">

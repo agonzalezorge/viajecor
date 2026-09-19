@@ -17,7 +17,8 @@
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
 import { sumar, redondear } from './dinero.js';
-import { mesDe, TIPO_GASTO, TIPO_INGRESO, rubrosDe, normalizarClave, normalizarTextoVisible, claveDeComentario } from './modelo.js';
+import { mesDe, TIPO_GASTO, TIPO_INGRESO, rubrosDe, normalizarClave, normalizarTextoVisible, claveDeComentario,
+  clavesDeEtiquetas, etiquetasDe, tieneEtiqueta } from './modelo.js';
 import { movimientoEnEuros, faltaCambioPara } from './cambio.js';
 import { monedaBaseDe } from './monedas.js';
 import { categoriaDeEtiqueta } from './agrupamientos.js';
@@ -326,7 +327,9 @@ export function movimientosFiltrados(estado, mes, filtro = {}) {
   return base.filter((m) => {
     if (filtro.tipo !== undefined && m.tipo !== filtro.tipo) return false;
     if (filtro.rubro !== undefined && !igual(m.rubro, filtro.rubro)) return false;
-    if (filtro.comentario !== undefined && !igual(m.comentario, filtro.comentario)) return false;
+    // Por etiqueta y no por el comentario entero (T-060): tocar el grupo
+    // "Trabajo" tiene que traer también los gastos etiquetados "Roma, Trabajo".
+    if (filtro.comentario !== undefined && !tieneEtiqueta(m, filtro.comentario)) return false;
     return true;
   });
 }
@@ -458,25 +461,29 @@ export function gastosFijos(estado) {
 
   for (const movimiento of fijos) {
     const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
-    if (!movimiento.comentario) {
+    const suyas = etiquetasDe(String(movimiento.comentario ?? ''));
+    if (suyas.length === 0) {
       sinComentario = { cuantos: sinComentario.cuantos + 1, total: sinComentario.total + euros };
       continue;
     }
 
-    const clave = normalizarClave(movimiento.comentario);
-    const anterior = acumulado.get(clave);
-    const mes = mesDe(movimiento.fecha);
-    acumulado.set(clave, {
-      clave,
-      comentario: anterior?.comentario ?? movimiento.comentario,
-      total: (anterior?.total ?? 0) + euros,
-      cuantos: (anterior?.cuantos ?? 0) + 1,
-      // Entre qué meses se pagó. Es lo que deja ver la cadencia: ocho pagos en
-      // once meses no es lo mismo que ocho pagos en ocho meses, y el promedio
-      // por pago solo, sin eso, se lee como si fuera mensual.
-      desde: anterior === undefined || mes < anterior.desde ? mes : anterior.desde,
-      hasta: anterior === undefined || mes > anterior.hasta ? mes : anterior.hasta,
-    });
+    // Un gasto fijo etiquetado "Luz, Casa" cuenta en los dos grupos (T-060).
+    for (const etiqueta of suyas) {
+      const clave = normalizarClave(etiqueta);
+      const anterior = acumulado.get(clave);
+      const mes = mesDe(movimiento.fecha);
+      acumulado.set(clave, {
+        clave,
+        comentario: anterior?.comentario ?? etiqueta,
+        total: (anterior?.total ?? 0) + euros,
+        cuantos: (anterior?.cuantos ?? 0) + 1,
+        // Entre qué meses se pagó. Es lo que deja ver la cadencia: ocho pagos en
+        // once meses no es lo mismo que ocho pagos en ocho meses, y el promedio
+        // por pago solo, sin eso, se lee como si fuera mensual.
+        desde: anterior === undefined || mes < anterior.desde ? mes : anterior.desde,
+        hasta: anterior === undefined || mes > anterior.hasta ? mes : anterior.hasta,
+      });
+    }
   }
 
   const grupos = [...acumulado.values()]
@@ -501,17 +508,31 @@ export function gastosFijos(estado) {
  * la misma etiqueta.
  */
 export function porEtiquetaDeGasto(estado) {
+  return porEtiqueta(estado, (m) => m.tipo === TIPO_GASTO);
+}
+
+/**
+ * Los movimientos agrupados por etiqueta — T-060.
+ *
+ * **Un movimiento con dos etiquetas entra en los dos grupos.** Es lo que el
+ * usuario pidió y es lo correcto para la pregunta que cada grupo contesta —el
+ * viaje de trabajo costó eso, y el trabajo costó eso—, pero tiene una
+ * consecuencia que hay que decir en pantalla: **los totales de los grupos ya no
+ * suman el total del mes**. Sumarían de más. La app lo avisa donde se ven esos
+ * números; callarlo sería dejar que alguien intente cuadrarlos y crea que algo
+ * está roto.
+ */
+export function porEtiqueta(estado, incluir = () => true) {
   const { convertibles } = separarConvertibles(estado.movimientos ?? [], estado.tipos_cambio, monedaBaseDe(estado));
   const porClave = new Map();
 
   for (const movimiento of convertibles) {
-    if (movimiento.tipo !== TIPO_GASTO) continue;
-    const texto = String(movimiento.comentario ?? '');
-    if (texto === '') continue;
+    if (!incluir(movimiento)) continue;
 
-    const clave = normalizarClave(texto);
-    if (!porClave.has(clave)) porClave.set(clave, []);
-    porClave.get(clave).push(movimiento);
+    for (const clave of clavesDeEtiquetas(String(movimiento.comentario ?? ''))) {
+      if (!porClave.has(clave)) porClave.set(clave, []);
+      porClave.get(clave).push(movimiento);
+    }
   }
   return porClave;
 }
@@ -529,16 +550,19 @@ export function porComentario(estado, mes) {
 
   const acumulado = new Map();
   for (const movimiento of convertibles) {
-    if (!movimiento.comentario) continue;
-    const clave = normalizarClave(movimiento.comentario);
     const euros = movimientoEnEuros(movimiento, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
-    const anterior = acumulado.get(clave);
-    acumulado.set(clave, {
-      clave,
-      comentario: anterior?.comentario ?? movimiento.comentario,
-      total: (anterior?.total ?? 0) + euros,
-      cuantos: (anterior?.cuantos ?? 0) + 1,
-    });
+
+    // Cada etiqueta por separado (T-060): "Roma, Trabajo" suma en los dos.
+    for (const etiqueta of etiquetasDe(String(movimiento.comentario ?? ''))) {
+      const clave = normalizarClave(etiqueta);
+      const anterior = acumulado.get(clave);
+      acumulado.set(clave, {
+        clave,
+        comentario: anterior?.comentario ?? etiqueta,
+        total: (anterior?.total ?? 0) + euros,
+        cuantos: (anterior?.cuantos ?? 0) + 1,
+      });
+    }
   }
 
   return [...acumulado.values()]
@@ -584,12 +608,19 @@ function textosUsados(movimientos, campo) {
   const porClave = new Map();
 
   for (const movimiento of movimientos) {
-    const texto = normalizarTextoVisible(movimiento?.[campo] ?? '');
+    const crudo = String(movimiento?.[campo] ?? '');
+    if (crudo.trim() === '') continue;
+
+    // Una entrada por ETIQUETA y no por comentario entero (T-060): escribir
+    // "Trab" tiene que ofrecer "Trabajo" aunque solo exista dentro de
+    // "Roma, Trabajo". Sugerir el comentario entero pondría las dos etiquetas de
+    // golpe, que casi nunca es lo que se quiere.
+    const cuando = movimiento.fecha ?? '';
+    for (const texto of campo === 'comentario' ? etiquetasDe(crudo) : [normalizarTextoVisible(crudo)]) {
     if (texto === '') continue;
 
     const clave = claveDeComentario(texto);
     const visto = porClave.get(clave);
-    const cuando = movimiento.fecha ?? '';
 
     if (!visto) {
       porClave.set(clave, { texto, ultima: cuando });
@@ -598,11 +629,37 @@ function textosUsados(movimientos, campo) {
       // escritura que se muestra sigue siendo la primera que apareció.
       visto.ultima = cuando;
     }
+    }
   }
 
   return [...porClave.values()]
     .sort((a, b) => b.ultima.localeCompare(a.ultima) || a.texto.localeCompare(b.texto))
     .map((c) => c.texto);
+}
+
+/**
+ * Lo que se está escribiendo AHORA en un campo de etiquetas: lo que hay después
+ * de la última coma — T-060.
+ *
+ * Con "Roma, Trab" a medio escribir, lo que hay que autocompletar es `Trab`. Sin
+ * esto, la sugerencia buscaría el texto entero y no ofrecería nada nunca en
+ * cuanto hubiera una coma.
+ */
+export function etiquetaEnCurso(escrito) {
+  const texto = String(escrito ?? '');
+  return texto.slice(texto.lastIndexOf(',') + 1);
+}
+
+/**
+ * Lo escrito, con la etiqueta en curso reemplazada por la elegida — T-060.
+ *
+ * Tocar una sugerencia con "Roma, Trab" escrito tiene que dejar "Roma, Trabajo",
+ * no "Trabajo": reemplazar todo borraría la etiqueta que el usuario ya puso.
+ */
+export function conEtiquetaElegida(escrito, elegida) {
+  const texto = String(escrito ?? '');
+  const coma = texto.lastIndexOf(',');
+  return coma === -1 ? elegida : `${texto.slice(0, coma + 1)} ${elegida}`;
 }
 
 /**

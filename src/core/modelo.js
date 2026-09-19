@@ -61,9 +61,17 @@ export function rubrosDe(tipo, catalogo) {
   return normalizado === TIPO_GASTO ? RUBROS_GASTO : RUBROS_INGRESO;
 }
 
-/** Los rubros de fábrica, para arrancar un catálogo nuevo. */
+/**
+ * Los rubros de fábrica, para arrancar un catálogo nuevo.
+ *
+ * `colores` viene vacío: cada rubro usa el que le toca por su posición hasta que
+ * el usuario elija otro (T-061). Va **acá adentro** y no en un campo aparte del
+ * estado para que las cincuenta llamadas que ya reciben el catálogo reciban los
+ * colores sin tocarlas — un parámetro nuevo con valor por defecto es lo que
+ * causó L-035.
+ */
 export function rubrosIniciales() {
-  return { gasto: [...RUBROS_GASTO], ingreso: [...RUBROS_INGRESO] };
+  return { gasto: [...RUBROS_GASTO], ingreso: [...RUBROS_INGRESO], colores: {} };
 }
 
 // ── Normalización de texto (RN-03, L-002) ────────────────────────────────────
@@ -108,6 +116,61 @@ export function normalizarClave(texto) {
 /** El comentario es lo que agrupa un viaje o un gasto fijo. Se agrupa por esto. */
 export function claveDeComentario(comentario) {
   return normalizarClave(comentario);
+}
+
+/**
+ * Las etiquetas de un movimiento — T-060.
+ *
+ * ── Un movimiento puede llevar VARIAS ───────────────────────────────────────
+ *
+ * Lo pidió el usuario (2026-09-18) con un caso que la app no sabía contestar:
+ * un viaje de trabajo lleva la etiqueta del viaje **y** la del trabajo, y hasta
+ * ahora había que elegir una y perder la otra pregunta.
+ *
+ * Se escriben separadas por coma: `Roma, Trabajo`. La coma queda reservada como
+ * separador y una etiqueta no puede llevarla adentro; era la alternativa a un
+ * campo de fichas, y el usuario eligió la coma sabiendo el precio.
+ *
+ * ── Por qué el dato guardado NO cambia ──────────────────────────────────────
+ *
+ * Sigue siendo el mismo texto en el mismo campo. Lo que cambió es cómo se lee.
+ * Eso vale más que cualquier estructura más linda: **los respaldos viejos se
+ * siguen leyendo**, la columna `Comentarios` del Excel del usuario sigue
+ * sirviendo igual en los dos sentidos, y un movimiento de antes —"Roma"— tiene
+ * exactamente una etiqueta sin que nadie migre nada.
+ *
+ * Devuelve los textos **como se escribieron**, para mostrarlos. Para agrupar hay
+ * que usar `clavesDeEtiquetas()`, igual que antes con `claveDeComentario()`.
+ */
+export function etiquetasDe(comentario) {
+  if (typeof comentario !== 'string' || comentario.trim() === '') return [];
+
+  const vistas = new Set();
+  const etiquetas = [];
+
+  for (const parte of comentario.split(',')) {
+    const visible = normalizarTextoVisible(parte);
+    if (visible === '') continue;          // "Roma,,Trabajo" o una coma al final
+
+    // Sin repetir: "Roma, roma" es una etiqueta escrita dos veces, y contarla
+    // dos veces haría que su total se duplique en su propio grupo.
+    const clave = normalizarClave(visible);
+    if (vistas.has(clave)) continue;
+    vistas.add(clave);
+    etiquetas.push(visible);
+  }
+
+  return etiquetas;
+}
+
+/** Las claves con las que agrupan las etiquetas de un movimiento, sin repetir. */
+export function clavesDeEtiquetas(comentario) {
+  return etiquetasDe(comentario).map(normalizarClave);
+}
+
+/** ¿Este movimiento lleva esta etiqueta? Compara por clave (RN-03). */
+export function tieneEtiqueta(movimiento, clave) {
+  return clavesDeEtiquetas(String(movimiento?.comentario ?? '')).includes(normalizarClave(clave));
 }
 
 export function normalizarTipo(tipo) {

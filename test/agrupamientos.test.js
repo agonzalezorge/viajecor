@@ -294,7 +294,7 @@ test('sin grupo propio, la fila no dice nada de más', () => {
 
 
 test('el alcance dice cuántos gastos, entre qué fechas y en cuántos meses', () => {
-  const texto = dibujarAlcance({ cuantos: 3, desde: '2026-05-20', hasta: '2026-06-25', meses: 2 });
+  const texto = dibujarAlcance({ clase: 'gasto', cuantos: 3, desde: '2026-05-20', hasta: '2026-06-25', meses: 2 });
   assert.match(texto, /3 gastos/);
   assert.match(texto, /20\/05\/2026/);
   assert.match(texto, /25\/06\/2026/);
@@ -302,7 +302,7 @@ test('el alcance dice cuántos gastos, entre qué fechas y en cuántos meses', (
 });
 
 test('con un solo gasto en un solo día no se repite la fecha ni se pluraliza', () => {
-  const texto = dibujarAlcance({ cuantos: 1, desde: '2026-05-20', hasta: '2026-05-20', meses: 1 });
+  const texto = dibujarAlcance({ clase: 'gasto', cuantos: 1, desde: '2026-05-20', hasta: '2026-05-20', meses: 1 });
   assert.match(texto, /1 gasto ·/);
   assert.doesNotMatch(texto, /gastos/);
   assert.doesNotMatch(texto, /→/);
@@ -310,22 +310,22 @@ test('con un solo gasto en un solo día no se repite la fecha ni se pluraliza', 
 });
 
 test('la fila del grupo abre el filtro por esa etiqueta', () => {
-  const html = dibujarGrupo({ clave: 'mudanza', etiqueta: 'Mudanza', total: 38000, cuantos: 2, desde: '2026-05-02', hasta: '2026-05-04', meses: 1 });
+  const html = dibujarGrupo({ clave: 'mudanza', etiqueta: 'Mudanza', clase: 'gasto', total: 38000, cuantos: 2, desde: '2026-05-02', hasta: '2026-05-04', meses: 1 });
   assert.match(html, /data-accion="ver-comentario"/);
   assert.match(html, /data-comentario="Mudanza"/);
 });
 
 test('la etiqueta se escapa: no puede inyectar HTML', () => {
-  const html = dibujarGrupo({ clave: 'x', etiqueta: '<img src=x>', total: 100, cuantos: 1, desde: '2026-05-02', hasta: '2026-05-02', meses: 1 });
+  const html = dibujarGrupo({ clave: 'x', etiqueta: '<img src=x>', clase: 'gasto', total: 100, cuantos: 1, desde: '2026-05-02', hasta: '2026-05-02', meses: 1 });
   assert.doesNotMatch(html, /<img/);
   assert.match(html, /&lt;img/);
 });
 
 test('la pantalla lista los grupos y avisa que el total lleva todos los rubros', () => {
   const html = dibujarGrupos({ estado: estadoCon(MUDANZA()) });
-  assert.match(html, /Otros grupos de gastos/);
+  assert.match(html, /Otros grupos/);
   assert.match(html, /Mudanza/);
-  assert.match(html, /todos<\/strong> los rubros/);
+  assert.match(html.replace(/\s+/g, ' '), /todos<\/strong>\s*los rubros/);
 });
 
 test('sin ningún grupo, la pantalla explica qué va a aparecer ahí', () => {

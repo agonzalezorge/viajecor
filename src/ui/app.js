@@ -13,12 +13,14 @@
 // primero y menos de lo segundo, más barato es equivocarse.
 
 import { hoy, mesDe, mesAnterior, mesSiguiente, TIPO_GASTO } from '../core/modelo.js';
+import { etiquetaEnCurso, conEtiquetaElegida } from '../core/calculos.js';
 import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado, riesgoDeGuardado } from '../datos/almacenamiento.js';
 import { monedasIniciales } from '../core/monedas.js';
 import { dibujarNuevo, borradorNuevo, borradorDesde, intentarGuardar, fechaEnPalabras,
   dibujarSugerencias, usadosDe } from './pantallas/movimiento.js';
 import { claseDeRubro, COLORES } from './colores.js';
+import { elegirColor } from '../core/paleta.js';
 import { decimalesDe } from '../core/monedas.js';
 import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
 import { dibujarResumen } from './pantallas/resumen.js';
@@ -31,7 +33,7 @@ import { dibujarAjustes } from './pantallas/ajustes.js';
 import { dibujarRubros } from './pantallas/rubros.js';
 import { dibujarMonedaBase } from './pantallas/base.js';
 import { cambiarMonedaBase } from '../core/base.js';
-import { crearRubro, renombrarRubro, unirRubros, borrarRubro } from '../core/rubros.js';
+import { crearRubro, renombrarRubro, unirRubros, borrarRubro, catalogoDe } from '../core/rubros.js';
 import { dibujarAhorros } from './pantallas/ahorros.js';
 import {
   dibujarNuevoAhorro, borradorDeAhorro, borradorDesdeAhorro, intentarGuardarAhorro,
@@ -1310,7 +1312,10 @@ export function iniciar(documento, almacen) {
   function refrescarSugerencias(campo, escrito) {
     const donde = raiz.querySelector(`[data-sugerencias="${campo}"]`);
     if (!donde) return;
-    donde.innerHTML = dibujarSugerencias(campo, escrito, usadosDe(vista.estado)[campo] ?? []);
+    // Lo que se autocompleta es la etiqueta que se está escribiendo ahora, no el
+    // campo entero: con "Roma, Trab" hay que buscar "Trab" (T-060).
+    const buscando = campo === 'comentario' ? etiquetaEnCurso(escrito) : escrito;
+    donde.innerHTML = dibujarSugerencias(campo, buscando, usadosDe(vista.estado)[campo] ?? []);
   }
 
   raiz.addEventListener('change', (evento) => {
@@ -1828,10 +1833,17 @@ export function iniciar(documento, almacen) {
       const campo = boton.dataset.campo;
       const donde = raiz.querySelector(`input[name="${campo}"]`);
       if (donde) {
-        donde.value = boton.dataset.texto;
+        // La elegida reemplaza SOLO la etiqueta en curso (T-060): con
+        // "Roma, Trab" escrito tiene que quedar "Roma, Trabajo" y no "Trabajo",
+        // que borraría la etiqueta que el usuario ya había puesto.
+        donde.value = campo === 'comentario'
+          ? conEtiquetaElegida(donde.value, boton.dataset.texto)
+          : boton.dataset.texto;
         donde.focus();
+        // Y el cursor al final, listo para escribir una coma más.
+        donde.setSelectionRange(donde.value.length, donde.value.length);
       }
-      refrescarSugerencias(campo, boton.dataset.texto);
+      refrescarSugerencias(campo, donde ? donde.value : boton.dataset.texto);
       return;
     } else if (accion === 'importar-planilla') {
       traerPlanillaVieja();
@@ -1954,7 +1966,7 @@ export function iniciar(documento, almacen) {
       vista = { ...vista, rubroUnido: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
         rubroEditado: null, error: null, avisoRubro: null };
     } else if (accion === 'cancelar-rubro') {
-      vista = { ...vista, rubroEditado: null, rubroUnido: null, error: null };
+      vista = { ...vista, rubroEditado: null, rubroUnido: null, rubroPintado: null, error: null };
     } else if (accion === 'borrar-rubro') {
       // Sin confirmación, y a propósito: este botón solo aparece en los rubros
       // que **no tiene ningún movimiento**, así que no hay nada que perder. Los
@@ -2029,6 +2041,25 @@ export function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, ahorroBorrado: null };
+    } else if (accion === 'pintar-rubro') {
+      vista = { ...vista, rubroPintado: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
+        rubroEditado: null, rubroUnido: null, error: null, aviso: null };
+    } else if (accion === 'elegir-color') {
+      // Sin `data-franja` es "volver al de siempre": el color elegido se saca y
+      // el rubro vuelve al que le toca por su posición.
+      const franja = boton.dataset.franja === undefined ? undefined : Number(boton.dataset.franja);
+      const estado = {
+        ...vista.estado,
+        rubros: elegirColor(catalogoDe(vista.estado), boton.dataset.tipo, boton.dataset.rubro, franja),
+      };
+      try {
+        guardarEstado(estado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado, error: null };
     } else if (accion === 'periodo-todo') {
       // Volver a todo el historial, que es el estado predeterminado (T-054).
       vista = { ...vista, periodo: null };

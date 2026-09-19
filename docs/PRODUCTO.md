@@ -774,7 +774,27 @@ separado y nunca se convierte (CU-14).
 
 ---
 
-### CU-18 — Ver los otros grupos de gastos
+### CU-18 — Ver los otros grupos
+
+**Ya no son solo de gastos** (T-060). Una etiqueta puede juntar ingresos —un
+trabajo suelto, unos reintegros— o las dos cosas, y cada grupo dice de qué clase
+es y qué número contesta su pregunta:
+
+- **de gastos** → cuánto costó, como siempre.
+- **de ingresos** → cuánto entró y **la media por mes**: tres cobros en un mes no
+  son tres meses de ingreso, así que la media por movimiento no contestaría nada.
+- **mixto** → el **saldo**, y debajo los dos lados. Es el viaje de trabajo: lo
+  que gastaste y lo que te reintegraron.
+
+Lo mismo vale para un **viaje** con ingresos, que muestra su saldo sin que el
+total de gastos deje de ser el total de gastos.
+
+**Un movimiento con varias etiquetas suma en todos sus grupos**, así que estos
+totales no se pueden sumar entre sí: darían de más. La pantalla lo dice.
+
+---
+
+### CU-18 (original) — Ver los otros grupos de gastos
 
 **Para qué:** la etiqueta agrupa **cualquier cosa**, no solo viajes y gastos
 fijos. Una mudanza, unos regalos, el arreglo del auto: se juntan igual y hasta

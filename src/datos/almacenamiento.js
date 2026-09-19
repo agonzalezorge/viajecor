@@ -16,6 +16,7 @@
 import {
   validarMovimiento, validarFecha, nuevoId, rubrosIniciales, normalizarClave,
 } from '../core/modelo.js';
+import { COLORES } from '../core/paleta.js';
 import { personaDeLaPlanilla, tipoDeLaPlanilla } from '../core/ahorros.js';
 
 export const CLAVE_DATOS = 'viajecor:datos:v1';
@@ -583,5 +584,40 @@ export function leerCatalogoDeRubros(guardado, incidencias = []) {
   return {
     gasto: limpiar(guardado.gasto, inicial.gasto, 'gasto'),
     ingreso: limpiar(guardado.ingreso, inicial.ingreso, 'ingreso'),
+    colores: leerColoresDeRubro(guardado.colores, incidencias),
   };
+}
+
+/**
+ * Los colores que el usuario le puso a sus rubros — T-061.
+ *
+ * Se descarta en silencio lo que no sea una franja válida —un respaldo editado a
+ * mano, una versión futura con más colores— en vez de rechazar el archivo
+ * entero: un color raro no vale perder los movimientos, y sin él el rubro
+ * simplemente vuelve al que le tocaba por su posición.
+ */
+export function leerColoresDeRubro(guardado, incidencias = []) {
+  if (guardado === undefined || guardado === null) return {};
+  if (typeof guardado !== 'object' || Array.isArray(guardado)) {
+    incidencias.push('Los colores de los rubros no se entendieron; se usaron los de siempre.');
+    return {};
+  }
+
+  const colores = {};
+  let descartados = 0;
+
+  for (const [clave, franja] of Object.entries(guardado)) {
+    if (!/^[GI]:.+$/.test(clave) || !Number.isInteger(franja) || franja < 1 || franja > COLORES) {
+      descartados += 1;
+      continue;
+    }
+    colores[clave] = franja;
+  }
+
+  if (descartados > 0) {
+    incidencias.push(descartados === 1
+      ? 'Un color de rubro guardado no se entendió; ese rubro volvió al color de siempre.'
+      : `${descartados} colores de rubro guardados no se entendieron; esos rubros volvieron al color de siempre.`);
+  }
+  return colores;
 }

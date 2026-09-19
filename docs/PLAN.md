@@ -101,6 +101,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-055 | La app abre en Cargar | **Hecha** | T-010 |
 | T-057 | Mesetas y área bajo el saldo | **Hecha** | T-942 |
 | T-059 | Arreglo: la app entera con una base que no es el euro | **Hecha** | T-050 |
+| T-060 | Varias etiquetas, y grupos de ingresos y mixtos | **Hecha** | T-946 |
+| T-061 | El color de los rubros se elige | **Hecha** | T-049 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -2964,3 +2966,61 @@ ingreso en pesos sin que pida nada; un gasto en euros **sí** pide su cotizació
 (contra el peso); los totales dan 3.583,33 UYU (1.500 + 50 € a 0,024); el
 buscador encuentra el gasto en pesos; la exportación no dice que falte nada; y
 todo sobrevive a recargar.
+
+
+### T-060 · Varias etiquetas, y grupos que no son solo de gastos — **Hecha** (2026-09-19)
+
+**Cuatro pedidos del usuario en uno**, todos alrededor de la etiqueta: que los
+grupos no sean solo de gastos, que un grupo de ingresos dé su media mensual, que
+un grupo o viaje con las dos cosas muestre totales y saldo, y —el estructural—
+que un movimiento pueda llevar **más de una etiqueta**.
+
+**La decisión de diseño está en ADR-052:** las etiquetas se separan por coma y
+**el dato guardado no cambia**. Eso es lo que hace que no haya migración: los
+respaldos viejos, el Excel y los movimientos de antes siguen funcionando tal
+cual, y un comentario de una sola etiqueta se comporta exactamente como antes.
+
+**Dónde había que tocar, que es más de lo que parece.** Agrupar por etiqueta y no
+por el comentario entero cambia siete lugares: el filtro ("tocar el grupo Trabajo
+tiene que traer los gastos de 'Roma, Trabajo'"), `porComentario`, los gastos
+fijos, los viajes, los otros grupos, las sugerencias y el autocompletado. El
+autocompletado fue el más delicado: con "Roma, Trab" escrito hay que buscar
+`Trab` y, al elegir, dejar "Roma, Trabajo" — reemplazar el campo entero borraría
+la etiqueta que el usuario ya había puesto.
+
+**Los grupos ahora tienen clase** —gasto, ingreso o mixto— y cada uno destaca el
+número que contesta su pregunta. La media de un grupo de ingresos es **mensual**:
+tres cobros en un mismo mes no son tres meses de ingreso, así que la media por
+movimiento no contestaría nada.
+
+**Mutaciones:** 21 sembradas, 21 muertas. Una sobrevivió la primera vuelta y la
+respuesta no fue escribir un test: mi guarda `gastos.length > 0 &&` era
+**redundante**, porque `categoriaDeEtiqueta()` ya filtra los gastos por dentro y
+ya contesta 'otro' con cero. Se borró la guarda.
+
+**Recorrido en el navegador:** un viaje de trabajo con dos etiquetas y un
+reintegro. Las dos etiquetas aparecen como viajes con su saldo y los dos lados;
+el autocompletado ofrece "Trabajo" con la coma en el medio y al tocarlo deja
+"Roma, Trabajo"; los grupos ya no dicen "de gastos" y el de ingresos aparece.
+
+### T-061 · El color de los rubros se elige — **Hecha** (2026-09-19)
+
+Pedido del usuario. Se elige entre los veinte de la paleta (ADR-053), se avisa
+cuáles ya usa otro rubro sin prohibirlos, y hay un botón para volver al de
+siempre sin tener que acordarse de cuál era.
+
+**Lo que importa del diseño:** los colores elegidos viven **dentro del catálogo
+de rubros**, que es el objeto que todas las llamadas a `franjaDeRubro()` ya
+reciben. Un cuarto parámetro con valor por defecto habría sido repetir L-035 al
+pie de la letra — y esta vez el síntoma habría sido silencioso: pantallas
+pintando con el color viejo sin que nada falle.
+
+**Un arreglo que salió al mirar:** las veinte casillas salían todas grises. La
+clase `rubro-N` pinta puntos y porciones, no botones; hubo que agregar la regla
+para las casillas, apuntando a **la misma variable** de color que el punto.
+
+**Mutaciones:** incluidas en la ronda de T-060 (21 de 21).
+
+**Recorrido en el navegador:** se le cambia el color a un rubro, el punto de su
+fila cambia, ningún otro rubro se mueve, y el color sigue puesto después de
+recargar.

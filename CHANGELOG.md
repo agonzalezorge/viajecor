@@ -3,6 +3,33 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.15.0 — 2026-09-19
+
+### Agregado
+- **Un movimiento puede llevar varias etiquetas, separadas por coma.** Un viaje
+  de trabajo lleva `Roma, Trabajo` y cuenta en los dos grupos: cuánto costó el
+  viaje, y cuánto costó el trabajo. El autocompletado sigue funcionando etiqueta
+  por etiqueta — con `Roma, Trab` escrito te ofrece `Trabajo` y al tocarlo no
+  borra lo que ya habías puesto.
+
+  Ojo con una consecuencia: como un movimiento suma en todos sus grupos, **los
+  totales de los grupos ya no se pueden sumar entre sí** — darían de más. La
+  pantalla lo dice.
+
+- **Los grupos ya no son solo de gastos.** Una etiqueta que junta ingresos ahora
+  tiene su grupo, con **cuánto entra por mes**. Y un grupo o un viaje que tiene
+  gastos e ingresos muestra el **saldo**, con los dos lados debajo: es el viaje
+  de trabajo, donde lo que se quiere saber es si terminaste poniendo plata.
+
+- **El color de cada rubro se puede cambiar**, en Ajustes → Rubros → Color. Se
+  elige entre los veinte de la paleta, que están medidos para distinguirse entre
+  sí y leerse en claro y en oscuro. Si el color que elegís ya lo usa otro rubro,
+  te avisa con un punto — podés elegirlo igual. Y hay un botón para volver al de
+  siempre.
+
+  Nada de esto cambió cómo se guardan tus datos: los respaldos de antes se leen
+  igual y tu Excel sigue sirviendo en los dos sentidos.
+
 ## 0.14.0 — 2026-09-10
 
 ### Arreglado

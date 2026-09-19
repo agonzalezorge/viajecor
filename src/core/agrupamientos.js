@@ -44,10 +44,11 @@
 //
 // Este archivo no toca el navegador. Es lógica pura y se testea con node --test.
 
-import { TIPO_GASTO, normalizarClave, mesDe } from './modelo.js';
+import { TIPO_GASTO, normalizarClave, mesDe, etiquetasDe } from './modelo.js';
 import { monedaBaseDe } from './monedas.js';
-import { porEtiquetaDeGasto } from './calculos.js';
+import { porEtiquetaDeGasto, porEtiqueta } from './calculos.js';
 import { movimientoEnEuros } from './cambio.js';
+import { redondear } from './dinero.js';
 import { RUBRO_VIAJE } from './viajes.js';
 
 /** El rubro cuyos gastos, solos, hacen que una etiqueta sea un gasto fijo. */
@@ -93,25 +94,63 @@ export function categoriaDeEtiqueta(movimientos) {
 export function otrosGrupos(estado) {
   const grupos = [];
 
-  for (const [clave, movimientos] of porEtiquetaDeGasto(estado)) {
-    if (categoriaDeEtiqueta(movimientos) !== 'otro') continue;
-    const etiqueta = movimientos[0].comentario;
+  // TODAS las etiquetas, no solo las de gastos (T-060). Un grupo puede ser de
+  // ingresos —el usuario nombró los reintegros y los trabajos sueltos— y hasta
+  // ahora no aparecía en ninguna pantalla: existía en los datos y no se podía
+  // mirar, que es exactamente lo que CU-18 vino a arreglar para los gastos.
+  for (const [clave, movimientos] of porEtiqueta(estado)) {
+    const gastos = movimientos.filter((m) => m.tipo === TIPO_GASTO);
+    const ingresos = movimientos.filter((m) => m.tipo !== TIPO_GASTO);
 
-    const total = movimientos.reduce(
-      (suma, m) => suma + movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado)), 0,
-    );
+    // La cascada decide si la etiqueta es un gasto fijo o un viaje, y esas dos
+    // preguntas son sobre gastos: `categoriaDeEtiqueta()` ya filtra por dentro y
+    // ya contesta 'otro' cuando no hay ninguno. Por eso un grupo de solo
+    // ingresos cae acá sin que haya que preguntarlo aparte.
+    if (categoriaDeEtiqueta(movimientos) !== 'otro') continue;
+
+    const enBase = (m) => movimientoEnEuros(m, estado.tipos_cambio, estado.monedas, monedaBaseDe(estado));
+    const total = gastos.reduce((suma, m) => suma + enBase(m), 0);
+    const entradas = ingresos.reduce((suma, m) => suma + enBase(m), 0);
     const fechas = movimientos.map((m) => m.fecha).sort();
+    const meses = new Set(movimientos.map((m) => mesDe(m.fecha))).size;
 
     grupos.push({
       clave,
-      etiqueta,
+      etiqueta: movimientos[0].comentario ? etiquetaVisible(movimientos, clave) : clave,
       total,
+      ingresos: entradas,
+      // Qué clase de grupo es, para que la pantalla sepa qué número destacar:
+      // el que gasta muestra lo que costó; el que solo cobra, lo que entró; y el
+      // que hace las dos cosas, el saldo — que es el caso del viaje de trabajo.
+      clase: gastos.length === 0 ? 'ingreso' : ingresos.length === 0 ? 'gasto' : 'mixto',
+      saldo: entradas - total,
       cuantos: movimientos.length,
+      cuantosGastos: gastos.length,
+      cuantosIngresos: ingresos.length,
       desde: fechas[0],
       hasta: fechas[fechas.length - 1],
-      meses: new Set(movimientos.map((m) => mesDe(m.fecha))).size,
+      meses,
+      // La media MENSUAL, que es la que pidió el usuario para los ingresos: lo
+      // que entró dividido los meses en que apareció, no los movimientos. Con
+      // tres cobros en un mismo mes, "la media" por movimiento diría un tercio
+      // de lo que de verdad entra por mes.
+      mediaMensual: redondear((gastos.length === 0 ? entradas : total) / Math.max(1, meses)),
     });
   }
 
-  return grupos.sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
+  return grupos.sort((a, b) => {
+    const suyo = (g) => (g.clase === 'ingreso' ? g.ingresos : g.total);
+    return suyo(b) - suyo(a) || a.clave.localeCompare(b.clave);
+  });
 }
+
+/** Cómo se escribió esa etiqueta la primera vez, para mostrarla. */
+function etiquetaVisible(movimientos, clave) {
+  for (const m of movimientos) {
+    for (const etiqueta of etiquetasDe(String(m.comentario ?? ''))) {
+      if (normalizarClave(etiqueta) === clave) return etiqueta;
+    }
+  }
+  return clave;
+}
+

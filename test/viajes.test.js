@@ -316,8 +316,8 @@ test('las fechas escritas mandan sobre las de los gastos para ordenar', () => {
 // ── La pantalla ──────────────────────────────────────────────────────────────
 
 test('el número grande es el total del viaje', () => {
-  const html = dibujarViaje(viajes(ROMA())[0]);
-  assert.match(html, /class="importe">450,00/);
+  const html = dibujarViaje(viajes(ROMA())[0]).replace(/\s+/g, ' ');
+  assert.match(html, /class="importe "> 450,00/);
 });
 
 test('sin fechas, en vez de un promedio inventado hay un botón para escribirlas', () => {

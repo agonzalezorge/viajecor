@@ -23,7 +23,7 @@
 // es el mismo rubro, y el texto negro encima se lee. No son otra paleta: son la
 // misma vista de otra manera.
 
-import { TIPO_GASTO, normalizarClave, rubrosDe } from './modelo.js';
+import { TIPO_GASTO, normalizarClave, normalizarTipo, rubrosDe } from './modelo.js';
 
 /** Cuántos colores hay. Es un tope, no un valor por omisión. */
 export const COLORES = 20;
@@ -175,6 +175,21 @@ export const FONDOS_RUBRO = Object.freeze([
 export function franjaDeRubro(tipo, rubro, catalogo) {
   const clave = normalizarClave(String(rubro ?? ''));
 
+  // ── El color elegido a mano gana, si lo hay — T-061 ────────────────────────
+  //
+  // Lo pidió el usuario (2026-09-19): que los colores de los rubros se puedan
+  // cambiar. Se eligen **entre los veinte de la paleta** y no libres, porque
+  // esos veinte están medidos para distinguirse entre sí y para leerse en claro
+  // y en oscuro (ADR-049); con un selector libre cualquiera puede elegir dos
+  // azules casi iguales y la app no lo puede impedir sin volverse molesta.
+  //
+  // Los colores elegidos viven **dentro del catálogo**, que es el mismo objeto
+  // que ya recibían las cincuenta llamadas a esta función. Agregar un cuarto
+  // parámetro habría sido repetir exactamente L-035: las llamadas que no lo
+  // pasaran seguirían andando, pintando con el color viejo y sin decirlo.
+  const elegida = colorElegido(catalogo, tipo, clave);
+  if (elegida !== undefined) return elegida;
+
   if (tipo !== TIPO_GASTO) {
     // Los ingresos no siguen su posición en la lista sino un mapa propio, para
     // que también hereden los colores de la planilla: ahí el usuario tiene
@@ -195,6 +210,36 @@ export function franjaDeRubro(tipo, rubro, catalogo) {
   // de un dato viejo se le da la última franja en vez de romper la pantalla.
   return posicion === -1 ? COLORES : posicion + 1;
 }
+
+/** Con qué nombre se guarda el color de un rubro. El tipo va adentro porque
+ *  `otros` existe en las dos listas y son dos rubros distintos (RN-02). */
+export function claveDeColor(tipo, rubro) {
+  return `${normalizarTipo(tipo)}:${normalizarClave(String(rubro ?? ''))}`;
+}
+
+/** La franja que el usuario eligió para un rubro, o `undefined` si no eligió. */
+export function colorElegido(catalogo, tipo, rubro) {
+  const guardado = catalogo?.colores?.[claveDeColor(tipo, rubro)];
+  return Number.isInteger(guardado) && guardado >= 1 && guardado <= COLORES ? guardado : undefined;
+}
+
+/**
+ * El catálogo con el color de un rubro cambiado. Con `undefined` lo devuelve al
+ * que le tocaba por su posición, que es la salida para deshacer sin tener que
+ * acordarse de cuál era.
+ */
+export function elegirColor(catalogo, tipo, rubro, franja) {
+  const colores = { ...(catalogo?.colores ?? {}) };
+  const clave = claveDeColor(tipo, rubro);
+
+  if (franja === undefined || franja === null) delete colores[clave];
+  else if (!Number.isInteger(franja) || franja < 1 || franja > COLORES) {
+    throw new Error(`El color tiene que ser un número del 1 al ${COLORES}, y llegó ${JSON.stringify(franja)}.`);
+  } else colores[clave] = franja;
+
+  return { ...catalogo, colores };
+}
+
 
 /**
  * Qué color le toca a cada rubro de ingreso.

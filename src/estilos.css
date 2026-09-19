@@ -1314,3 +1314,55 @@ body {
 }
 .formulario-linea .botones { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .formulario-linea .campo { margin: 0; }
+
+/* ── Elegir el color de un rubro (T-061) ─────────────────────────────────── */
+
+/* Cada casilla se pinta con la MISMA variable que el punto del rubro: dos
+   listas de veinte colores serían dos listas que se separan. */
+.casilla-color.rubro-1 { background: var(--rubro-1); }
+.casilla-color.rubro-2 { background: var(--rubro-2); }
+.casilla-color.rubro-3 { background: var(--rubro-3); }
+.casilla-color.rubro-4 { background: var(--rubro-4); }
+.casilla-color.rubro-5 { background: var(--rubro-5); }
+.casilla-color.rubro-6 { background: var(--rubro-6); }
+.casilla-color.rubro-7 { background: var(--rubro-7); }
+.casilla-color.rubro-8 { background: var(--rubro-8); }
+.casilla-color.rubro-9 { background: var(--rubro-9); }
+.casilla-color.rubro-10 { background: var(--rubro-10); }
+.casilla-color.rubro-11 { background: var(--rubro-11); }
+.casilla-color.rubro-12 { background: var(--rubro-12); }
+.casilla-color.rubro-13 { background: var(--rubro-13); }
+.casilla-color.rubro-14 { background: var(--rubro-14); }
+.casilla-color.rubro-15 { background: var(--rubro-15); }
+.casilla-color.rubro-16 { background: var(--rubro-16); }
+.casilla-color.rubro-17 { background: var(--rubro-17); }
+.casilla-color.rubro-18 { background: var(--rubro-18); }
+.casilla-color.rubro-19 { background: var(--rubro-19); }
+.casilla-color.rubro-20 { background: var(--rubro-20); }
+
+.colores-rubro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.casilla-color {
+  /* Grandes: se tocan con el dedo, y el color hay que poder verlo antes de
+     elegirlo. Veinte cuadraditos de 20 px no se distinguen en un teléfono. */
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid transparent;
+  border-radius: var(--radio);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--fondo);
+}
+
+/* El que está puesto se marca con un borde de contraste y no con un tilde de
+   color: sobre veinte fondos distintos, ningún color de tilde se ve siempre. */
+.casilla-color.puesto {
+  border-color: var(--texto);
+  box-shadow: 0 0 0 2px var(--fondo) inset;
+}
