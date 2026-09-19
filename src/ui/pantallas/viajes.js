@@ -47,10 +47,24 @@ export function dibujarViaje(viaje, base) {
   const nombre = viaje.mixto ? 'movimiento' : 'gasto';
   const cuantos = viaje.cuantos === 1 ? `1 ${nombre}` : `${viaje.cuantos} ${nombre}s`;
 
+  /**
+   * Los importes de un viaje que quedó a favor llevan un **+ adelante** — T-063,
+   * pedido del usuario.
+   *
+   * En esta lista todos los números son costos, así que un número pelado se lee
+   * como "esto me salió". El signo es lo que avisa, de un vistazo y sin depender
+   * del color, que este es el viaje al revés: el que te dejó plata. Va tanto en
+   * el total como en el por día, porque los dos son el mismo número dividido y
+   * uno solo con signo se leería como un error de tipeo.
+   */
+  const conSigno = (minimas) => (viaje.aFavor
+    ? `+${formatearEuros(Math.abs(minimas), base)}`
+    : formatearEuros(minimas, base));
+
   const porDia = viaje.fechas === null
     ? `<button type="button" class="secundario chico" data-accion="fechas-viaje"
                data-clave="${escapar(viaje.clave)}">¿Cuándo fue?</button>`
-    : `<span><strong>${escapar(formatearEuros(viaje.porDia, base))}</strong> por día
+    : `<span><strong>${escapar(conSigno(viaje.porDia))}</strong> por día
          en ${viaje.dias} ${viaje.dias === 1 ? 'día' : 'días'}
          <button type="button" class="enlace" data-accion="fechas-viaje"
                  data-clave="${escapar(viaje.clave)}">${escapar(dibujarRango(viaje.fechas.desde, viaje.fechas.hasta))}</button></span>`;
@@ -71,7 +85,7 @@ export function dibujarViaje(viaje, base) {
                caso con signo y color es el que te dejó plata, donde "en
                positivo" sería mentir. Los dos lados se ven al abrirlo. -->
           <span class="importe ${viaje.aFavor ? 'ingreso' : ''}">
-            ${escapar(formatearEuros(viaje.aFavor ? -viaje.total : viaje.total, base))}
+            ${escapar(conSigno(viaje.total))}
           </span>
         </span>
       </button>

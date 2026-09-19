@@ -790,7 +790,10 @@ es y qué número contesta su pregunta:
 gastos con 600 € devueltos es un viaje de **400 €**, en positivo y del mismo
 color que los demás, para que se compare con ellos de un vistazo. Debajo dice
 cuánto se descontó. Solo cambia de signo y color el viaje que **te dejó plata**,
-donde "en positivo" sería mentir.
+donde "en positivo" sería mentir: ese va **con un `+` adelante y en verde**, en el
+total y también en el gasto por día (T-063). En esta lista todos los números son
+costos, así que uno pelado se lee como "esto me salió"; el signo avisa, sin
+depender del color, que este es el viaje al revés.
 
 **Los tres números —gastos, ingresos y saldo— se ven al abrirlo**, arriba de la
 lista de movimientos. Ahí y no en la tarjeta: la tarjeta contesta "¿cuánto me

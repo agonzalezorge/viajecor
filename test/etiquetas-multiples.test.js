@@ -19,6 +19,7 @@
 // mes. Sumarían de más, y la pantalla lo dice.
 
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 import { etiquetasDe, clavesDeEtiquetas, tieneEtiqueta, crearMovimiento, TIPO_GASTO, TIPO_INGRESO }
@@ -307,15 +308,53 @@ test('el gasto por día de un viaje con reintegros también es neto', () => {
   assert.equal(roma.porDia, 10000, '400 en 4 días, no 1.000 en 4 días');
 });
 
-test('un viaje que te dejó plata se muestra con su signo, no "en positivo"', () => {
-  // "En positivo" es para lo que costó. Si te sobró, decir que costó algo sería
-  // lo contrario de lo que pasó.
+test('un viaje que te dejó plata lleva un + adelante', () => {
+  // En esta lista todos los números son costos, así que uno pelado se lee como
+  // "esto me salió". El + avisa, sin depender del color, que este es al revés.
+  // Lo pidió el usuario el 2026-09-19.
   const estado = estadoCon([
     mov('300', 'viajes', 'Congreso'),
     mov('500', 'trabajo', 'Congreso', TIPO_INGRESO),
   ]);
   const html = dibujarViaje(viajes(estado)[0]).replace(/\s+/g, ' ');
 
-  assert.match(html, /class="importe ingreso"> 200,00/, 'verde y sin signo de menos');
+  assert.match(html, /class="importe ingreso"> \+200,00/, 'verde y con el más adelante');
+  assert.equal(/-200,00/.test(html), false, 'nunca con signo de menos');
   assert.match(html, /te quedó a favor/);
+});
+
+test('y el valor por día del mismo viaje también lleva el +', () => {
+  // Son el mismo número dividido: uno con signo y el otro sin él se leería como
+  // un error de tipeo.
+  let estado = estadoCon([
+    mov('300', 'viajes', 'Congreso', TIPO_GASTO, '2026-09-01'),
+    mov('500', 'trabajo', 'Congreso', TIPO_INGRESO, '2026-09-02'),
+  ]);
+  estado = fijarFechasDeViaje(estado, 'congreso', '2026-09-01', '2026-09-04');
+  const html = dibujarViaje(viajes(estado)[0]).replace(/\s+/g, ' ');
+
+  assert.match(html, /<strong>\+50,00[^<]*<\/strong> por día/, '200 a favor en 4 días');
+  assert.equal(/-50,00/.test(html), false);
+});
+
+test('un viaje normal NO lleva ningún signo', () => {
+  // La otra mitad: el + tiene que significar algo, y si apareciera en todos no
+  // significaría nada.
+  let estado = estadoCon([mov('400', 'viajes', 'Colonia', TIPO_GASTO, '2026-09-01')]);
+  estado = fijarFechasDeViaje(estado, 'colonia', '2026-09-01', '2026-09-04');
+  const html = dibujarViaje(viajes(estado)[0]).replace(/\s+/g, ' ');
+
+  assert.match(html, /class="importe "> 400,00/);
+  assert.equal(html.includes('+'), false, 'ni en el total ni en el por día');
+});
+
+test('el CSS pinta los importes que no son costos, no solo les pone la clase', () => {
+  // La clase `ingreso` estaba en el HTML desde T-060 y el CSS no la miraba en
+  // esta fila: el número salía del mismo color que un gasto. El color es la
+  // mitad del aviso —el signo es la otra— y una clase que no pinta es una
+  // decisión que parece tomada y no lo está.
+  const css = readFileSync('src/estilos.css', 'utf8');
+
+  assert.match(css, /\.rubro-cabeza \.importe\.ingreso \{[^}]*var\(--ingreso\)/);
+  assert.match(css, /\.rubro-cabeza \.importe\.gasto \{[^}]*var\(--gasto\)/);
 });

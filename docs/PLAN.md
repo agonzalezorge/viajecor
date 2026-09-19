@@ -104,6 +104,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-060 | Varias etiquetas, y grupos de ingresos y mixtos | **Hecha** | T-946 |
 | T-061 | El color de los rubros se elige | **Hecha** | T-049 |
 | T-062 | Un viaje cuesta lo neto, y se desglosa al abrirlo | **Hecha** | T-060 |
+| T-063 | El `+` del viaje que quedó a favor | **Hecha** | T-062 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3058,3 +3059,28 @@ gasto por día neto y el viaje a favor— y las dos señalaron tests que faltaba
 400,00 € igual que Colonia cuesta 450,00 €; al abrirlo aparecen los tres números
 (1.000 / 600 / −400) y ya no está el total sin sentido; y un viaje sin ingresos
 no gana ningún número de más.
+
+
+### T-063 · El `+` del viaje que quedó a favor — **Hecha** (2026-09-19)
+
+Pedido del usuario: un `+` antes del importe de los viajes que quedaron a favor,
+en el total **y en el gasto por día**. Tiene razón en pedir los dos: son el mismo
+número dividido, y uno con signo y el otro sin él se leería como un error de
+tipeo.
+
+En esta lista todos los números son costos, así que uno pelado se lee como "esto
+me salió". El `+` avisa de un vistazo, y **sin depender del color**, que este es
+el viaje al revés.
+
+**Un defecto que salió al mirar la pantalla:** el importe llevaba la clase
+`ingreso` desde T-060 y **el CSS no la miraba en esa fila** — el número salía del
+mismo color que un gasto. O sea que el color, que yo había dado por hecho en
+T-062, nunca se había aplicado: el aviso venía funcionando a medias desde que lo
+escribí. Arreglado para los viajes y para los grupos, con un test que comprueba
+que la regla exista (no alcanza con poner la clase).
+
+**Mutaciones:** 6 sembradas, 6 muertas.
+
+**Recorrido en el navegador:** un viaje que quedó 200 € a favor en 4 días sale
+`+200,00 €` y `+50,00 €` por día, los dos en verde; los viajes normales siguen
+sin ningún signo, que es lo que hace que el `+` signifique algo.

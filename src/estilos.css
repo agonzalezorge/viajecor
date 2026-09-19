@@ -468,6 +468,13 @@ body {
 
 .rubro-cabeza .nombre { font-weight: 500; }
 .rubro-cabeza .importe { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Un importe de esta fila que NO es un costo: el viaje que te quedó a favor, el
+   grupo de ingresos, el saldo de un grupo mixto. La clase estaba puesta desde
+   T-060 y no pintaba nada — el color es la mitad del aviso y el signo la otra
+   (T-063), y hasta acá el signo venía solo. */
+.rubro-cabeza .importe.ingreso { color: var(--ingreso); }
+.rubro-cabeza .importe.gasto { color: var(--gasto); }
 .rubro-pie { font-size: 0.8125rem; margin-top: 0.25rem; }
 
 /* ── La torta del mes (T-918) ────────────────────────────────────────────────

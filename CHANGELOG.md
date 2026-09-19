@@ -3,6 +3,18 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.15.2 — 2026-09-19
+
+### Cambiado
+- **Los viajes que quedaron a favor llevan un `+` adelante**, en el total y en el
+  gasto por día: `+200,00 €` y `+50,00 € por día`. En esa lista todos los números
+  son costos, así que uno sin signo se lee como "esto me salió".
+
+### Arreglado
+- **Esos importes tampoco se veían verdes**, aunque debían: la clase estaba
+  puesta pero el color no llegaba a esa fila. Pasaba también con los grupos de
+  ingresos y con el saldo de los grupos mixtos.
+
 ## 0.15.1 — 2026-09-19
 
 ### Cambiado
