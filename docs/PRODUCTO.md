@@ -273,6 +273,7 @@ qué existe.
 | CU-18 | Ver los otros grupos de gastos | **Hecho** (T-946) |
 | CU-19 | Editar los rubros | **Hecho** (T-048) |
 | CU-20 | Elegir la moneda base | **Hecho** (T-050) |
+| CU-21 | Entender la app sin que nadie te la explique | **Hecho** (T-065) |
 
 ---
 
@@ -715,6 +716,37 @@ otra persona que lleva su propio Excel con sus propios rubros.
 importando un respaldo de otro dispositivo con más rubros de los que entran—,
 la pantalla **lo dice** y deja unirlo: esos movimientos existen y no aparecen en
 ningún total por rubro.
+
+---
+
+### CU-21 — Entender la app sin que nadie te la explique
+
+**Para qué:** el usuario le está prestando la app a otras personas —su esposa, su
+madre— y hasta ahora la explicación era él. Pidió *"una sección que le explique a
+un desconocido que la empieza a usar por primera vez todo lo que puede hacer con
+ella y qué cosas puede configurar y cómo"*.
+
+**Dónde:** **Ajustes → Instrucciones**, arriba de todo. Es lo primero que
+necesita quien no sabe qué es la app, y el último lugar donde lo buscaría es
+debajo de "Tipos de cambio".
+
+**Cómo está escrito:** en el orden en que las cosas se necesitan —primero anotar
+un gasto, al final los tipos de cambio— y no en el orden en que la app está
+construida. Cada sección dice **para qué sirve** antes de decir dónde se toca:
+quien no sabe qué es un "grupo" no encuentra la pantalla de grupos por más que se
+la nombren.
+
+**Plegado en secciones**, con los títulos a la vista: entero es largo, y una
+pared de texto en un teléfono no se lee, se cierra. La primera pantalla es un
+índice de ocho líneas.
+
+**Lo que no puede faltar:** que los datos viven en el dispositivo y **se pierden
+sin respaldo**. Si esta pantalla sirve para una sola cosa, es para esa; hay un
+test que lo exige.
+
+**La moneda base que nombra sale del estado**, no escrita a mano: decir "los
+totales se ven en euros" sería falso justo para quien puso el peso, que es el
+caso en el que uno lee las instrucciones.
 
 ---
 

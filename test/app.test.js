@@ -240,7 +240,7 @@ test('la pestaña actual se marca, y solo una', () => {
 test('están las secciones previstas, la carga y los tipos de cambio', () => {
   assert.deepEqual(
     pantallasRegistradas().map((p) => p.nombre),
-    ['mes', 'movimientos', 'datos', 'evolucion', 'grupos', 'ahorros', 'nuevo-ahorro', 'viajes', 'etiquetas', 'monedas', 'cambios', 'moneda-base', 'rubros', 'ajustes', 'nuevo']
+    ['mes', 'movimientos', 'datos', 'evolucion', 'grupos', 'ahorros', 'nuevo-ahorro', 'viajes', 'etiquetas', 'monedas', 'cambios', 'moneda-base', 'instrucciones', 'rubros', 'ajustes', 'nuevo']
   );
 });
 

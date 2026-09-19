@@ -26,6 +26,18 @@ export function dibujarAjustes(vista) {
   const base = monedaBaseDe(vista.estado);
 
   return `
+    <!-- Arriba del todo, por pedido del usuario: es lo primero que necesita
+         alguien que abre la app sin saber qué es, y el último lugar donde lo
+         buscaría es abajo de "Tipos de cambio". -->
+    <section class="tarjeta">
+      <h2>Instrucciones</h2>
+      <p class="suave">Qué hace la app, cómo se usa y qué se puede configurar.
+      Está escrito para leerlo de arriba abajo la primera vez.</p>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="instrucciones">
+        Cómo funciona Viajecor
+      </button>
+    </section>
+
     ${enCotidiana ? `
     <section class="tarjeta">
       <h2>Rubros</h2>

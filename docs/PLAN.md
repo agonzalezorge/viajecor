@@ -105,6 +105,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-061 | El color de los rubros se elige | **Hecha** | T-049 |
 | T-062 | Un viaje cuesta lo neto, y se desglosa al abrirlo | **Hecha** | T-060 |
 | T-063 | El `+` del viaje que quedó a favor | **Hecha** | T-062 |
+| T-065 | Instrucciones de la app | **Hecha** | T-047 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3095,3 +3096,32 @@ entró plata con esa etiqueta.
 
 Hay un test que fija la palabra, porque es la clase de cambio que se revierte
 solo cuando alguien reescribe la frase sin conocer el motivo.
+
+
+### T-065 · Instrucciones de la app — **Hecha** (2026-09-19)
+
+**El pedido:** una sección en Ajustes, arriba de todo, que le explique a un
+desconocido todo lo que la app hace y todo lo que puede configurar.
+
+**El riesgo de una pantalla así, y qué se hizo:** un texto que describe la app
+**envejece solo**. No da error, no rompe ningún test, no se ve raro: sigue ahí
+diciendo cosas que dejaron de ser ciertas. Es literalmente lo que pasó con el
+cartel de "Corregir y borrar llega con T-015" (T-058), que estuvo meses
+prometiendo algo ya hecho.
+
+Por eso los tests no miran la redacción —eso es del usuario— sino que **lo que el
+texto nombra siga existiendo**: que las cinco pestañas se sigan llamando así, que
+las diez pantallas que describe estén registradas, que no prometa tareas futuras,
+y que la moneda base que menciona salga del estado y no esté escrita a mano
+(decir "los totales se ven en euros" sería falso justo para quien puso el peso,
+que es el caso en el que uno lee las instrucciones).
+
+**Escrito en el orden en que las cosas se necesitan**, no en el que la app está
+construida, y cada sección dice para qué sirve antes de decir dónde se toca.
+Plegado en ocho `<details>` —del navegador, no de la app: funcionan sin
+JavaScript y el buscador del navegador encuentra adentro aunque estén cerrados—
+porque una pared de texto en un teléfono no se lee, se cierra.
+
+**Recorrido en el navegador:** Instrucciones aparece primero en Ajustes, el
+índice son ocho títulos con solo el primero abierto, las secciones se abren y se
+cierran, y todo funciona igual en el perfil de ahorros conjuntos.

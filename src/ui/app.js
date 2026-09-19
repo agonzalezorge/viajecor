@@ -32,6 +32,7 @@ import { conectarSeries } from './series-interaccion.js';
 import { dibujarAjustes } from './pantallas/ajustes.js';
 import { dibujarRubros } from './pantallas/rubros.js';
 import { dibujarMonedaBase } from './pantallas/base.js';
+import { dibujarInstrucciones } from './pantallas/instrucciones.js';
 import { cambiarMonedaBase } from '../core/base.js';
 import { crearRubro, renombrarRubro, unirRubros, borrarRubro, catalogoDe } from '../core/rubros.js';
 import { dibujarAhorros } from './pantallas/ahorros.js';
@@ -258,6 +259,17 @@ registrarPantalla('moneda-base', {
   enBarra: false,
   perfil: 'ambos',
   dibujar: dibujarMonedaBase,
+});
+
+registrarPantalla('instrucciones', {
+  etiqueta: 'Instrucciones',
+  icono: '?',
+  conMes: false,
+  enBarra: false,
+  // En los dos perfiles: quien abre los ahorros conjuntos por primera vez tiene
+  // el mismo derecho a que le expliquen qué son.
+  perfil: 'ambos',
+  dibujar: dibujarInstrucciones,
 });
 
 registrarPantalla('rubros', {

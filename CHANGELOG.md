@@ -3,6 +3,16 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.16.0 — 2026-09-19
+
+### Agregado
+- **Instrucciones de la app**, en Ajustes, arriba de todo. Explican desde cero
+  qué hace la app, cómo se usa y qué se puede configurar — pensadas para alguien
+  que la abre por primera vez y no tiene a quién preguntarle.
+
+  Están plegadas en ocho secciones con los títulos a la vista, así que la primera
+  pantalla es un índice y no una pared de texto.
+
 ## 0.15.3 — 2026-09-19
 
 ### Cambiado

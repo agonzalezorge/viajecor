@@ -1373,3 +1373,36 @@ body {
   border-color: var(--texto);
   box-shadow: 0 0 0 2px var(--fondo) inset;
 }
+
+/* ── Las instrucciones (T-065) ───────────────────────────────────────────── */
+
+.instruccion {
+  border-top: 1px solid var(--borde);
+  padding: 0.25rem 0;
+}
+
+.instruccion summary {
+  /* Un renglón que se toca: alto de dedo y el cursor que lo dice. */
+  padding: 0.75rem 0;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+/* El triangulito lo dibuja cada navegador a su manera —o no lo dibuja—, así que
+   lo pone la app: sin ninguna marca, un título plegado no se lee como plegable
+   y nadie lo toca. Ver L-013. */
+.instruccion summary::after {
+  content: ' ›';
+  color: var(--texto-suave);
+  font-weight: 400;
+}
+.instruccion[open] summary::after { content: ' ⌄'; }
+.instruccion summary::-webkit-details-marker { display: none; }
+
+.instruccion p {
+  margin: 0 0 0.75rem;
+  color: var(--texto-suave);
+  line-height: 1.5;
+}
+.instruccion p.nota { color: var(--texto); }

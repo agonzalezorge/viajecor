@@ -60,6 +60,7 @@ const MODULOS = [
   'src/ui/pantallas/etiquetas.js',
   'src/ui/pantallas/viajes.js',
   'src/ui/pantallas/base.js',
+  'src/ui/pantallas/instrucciones.js',
   'src/ui/pantallas/rubros.js',
   'src/ui/pantallas/ajustes.js',
   'src/ui/pantallas/ahorro.js',
