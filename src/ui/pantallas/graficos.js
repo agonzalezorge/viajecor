@@ -27,14 +27,24 @@
 // todos (se midió, ADR-029). Sí pasan los pares que quedan pegados, si son
 // siempre los mismos. Dibujar de mayor a menor haría que cargar un gasto
 // cambiara qué color toca a qué color, y un par que hoy se distingue mañana no.
-// Con el orden fijo de la paleta, los vecinos son siempre los mismos y se
-// pueden comprobar.
+// Con un orden fijo, los vecinos son siempre los mismos y se pueden comprobar.
+//
+// **Cuál es ese orden fijo: el de la lista de rubros del usuario** (T-068, a
+// pedido suyo). Era el de la paleta, que venía siendo lo mismo porque el color
+// salía de la posición. Dejó de serlo cuando los rubros se pudieron reordenar
+// (T-067): ahí los colores se congelan y la torta quedaba en un orden que ya no
+// se correspondía con ninguna lista visible.
+//
+// Lo que la regla de arriba pide sigue cumpliéndose: el orden **no depende de
+// los montos**, así que cargar un gasto no reordena nada. Solo cambia cuando el
+// usuario mueve un rubro en Ajustes, que es cuando él decide que cambie.
 
 import { escapar } from '../app.js';
 import { formatearEuros, formatearFecha, formatearFechaLarga, formatearMes,
   formatearMesCorto, formatearRubro } from '../../core/formato.js';
 import { dibujarSerie } from './series.js';
 import { franjaDeRubro } from '../colores.js';
+import { rubrosDe, normalizarClave } from '../../core/modelo.js';
 
 /** El radio de la torta y el medio del lienzo, en unidades del `viewBox`. */
 const RADIO = 100;
@@ -70,10 +80,19 @@ export function dibujarTorta(filas, tipo, base, catalogo) {
   const total = filas.reduce((suma, fila) => suma + fila.total, 0);
   if (total <= 0) return '';
 
-  // El orden de dibujo es el de la paleta, no el de la lista. Ver arriba.
-  const enOrden = [...filas].sort(
-    (a, b) => franjaDeRubro(tipo, a.rubro, catalogo) - franjaDeRubro(tipo, b.rubro, catalogo),
-  );
+  // El orden de dibujo es el de la lista de rubros, no el de los montos. Ver
+  // arriba. Un rubro que no esté en la lista —un dato viejo, un huérfano— va al
+  // final en vez de romper el dibujo.
+  const lista = rubrosDe(tipo, catalogo);
+  const lugar = (rubro) => {
+    // `String()` hace falta: `normalizarClave` TIRA si no le llega texto, y una
+    // excepción acá mata el repintado de toda la pantalla (L-033). El `?? ''`
+    // que venía al lado, en cambio, no: 'null' tampoco está en la lista, así
+    // que cae al final igual. Lo sacó una mutación que sobrevivió.
+    const posicion = lista.indexOf(normalizarClave(String(rubro)));
+    return posicion === -1 ? lista.length : posicion;
+  };
+  const enOrden = [...filas].sort((a, b) => lugar(a.rubro) - lugar(b.rubro));
 
   let desde = 0;
   const porciones = enOrden.map((fila) => {

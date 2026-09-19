@@ -386,3 +386,99 @@ test('la guardia vigila las dos funciones que pintan, no solo una', () => {
   const soloUna = 'const x = `${franjaDeRubro(t, r)}`;';
   assert.equal(llamadasSinCatalogo(new Map([['p.js', soloUna]])).length, 1, 'franjaDeRubro no se está vigilando');
 });
+
+
+// ── El orden de la torta sigue el de Ajustes (T-068) ────────────────────────
+
+import { dibujarTorta } from '../src/ui/pantallas/graficos.js';
+import { rubrosDe } from '../src/core/modelo.js';
+
+/** Los rubros de la torta, en el orden en que se dibujaron. */
+const enLaTorta = (html) => [...html.matchAll(/<title>([^:<]+):/g)].map((m) => m[1].toLowerCase());
+
+test('las porciones van en el orden de la lista de rubros, no por tamaño', () => {
+  // Lo de "no por tamaño" es la regla vieja (ADR-029) y sigue en pie: si el
+  // orden dependiera de los montos, cargar un gasto cambiaría qué color queda
+  // pegado a cuál, y un par que hoy se distingue mañana no.
+  const catalogo = rubrosIniciales();
+  const filas = [
+    { rubro: 'salud', total: 90000 },        // el más caro, y va séptimo
+    { rubro: 'supermercado', total: 1000 },  // el más barato, y va segundo
+    { rubro: 'viajes', total: 5000 },
+  ];
+
+  assert.deepEqual(enLaTorta(dibujarTorta(filas, TIPO_GASTO, 'EUR', catalogo)),
+    ['supermercado', 'viajes', 'salud']);
+});
+
+test('al mover un rubro en Ajustes, la torta se reordena con él', () => {
+  // Es el pedido del usuario. Antes el orden salía del COLOR, que desde T-067
+  // se congela al reordenar: la torta quedaba en un orden que ya no se
+  // correspondía con ninguna lista visible.
+  const filas = [
+    { rubro: 'salud', total: 90000 },
+    { rubro: 'supermercado', total: 1000 },
+    { rubro: 'viajes', total: 5000 },
+  ];
+  let estado = { ...estadoInicial({ monedas: monedasIniciales() }) };
+
+  const antes = enLaTorta(dibujarTorta(filas, TIPO_GASTO, 'EUR', estado.rubros));
+  assert.deepEqual(antes, ['supermercado', 'viajes', 'salud']);
+
+  // Salud sube hasta quedar antes que viajes (de la 7 a la 4).
+  for (let i = 0; i < 3; i += 1) estado = moverRubro(estado, TIPO_GASTO, 'salud', 'arriba');
+  assert.ok(rubrosDe(TIPO_GASTO, estado.rubros).indexOf('salud')
+    < rubrosDe(TIPO_GASTO, estado.rubros).indexOf('viajes'));
+
+  assert.deepEqual(enLaTorta(dibujarTorta(filas, TIPO_GASTO, 'EUR', estado.rubros)),
+    ['supermercado', 'salud', 'viajes'], 'la torta no siguió a la lista');
+});
+
+test('y los colores siguen siendo los de cada rubro, no los de su lugar en la torta', () => {
+  // La otra mitad: reordenar cambia el ORDEN de las porciones, no su color.
+  const filas = [{ rubro: 'salud', total: 90000 }, { rubro: 'supermercado', total: 1000 }];
+  let estado = { ...estadoInicial({ monedas: monedasIniciales() }) };
+  for (let i = 0; i < 5; i += 1) estado = moverRubro(estado, TIPO_GASTO, 'salud', 'arriba');
+
+  const html = dibujarTorta(filas, TIPO_GASTO, 'EUR', estado.rubros);
+
+  assert.match(html, /class="porcion rubro-7"/, 'salud conserva su color');
+  assert.match(html, /class="porcion rubro-2"/, 'y supermercado el suyo');
+});
+
+test('un rubro que ya no está en la lista va al final en vez de romper el dibujo', () => {
+  // Puede llegar de un respaldo de otro dispositivo con más rubros (T-048).
+  const filas = [
+    { rubro: 'fantasma', total: 1000 },
+    { rubro: 'supermercado', total: 2000 },
+  ];
+  const html = dibujarTorta(filas, TIPO_GASTO, 'EUR', rubrosIniciales());
+
+  assert.deepEqual(enLaTorta(html), ['supermercado', 'fantasma']);
+});
+
+test('un rubro escrito con mayúsculas o tildes cae en su lugar, no al final', () => {
+  // Lo encontró una mutación: sacarle el `normalizarClave` al orden no rompía
+  // ningún test. Y sin embargo importa, porque `franjaDeRubro` SÍ normaliza: un
+  // rubro escrito distinto se pintaría con el color de su rubro y se dibujaría
+  // al final igual, que es exactamente el vecindario de colores impredecible
+  // que ADR-029 quiere evitar. Los dos lados normalizan o ninguno.
+  const filas = [
+    { rubro: 'Salud', total: 1000 },
+    { rubro: 'SUPERMERCADO', total: 2000 },
+  ];
+  const html = dibujarTorta(filas, TIPO_GASTO, 'EUR', rubrosIniciales());
+
+  assert.deepEqual(enLaTorta(html), ['supermercado', 'salud']);
+});
+
+test('un rubro que no es texto no rompe el dibujo', () => {
+  // Otra mutación sobreviviente: sin el `String(...)`, `normalizarClave` TIRA
+  // cuando lo que llega no es texto. Y una excepción acá no es una torta fea:
+  // mata el repintado entero de la pantalla, que es como quedó trancada la
+  // carga en T-056 (L-033). Un respaldo editado a mano alcanza para llegar.
+  const filas = [{ rubro: 7, total: 1000 }, { rubro: 'supermercado', total: 2000 }];
+
+  const html = dibujarTorta(filas, TIPO_GASTO, 'EUR', rubrosIniciales());
+  assert.deepEqual(enLaTorta(html), ['supermercado', '7']);
+});

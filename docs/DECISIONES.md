@@ -1949,3 +1949,32 @@ pintando con el color viejo, sin fallar y sin decirlo.
 > lista de fábrica. El usuario lo vio a los nueve días. Escribir que un problema
 > está evitado no lo evita; ahora lo cuenta una guardia de construcción, que es
 > lo único que no envejece. Ver L-036.
+
+
+## ADR-054 · El orden de las porciones de la torta es el de la lista del usuario
+
+**Fecha:** 2026-09-19 · **Tarea:** T-068 · **Estado:** aceptada
+
+**Contexto.** Las porciones de la torta nunca se ordenaron por monto, y eso es
+deliberado: la paleta garantiza que se distinguen todos contra todos, pero los
+pares que quedan **pegados** solo se pueden comprobar si son siempre los mismos
+(ADR-029). Ordenar de mayor a menor haría que cargar un gasto cambiara qué color
+toca a cuál, y un par que hoy se distingue mañana no.
+
+El orden fijo elegido entonces fue **el de la paleta**, que venía siendo lo mismo
+que el de la lista porque el color salía de la posición. Dejó de serlo en T-067:
+ahora los rubros se reordenan y **los colores se congelan al reordenar**. Desde
+el primer movimiento, la torta quedaba en un orden que no se correspondía con
+ninguna lista que el usuario pudiera ver.
+
+**Decisión.** El orden de dibujo es el de `rubrosDe(tipo, catalogo)` — la lista
+de Ajustes. Un rubro que no esté en ella —un dato viejo, uno que llegó en un
+respaldo de otro dispositivo— va al final, en vez de romper el dibujo.
+
+**Lo que ADR-029 pedía sigue en pie**, que es lo único que había que cuidar: el
+orden **no depende de los montos**. Cargar un gasto no reordena nada. El
+vecindario de colores solo cambia cuando el usuario mueve un rubro en Ajustes,
+que es exactamente cuando él decidió que cambiara.
+
+**Lo pidió el usuario** (2026-09-19): *"Podrías ajustar que el orden de los
+rubros en los gráficos de tortas se tome de su orden fijado en los ajustes?"*

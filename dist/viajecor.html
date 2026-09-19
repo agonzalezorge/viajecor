@@ -1059,7 +1059,13 @@ body {
 .movimiento-pie { font-size: 0.8125rem; margin-top: 0.125rem; }
 .movimiento-pie span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.movimiento-acciones { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+/* `wrap` no es un detalle: sin él, los botones que no entran ENSANCHAN la
+   página, y un navegador de celular responde a una página más ancha que la
+   pantalla achicándola entera. Con los botones de subir y bajar (T-067) la fila
+   de un rubro pasó de tres botones a cinco y dejó de entrar en 390 px: la app
+   se veía un 12% más chica y la barra de abajo quedaba fuera de la pantalla.
+   Lo encontró el recorrido de T-068 al no poder tocar una pestaña. Ver L-037. */
+.movimiento-acciones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
 
 .confirmar-borrado { margin-top: 0.625rem; }
 .confirmar-borrado p { margin: 0 0 0.5rem; font-weight: 500; }
@@ -1433,7 +1439,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.17.0";
+globalThis.__VIAJECOR_VERSION__ = "0.17.1";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -9142,8 +9148,18 @@ function dibujarSerie(serie) {
 // todos (se midió, ADR-029). Sí pasan los pares que quedan pegados, si son
 // siempre los mismos. Dibujar de mayor a menor haría que cargar un gasto
 // cambiara qué color toca a qué color, y un par que hoy se distingue mañana no.
-// Con el orden fijo de la paleta, los vecinos son siempre los mismos y se
-// pueden comprobar.
+// Con un orden fijo, los vecinos son siempre los mismos y se pueden comprobar.
+//
+// **Cuál es ese orden fijo: el de la lista de rubros del usuario** (T-068, a
+// pedido suyo). Era el de la paleta, que venía siendo lo mismo porque el color
+// salía de la posición. Dejó de serlo cuando los rubros se pudieron reordenar
+// (T-067): ahí los colores se congelan y la torta quedaba en un orden que ya no
+// se correspondía con ninguna lista visible.
+//
+// Lo que la regla de arriba pide sigue cumpliéndose: el orden **no depende de
+// los montos**, así que cargar un gasto no reordena nada. Solo cambia cuando el
+// usuario mueve un rubro en Ajustes, que es cuando él decide que cambie.
+
 
 
 
@@ -9182,10 +9198,19 @@ function dibujarTorta(filas, tipo, base, catalogo) {
   const total = filas.reduce((suma, fila) => suma + fila.total, 0);
   if (total <= 0) return '';
 
-  // El orden de dibujo es el de la paleta, no el de la lista. Ver arriba.
-  const enOrden = [...filas].sort(
-    (a, b) => franjaDeRubro(tipo, a.rubro, catalogo) - franjaDeRubro(tipo, b.rubro, catalogo),
-  );
+  // El orden de dibujo es el de la lista de rubros, no el de los montos. Ver
+  // arriba. Un rubro que no esté en la lista —un dato viejo, un huérfano— va al
+  // final en vez de romper el dibujo.
+  const lista = rubrosDe(tipo, catalogo);
+  const lugar = (rubro) => {
+    // `String()` hace falta: `normalizarClave` TIRA si no le llega texto, y una
+    // excepción acá mata el repintado de toda la pantalla (L-033). El `?? ''`
+    // que venía al lado, en cambio, no: 'null' tampoco está en la lista, así
+    // que cae al final igual. Lo sacó una mutación que sobrevivió.
+    const posicion = lista.indexOf(normalizarClave(String(rubro)));
+    return posicion === -1 ? lista.length : posicion;
+  };
+  const enOrden = [...filas].sort((a, b) => lugar(a.rubro) - lugar(b.rubro));
 
   let desde = 0;
   const porciones = enOrden.map((fila) => {

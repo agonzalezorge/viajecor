@@ -107,6 +107,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-063 | El `+` del viaje que quedó a favor | **Hecha** | T-062 |
 | T-065 | Instrucciones de la app | **Hecha** | T-047 |
 | T-067 | Arreglo: el color no llegaba, y reordenar rubros | **Hecha** | T-061 |
+| T-068 | Las tortas se ordenan como la lista de Ajustes | **Hecha** | T-067 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3175,3 +3176,41 @@ empieza por el color elegido— y se borró en vez de defenderla con un test.
 **Recorrido en el navegador:** se le cambia el color a un rubro y ahora coincide
 en Ajustes y en el mes; se sube "Salud" dos lugares y **ningún color se mueve**;
 los extremos no dibujan el botón que sobra; y todo sobrevive a recargar.
+
+
+### T-068 · Las tortas se ordenan como la lista de Ajustes — **Hecha** (2026-09-19)
+
+**Lo que pidió el usuario:** *"Podrías ajustar que el orden de los rubros en los
+gráficos de tortas se tome de su orden fijado en los ajustes?"*
+
+`dibujarTorta()` ordenaba por **color** (la franja de la paleta), que hasta T-067
+era lo mismo que el orden de la lista porque el color salía de la posición. Al
+poder reordenar los rubros —con los colores congelados— dejó de serlo, y la torta
+quedaba en un orden sin correspondencia con nada visible. Ahora ordena por la
+posición en `rubrosDe(tipo, catalogo)`; los rubros que no están en la lista van
+al final en vez de romper el dibujo. El porqué de que igual **no** se ordene por
+monto está en ADR-054.
+
+**Mutaciones:** 9 sembradas. Dos sobrevivieron la primera vuelta y las dos eran
+información:
+
+- Sacarle el `normalizarClave` al orden no rompía nada, y sí importa:
+  `franjaDeRubro()` **sí** normaliza, así que un rubro escrito distinto se
+  pintaba con su color y se dibujaba al final igual — el vecindario impredecible
+  que ADR-029 quiere evitar. Se le escribió el test.
+- El `?? ''` de al lado, en cambio, era redundante —`'null'` tampoco está en la
+  lista y cae al final igual—, y se borró. El `String()` que lo acompaña **no**
+  lo es: sin él `normalizarClave` tira, y una excepción ahí mata el repintado de
+  toda la pantalla (L-033).
+
+**Recorrido en el navegador:** con Salud como el gasto más caro y último de la
+lista, la torta arranca por Supermercado; se sube Salud tres lugares en Ajustes y
+la torta del mes **y la de la evolución** se reordenan con ella, sin que ningún
+color se mueva.
+
+**Y un bug que apareció solo:** el recorrido no podía tocar la barra de abajo
+estando en Ajustes → Rubros. Los cinco botones de cada fila no entraban en 390 px
+y, sin `flex-wrap`, **ensanchaban la página**: el navegador respondía achicando
+toda la app un 12% y dejando la barra fuera de la pantalla. Lo introdujo T-067 al
+sumar ↑ y ↓. Arreglado con `flex-wrap: wrap`, medido antes (437 px) y después
+(390 px). Ver L-037.

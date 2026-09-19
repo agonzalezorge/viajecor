@@ -1045,7 +1045,13 @@ body {
 .movimiento-pie { font-size: 0.8125rem; margin-top: 0.125rem; }
 .movimiento-pie span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.movimiento-acciones { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+/* `wrap` no es un detalle: sin él, los botones que no entran ENSANCHAN la
+   página, y un navegador de celular responde a una página más ancha que la
+   pantalla achicándola entera. Con los botones de subir y bajar (T-067) la fila
+   de un rubro pasó de tres botones a cinco y dejó de entrar en 390 px: la app
+   se veía un 12% más chica y la barra de abajo quedaba fuera de la pantalla.
+   Lo encontró el recorrido de T-068 al no poder tocar una pestaña. Ver L-037. */
+.movimiento-acciones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
 
 .confirmar-borrado { margin-top: 0.625rem; }
 .confirmar-borrado p { margin: 0 0 0.5rem; font-weight: 500; }

@@ -3,6 +3,23 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.17.1 — 2026-09-19
+
+### Cambiado
+- **Las porciones de las tortas siguen el orden de la lista de rubros de
+  Ajustes.** Si subís un rubro con ↑, la torta del mes y la de la evolución se
+  reordenan con él. Antes seguían el orden de los colores, que desde que se
+  puede reordenar ya no coincidía con ninguna lista visible.
+
+  Siguen sin ordenarse de mayor a menor, a propósito: así cargar un gasto no
+  cambia qué color queda al lado de cuál. La lista de abajo, que es donde se
+  comparan los números, sí va de mayor a menor.
+
+### Arreglado
+- **En Ajustes → Rubros, la app se veía más chica y la barra de abajo quedaba
+  fuera de la pantalla.** Los cinco botones de cada rubro no entraban a lo ancho
+  en un celular y ensanchaban la página; ahora pasan a la línea de abajo.
+
 ## 0.17.0 — 2026-09-19
 
 ### Arreglado

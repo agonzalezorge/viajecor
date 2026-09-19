@@ -1257,3 +1257,32 @@ vez, y ahí adentro puede haber otra plantilla.
 - **Escribir en un ADR que un problema está evitado no lo evita.** Si la frase
   dice "todas las llamadas ya reciben X", hay que contarlas — o poner algo que
   las cuente.
+
+
+## L-037 · Un botón que no entra no se corta: agranda la página y encoge la app entera
+
+**Dónde apareció:** T-068, en el recorrido del navegador — y no buscándolo.
+
+El recorrido no podía tocar la pestaña "Mes" estando en Ajustes → Rubros.
+Playwright decía que una fila de la lista interceptaba el clic. La barra de
+navegación es `position: fixed; bottom: 0`, así que eso no tenía sentido… hasta
+medir: `window.innerWidth` valía **437** en un viewport de 390.
+
+La fila de un rubro tiene sus acciones en un `display: flex` **sin
+`flex-wrap`**. En T-067 pasó de tres botones a cinco (se sumaron ↑ y ↓) y dejó de
+entrar en 390 px. Un flex sin wrap no corta ni apila: **desborda**. Y un
+navegador de celular, ante una página más ancha que la pantalla, no muestra una
+barra de scroll horizontal: **achica la página entera**. Resultado real, en el
+teléfono del usuario: mientras estaba en esa pantalla, toda la app se veía un 12%
+más chica y la barra de abajo quedaba fuera de la vista.
+
+**Las dos cosas que deja.**
+
+- **`display: flex` en una fila de botones lleva `flex-wrap: wrap` desde el
+  primer día.** El costo de tenerlo es cero; el de no tenerlo aparece recién
+  cuando alguien agrega un botón, meses después, y no se parece en nada a su
+  causa.
+- **El recorrido en el navegador encuentra cosas que no estaba buscando, si se
+  hace de verdad.** Este bug no lo iba a ver ningún test: el HTML era correcto,
+  el CSS era válido y la función pura devolvía lo que debía. Hacía falta un
+  navegador de 390 px intentando tocar un botón.

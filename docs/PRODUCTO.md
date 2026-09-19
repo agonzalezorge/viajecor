@@ -355,6 +355,9 @@ bloques `GASTOS POR TIPO`, `INGRESOS POR TIPO` y `TOTALES` del Excel.
 - Total de gastos, total de ingresos y **saldo** (ingresos − gastos) del mes.
 - Gastos desagregados por rubro: una **torta** con el reparto y, debajo, la
   lista de mayor a menor con el importe y el porcentaje de cada uno (T-918).
+  **Las porciones van en el orden de la lista de rubros de Ajustes** (T-068), no
+  de mayor a menor: así cargar un gasto no cambia qué color queda pegado a cuál.
+  La lista de abajo, que es donde se compara, sí va de mayor a menor.
 - Ingresos desagregados por rubro, igual.
 - Una **línea del acumulado** del mes, gasto e ingreso, para ver cuándo una
   cruza a la otra. En el mes en curso llega hasta hoy, no hasta fin de mes.
@@ -699,7 +702,8 @@ gastos, no de quien escribió la app.
 **Las tres reglas, y las tres protegen lo mismo:**
 
 0. **El orden de la lista se puede cambiar** con ↑ y ↓ (T-067), y es el orden en
-   que los rubros aparecen en toda la app. **Los colores no se mueven con
+   que los rubros aparecen en toda la app — las listas, las tablas y también
+   **las porciones de las tortas** (T-068). **Los colores no se mueven con
    ellos**: al reordenar por primera vez, cada rubro se queda con el color que
    tenía. El costo es que desde ahí los colores dejan de seguir a la lista, y un
    rubro nuevo puede nacer con uno ya usado — la pantalla lo avisa.
