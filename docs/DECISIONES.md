@@ -1940,6 +1940,12 @@ quiere sus dos rubros de comida del mismo verde, es su planilla; lo que no puede
 pasar es que lo haga sin enterarse.
 
 **Dónde viven los colores elegidos: dentro del catálogo de rubros**, que es el
-objeto que las cincuenta llamadas a `franjaDeRubro()` ya reciben. Agregar un
-cuarto parámetro habría sido repetir exactamente L-035 — las llamadas que no lo
-pasaran seguirían pintando con el color viejo, sin fallar y sin decirlo.
+objeto que las llamadas a `franjaDeRubro()` reciben. Agregar un cuarto parámetro
+habría sido repetir exactamente L-035 — las llamadas que no lo pasaran seguirían
+pintando con el color viejo, sin fallar y sin decirlo.
+
+> **Corregido el 2026-09-19 (T-067).** Este párrafo decía "las cincuenta llamadas
+> **ya** reciben" y era falso: ocho no pasaban el catálogo y pintaban con la
+> lista de fábrica. El usuario lo vio a los nueve días. Escribir que un problema
+> está evitado no lo evita; ahora lo cuenta una guardia de construcción, que es
+> lo único que no envejece. Ver L-036.

@@ -64,7 +64,7 @@ function punto(grados, radio) {
  * Devuelve `''` si no hay nada que repartir: una torta de un solo color es un
  * círculo, y un círculo no dice nada que el importe no diga mejor.
  */
-export function dibujarTorta(filas, tipo, base) {
+export function dibujarTorta(filas, tipo, base, catalogo) {
   if (filas.length < 2) return '';
 
   const total = filas.reduce((suma, fila) => suma + fila.total, 0);
@@ -72,7 +72,7 @@ export function dibujarTorta(filas, tipo, base) {
 
   // El orden de dibujo es el de la paleta, no el de la lista. Ver arriba.
   const enOrden = [...filas].sort(
-    (a, b) => franjaDeRubro(tipo, a.rubro) - franjaDeRubro(tipo, b.rubro),
+    (a, b) => franjaDeRubro(tipo, a.rubro, catalogo) - franjaDeRubro(tipo, b.rubro, catalogo),
   );
 
   let desde = 0;
@@ -84,7 +84,7 @@ export function dibujarTorta(filas, tipo, base) {
     const [x1, y1] = punto(desde, RADIO);
     const [x2, y2] = punto(hasta, RADIO);
     const grande = angulo > 180 ? 1 : 0;
-    const franja = franjaDeRubro(tipo, fila.rubro);
+    const franja = franjaDeRubro(tipo, fila.rubro, catalogo);
     const porcentaje = (fila.total / total) * 100;
     const [rx, ry] = punto(desde + angulo / 2, RADIO * 0.62);
     desde = hasta;

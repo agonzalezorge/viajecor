@@ -1433,7 +1433,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.16.1";
+globalThis.__VIAJECOR_VERSION__ = "0.17.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -3106,6 +3106,7 @@ function cambiarMonedaBase(estado, nueva) {
 //
 // Este archivo no toca el navegador: es lógica pura y se testea con node --test.
 
+
 /** Cuántos rubros admite cada tipo. Ver la regla 3. */
 const TOPE_DE_RUBROS = 20;
 
@@ -3156,6 +3157,65 @@ function rubrosHuerfanos(estado, tipo) {
 function conCatalogo(estado, tipo, lista) {
   const catalogo = catalogoDe(estado);
   return { ...estado, rubros: { ...catalogo, [ladoDe(tipo)]: lista } };
+}
+
+/**
+ * Mueve un rubro un lugar arriba o abajo en su lista — T-067.
+ *
+ * ── Por qué esto tiene que fijar los colores ────────────────────────────────
+ *
+ * El color de un rubro sale de **su posición** mientras el usuario no elija uno
+ * a mano (ADR-049). Así que reordenar, sin más, le cambiaría el color a todos
+ * los rubros que se corran — y el color de un rubro es lo que ata la torta con
+ * la tabla y con la lista en toda la app. Nadie que sube "Salud" un lugar espera
+ * que otros cuatro rubros cambien de color.
+ *
+ * Por eso, antes de mover, se **congela el color que cada uno tiene ahora**: los
+ * que ya tenían uno elegido siguen igual, y a los demás se les guarda el que les
+ * tocaba. Después del movimiento, el orden es solo orden.
+ *
+ * Es una decisión con un costo, y conviene tenerlo escrito: a partir del primer
+ * reordenamiento, **los colores de ese tipo dejan de seguir a la lista**. Crear
+ * un rubro nuevo le dará el color de su posición, que puede estar ocupado — la
+ * pantalla ya avisa cuáles están usados, y cambiarlo es un toque.
+ */
+function moverRubro(estado, tipo, rubro, direccion) {
+  const clave = normalizarClave(String(rubro ?? ''));
+  const lista = catalogoDe(estado)[ladoDe(tipo)];
+  const desde = lista.indexOf(clave);
+
+  if (desde === -1) throw new Error(`"${clave}" no está en la lista de rubros.`);
+
+  const hasta = direccion === 'arriba' ? desde - 1 : desde + 1;
+  // Contra los bordes no pasa nada, y no es un error: la pantalla no dibuja el
+  // botón que sobra, pero un respaldo o un toque doble pueden llegar igual.
+  if (hasta < 0 || hasta >= lista.length) return estado;
+
+  const movida = [...lista];
+  movida[desde] = movida[hasta];
+  movida[hasta] = clave;
+
+  return conCatalogo(conColoresFijados(estado, tipo), tipo, movida);
+}
+
+/**
+ * El estado con el color que cada rubro de ese tipo tiene **ahora** guardado
+ * como elegido.
+ *
+ * No hace falta preguntar cuáles ya tenían uno propio: `franjaDeRubro()` empieza
+ * justamente por el color elegido, así que a esos se les vuelve a guardar el
+ * mismo número. Preguntarlo antes parecía más prudente y solo era una línea de
+ * más — una ronda de mutaciones lo dejó en evidencia.
+ */
+function conColoresFijados(estado, tipo) {
+  const catalogo = catalogoDe(estado);
+  let conColores = catalogo;
+
+  for (const rubro of catalogo[ladoDe(tipo)]) {
+    conColores = elegirColor(conColores, tipo, rubro, franjaDeRubro(tipo, rubro, catalogo));
+  }
+
+  return { ...estado, rubros: conColores };
 }
 
 /** Cambia el rubro de los movimientos que usaban `desde`. */
@@ -9116,7 +9176,7 @@ function punto(grados, radio) {
  * Devuelve `''` si no hay nada que repartir: una torta de un solo color es un
  * círculo, y un círculo no dice nada que el importe no diga mejor.
  */
-function dibujarTorta(filas, tipo, base) {
+function dibujarTorta(filas, tipo, base, catalogo) {
   if (filas.length < 2) return '';
 
   const total = filas.reduce((suma, fila) => suma + fila.total, 0);
@@ -9124,7 +9184,7 @@ function dibujarTorta(filas, tipo, base) {
 
   // El orden de dibujo es el de la paleta, no el de la lista. Ver arriba.
   const enOrden = [...filas].sort(
-    (a, b) => franjaDeRubro(tipo, a.rubro) - franjaDeRubro(tipo, b.rubro),
+    (a, b) => franjaDeRubro(tipo, a.rubro, catalogo) - franjaDeRubro(tipo, b.rubro, catalogo),
   );
 
   let desde = 0;
@@ -9136,7 +9196,7 @@ function dibujarTorta(filas, tipo, base) {
     const [x1, y1] = punto(desde, RADIO);
     const [x2, y2] = punto(hasta, RADIO);
     const grande = angulo > 180 ? 1 : 0;
-    const franja = franjaDeRubro(tipo, fila.rubro);
+    const franja = franjaDeRubro(tipo, fila.rubro, catalogo);
     const porcentaje = (fila.total / total) * 100;
     const [rx, ry] = punto(desde + angulo / 2, RADIO * 0.62);
     desde = hasta;
@@ -9438,7 +9498,7 @@ function dibujarDesglose(estado, mes, tipo) {
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(fila.rubro)}">
           <span class="rubro-cabeza">
             <span class="nombre">
-              <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
+              <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro, estado?.rubros)}" aria-hidden="true"></span>
               ${escapar(formatearRubro(fila.rubro))}
             </span>
             <span class="importe">${escapar(formatearEuros(fila.total, base))}</span>
@@ -9454,7 +9514,7 @@ function dibujarDesglose(estado, mes, tipo) {
   return `
     <section class="tarjeta">
       <h2>${titulo}</h2>
-      ${dibujarTorta(filas, tipo, base)}
+      ${dibujarTorta(filas, tipo, base, estado?.rubros)}
       <ul class="rubros">${cuerpo}</ul>
     </section>
   `;
@@ -10696,7 +10756,7 @@ function dibujarUso(cuantos) {
 }
 
 /** Una fila de rubro, con su color, su uso y sus acciones. */
-function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
+function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}, posicion = -1) {
   const editando = vista.rubroEditado?.tipo === tipo && vista.rubroEditado?.rubro === rubro;
   const uniendo = vista.rubroUnido?.tipo === tipo && vista.rubroUnido?.rubro === rubro;
   const pintando = vista.rubroPintado?.tipo === tipo && vista.rubroPintado?.rubro === rubro;
@@ -10747,6 +10807,17 @@ function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
 
       ${editando || uniendo || pintando ? '' : `
       <div class="movimiento-acciones">
+        <!-- Subir y bajar, por pedido del usuario (2026-09-19). Los botones de
+             los extremos no se dibujan en vez de dibujarse apagados: un botón
+             que no hace nada enseña a desconfiar de los botones. -->
+        ${posicion > 0 ? `
+        <button type="button" class="secundario chico" data-accion="mover-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}" data-hacia="arriba"
+                aria-label="Subir ${escapar(formatearRubro(rubro))}">↑</button>` : ''}
+        ${posicion !== -1 && posicion < catalogo.length - 1 ? `
+        <button type="button" class="secundario chico" data-accion="mover-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}" data-hacia="abajo"
+                aria-label="Bajar ${escapar(formatearRubro(rubro))}">↓</button>` : ''}
         <button type="button" class="secundario chico" data-accion="editar-rubro"
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Renombrar</button>
         <button type="button" class="secundario chico" data-accion="pintar-rubro"
@@ -10830,9 +10901,12 @@ function dibujarRubrosDe(vista, tipo) {
       <p class="suave nota">Renombrar un rubro <strong>reescribe también sus
       movimientos</strong>, y unir dos los pasa de uno al otro. Nada se borra:
       los movimientos se mudan.</p>
+      <p class="suave nota">Con ↑ y ↓ cambiás el orden de la lista, que es el
+      orden en que aparecen en toda la app. <strong>Los colores no se mueven con
+      ellos</strong>: cada rubro se queda con el suyo.</p>
 
       <ul class="rubros">${catalogo
-        .map((r) => dibujarRubro(r, uso.get(r) ?? 0, tipo, catalogo, vista))
+        .map((r, i) => dibujarRubro(r, uso.get(r) ?? 0, tipo, catalogo, vista, i))
         .join('')}</ul>
 
       ${lleno ? `
@@ -11971,10 +12045,10 @@ function celdaDeImporte(importe, extra = '', toque = null) {
  * El punto de color es lo que ata esta pantalla al resumen del mes: la columna
  * que acá dice "Supermercado" es la porción ámbar de allá.
  */
-function dibujarEncabezadoMatriz(rubros, rubrosIngreso = []) {
+function dibujarEncabezadoMatriz(rubros, rubrosIngreso = [], catalogo) {
   const columna = (tipo, rubro) => `
     <th scope="col">
-      <span class="punto-rubro ${claseDeRubro(tipo, rubro)}" aria-hidden="true"></span>
+      <span class="punto-rubro ${claseDeRubro(tipo, rubro, catalogo)}" aria-hidden="true"></span>
       ${escapar(formatearRubro(rubro))}
     </th>`;
 
@@ -12146,7 +12220,7 @@ function dibujarPeriodo(vista) {
  * alcanza (ADR-049). Se toca la fila y no la porción: una porción del 1 % en un
  * teléfono son dos milímetros.
  */
-function dibujarRepartoDe(matriz, tipo, base, incompletos) {
+function dibujarRepartoDe(matriz, tipo, base, incompletos, catalogo) {
   const nombres = tipo === TIPO_GASTO ? matriz.rubros : matriz.rubrosIngreso;
   const importes = tipo === TIPO_GASTO ? matriz.total.rubros : matriz.total.rubrosIngreso;
 
@@ -12169,7 +12243,7 @@ function dibujarRepartoDe(matriz, tipo, base, incompletos) {
               data-todos-los-meses="si">
         <span class="rubro-cabeza">
           <span class="nombre">
-            <span class="punto-rubro ${claseDeRubro(tipo, f.rubro)}" aria-hidden="true"></span>
+            <span class="punto-rubro ${claseDeRubro(tipo, f.rubro, catalogo)}" aria-hidden="true"></span>
             ${escapar(formatearRubro(f.rubro))}
           </span>
           <span class="importe">${escapar(formatearEuros(f.total, base))}</span>
@@ -12189,7 +12263,7 @@ function dibujarRepartoDe(matriz, tipo, base, incompletos) {
         ${escapar(formatearEuros(total, base))}.${incompletos > 0
         ? ' <strong>Falta plata acá</strong>: hay meses sin tipo de cambio y sus movimientos no están sumados.'
         : ''}</p>
-      ${dibujarTorta(filas, tipo, base)}
+      ${dibujarTorta(filas, tipo, base, catalogo)}
       <ul class="rubros">${cuerpo}</ul>
     </section>
   `;
@@ -12252,7 +12326,7 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       <h2>Evolución mes a mes</h2>
       <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gastos e ingresos por mes y por rubro">
         <table class="matriz">
-          <thead>${dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso)}</thead>
+          <thead>${dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso, vista.estado?.rubros)}</thead>
           <tbody>${filas}</tbody>
           <tfoot>${dibujarPieMatriz(matriz)}</tfoot>
         </table>
@@ -12263,8 +12337,8 @@ function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
-    ${dibujarRepartoDe(matriz, TIPO_GASTO, base, incompletos)}
-    ${dibujarRepartoDe(matriz, TIPO_INGRESO, base, incompletos)}
+    ${dibujarRepartoDe(matriz, TIPO_GASTO, base, incompletos, vista.estado?.rubros)}
+    ${dibujarRepartoDe(matriz, TIPO_INGRESO, base, incompletos, vista.estado?.rubros)}
     ${dibujarMesAMes(matriz.filas)}
     ${dibujarAcumuladoHistorico(acumuladoHistorico(recortado))}
     ${dibujarGastosFijos(recortado)}
@@ -12452,7 +12526,7 @@ function dibujarMovimiento(estado, movimiento, vista) {
     <li class="movimiento${confirmando ? ' confirmando' : ''}">
       <div class="movimiento-datos">
         <span class="nombre">
-          <span class="punto-rubro ${claseDeRubro(movimiento.tipo, movimiento.rubro)}" aria-hidden="true"></span>
+          <span class="punto-rubro ${claseDeRubro(movimiento.tipo, movimiento.rubro, estado?.rubros)}" aria-hidden="true"></span>
           ${escapar(formatearRubro(movimiento.rubro))}
         </span>
         <span class="importe ${esGasto ? 'gasto' : 'ingreso'}">${escapar(importe.propio)}</span>
@@ -13617,7 +13691,7 @@ function dibujarUltimos(estado) {
         <li class="linea ${signo}">
           <span class="fecha">${escapar(formatearFecha(m.fecha))}</span>
           <span class="rubro">
-            <span class="punto-rubro ${claseDeRubro(m.tipo, m.rubro)}" aria-hidden="true"></span>
+            <span class="punto-rubro ${claseDeRubro(m.tipo, m.rubro, estado?.rubros)}" aria-hidden="true"></span>
             ${escapar(formatearRubro(m.rubro))}${m.comentario ? ` · ${escapar(m.comentario)}` : ''}</span>
           <span class="importe">${escapar(importe)}</span>
         </li>`;
@@ -15371,7 +15445,7 @@ function iniciar(documento, almacen) {
       const tipo = vista.borrador?.tipo;
       for (let i = 1; i <= COLORES; i += 1) campo.classList.remove(`rubro-${i}`);
       campo.classList.remove('sin-elegir');
-      campo.classList.add(evento.target.value ? claseDeRubro(tipo, evento.target.value) : 'sin-elegir');
+      campo.classList.add(evento.target.value ? claseDeRubro(tipo, evento.target.value, vista.estado?.rubros) : 'sin-elegir');
       return;
     }
 
@@ -16035,6 +16109,16 @@ function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, ahorroBorrado: null };
+    } else if (accion === 'mover-rubro') {
+      const movido = moverRubro(vista.estado, boton.dataset.tipo, boton.dataset.rubro, boton.dataset.hacia);
+      try {
+        guardarEstado(movido, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado: movido, error: null };
     } else if (accion === 'pintar-rubro') {
       vista = { ...vista, rubroPintado: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
         rubroEditado: null, rubroUnido: null, error: null, aviso: null };

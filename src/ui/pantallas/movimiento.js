@@ -224,7 +224,7 @@ function dibujarUltimos(estado) {
         <li class="linea ${signo}">
           <span class="fecha">${escapar(formatearFecha(m.fecha))}</span>
           <span class="rubro">
-            <span class="punto-rubro ${claseDeRubro(m.tipo, m.rubro)}" aria-hidden="true"></span>
+            <span class="punto-rubro ${claseDeRubro(m.tipo, m.rubro, estado?.rubros)}" aria-hidden="true"></span>
             ${escapar(formatearRubro(m.rubro))}${m.comentario ? ` · ${escapar(m.comentario)}` : ''}</span>
           <span class="importe">${escapar(importe)}</span>
         </li>`;

@@ -19,8 +19,10 @@ import { franjaDeRubro, elegirColor, colorElegido, claveDeColor, COLORES } from 
 import { catalogoDe } from '../src/core/rubros.js';
 import { rubrosIniciales, TIPO_GASTO, TIPO_INGRESO, crearMovimiento } from '../src/core/modelo.js';
 import { estadoInicial, migrarEstado, leerColoresDeRubro } from '../src/datos/almacenamiento.js';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { monedasIniciales } from '../src/core/monedas.js';
-import { dibujarElegirColor, dibujarRubro } from '../src/ui/pantallas/rubros.js';
+import { dibujarElegirColor, dibujarRubro, dibujarRubrosDe } from '../src/ui/pantallas/rubros.js';
 import { claseDeRubro } from '../src/ui/colores.js';
 
 const estadoCon = (rubros) => ({ ...estadoInicial({ monedas: monedasIniciales() }), rubros });
@@ -167,4 +169,220 @@ test('un color fuera de rango ya guardado se ignora al pintar', () => {
     assert.equal(colorElegido(catalogo, TIPO_GASTO, 'salud'), undefined, String(malo));
     assert.equal(franjaDeRubro(TIPO_GASTO, 'salud', catalogo), 7, 'vuelve al de su posición');
   }
+});
+
+
+// ── El color tiene que llegar a TODAS las pantallas (T-067) ─────────────────
+//
+// Lo reportó el usuario: el color elegido se veía en Ajustes y en ningún otro
+// lado. Ocho llamadas pintaban con el catálogo de fábrica, así que ignoraban
+// tanto los colores elegidos como los rubros que el usuario había creado — o
+// sea que este agujero era más viejo que los colores: venía desde T-048, y
+// poder elegir el color solo lo hizo visible.
+//
+// Es la segunda vez que pasa lo mismo con un parámetro que, si falta, miente en
+// silencio (L-035). Por eso ahora hay una guardia de construcción, y por eso
+// estos tests recorren las pantallas de verdad.
+
+import { llamadasSinCatalogo } from '../tools/moneda-base.mjs';
+import { dibujarResumen } from '../src/ui/pantallas/resumen.js';
+import { dibujarEvolucion } from '../src/ui/pantallas/evolucion.js';
+import { dibujarLista } from '../src/ui/pantallas/lista.js';
+import { dibujarNuevo } from '../src/ui/pantallas/movimiento.js';
+import { moverRubro } from '../src/core/rubros.js';
+
+let cuenta = 0;
+const gasto = (monto, rubro) => {
+  cuenta += 1;
+  return crearMovimiento({ monto, moneda: 'EUR', fecha: '2026-09-10', tipo: TIPO_GASTO, rubro, comentario: 'Feria' },
+    { decimales: 2, id: `c${cuenta}`, creado: '2026-09-10' });
+};
+
+/** Un estado con supermercado pintado del color 14 y un gasto de ese rubro. */
+const conColor = () => ({
+  ...estadoInicial({ monedas: monedasIniciales() }),
+  tipos_cambio: [],
+  movimientos: [gasto('100', 'supermercado')],
+  rubros: elegirColor(rubrosIniciales(), TIPO_GASTO, 'supermercado', 14),
+});
+
+test('el color elegido llega al resumen del mes, la lista, la evolución y el formulario', () => {
+  // Una por una, porque el bug era justamente que una pantalla lo tenía y las
+  // otras no. Comprobar solo `claseDeRubro` no habría encontrado nada: esa
+  // función andaba bien, lo que fallaba era quién la llamaba.
+  const estado = conColor();
+  const vista = { estado, mes: '2026-09' };
+
+  const pantallas = {
+    resumen: dibujarResumen(vista, '2026-09'),
+    lista: dibujarLista(vista),
+    evolucion: dibujarEvolucion({ ...vista, estado: { ...estado, movimientos: [gasto('50', 'supermercado'), ...estado.movimientos] } }, '2026-09'),
+    formulario: dibujarNuevo({ estado, borrador: { tipo: TIPO_GASTO, rubro: 'supermercado', monto: '10', moneda: 'EUR', fecha: '2026-09-10', comentario: '', detalle: '' } }),
+  };
+
+  for (const [cual, html] of Object.entries(pantallas)) {
+    assert.match(html, /rubro-14/, `el color elegido no llegó a ${cual}`);
+    assert.equal(/punto-rubro rubro-2\b/.test(html), false, `${cual} sigue pintando supermercado del color viejo`);
+  }
+});
+
+test('la torta también, que es donde el color es todo lo que hay', () => {
+  // Con un solo rubro no hay torta —un círculo de un color no dice nada—, así
+  // que hace falta un segundo gasto para que se dibuje.
+  const base = conColor();
+  const estado = { ...base, movimientos: [...base.movimientos, gasto('50', 'viajes')] };
+  const html = dibujarResumen({ estado, mes: '2026-09' }, '2026-09');
+  const porciones = [...html.matchAll(/class="porcion rubro-(\d+)"/g)].map((m) => m[1]);
+
+  assert.ok(porciones.includes('14'), `las porciones salieron ${porciones.join(', ')}`);
+});
+
+test('la guardia de construcción encuentra una llamada que se olvidó el catálogo', () => {
+  // Lo importante: **dentro de una plantilla**, que es donde vive toda la
+  // interfaz de esta app. La primera versión de la guardia blanqueaba las
+  // plantillas y no encontraba nada; se probó rompiendo una llamada a propósito
+  // y la construcción pasó igual.
+  const dentro = 'const x = `<span class="p ${claseDeRubro(m.tipo, m.rubro)}"></span>`;';
+  const bien = 'const x = `<span class="p ${claseDeRubro(m.tipo, m.rubro, cat)}"></span>`;';
+
+  assert.equal(llamadasSinCatalogo(new Map([['p.js', dentro]])).length, 1);
+  assert.equal(llamadasSinCatalogo(new Map([['p.js', bien]])).length, 0);
+});
+
+test('y no se queja del nombre escrito dentro de un texto', () => {
+  assert.equal(llamadasSinCatalogo(new Map([['p.js', "throw new Error('claseDeRubro(a, b) falló');"]])).length, 0);
+  assert.equal(llamadasSinCatalogo(new Map([['p.js', 'const m = `usá claseDeRubro(a, b)`;']])).length, 0);
+});
+
+test('todo src/ pasa la guardia del catálogo', () => {
+  const archivos = new Map();
+  const recorrer = (carpeta) => {
+    for (const entrada of readdirSync(carpeta)) {
+      const ruta = join(carpeta, entrada);
+      if (statSync(ruta).isDirectory()) recorrer(ruta);
+      else if (ruta.endsWith('.js')) archivos.set(ruta, readFileSync(ruta, 'utf8'));
+    }
+  };
+  recorrer('src');
+
+  assert.deepEqual(llamadasSinCatalogo(archivos).map((p) => p.mensaje), []);
+});
+
+
+// ── Reordenar los rubros ────────────────────────────────────────────────────
+
+test('subir y bajar cambian el lugar en la lista', () => {
+  const inicial = { ...estadoInicial({ monedas: monedasIniciales() }) };
+  const lista = (e) => catalogoDe(e).gasto;
+  const donde = (e, r) => lista(e).indexOf(r);
+
+  const arriba = moverRubro(inicial, TIPO_GASTO, 'salud', 'arriba');
+  assert.equal(donde(arriba, 'salud'), donde(inicial, 'salud') - 1);
+
+  const abajo = moverRubro(inicial, TIPO_GASTO, 'salud', 'abajo');
+  assert.equal(donde(abajo, 'salud'), donde(inicial, 'salud') + 1);
+  assert.equal(lista(abajo).length, lista(inicial).length, 'no se pierde ni se duplica ninguno');
+});
+
+test('mover un rubro NO le cambia el color a ninguno', () => {
+  // Es lo que hace que reordenar sea seguro: el color sale de la posición, así
+  // que sin congelarlos, subir un rubro repintaría a todos los que se corren —
+  // y el color es lo que ata la torta con la tabla y con la lista.
+  const inicial = { ...estadoInicial({ monedas: monedasIniciales() }) };
+  const antes = new Map(catalogoDe(inicial).gasto.map((r) => [r, franjaDeRubro(TIPO_GASTO, r, inicial.rubros)]));
+
+  const movido = moverRubro(inicial, TIPO_GASTO, 'salud', 'arriba');
+
+  for (const [rubro, franja] of antes) {
+    assert.equal(franjaDeRubro(TIPO_GASTO, rubro, movido.rubros), franja, `${rubro} cambió de color`);
+  }
+});
+
+test('y respeta el color que el usuario ya había elegido', () => {
+  const conElegido = {
+    ...estadoInicial({ monedas: monedasIniciales() }),
+    rubros: elegirColor(rubrosIniciales(), TIPO_GASTO, 'salud', 19),
+  };
+  const movido = moverRubro(conElegido, TIPO_GASTO, 'salud', 'arriba');
+
+  assert.equal(franjaDeRubro(TIPO_GASTO, 'salud', movido.rubros), 19);
+});
+
+test('contra los bordes no pasa nada, y no es un error', () => {
+  // La pantalla no dibuja el botón que sobra, pero un toque doble o un respaldo
+  // pueden llegar igual: tirar acá sería romper la app por un gesto.
+  const inicial = { ...estadoInicial({ monedas: monedasIniciales() }) };
+  const primero = catalogoDe(inicial).gasto[0];
+  const ultimo = catalogoDe(inicial).gasto.at(-1);
+
+  assert.deepEqual(catalogoDe(moverRubro(inicial, TIPO_GASTO, primero, 'arriba')).gasto, catalogoDe(inicial).gasto);
+  assert.deepEqual(catalogoDe(moverRubro(inicial, TIPO_GASTO, ultimo, 'abajo')).gasto, catalogoDe(inicial).gasto);
+});
+
+test('un rubro que no está en la lista se rechaza en vez de mover otro', () => {
+  const inicial = { ...estadoInicial({ monedas: monedasIniciales() }) };
+  assert.throws(() => moverRubro(inicial, TIPO_GASTO, 'inventado', 'arriba'), /no está en la lista/);
+});
+
+test('mover los de ingreso no toca los de gasto', () => {
+  const inicial = { ...estadoInicial({ monedas: monedasIniciales() }) };
+  const movido = moverRubro(inicial, TIPO_INGRESO, 'inversiones', 'arriba');
+
+  assert.deepEqual(catalogoDe(movido).gasto, catalogoDe(inicial).gasto);
+  assert.equal(catalogoDe(movido).ingreso[0], 'inversiones');
+});
+
+test('el nuevo orden sobrevive a guardar y volver a leer', () => {
+  const movido = moverRubro({ ...estadoInicial({ monedas: monedasIniciales() }) }, TIPO_GASTO, 'salud', 'arriba');
+  const leido = migrarEstado(JSON.parse(JSON.stringify(movido)));
+
+  assert.deepEqual(catalogoDe(leido).gasto, catalogoDe(movido).gasto);
+  assert.equal(franjaDeRubro(TIPO_GASTO, 'salud', leido.rubros), 7, 'y el color congelado también');
+});
+
+test('la fila trae los botones de mover, salvo en los extremos', () => {
+  const estado = { ...estadoInicial({ monedas: monedasIniciales() }) };
+  const lista = catalogoDe(estado).gasto;
+  const fila = (r, i) => dibujarRubro(r, 0, TIPO_GASTO, lista, { estado }, i);
+
+  assert.equal(fila(lista[0], 0).includes('data-hacia="arriba"'), false, 'el primero no puede subir');
+  assert.match(fila(lista[0], 0), /data-hacia="abajo"/);
+
+  const ultimo = lista.length - 1;
+  assert.match(fila(lista[ultimo], ultimo), /data-hacia="arriba"/);
+  assert.equal(fila(lista[ultimo], ultimo).includes('data-hacia="abajo"'), false, 'el último no puede bajar');
+
+  const medio = fila(lista[3], 3);
+  assert.match(medio, /data-hacia="arriba"/);
+  assert.match(medio, /data-hacia="abajo"/);
+});
+
+test('al reordenar, el color elegido a mano no se pisa con el de la posición', () => {
+  // Congelar los colores no puede significar "pisarlos todos": el que el usuario
+  // eligió tiene que seguir siendo el suyo después de mover cualquier rubro.
+  const conElegido = {
+    ...estadoInicial({ monedas: monedasIniciales() }),
+    rubros: elegirColor(rubrosIniciales(), TIPO_GASTO, 'viajes', 19),
+  };
+  const movido = moverRubro(conElegido, TIPO_GASTO, 'salud', 'arriba');
+
+  assert.equal(colorElegido(movido.rubros, TIPO_GASTO, 'viajes'), 19,
+    'se pisó el color elegido con el de la posición');
+});
+
+test('la lista de Ajustes le pasa a cada fila su posición', () => {
+  // Sin la posición, ninguna fila sabe si es la primera o la última y todas
+  // dibujan los dos botones — incluido el que no hace nada.
+  const estado = { ...estadoInicial({ monedas: monedasIniciales() }) };
+  const html = dibujarRubrosDe({ estado }, TIPO_GASTO);
+  const filas = html.split('<li class="fila-rubro">').slice(1);
+
+  assert.equal(filas[0].includes('data-hacia="arriba"'), false, 'la primera fila no puede subir');
+  assert.equal(filas.at(-1).includes('data-hacia="abajo"'), false, 'la última no puede bajar');
+  assert.match(filas[1], /data-hacia="arriba"/);
+});
+
+test('la guardia vigila las dos funciones que pintan, no solo una', () => {
+  const soloUna = 'const x = `${franjaDeRubro(t, r)}`;';
+  assert.equal(llamadasSinCatalogo(new Map([['p.js', soloUna]])).length, 1, 'franjaDeRubro no se está vigilando');
 });

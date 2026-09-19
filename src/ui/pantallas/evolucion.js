@@ -76,10 +76,10 @@ function celdaDeImporte(importe, extra = '', toque = null) {
  * El punto de color es lo que ata esta pantalla al resumen del mes: la columna
  * que acá dice "Supermercado" es la porción ámbar de allá.
  */
-export function dibujarEncabezadoMatriz(rubros, rubrosIngreso = []) {
+export function dibujarEncabezadoMatriz(rubros, rubrosIngreso = [], catalogo) {
   const columna = (tipo, rubro) => `
     <th scope="col">
-      <span class="punto-rubro ${claseDeRubro(tipo, rubro)}" aria-hidden="true"></span>
+      <span class="punto-rubro ${claseDeRubro(tipo, rubro, catalogo)}" aria-hidden="true"></span>
       ${escapar(formatearRubro(rubro))}
     </th>`;
 
@@ -251,7 +251,7 @@ export function dibujarPeriodo(vista) {
  * alcanza (ADR-049). Se toca la fila y no la porción: una porción del 1 % en un
  * teléfono son dos milímetros.
  */
-function dibujarRepartoDe(matriz, tipo, base, incompletos) {
+function dibujarRepartoDe(matriz, tipo, base, incompletos, catalogo) {
   const nombres = tipo === TIPO_GASTO ? matriz.rubros : matriz.rubrosIngreso;
   const importes = tipo === TIPO_GASTO ? matriz.total.rubros : matriz.total.rubrosIngreso;
 
@@ -274,7 +274,7 @@ function dibujarRepartoDe(matriz, tipo, base, incompletos) {
               data-todos-los-meses="si">
         <span class="rubro-cabeza">
           <span class="nombre">
-            <span class="punto-rubro ${claseDeRubro(tipo, f.rubro)}" aria-hidden="true"></span>
+            <span class="punto-rubro ${claseDeRubro(tipo, f.rubro, catalogo)}" aria-hidden="true"></span>
             ${escapar(formatearRubro(f.rubro))}
           </span>
           <span class="importe">${escapar(formatearEuros(f.total, base))}</span>
@@ -294,7 +294,7 @@ function dibujarRepartoDe(matriz, tipo, base, incompletos) {
         ${escapar(formatearEuros(total, base))}.${incompletos > 0
         ? ' <strong>Falta plata acá</strong>: hay meses sin tipo de cambio y sus movimientos no están sumados.'
         : ''}</p>
-      ${dibujarTorta(filas, tipo, base)}
+      ${dibujarTorta(filas, tipo, base, catalogo)}
       <ul class="rubros">${cuerpo}</ul>
     </section>
   `;
@@ -357,7 +357,7 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       <h2>Evolución mes a mes</h2>
       <div class="tabla-ancha" tabindex="0" role="region" aria-label="Gastos e ingresos por mes y por rubro">
         <table class="matriz">
-          <thead>${dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso)}</thead>
+          <thead>${dibujarEncabezadoMatriz(matriz.rubros, matriz.rubrosIngreso, vista.estado?.rubros)}</thead>
           <tbody>${filas}</tbody>
           <tfoot>${dibujarPieMatriz(matriz)}</tfoot>
         </table>
@@ -368,8 +368,8 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
       ${dibujarNotaDelPromedio(matriz)}
       ${aviso}
     </section>
-    ${dibujarRepartoDe(matriz, TIPO_GASTO, base, incompletos)}
-    ${dibujarRepartoDe(matriz, TIPO_INGRESO, base, incompletos)}
+    ${dibujarRepartoDe(matriz, TIPO_GASTO, base, incompletos, vista.estado?.rubros)}
+    ${dibujarRepartoDe(matriz, TIPO_INGRESO, base, incompletos, vista.estado?.rubros)}
     ${dibujarMesAMes(matriz.filas)}
     ${dibujarAcumuladoHistorico(acumuladoHistorico(recortado))}
     ${dibujarGastosFijos(recortado)}

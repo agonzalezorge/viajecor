@@ -188,7 +188,7 @@ function dibujarMovimiento(estado, movimiento, vista) {
     <li class="movimiento${confirmando ? ' confirmando' : ''}">
       <div class="movimiento-datos">
         <span class="nombre">
-          <span class="punto-rubro ${claseDeRubro(movimiento.tipo, movimiento.rubro)}" aria-hidden="true"></span>
+          <span class="punto-rubro ${claseDeRubro(movimiento.tipo, movimiento.rubro, estado?.rubros)}" aria-hidden="true"></span>
           ${escapar(formatearRubro(movimiento.rubro))}
         </span>
         <span class="importe ${esGasto ? 'gasto' : 'ingreso'}">${escapar(importe.propio)}</span>

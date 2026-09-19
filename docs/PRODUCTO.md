@@ -698,6 +698,11 @@ gastos, no de quien escribió la app.
 
 **Las tres reglas, y las tres protegen lo mismo:**
 
+0. **El orden de la lista se puede cambiar** con ↑ y ↓ (T-067), y es el orden en
+   que los rubros aparecen en toda la app. **Los colores no se mueven con
+   ellos**: al reordenar por primera vez, cada rubro se queda con el color que
+   tenía. El costo es que desde ahí los colores dejan de seguir a la lista, y un
+   rubro nuevo puede nacer con uno ya usado — la pantalla lo avisa.
 1. **Renombrar y unir mueven también los movimientos.** El rubro está escrito
    adentro de cada uno: cambiar la lista sin tocarlos dejaría gastos apuntando a
    un rubro que ya no existe, que no dan error y **desaparecen de todos los

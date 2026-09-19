@@ -24,6 +24,23 @@
 // construcción falla y no se genera el archivo — igual que con la guardia de
 // privacidad.
 
+/**
+ * Las que pintan un rubro — T-067.
+ *
+ * Mismo cuento, segunda vez. Sin el catálogo del usuario pintan con la lista de
+ * fábrica: ignoran los rubros que él creó (T-048) **y** los colores que eligió
+ * (T-061). Ocho llamadas estaban así, y el síntoma era de los peores — el mismo
+ * rubro de un color en Ajustes y de otro en el resto de la app.
+ *
+ * Que haya pasado dos veces con dos parámetros distintos es el argumento para
+ * que esto sea una guardia y no una nota en un ADR: yo escribí en ADR-053 que lo
+ * había evitado, y no lo había evitado.
+ */
+export const PINTAN_RUBROS = new Map([
+  ['claseDeRubro', 3],
+  ['franjaDeRubro', 3],
+]);
+
 /** Cuántos argumentos lleva cada función cuando se la llama bien. */
 export const CONVIERTEN_PLATA = new Map([
   ['buscarCambio', 4],
@@ -93,15 +110,80 @@ function sinComentarios(codigo) {
 }
 
 /**
- * El texto con el CONTENIDO de las cadenas en blanco.
+ * El texto con el CONTENIDO de las cadenas en blanco, respetando las plantillas.
  *
- * Sin esto, el mensaje de error de `totalEnEuros()` —que nombra a la función
- * dentro de sus comillas— se contaba como una llamada mal hecha. Un guardián que
- * marca su propio mensaje de error no lo usa nadie dos veces.
+ * ── Por qué esto no puede ser una expresión regular ─────────────────────────
+ *
+ * Hicieron falta dos intentos y los dos fallaron en silencio, que es lo peor que
+ * puede hacer un guardián:
+ *
+ *  1. Blanquear también las plantillas dejó la guardia mirando un archivo casi
+ *     vacío: **toda la interfaz de esta app es HTML dentro de plantillas**, así
+ *     que ahí adentro vive casi todo lo que hay que vigilar.
+ *  2. Blanquear solo `'` y `"` tampoco alcanzó, porque el HTML de adentro de las
+ *     plantillas usa comillas dobles —`class="..."`— y esas comillas se comían
+ *     la interpolación que estaba en el medio.
+ *
+ * Lo que hace falta es entender el anidamiento: dentro de una plantilla, el
+ * texto se blanquea pero lo que está en un `${...}` es código otra vez, y ahí
+ * adentro puede haber otra plantilla. Se recorre carácter por carácter con una
+ * pila, que es la forma corta de decir "un analizador de verdad".
+ *
+ * Se probó rompiendo una llamada a propósito: la construcción falla y la nombra.
  */
 function sinCadenas(codigo) {
-  return codigo.replace(/(['"`])(?:\\.|(?!\1)[\s\S])*\1/g,
-    (cadena) => cadena[0] + cadena.slice(1, -1).replace(/[^\n]/g, ' ') + cadena[0]);
+  const salida = [];
+  const pila = [];                       // 'plantilla' por cada `…` abierta
+  let comilla = null;                    // ' o " mientras dure una cadena
+  let enTexto = false;                   // dentro del texto de una plantilla
+
+  for (let i = 0; i < codigo.length; i += 1) {
+    const c = codigo[i];
+    const blanco = c === '\n' ? '\n' : ' ';
+
+    if (comilla) {
+      if (c === '\\') { salida.push(' ', ' '); i += 1; continue; }
+      if (c === comilla) { comilla = null; salida.push(c); continue; }
+      salida.push(blanco);
+      continue;
+    }
+
+    if (enTexto) {
+      if (c === '\\') { salida.push(' ', ' '); i += 1; continue; }
+      if (c === '`') { enTexto = false; pila.pop(); salida.push(c); continue; }
+      if (c === '$' && codigo[i + 1] === '{') {
+        // Se abre una interpolación: de acá adentro vuelve a ser código.
+        enTexto = false;
+        pila.push('interpolacion');
+        salida.push('$', '{');
+        i += 1;
+        continue;
+      }
+      salida.push(blanco);
+      continue;
+    }
+
+    if (c === '`') { pila.push('plantilla'); enTexto = true; salida.push(c); continue; }
+    if (c === "'" || c === '"') { comilla = c; salida.push(c); continue; }
+    if (c === '}' && pila.at(-1) === 'interpolacion') {
+      pila.pop();
+      enTexto = pila.at(-1) === 'plantilla';
+      salida.push(c);
+      continue;
+    }
+    if (c === '{' && pila.at(-1) === 'interpolacion') {
+      // Una llave de objeto adentro de la interpolación: se apila para que su
+      // cierre no se confunda con el fin de la interpolación.
+      pila.push('llave');
+      salida.push(c);
+      continue;
+    }
+    if (c === '}' && pila.at(-1) === 'llave') { pila.pop(); salida.push(c); continue; }
+
+    salida.push(c);
+  }
+
+  return salida.join('');
 }
 
 /**
@@ -112,12 +194,31 @@ function sinCadenas(codigo) {
  * los `export function`.
  */
 export function llamadasSinBase(archivos) {
+  return llamadasIncompletas(archivos, CONVIERTEN_PLATA,
+    'le falta la moneda base. Pasala con monedaBaseDe(estado); suponer el euro es lo que '
+    + 'rompió la carga con el peso uruguayo (T-059).');
+}
+
+/**
+ * Las llamadas que pintan un rubro sin decir con qué catálogo — T-067.
+ *
+ * Sin él se usa la lista de fábrica, así que los rubros propios y los colores
+ * elegidos no llegan: el mismo rubro sale de un color en una pantalla y de otro
+ * en la de al lado.
+ */
+export function llamadasSinCatalogo(archivos) {
+  return llamadasIncompletas(archivos, PINTAN_RUBROS,
+    'le falta el catálogo de rubros. Pasá estado.rubros (o el catálogo que ya tengas a mano); '
+    + 'sin él se pinta con los rubros de fábrica y se ignoran los colores elegidos (T-067).');
+}
+
+function llamadasIncompletas(archivos, funciones, comoArreglar) {
   const problemas = [];
 
   for (const [ruta, contenido] of archivos) {
     const codigo = sinCadenas(sinComentarios(contenido));
 
-    for (const [nombre, esperados] of CONVIERTEN_PLATA) {
+    for (const [nombre, esperados] of funciones) {
       const patron = new RegExp(`(^|[^.\\w])${nombre}\\s*\\(`, 'g');
       let encontrado;
 
@@ -140,9 +241,8 @@ export function llamadasSinBase(archivos) {
           nombre,
           cuantos,
           esperados,
-          mensaje: `${ruta}:${linea} — ${nombre}() se llamó con ${cuantos} argumento(s) y necesita ${esperados}: `
-            + 'le falta la moneda base. Pasala con monedaBaseDe(estado); suponer el euro es lo que '
-            + 'rompió la carga con el peso uruguayo (T-059).',
+          mensaje: `${ruta}:${linea} — ${nombre}() se llamó con ${cuantos} argumento(s) `
+            + `y necesita ${esperados}: ${comoArreglar}`,
         });
       }
     }

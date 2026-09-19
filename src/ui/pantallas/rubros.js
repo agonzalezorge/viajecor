@@ -29,7 +29,7 @@ export function dibujarUso(cuantos) {
 }
 
 /** Una fila de rubro, con su color, su uso y sus acciones. */
-export function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
+export function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}, posicion = -1) {
   const editando = vista.rubroEditado?.tipo === tipo && vista.rubroEditado?.rubro === rubro;
   const uniendo = vista.rubroUnido?.tipo === tipo && vista.rubroUnido?.rubro === rubro;
   const pintando = vista.rubroPintado?.tipo === tipo && vista.rubroPintado?.rubro === rubro;
@@ -80,6 +80,17 @@ export function dibujarRubro(rubro, cuantos, tipo, catalogo, vista = {}) {
 
       ${editando || uniendo || pintando ? '' : `
       <div class="movimiento-acciones">
+        <!-- Subir y bajar, por pedido del usuario (2026-09-19). Los botones de
+             los extremos no se dibujan en vez de dibujarse apagados: un botón
+             que no hace nada enseña a desconfiar de los botones. -->
+        ${posicion > 0 ? `
+        <button type="button" class="secundario chico" data-accion="mover-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}" data-hacia="arriba"
+                aria-label="Subir ${escapar(formatearRubro(rubro))}">↑</button>` : ''}
+        ${posicion !== -1 && posicion < catalogo.length - 1 ? `
+        <button type="button" class="secundario chico" data-accion="mover-rubro"
+                data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}" data-hacia="abajo"
+                aria-label="Bajar ${escapar(formatearRubro(rubro))}">↓</button>` : ''}
         <button type="button" class="secundario chico" data-accion="editar-rubro"
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(rubro)}">Renombrar</button>
         <button type="button" class="secundario chico" data-accion="pintar-rubro"
@@ -163,9 +174,12 @@ export function dibujarRubrosDe(vista, tipo) {
       <p class="suave nota">Renombrar un rubro <strong>reescribe también sus
       movimientos</strong>, y unir dos los pasa de uno al otro. Nada se borra:
       los movimientos se mudan.</p>
+      <p class="suave nota">Con ↑ y ↓ cambiás el orden de la lista, que es el
+      orden en que aparecen en toda la app. <strong>Los colores no se mueven con
+      ellos</strong>: cada rubro se queda con el suyo.</p>
 
       <ul class="rubros">${catalogo
-        .map((r) => dibujarRubro(r, uso.get(r) ?? 0, tipo, catalogo, vista))
+        .map((r, i) => dibujarRubro(r, uso.get(r) ?? 0, tipo, catalogo, vista, i))
         .join('')}</ul>
 
       ${lleno ? `

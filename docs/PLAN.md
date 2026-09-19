@@ -106,6 +106,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-062 | Un viaje cuesta lo neto, y se desglosa al abrirlo | **Hecha** | T-060 |
 | T-063 | El `+` del viaje que quedó a favor | **Hecha** | T-062 |
 | T-065 | Instrucciones de la app | **Hecha** | T-047 |
+| T-067 | Arreglo: el color no llegaba, y reordenar rubros | **Hecha** | T-061 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3140,3 +3141,37 @@ tiene que estar, dentro del cuerpo, y el test que lo exige sigue en pie.
 
 Hay un test nuevo que comprueba que las secciones **nombren sus pestañas**: es lo
 que mantiene el patrón cuando alguien agregue la novena.
+
+
+### T-067 · El color no llegaba a las pantallas, y reordenar los rubros — **Hecha** (2026-09-19)
+
+**Lo que reportó el usuario:** los colores de los rubros en Ajustes no coinciden
+con los de verdad. Y de paso pidió poder cambiar el orden de la lista.
+
+**El bug, reproducido antes de tocar nada**, y al revés de como sonaba: Ajustes
+mostraba el color **correcto** y las otras ocho pantallas el viejo. Ocho llamadas
+a `claseDeRubro()` / `franjaDeRubro()` no pasaban el catálogo. El detalle
+incómodo está en L-036: es L-035 por segunda vez, el agujero venía desde T-048
+—esas pantallas ya ignoraban los rubros creados por el usuario— y **la guardia
+que escribí para que esto no pasara no encontraba nada**, porque blanqueaba las
+plantillas, que es donde vive toda la interfaz.
+
+**Reordenar tenía una trampa** que valía la pena ver antes de programar: el color
+sale de la posición, así que mover un rubro le cambiaría el color a todos los que
+se corren — justo lo contrario de lo que el usuario acababa de pedir. Por eso
+`moverRubro()` **congela los colores actuales** antes de mover: los que ya tenían
+uno elegido siguen igual y a los demás se les guarda el que tenían. Después del
+movimiento, el orden es solo orden.
+
+Su costo, escrito para que nadie lo descubra por sorpresa: a partir del primer
+reordenamiento, los colores de ese tipo dejan de seguir a la lista, y un rubro
+nuevo puede nacer con un color ya usado. La pantalla ya avisa cuáles están
+ocupados y cambiarlo es un toque.
+
+**Mutaciones:** 16 sembradas, 16 muertas. La única que sobrevivió la primera
+vuelta era equivalente —una guarda redundante, porque `franjaDeRubro()` ya
+empieza por el color elegido— y se borró en vez de defenderla con un test.
+
+**Recorrido en el navegador:** se le cambia el color a un rubro y ahora coincide
+en Ajustes y en el mes; se sube "Salud" dos lugares y **ningún color se mueve**;
+los extremos no dibujan el botón que sobra; y todo sobrevive a recargar.

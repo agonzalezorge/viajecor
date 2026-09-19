@@ -34,7 +34,7 @@ import { dibujarRubros } from './pantallas/rubros.js';
 import { dibujarMonedaBase } from './pantallas/base.js';
 import { dibujarInstrucciones } from './pantallas/instrucciones.js';
 import { cambiarMonedaBase } from '../core/base.js';
-import { crearRubro, renombrarRubro, unirRubros, borrarRubro, catalogoDe } from '../core/rubros.js';
+import { crearRubro, renombrarRubro, unirRubros, borrarRubro, catalogoDe, moverRubro } from '../core/rubros.js';
 import { dibujarAhorros } from './pantallas/ahorros.js';
 import {
   dibujarNuevoAhorro, borradorDeAhorro, borradorDesdeAhorro, intentarGuardarAhorro,
@@ -1389,7 +1389,7 @@ export function iniciar(documento, almacen) {
       const tipo = vista.borrador?.tipo;
       for (let i = 1; i <= COLORES; i += 1) campo.classList.remove(`rubro-${i}`);
       campo.classList.remove('sin-elegir');
-      campo.classList.add(evento.target.value ? claseDeRubro(tipo, evento.target.value) : 'sin-elegir');
+      campo.classList.add(evento.target.value ? claseDeRubro(tipo, evento.target.value, vista.estado?.rubros) : 'sin-elegir');
       return;
     }
 
@@ -2053,6 +2053,16 @@ export function iniciar(documento, almacen) {
         return;
       }
       vista = { ...vista, estado, ahorroBorrado: null };
+    } else if (accion === 'mover-rubro') {
+      const movido = moverRubro(vista.estado, boton.dataset.tipo, boton.dataset.rubro, boton.dataset.hacia);
+      try {
+        guardarEstado(movido, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado: movido, error: null };
     } else if (accion === 'pintar-rubro') {
       vista = { ...vista, rubroPintado: { tipo: boton.dataset.tipo, rubro: boton.dataset.rubro },
         rubroEditado: null, rubroUnido: null, error: null, aviso: null };

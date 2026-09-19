@@ -3,6 +3,25 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.17.0 — 2026-09-19
+
+### Arreglado
+- **El color que le ponías a un rubro solo se veía en Ajustes.** En el resto de
+  la app —el mes, la torta, la tabla de evolución, la lista, el formulario— el
+  rubro seguía saliendo del color viejo.
+
+  El mismo problema afectaba, desde antes, a **los rubros que vos creaste**: no
+  solo a los colores elegidos. Un rubro nuevo salía del color equivocado en todas
+  esas pantallas. Están las ocho arregladas, y ahora hay una comprobación
+  automática que impide que vuelva a pasar.
+
+### Agregado
+- **El orden de los rubros se puede cambiar**, con ↑ y ↓ en Ajustes → Rubros. Es
+  el orden en que aparecen en toda la app.
+
+  **Los colores no se mueven con ellos**: al reordenar, cada rubro se queda con
+  el color que ya tenía.
+
 ## 0.16.1 — 2026-09-19
 
 ### Cambiado

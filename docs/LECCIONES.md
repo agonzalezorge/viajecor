@@ -1209,3 +1209,51 @@ cargar un gasto, buscarlo, exportarlo— con la base cambiada. Se probó la piez
 nueva y no el camino viejo pasando por ella. Por eso ahora existe
 `test/base-uyu.test.js`, que recorre cada camino que tocaba una de esas once
 llamadas.
+
+
+## L-036 · La guardia que no encontraba nada, y el mismo error por segunda vez
+
+**Qué pasó.** El usuario reportó que los colores de los rubros en Ajustes no
+coincidían con los del resto de la app. Era al revés de como sonaba: **Ajustes
+mostraba el correcto y las otras ocho pantallas el viejo**. Ocho llamadas a
+`claseDeRubro()` y `franjaDeRubro()` no pasaban el catálogo, así que pintaban con
+la lista de fábrica.
+
+**Es exactamente L-035 otra vez**, con otro parámetro. Y lo peor: en el ADR-053,
+escrito nueve días antes, yo había dicho que lo había evitado — *"los colores
+viven dentro del catálogo, que es el objeto que las cincuenta llamadas ya
+reciben"*. La frase era cierta para las llamadas que **pasan** el catálogo. Nunca
+comprobé cuántas lo pasaban.
+
+**El agujero era más viejo que los colores.** Esas ocho llamadas ya ignoraban los
+rubros que el usuario creaba (T-048, de hace un mes): un rubro nuevo salía del
+color equivocado en el mes, la torta, la evolución y la lista. Poder elegir el
+color no causó el bug, solo lo hizo visible. **Una función con un parámetro
+opcional acumula llamadas incompletas en silencio, y el día que ese parámetro
+empieza a importar de verdad, el daño ya está repartido por toda la app.**
+
+**Y ahora la parte incómoda: la guardia que escribí para L-035 no servía.**
+Se agregó `llamadasSinCatalogo()` al mismo módulo, se probó rompiendo una llamada
+a propósito… y **la construcción pasó igual**. Dos veces:
+
+1. La guardia blanqueaba el contenido de todas las cadenas, **plantillas
+   incluidas**. Como toda la interfaz de esta app es HTML dentro de plantillas,
+   estaba mirando archivos casi vacíos.
+2. Al dejar de blanquear las plantillas pero seguir blanqueando `'` y `"`, las
+   comillas del HTML de adentro —`class="..."`— se comían la interpolación que
+   había en el medio.
+
+Hizo falta un escáner con una pila que entienda el anidamiento: dentro de una
+plantilla el texto se blanquea, pero lo que está en un `${...}` es código otra
+vez, y ahí adentro puede haber otra plantilla.
+
+**Las dos reglas.**
+
+- **Una guardia hay que probarla rompiendo algo a propósito, y en el lugar donde
+  el error ocurre de verdad.** La de L-035 sí se probó así —por eso funciona— y
+  esta se probó en un caso de juguete, fuera de una plantilla, que es donde el
+  código de esta app no vive. Una guardia que no encuentra lo que busca es peor
+  que ninguna: da la tranquilidad sin dar la garantía.
+- **Escribir en un ADR que un problema está evitado no lo evita.** Si la frase
+  dice "todas las llamadas ya reciben X", hay que contarlas — o poner algo que
+  las cuente.

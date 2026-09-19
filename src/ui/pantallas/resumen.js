@@ -132,7 +132,7 @@ export function dibujarDesglose(estado, mes, tipo) {
                 data-tipo="${escapar(tipo)}" data-rubro="${escapar(fila.rubro)}">
           <span class="rubro-cabeza">
             <span class="nombre">
-              <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro)}" aria-hidden="true"></span>
+              <span class="punto-rubro ${claseDeRubro(tipo, fila.rubro, estado?.rubros)}" aria-hidden="true"></span>
               ${escapar(formatearRubro(fila.rubro))}
             </span>
             <span class="importe">${escapar(formatearEuros(fila.total, base))}</span>
@@ -148,7 +148,7 @@ export function dibujarDesglose(estado, mes, tipo) {
   return `
     <section class="tarjeta">
       <h2>${titulo}</h2>
-      ${dibujarTorta(filas, tipo, base)}
+      ${dibujarTorta(filas, tipo, base, estado?.rubros)}
       <ul class="rubros">${cuerpo}</ul>
     </section>
   `;

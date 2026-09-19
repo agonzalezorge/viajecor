@@ -12,7 +12,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buscarFugas, buscarFugasDelServicio } from './privacidad.mjs';
-import { llamadasSinBase } from './moneda-base.mjs';
+import { llamadasSinBase, llamadasSinCatalogo } from './moneda-base.mjs';
 import { buscarErrorDeSintaxis } from './sintaxis.mjs';
 import { iconoComoDataUri, pngDelIcono } from './icono.mjs';
 import { manifiesto } from './manifiesto.mjs';
@@ -167,6 +167,10 @@ async function construir() {
   // en tools/moneda-base.mjs y el test usa la misma función, igual que las otras.
   const sinBase = llamadasSinBase(fuentes);
   if (sinBase.length > 0) throw new Error(sinBase.map((p) => p.mensaje).join('\n'));
+
+  // Y nadie pinta un rubro sin decir con qué catálogo — T-067.
+  const sinCatalogo = llamadasSinCatalogo(fuentes);
+  if (sinCatalogo.length > 0) throw new Error(sinCatalogo.map((p) => p.mensaje).join('\n'));
 
   const guion = [
     `'use strict';`,

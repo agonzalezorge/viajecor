@@ -31,6 +31,7 @@
 // Este archivo no toca el navegador: es lógica pura y se testea con node --test.
 
 import { TIPO_GASTO, TIPO_INGRESO, normalizarTipo, normalizarClave, rubrosDe } from './modelo.js';
+import { franjaDeRubro, elegirColor } from './paleta.js';
 
 /** Cuántos rubros admite cada tipo. Ver la regla 3. */
 export const TOPE_DE_RUBROS = 20;
@@ -82,6 +83,65 @@ export function rubrosHuerfanos(estado, tipo) {
 function conCatalogo(estado, tipo, lista) {
   const catalogo = catalogoDe(estado);
   return { ...estado, rubros: { ...catalogo, [ladoDe(tipo)]: lista } };
+}
+
+/**
+ * Mueve un rubro un lugar arriba o abajo en su lista — T-067.
+ *
+ * ── Por qué esto tiene que fijar los colores ────────────────────────────────
+ *
+ * El color de un rubro sale de **su posición** mientras el usuario no elija uno
+ * a mano (ADR-049). Así que reordenar, sin más, le cambiaría el color a todos
+ * los rubros que se corran — y el color de un rubro es lo que ata la torta con
+ * la tabla y con la lista en toda la app. Nadie que sube "Salud" un lugar espera
+ * que otros cuatro rubros cambien de color.
+ *
+ * Por eso, antes de mover, se **congela el color que cada uno tiene ahora**: los
+ * que ya tenían uno elegido siguen igual, y a los demás se les guarda el que les
+ * tocaba. Después del movimiento, el orden es solo orden.
+ *
+ * Es una decisión con un costo, y conviene tenerlo escrito: a partir del primer
+ * reordenamiento, **los colores de ese tipo dejan de seguir a la lista**. Crear
+ * un rubro nuevo le dará el color de su posición, que puede estar ocupado — la
+ * pantalla ya avisa cuáles están usados, y cambiarlo es un toque.
+ */
+export function moverRubro(estado, tipo, rubro, direccion) {
+  const clave = normalizarClave(String(rubro ?? ''));
+  const lista = catalogoDe(estado)[ladoDe(tipo)];
+  const desde = lista.indexOf(clave);
+
+  if (desde === -1) throw new Error(`"${clave}" no está en la lista de rubros.`);
+
+  const hasta = direccion === 'arriba' ? desde - 1 : desde + 1;
+  // Contra los bordes no pasa nada, y no es un error: la pantalla no dibuja el
+  // botón que sobra, pero un respaldo o un toque doble pueden llegar igual.
+  if (hasta < 0 || hasta >= lista.length) return estado;
+
+  const movida = [...lista];
+  movida[desde] = movida[hasta];
+  movida[hasta] = clave;
+
+  return conCatalogo(conColoresFijados(estado, tipo), tipo, movida);
+}
+
+/**
+ * El estado con el color que cada rubro de ese tipo tiene **ahora** guardado
+ * como elegido.
+ *
+ * No hace falta preguntar cuáles ya tenían uno propio: `franjaDeRubro()` empieza
+ * justamente por el color elegido, así que a esos se les vuelve a guardar el
+ * mismo número. Preguntarlo antes parecía más prudente y solo era una línea de
+ * más — una ronda de mutaciones lo dejó en evidencia.
+ */
+function conColoresFijados(estado, tipo) {
+  const catalogo = catalogoDe(estado);
+  let conColores = catalogo;
+
+  for (const rubro of catalogo[ladoDe(tipo)]) {
+    conColores = elegirColor(conColores, tipo, rubro, franjaDeRubro(tipo, rubro, catalogo));
+  }
+
+  return { ...estado, rubros: conColores };
 }
 
 /** Cambia el rubro de los movimientos que usaban `desde`. */
