@@ -177,9 +177,23 @@ export function viajes(estado) {
         mes: mesDe(v.desde),
         fechas,
         dias,
-        porDia: dias === null ? null : redondear(v.total / dias),
-        // El saldo solo tiene sentido cuando hay de los dos: en un viaje normal
-        // —solo gastos— sería el total en negativo, un número repetido.
+        // ── Lo que costó el viaje es lo que salió DE TU BOLSILLO — T-062 ─────
+        //
+        // Con reintegros, "el costo del viaje" no son los mil que pasaron por tu
+        // tarjeta: son los cuatrocientos que quedaste poniendo. Así el viaje de
+        // trabajo se lee igual que cualquier otro —un número positivo, del mismo
+        // color, comparable con los demás— que es lo que pidió el usuario
+        // (2026-09-19) después de ver la primera versión, que mostraba el saldo
+        // en negativo y lo hacía parecer otra cosa.
+        //
+        // `gastos` e `ingresos` quedan aparte para poder desglosarlo al abrirlo.
+        gastos: v.total,
+        costo: v.total - v.ingresos,
+        total: v.total - v.ingresos,
+        porDia: dias === null ? null : redondear((v.total - v.ingresos) / dias),
+        // Si los reintegros superan a los gastos, el viaje **te dejó plata**. Ahí
+        // mostrarlo "en positivo" sería mentir: va con su signo y su color.
+        aFavor: v.ingresos > v.total,
         mixto: v.ingresos > 0 && v.total > 0,
         saldo: v.ingresos - v.total,
         // Por cuándo terminó, que es el orden que pidió el usuario. Un viaje sin

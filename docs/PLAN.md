@@ -103,6 +103,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-059 | Arreglo: la app entera con una base que no es el euro | **Hecha** | T-050 |
 | T-060 | Varias etiquetas, y grupos de ingresos y mixtos | **Hecha** | T-946 |
 | T-061 | El color de los rubros se elige | **Hecha** | T-049 |
+| T-062 | Un viaje cuesta lo neto, y se desglosa al abrirlo | **Hecha** | T-060 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3024,3 +3025,36 @@ para las casillas, apuntando a **la misma variable** de color que el punto.
 **Recorrido en el navegador:** se le cambia el color a un rubro, el punto de su
 fila cambia, ningún otro rubro se mueve, y el color sigue puesto después de
 recargar.
+
+
+### T-062 · Un viaje cuesta lo neto, y se desglosa al abrirlo — **Hecha** (2026-09-19)
+
+**El usuario miró T-060 y no le gustó:** *"quiero que el costo del viaje salga
+como 400, en positivo, queda claro que es un gasto, igual que los demás viajes.
+Pero al hacer click en ese viaje, quiero poder ver arriba del todo el total de
+ingresos, gastos y saldo"*.
+
+Tenía razón, y el error fue mío: había puesto el **saldo en negativo** como
+número grande del viaje, con lo cual el viaje de trabajo dejaba de parecerse a
+los otros justo en la pantalla que existe para compararlos.
+
+**Ahora el costo de un viaje es lo que quedaste poniendo** — gastos menos
+reintegros — en positivo y del mismo color. El gasto bruto no se pierde: queda en
+`gastos`, y es lo que se desglosa al abrirlo. El gasto por día también es neto,
+porque si no el mismo viaje diría 400 arriba y 100 por día en cuatro días.
+
+**El único caso con signo y color** es el viaje que te dejó plata: ahí "en
+positivo" sería lo contrario de lo que pasó.
+
+**Un defecto que salió al mirar la pantalla nueva:** arriba de la lista filtrada
+decía "3 movimientos · 1.600,00 €" — la suma de 1.000 de gastos **más** 600 de
+reintegro, un número que no significa nada, y encima justo arriba del desglose
+que lo desmiente. Con desglose, ese encabezado dice solo cuántos movimientos son.
+
+**Mutaciones:** 8 sembradas, 8 muertas. Dos sobrevivieron la primera vuelta —el
+gasto por día neto y el viaje a favor— y las dos señalaron tests que faltaban.
+
+**Recorrido en el navegador:** el ejemplo del usuario. En la lista, Roma cuesta
+400,00 € igual que Colonia cuesta 450,00 €; al abrirlo aparecen los tres números
+(1.000 / 600 / −400) y ya no está el total sin sentido; y un viaje sin ingresos
+no gana ningún número de más.

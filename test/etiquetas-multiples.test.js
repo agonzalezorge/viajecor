@@ -24,10 +24,12 @@ import assert from 'node:assert/strict';
 import { etiquetasDe, clavesDeEtiquetas, tieneEtiqueta, crearMovimiento, TIPO_GASTO, TIPO_INGRESO }
   from '../src/core/modelo.js';
 import { otrosGrupos } from '../src/core/agrupamientos.js';
-import { viajes } from '../src/core/viajes.js';
+import { viajes, fijarFechasDeViaje } from '../src/core/viajes.js';
+import { dibujarViaje } from '../src/ui/pantallas/viajes.js';
 import { movimientosFiltrados, comentariosUsados, etiquetaEnCurso, conEtiquetaElegida, gastosFijos }
   from '../src/core/calculos.js';
 import { estadoInicial, migrarEstado } from '../src/datos/almacenamiento.js';
+import { dibujarLista } from '../src/ui/pantallas/lista.js';
 import { monedasIniciales } from '../src/core/monedas.js';
 
 let n = 0;
@@ -93,7 +95,7 @@ test('un gasto con dos etiquetas suma en los dos viajes', () => {
   const lista = viajes(VIAJE_DE_TRABAJO());
 
   assert.deepEqual(lista.map((v) => v.comentario).sort(), ['Roma', 'Trabajo']);
-  for (const v of lista) assert.equal(v.total, 100000, `${v.comentario}: 800 + 200`);
+  for (const v of lista) assert.equal(v.gastos, 100000, `${v.comentario}: 800 + 200`);
 });
 
 test('y tocar uno de esos grupos trae el movimiento', () => {
@@ -118,15 +120,32 @@ test('los gastos fijos con dos etiquetas también cuentan en las dos', () => {
 
 // ── Los viajes y grupos mixtos ──────────────────────────────────────────────
 
-test('un viaje con ingresos muestra los dos lados y su saldo', () => {
-  // El caso que el usuario nombró: el viaje de trabajo, donde lo que importa es
-  // si terminaste poniendo plata o no.
+test('un viaje con ingresos cuesta lo que quedaste poniendo', () => {
+  // El caso que el usuario nombró: el viaje de trabajo. Pidió expresamente
+  // (2026-09-19) que el costo sean los 400 y no los 1.000, para que se lea igual
+  // que cualquier otro viaje; los dos lados se ven al abrirlo.
   const roma = viajes(VIAJE_DE_TRABAJO()).find((v) => v.clave === 'roma');
 
-  assert.equal(roma.total, 100000, 'los gastos siguen siendo los gastos');
+  assert.equal(roma.total, 40000, 'lo que salió del bolsillo');
+  assert.equal(roma.costo, 40000);
+  assert.equal(roma.gastos, 100000, 'el gasto bruto sigue estando, para desglosarlo');
   assert.equal(roma.ingresos, 60000);
-  assert.equal(roma.saldo, -40000, 'puso 400 € de su bolsillo');
+  assert.equal(roma.saldo, -40000);
   assert.equal(roma.mixto, true);
+  assert.equal(roma.aFavor, false);
+});
+
+test('si los reintegros superan a los gastos, el viaje te dejó plata y lo dice', () => {
+  // Ahí mostrarlo "en positivo" sería mentir: no te costó nada, te sobró.
+  const estado = estadoCon([
+    mov('300', 'viajes', 'Congreso'),
+    mov('500', 'trabajo', 'Congreso', TIPO_INGRESO),
+  ]);
+  const congreso = viajes(estado)[0];
+
+  assert.equal(congreso.aFavor, true);
+  assert.equal(congreso.total, -20000, 'con su signo');
+  assert.equal(congreso.saldo, 20000);
 });
 
 test('un viaje sin ingresos no inventa un saldo', () => {
@@ -137,11 +156,11 @@ test('un viaje sin ingresos no inventa un saldo', () => {
   assert.equal(soloGastos.ingresos, 0);
 });
 
-test('un ingreso con la etiqueta de un viaje NO baja su gasto', () => {
-  // La regla vieja, que sigue valiendo: el total de gastos es el total de
-  // gastos. Lo que se agrega es el otro número al lado, no una resta.
+test('el gasto bruto no se pierde: se puede seguir mirando aparte', () => {
+  // El costo pasó a ser neto (2026-09-19), pero lo que de verdad salió sigue
+  // estando: es lo que el desglose muestra al abrir el viaje.
   const roma = viajes(VIAJE_DE_TRABAJO()).find((v) => v.clave === 'roma');
-  assert.equal(roma.total, 100000);
+  assert.equal(roma.gastos, 100000);
 });
 
 
@@ -224,4 +243,79 @@ test('elegir una sugerencia no borra las etiquetas ya escritas', () => {
   assert.equal(conEtiquetaElegida('Roma, Trab', 'Trabajo'), 'Roma, Trabajo');
   assert.equal(conEtiquetaElegida('Trab', 'Trabajo'), 'Trabajo');
   assert.equal(conEtiquetaElegida('Roma,', 'Trabajo'), 'Roma, Trabajo');
+});
+
+
+// ── El desglose al abrir un grupo mixto (T-062) ─────────────────────────────
+
+test('la lista filtrada de un viaje mixto muestra gastos, ingresos y saldo', () => {
+  const html = dibujarLista({
+    estado: VIAJE_DE_TRABAJO(), mes: '2026-09', filtro: { comentario: 'Roma' },
+  }).replace(/\s+/g, ' ');
+
+  assert.match(html, /Gastos/);
+  assert.match(html, /1000,00/);
+  assert.match(html, /Ingresos/);
+  assert.match(html, /600,00/);
+  assert.match(html, /Saldo/);
+  assert.match(html, /-400,00/);
+});
+
+test('y NO muestra un total que sume gastos con ingresos', () => {
+  // 1.000 de gastos y 600 de reintegro darían 1.600: un número que no significa
+  // nada, y verlo arriba del desglose que lo desmiente es peor que no verlo.
+  const html = dibujarLista({
+    estado: VIAJE_DE_TRABAJO(), mes: '2026-09', filtro: { comentario: 'Roma' },
+  }).replace(/\s+/g, ' ');
+
+  assert.equal(/1600/.test(html), false);
+  assert.match(html, /3 movimientos/, 'pero sí dice cuántos son');
+});
+
+test('una lista de puros gastos no gana tres números que no dicen nada', () => {
+  // "Ingresos: 0" y un saldo que es el total en negativo empujan hacia abajo lo
+  // que sí importa.
+  const estado = estadoCon([mov('450', 'viajes', 'Colonia')]);
+  const html = dibujarLista({ estado, mes: '2026-09', filtro: { comentario: 'Colonia' } })
+    .replace(/\s+/g, ' ');
+
+  assert.equal(html.includes('Saldo'), false);
+  assert.match(html, /1 movimiento · <strong>450,00/, 'y conserva su total de siempre');
+});
+
+test('el buscador también desglosa cuando encuentra de los dos', () => {
+  const html = dibujarLista({ estado: VIAJE_DE_TRABAJO(), mes: '2026-09', busqueda: 'Roma' })
+    .replace(/\s+/g, ' ');
+
+  assert.match(html, /Saldo/);
+  assert.equal(/1600/.test(html), false);
+});
+
+test('el gasto por día de un viaje con reintegros también es neto', () => {
+  // Si el por día se calculara sobre el bruto, el mismo viaje diría que costó
+  // 400 arriba y 100 por día en cuatro días: dos números que no cierran.
+  let estado = estadoCon([
+    mov('800', 'viajes', 'Roma', TIPO_GASTO, '2026-09-01'),
+    mov('200', 'comida hecha', 'Roma', TIPO_GASTO, '2026-09-02'),
+    mov('600', 'trabajo', 'Roma', TIPO_INGRESO, '2026-09-03'),
+  ]);
+  estado = fijarFechasDeViaje(estado, 'roma', '2026-09-01', '2026-09-04');
+  const roma = viajes(estado)[0];
+
+  assert.equal(roma.dias, 4);
+  assert.equal(roma.total, 40000);
+  assert.equal(roma.porDia, 10000, '400 en 4 días, no 1.000 en 4 días');
+});
+
+test('un viaje que te dejó plata se muestra con su signo, no "en positivo"', () => {
+  // "En positivo" es para lo que costó. Si te sobró, decir que costó algo sería
+  // lo contrario de lo que pasó.
+  const estado = estadoCon([
+    mov('300', 'viajes', 'Congreso'),
+    mov('500', 'trabajo', 'Congreso', TIPO_INGRESO),
+  ]);
+  const html = dibujarViaje(viajes(estado)[0]).replace(/\s+/g, ' ');
+
+  assert.match(html, /class="importe ingreso"> 200,00/, 'verde y sin signo de menos');
+  assert.match(html, /te quedó a favor/);
 });

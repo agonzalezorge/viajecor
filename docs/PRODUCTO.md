@@ -786,8 +786,17 @@ es y qué número contesta su pregunta:
 - **mixto** → el **saldo**, y debajo los dos lados. Es el viaje de trabajo: lo
   que gastaste y lo que te reintegraron.
 
-Lo mismo vale para un **viaje** con ingresos, que muestra su saldo sin que el
-total de gastos deje de ser el total de gastos.
+**Un viaje con reintegros cuesta lo que quedaste poniendo** (T-062): 1.000 € de
+gastos con 600 € devueltos es un viaje de **400 €**, en positivo y del mismo
+color que los demás, para que se compare con ellos de un vistazo. Debajo dice
+cuánto se descontó. Solo cambia de signo y color el viaje que **te dejó plata**,
+donde "en positivo" sería mentir.
+
+**Los tres números —gastos, ingresos y saldo— se ven al abrirlo**, arriba de la
+lista de movimientos. Ahí y no en la tarjeta: la tarjeta contesta "¿cuánto me
+salió?" con un número; el desglose contesta "¿de qué se compone?" y es lo que se
+viene a buscar al abrirlo. En una lista de puros gastos ese desglose no aparece
+—"ingresos: 0" no dice nada— y el total de siempre sigue en su lugar.
 
 **Un movimiento con varias etiquetas suma en todos sus grupos**, así que estos
 totales no se pueden sumar entre sí: darían de más. La pantalla lo dice.

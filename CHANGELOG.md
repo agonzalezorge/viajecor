@@ -3,6 +3,26 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.15.1 — 2026-09-19
+
+### Cambiado
+- **Un viaje con reintegros ahora cuesta lo que quedaste poniendo.** Si gastaste
+  1.000 € y te devolvieron 600, el viaje sale **400 €**, en positivo y del mismo
+  color que los demás — así se compara con ellos de un vistazo. Antes mostraba el
+  saldo en negativo y parecía otra cosa.
+
+  **Los tres números se ven al abrirlo**: gastos, ingresos y saldo, arriba de la
+  lista de movimientos. Un viaje sin ingresos no gana números de más.
+
+  Si los reintegros superaron a los gastos, el viaje **te dejó plata** y se
+  muestra así, con su signo: ahí decir que costó algo sería lo contrario de lo
+  que pasó.
+
+### Arreglado
+- Al abrir un grupo con gastos e ingresos, arriba decía un total que **sumaba los
+  dos** (1.000 de gastos más 600 de reintegro daban 1.600). Ese número no
+  significaba nada y encima contradecía al desglose de abajo.
+
 ## 0.15.0 — 2026-09-19
 
 ### Agregado

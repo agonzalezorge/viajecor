@@ -71,13 +71,22 @@ test('los gastos sin comentario no se cuelan en ningún viaje', () => {
   assert.equal(viajes(ROMA())[0].total, 45000, 'se coló un gasto sin comentario');
 });
 
-test('un ingreso con el comentario del viaje no baja su gasto', () => {
+test('un ingreso con la etiqueta del viaje SÍ baja lo que el viaje costó', () => {
+  // Este test pedía lo contrario hasta el 2026-09-19. Lo dio vuelta el usuario
+  // después de ver la primera versión: con reintegros, "lo que costó el viaje"
+  // no son los 300 que pasaron por la tarjeta sino los 200 que quedó poniendo.
+  //
+  // Lo que NO cambió es que el gasto bruto sigue existiendo y se puede mirar:
+  // está en `gastos`, y es lo que se desglosa al abrir el viaje.
   const estado = estadoCon([
     mov({ monto: '300', rubro: 'viajes', comentario: 'Roma' }),
     mov({ monto: '100', rubro: 'regalos', comentario: 'Roma', tipo: TIPO_INGRESO }),
   ]);
+  const roma = viajes(estado)[0];
 
-  assert.equal(viajes(estado)[0].total, 30000, 'un ingreso no es un gasto del viaje');
+  assert.equal(roma.total, 20000, 'lo que salió del bolsillo');
+  assert.equal(roma.gastos, 30000, 'y el gasto bruto sigue estando');
+  assert.equal(roma.ingresos, 10000);
 });
 
 test('dos escrituras del mismo viaje siguen siendo dos, y se arreglan en T-025', () => {

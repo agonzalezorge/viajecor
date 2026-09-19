@@ -133,6 +133,50 @@ function totalDe(estado, movimientos) {
   ));
 }
 
+/**
+ * Los tres números de una lista filtrada que tiene gastos e ingresos — T-062.
+ *
+ * Lo pidió el usuario: al abrir un viaje de trabajo quiere ver arriba del todo
+ * cuánto entró, cuánto salió y el saldo. La tarjeta del viaje muestra un solo
+ * número —lo que costó— y este es el lugar donde se desarma.
+ *
+ * **Solo cuando hay de los dos.** En una lista de puros gastos, "ingresos: 0" y
+ * un saldo que es el total en negativo son dos números que no dicen nada y que
+ * empujan hacia abajo lo que sí importa.
+ */
+export function dibujarTotalesDeLoFiltrado(estado, movimientos) {
+  const base = monedaBaseDe(estado);
+  const gastos = movimientos.filter((m) => m.tipo === TIPO_GASTO);
+  const ingresos = movimientos.filter((m) => m.tipo !== TIPO_GASTO);
+  if (gastos.length === 0 || ingresos.length === 0) return '';
+
+  const salio = totalDe(estado, gastos);
+  const entro = totalDe(estado, ingresos);
+  const saldo = entro - salio;
+
+  return `
+    <section class="tarjeta totales" aria-label="Totales de lo que estás mirando">
+      <div class="total">
+        <span class="etiqueta">Gastos</span>
+        <span class="cifra gasto">${escapar(formatearEuros(salio, base))}</span>
+      </div>
+      <div class="total">
+        <span class="etiqueta">Ingresos</span>
+        <span class="cifra ingreso">${escapar(formatearEuros(entro, base))}</span>
+      </div>
+      <div class="total saldo">
+        <span class="etiqueta">Saldo</span>
+        <!-- El saldo lleva su signo en el número y no solo en el color: quien no
+             distingue el verde del rojo tiene que poder leer si terminó
+             poniendo plata o cobrándola. Es la misma regla del resumen del mes. -->
+        <span class="cifra ${saldo >= 0 ? 'ingreso' : 'gasto'}">
+          ${escapar(formatearEuros(saldo, base))}
+        </span>
+      </div>
+    </section>
+  `;
+}
+
 function dibujarMovimiento(estado, movimiento, vista) {
   const importe = importeDe(estado, movimiento);
   const esGasto = movimiento.tipo === TIPO_GASTO;
@@ -297,9 +341,13 @@ export function dibujarResultados(vista) {
       <ul class="movimientos">${dibujarMovimiento(vista.estado, m, vista)}</ul>
     </li>`).join('');
 
+  const desglose = dibujarTotalesDeLoFiltrado(vista.estado, encontrados);
+
   return `
-    <p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total, monedaBaseDe(vista.estado)))}</strong>
-    en total, en todos los meses.</p>
+    ${desglose
+      ? `<p class="cuantos suave">${cuantos}, en todos los meses.</p>${desglose}`
+      : `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total, monedaBaseDe(vista.estado)))}</strong>
+         en total, en todos los meses.</p>`}
     <ul class="resultados">${cuerpo}</ul>
   `;
 }
@@ -377,8 +425,15 @@ export function dibujarLista(vista) {
   // Con filtro se muestra el total de lo filtrado: es el número que se venía a
   // desarmar, y verlo repetido acá es la confirmación de que la lista de abajo
   // es de verdad lo que compone ese total.
+  // Con gastos e ingresos mezclados, el desglose de tres números reemplaza al
+  // total de arriba: sumar lo que entró con lo que salió da un número que no
+  // significa nada —1.000 de gastos y 600 de reintegro darían 1.600— y verlo
+  // arriba del desglose que lo desmiente es peor que no verlo (T-062).
+  const desglose = dibujarTotalesDeLoFiltrado(estado, delMes);
   const encabezado = filtrada
-    ? `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total, monedaBaseDe(estado)))}</strong></p>`
+    ? (desglose
+      ? `<p class="cuantos suave">${cuantos}</p>${desglose}`
+      : `<p class="cuantos suave">${cuantos} · <strong>${escapar(formatearEuros(total, monedaBaseDe(estado)))}</strong></p>`)
     : `<p class="cuantos suave">${cuantos} en ${escapar(formatearMes(mes))}.</p>`;
 
   return `

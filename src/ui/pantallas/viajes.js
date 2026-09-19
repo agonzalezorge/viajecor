@@ -65,13 +65,13 @@ export function dibujarViaje(viaje, base) {
               data-comentario="${escapar(viaje.comentario)}">
         <span class="rubro-cabeza">
           <span class="nombre">${escapar(viaje.comentario)}</span>
-          <!-- En un viaje mixto el número grande es el SALDO: en un viaje de
-               trabajo lo que se viene a mirar es si terminaste poniendo plata,
-               no cuánto pasó por tus manos. El detalle de los dos lados va
-               abajo, porque un saldo de cero puede ser "no gasté nada" o
-               "gasté mil y me devolvieron mil". -->
-          <span class="importe ${viaje.mixto && viaje.saldo >= 0 ? 'ingreso' : ''}">
-            ${escapar(formatearEuros(viaje.mixto ? viaje.saldo : viaje.total, base))}
+          <!-- El número grande es lo que el viaje COSTÓ, en positivo y del mismo
+               color que los demás, aunque haya tenido reintegros: así el viaje de
+               trabajo se compara con los otros de un vistazo (T-062). El único
+               caso con signo y color es el que te dejó plata, donde "en
+               positivo" sería mentir. Los dos lados se ven al abrirlo. -->
+          <span class="importe ${viaje.aFavor ? 'ingreso' : ''}">
+            ${escapar(formatearEuros(viaje.aFavor ? -viaje.total : viaje.total, base))}
           </span>
         </span>
       </button>
@@ -80,8 +80,8 @@ export function dibujarViaje(viaje, base) {
       </div>
       ${viaje.mixto ? `
       <div class="rubro-pie suave">
-        <span>${escapar(formatearEuros(viaje.total, base))} salieron ·
-        ${escapar(formatearEuros(viaje.ingresos, base))} entraron</span>
+        <span>${viaje.aFavor ? 'te quedó a favor, ya' : 'ya'} descontados
+        ${escapar(formatearEuros(viaje.ingresos, base))} que te devolvieron</span>
       </div>` : ''}
       <div class="rubro-pie suave">${porDia}</div>
       ${aviso}
