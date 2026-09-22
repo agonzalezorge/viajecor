@@ -661,9 +661,12 @@ movimientos —`I` es plata que entró al ahorro, `G` plata que salió— y la a
 suma. Así se puede ver cómo evolucionó, y no solo cuánto hay hoy.
 
 **Muestra:**
-- Cuánto hay **en cada moneda**, y dentro de cada una **cuánto puso cada uno**.
+- Cuánto hay **en cada moneda**, y dentro de cada una **cuánto tiene cada uno**.
   Las dos personas aparecen siempre, aunque una tenga cero: un cero dice "no
   tiene" y una fila que falta no dice nada.
+
+  **La pregunta es quién lo tiene, no de quién es** (T-069). La plata conjunta es
+  de los dos; lo que la columna contesta es dónde está guardada hoy.
 - El **historial** de movimientos, del más nuevo al más viejo.
 
 **No hay ningún total que junte las monedas, y no es algo que falte.** Sumarlas

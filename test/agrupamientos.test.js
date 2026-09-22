@@ -278,7 +278,7 @@ test('la fila de gastos fijos avisa cuando la etiqueta tiene su grupo propio', (
     desde: '2026-06', hasta: '2026-06', conGrupoPropio: true,
   });
   assert.match(html, /solo lo que "Casa" gastó en el rubro/);
-  assert.match(html, /otros grupos de gastos/);
+  assert.match(html, /otros grupos<\/strong>/);
 });
 
 test('sin grupo propio, la fila no dice nada de más', () => {

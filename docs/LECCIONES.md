@@ -1286,3 +1286,29 @@ más chica y la barra de abajo quedaba fuera de la vista.
   hace de verdad.** Este bug no lo iba a ver ningún test: el HTML era correcto,
   el CSS era válido y la función pura devolvía lo que debía. Hacía falta un
   navegador de 390 px intentando tocar un botón.
+
+
+## L-038 · Una pantalla que "no es de este perfil" se descartaba en silencio
+
+**Dónde apareció:** T-070, reportado por el usuario — *"está roto, no lleva a
+ningún lugar"*.
+
+`dibujarApp()` tiene una defensa sensata: si la pantalla pedida no pertenece al
+perfil en curso, dibuja la de inicio del perfil. Está pensada para un enlace
+viejo o para el perfil recordado de la visita anterior. Pero es **silenciosa**, y
+una defensa silenciosa no distingue un caso raro de un botón que alguien puso a
+propósito: los tres botones que llevaban a los ahorros desde la vida cotidiana
+quedaron mudos, y ninguno falló, ni avisó, ni rompió un test. Simplemente no
+pasaba nada al tocarlos.
+
+**Lo que deja.**
+
+- **Un fallback que no avisa convierte un bug en una nada.** Es peor que una
+  excepción: una excepción se ve. Cuando el destino era alcanzable y la app
+  decidió no ir, lo correcto era llevarlo —que es lo que ahora hace `irA()`— y no
+  volver callada al inicio.
+- **Si el mecanismo no sabe hacer algo, arreglarlo botón por botón es dejarlo
+  roto.** El usuario reportó uno; había tres. El que faltaba iba a nacer roto.
+- **Ningún test iba a encontrarlo**: las funciones puras devolvían el HTML
+  correcto, con el `data-pantalla` correcto. Lo que fallaba estaba entre el clic
+  y el dibujo. Otra para la lista de cosas que solo aparecen en un navegador.

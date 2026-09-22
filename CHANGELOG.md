@@ -3,6 +3,23 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.17.2 — 2026-09-22
+
+### Cambiado
+- En los ahorros conjuntos, la pregunta ahora es **"¿Quién lo tiene?"** y no "¿De
+  quién es?". La plata conjunta es de los dos; lo que la columna contesta es
+  dónde está guardada hoy.
+- El pie del mes dice **"Ver los otros grupos"**, sin "de gastos": desde que hay
+  grupos de ingresos y mixtos, el nombre viejo hacía pensar que esos no estaban
+  ahí.
+
+### Arreglado
+- **El botón "Ahorros conjuntos" del final del mes no llevaba a ningún lado.**
+  Se sacó de ahí —los ahorros ya tienen su pestaña arriba— y, de paso, se
+  arregló la causa: ir a una pantalla de otro perfil ahora cambia de perfil en
+  vez de no hacer nada. Los mismos botones en Datos y en el mes vacío también
+  estaban mudos, y ahora funcionan.
+
 ## 0.17.1 — 2026-09-19
 
 ### Cambiado

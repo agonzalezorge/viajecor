@@ -110,7 +110,7 @@ export function interpretarFilaDeAhorro(numero, celdas, monedas) {
     return decir(`no se reconoce la moneda "${crudo.moneda}"`);
   }
   if (personaDeLaPlanilla(crudo.persona) === null) {
-    return decir(`no dice de quién es: "${crudo.persona}"`);
+    return decir(`no dice quién lo tiene: "${crudo.persona}"`);
   }
   if (tipoDeLaPlanilla(crudo.tipo) === null) {
     return decir(`la columna I/G dice "${crudo.tipo}", que no es ni I ni G`);

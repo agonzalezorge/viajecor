@@ -215,6 +215,25 @@ test('el formulario dice "Entró" y "Salió", no "Ingreso" y "Gasto"', () => {
   assert.doesNotMatch(html, />Ingreso</);
 });
 
+test('el formulario pregunta quién lo TIENE, no de quién es', () => {
+  // T-069, a pedido del usuario. No es redacción: la plata conjunta es de los
+  // dos, y lo que la columna contesta es dónde está guardada hoy. "De quién es"
+  // invitaba a leer el total por persona como una división de la propiedad, que
+  // es justo lo que un ahorro conjunto no es.
+  const html = dibujarNuevoAhorro({ estado: estadoCon() });
+
+  assert.match(html, /¿Quién lo tiene\?/);
+  assert.doesNotMatch(html, /¿De quién es\?/);
+});
+
+test('y la pantalla de ahorros dice lo mismo: cuánto TIENE cada uno', () => {
+  const { estado } = cargar(estadoCon(), { persona: 'ALE' });
+  const html = dibujarAhorros({ estado });
+
+  assert.match(html, /cuánto tiene cada uno/);
+  assert.doesNotMatch(html, /cuánto puso cada uno/);
+});
+
 test('el formulario ofrece las dos personas y las monedas visibles', () => {
   const html = dibujarNuevoAhorro({ estado: estadoCon() });
 

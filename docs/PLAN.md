@@ -108,6 +108,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-065 | Instrucciones de la app | **Hecha** | T-047 |
 | T-067 | Arreglo: el color no llegaba, y reordenar rubros | **Hecha** | T-061 |
 | T-068 | Las tortas se ordenan como la lista de Ajustes | **Hecha** | T-067 |
+| T-069 | La pregunta es quién lo tiene, no de quién es | **Hecha** | T-040 |
+| T-070 | Arreglo: el botón que no llevaba a ningún lado | **Hecha** | T-040 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3214,3 +3216,46 @@ y, sin `flex-wrap`, **ensanchaban la página**: el navegador respondía achicand
 toda la app un 12% y dejando la barra fuera de la pantalla. Lo introdujo T-067 al
 sumar ↑ y ↓. Arreglado con `flex-wrap: wrap`, medido antes (437 px) y después
 (390 px). Ver L-037.
+
+
+### T-069 · La pregunta es quién lo tiene, no de quién es — **Hecha** (2026-09-22)
+
+**Lo pidió el usuario:** *"en ahorros conjuntos, quiero que la pregunta no sea de
+quién es, sino quién lo tiene"*.
+
+No es un cambio de redacción, y por eso se hizo en los cuatro lugares y no solo
+en el `<label>`: la plata de un ahorro conjunto **es de los dos**, y lo que esa
+columna contesta es dónde está guardada hoy. "De quién es" invitaba a leer el
+total por persona como un reparto de la propiedad. Cambiaron el formulario
+(*"¿Quién lo tiene?"*), la bajada de la pantalla (*"cuánto tiene cada uno"*) y los
+dos mensajes de error de importación (*"no dice quién lo tiene"*).
+
+
+### T-070 · El botón que no llevaba a ningún lado, y los grupos sin "de gastos" — **Hecha** (2026-09-22)
+
+**Lo reportó el usuario:** *"en mes, abajo del todo, sigue habiendo un botón que
+dice ahorros conjuntos, pero está roto, no lleva a ningún lugar"*, y *"el botón
+dice ver los otros grupos de gastos. Debería decir ver los otros grupos. Porque
+como ya sabemos, también hay grupos de ingresos ahora"*.
+
+**El bug, reproducido antes de tocar nada** (el clic no hacía absolutamente
+nada): `irA()` ponía la pantalla pedida, `dibujarApp()` veía que no era del
+perfil en curso —los ahorros son otro perfil— y **caía a la pantalla de inicio,
+en silencio**. El botón no estaba mal escrito: el mecanismo no sabía cruzar de
+perfil. Por eso el arreglo está en `irA()` y no en el botón; si no, el próximo
+enlace que cruce nace roto igual. Ver L-038.
+
+**El botón se saca igual**, como pidió: los ahorros ya tienen su pestaña arriba,
+y el pie del resumen es para lo que no la tiene. El de Datos, que ahora sí
+funciona, se queda.
+
+**"Ver los otros grupos"**, sin "de gastos", y lo mismo en el nombre de la
+pantalla, en el botón de Datos y en el aviso de la fila de gastos fijos: desde
+T-060 un grupo puede ser de ingresos o mixto, y el nombre viejo hacía pensar que
+esos no estaban ahí.
+
+**Mutaciones:** 4 sembradas sobre el cruce de perfil, 4 muertas.
+
+**Recorrido en el navegador:** el pie del mes ya no ofrece los ahorros y dice
+"Ver los otros grupos"; el botón de Datos cambia de perfil solo y aterriza en la
+pantalla; el formulario pregunta "¿Quién lo tiene?".

@@ -221,7 +221,7 @@ test('cada fila que no entra sale con su número, lo que decía y por qué', () 
   // arreglar (RN-05, L-001).
   const casos = [
     [celdas({ B: 45896, D: 'YENES', E: 50, F: 'ALE', G: 'I' }), /no se reconoce la moneda "YENES"/],
-    [celdas({ B: 45896, D: 'EUROS', E: 10, F: '', G: 'I' }), /no dice de quién es/],
+    [celdas({ B: 45896, D: 'EUROS', E: 10, F: '', G: 'I' }), /no dice quién lo tiene/],
     [celdas({ B: 45896, D: 'EUROS', E: 10, F: 'ALE', G: 'X' }), /no es ni I ni G/],
     [celdas({ B: 45896, D: 'EUROS', E: '', F: 'ALE', G: 'I' }), /no tiene monto/],
   ];

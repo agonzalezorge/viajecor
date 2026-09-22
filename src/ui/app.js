@@ -189,7 +189,7 @@ registrarPantalla('evolucion', {
 // Fuera de la barra, como monedas y cambios: se llega desde Datos. No es algo
 // que se haga todos los días, es algo que se hace cuando un total no cuadra.
 registrarPantalla('grupos', {
-  etiqueta: 'Otros grupos de gastos',
+  etiqueta: 'Otros grupos',
   icono: '◇',
   conMes: false,
   enBarra: false,
@@ -571,7 +571,26 @@ export function irAlPerfil(vista, clave) {
 }
 
 export function irA(vista, nombre) {
-  if (!pantalla(nombre)) return vista;
+  const destino = pantalla(nombre);
+  if (!destino) return vista;
+
+  // ── Ir a una pantalla de OTRO perfil cambia el perfil — T-070 ──────────────
+  //
+  // Sin esto, el botón queda mudo: `irA` pone la pantalla, `dibujarApp()` ve que
+  // no es del perfil en curso y cae a la de inicio, y el usuario toca y no pasa
+  // nada. Era exactamente el bug que reportó con "Ahorros conjuntos" desde el
+  // mes ("está roto, no lleva a ningún lugar"). Se arregla acá y no botón por
+  // botón porque el que falla es el mecanismo: cualquier enlace nuevo que cruce
+  // de perfil habría nacido roto igual.
+  const perfilActual = vista.perfil ?? PERFIL_COTIDIANA;
+  if (!esDelPerfil(destino, perfilActual)) {
+    const suyo = perfilDe(destino);
+    return irA({
+      ...vista,
+      perfil: suyo,
+      estado: { ...vista.estado, preferencias: { ...vista.estado?.preferencias, perfil: suyo } },
+    }, nombre);
+  }
 
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga

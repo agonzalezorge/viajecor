@@ -222,15 +222,11 @@ export function dibujarIrAEvolucion() {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
         Ver el gasto por viaje
       </button>
+      <!-- "Grupos" a secas y no "grupos de gastos": desde T-060 un grupo puede
+           ser de ingresos (una beca, un alquiler que cobrás) o mixto, y el
+           nombre viejo hacía pensar que esos no estaban ahí. -->
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
-        Ver los otros grupos de gastos
-      </button>
-      <!-- Los ahorros van acá abajo, con los otros historiales, y no en la barra
-           de navegación: no son gastos ni ingresos del mes —no entran en ningún
-           total de esta pantalla— y se miran una vez por mes. Lo pidió el
-           usuario así (2026-08-31). -->
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
-        Ahorros conjuntos
+        Ver los otros grupos
       </button>
     </section>
   `;

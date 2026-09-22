@@ -158,6 +158,33 @@ test('cambiar de perfil lleva a su pantalla de inicio y lo recuerda', () => {
   assert.equal(enAhorros.estado.preferencias.perfil, PERFIL_AHORROS);
 });
 
+test('ir a una pantalla de otro perfil cambia el perfil, en vez de no hacer nada', () => {
+  // El bug que reportó el usuario (2026-09-22): el botón "Ahorros conjuntos"
+  // del resumen "está roto, no lleva a ningún lugar". `irA` ponía la pantalla,
+  // `dibujarApp()` veía que no era del perfil en curso y caía a la de inicio.
+  const vista = { pantalla: 'mes', perfil: PERFIL_COTIDIANA, estado: { preferencias: {} } };
+  const enAhorros = irA(vista, 'ahorros');
+
+  assert.equal(enAhorros.pantalla, 'ahorros');
+  assert.equal(enAhorros.perfil, PERFIL_AHORROS, 'se quedó en el perfil viejo y la pantalla no se va a dibujar');
+  assert.equal(enAhorros.estado.preferencias.perfil, PERFIL_AHORROS, 'y se recuerda, como al tocar el selector');
+});
+
+test('y al revés también: desde ahorros se vuelve a una pantalla cotidiana', () => {
+  const vista = { pantalla: 'ahorros', perfil: PERFIL_AHORROS, estado: { preferencias: {} } };
+
+  assert.equal(irA(vista, 'viajes').perfil, PERFIL_COTIDIANA);
+});
+
+test('ir a una pantalla del mismo perfil no lo toca', () => {
+  const vista = { pantalla: 'mes', perfil: PERFIL_COTIDIANA, estado: { preferencias: {} } };
+
+  assert.equal(irA(vista, 'movimientos').perfil, PERFIL_COTIDIANA);
+  // `datos` está en los dos: quedarse donde uno está es lo correcto.
+  assert.equal(irA(vista, 'datos').perfil, PERFIL_COTIDIANA);
+  assert.equal(irA({ ...vista, pantalla: 'ahorros', perfil: PERFIL_AHORROS }, 'datos').perfil, PERFIL_AHORROS);
+});
+
 test('un perfil que no existe no cambia nada', () => {
   const vista = { pantalla: 'mes', perfil: PERFIL_COTIDIANA, estado: { preferencias: {} } };
   assert.equal(irAlPerfil(vista, 'inventado'), vista);

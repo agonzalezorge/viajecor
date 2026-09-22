@@ -87,7 +87,7 @@ test('una etiqueta que es SOLO de gastos fijos no lleva ningún aviso', () => {
 
 test('un viaje que pagó una factura tampoco arrastra a la etiqueta fuera de acá', () => {
   // Un viaje tiene grupo propio en la pantalla de viajes, no en otros grupos:
-  // el aviso de la fila nombra "otros grupos de gastos", así que no puede
+  // el aviso de la fila nombra "otros grupos", así que no puede
   // aparecer acá. La parte del rubro se sigue viendo igual.
   const estado = estadoCon([
     mov({ monto: '40', fecha: '2025-10-05', comentario: 'Roma' }),

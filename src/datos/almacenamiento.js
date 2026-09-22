@@ -256,7 +256,7 @@ export function migrarEstado(guardado, incidencias = []) {
   // sesenta por culpa de ese, no.
   estado.ahorros = leerLista(guardado.ahorros, 'ahorros', incidencias, (a) => {
     if (a === null || typeof a !== 'object') throw new Error('no es un movimiento de ahorro');
-    if (personaDeLaPlanilla(a.persona) === null) throw new Error('no dice de quién es');
+    if (personaDeLaPlanilla(a.persona) === null) throw new Error('no dice quién lo tiene');
     if (tipoDeLaPlanilla(a.tipo) === null) throw new Error('no dice si la plata entró o salió');
     if (!Number.isInteger(a.monto) || a.monto === 0) throw new Error('el monto no es un entero distinto de cero');
     if (typeof a.moneda !== 'string' || !/^[A-Za-z]{3}$/.test(a.moneda.trim())) {

@@ -100,7 +100,7 @@ export function dibujarTambienEnOtrosGrupos(grupo) {
     <p class="suave nota">
       Acá se suma solo lo que "${escapar(grupo.comentario)}" gastó en el rubro
       gastos fijos. Esa etiqueta junta también gastos de otros rubros: el total
-      completo está en <strong>otros grupos de gastos</strong>.
+      completo está en <strong>otros grupos</strong>.
     </p>
   `;
 }

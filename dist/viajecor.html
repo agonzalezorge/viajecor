@@ -1439,7 +1439,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.17.1";
+globalThis.__VIAJECOR_VERSION__ = "0.17.2";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -5143,7 +5143,7 @@ function migrarEstado(guardado, incidencias = []) {
   // sesenta por culpa de ese, no.
   estado.ahorros = leerLista(guardado.ahorros, 'ahorros', incidencias, (a) => {
     if (a === null || typeof a !== 'object') throw new Error('no es un movimiento de ahorro');
-    if (personaDeLaPlanilla(a.persona) === null) throw new Error('no dice de quién es');
+    if (personaDeLaPlanilla(a.persona) === null) throw new Error('no dice quién lo tiene');
     if (tipoDeLaPlanilla(a.tipo) === null) throw new Error('no dice si la plata entró o salió');
     if (!Number.isInteger(a.monto) || a.monto === 0) throw new Error('el monto no es un entero distinto de cero');
     if (typeof a.moneda !== 'string' || !/^[A-Za-z]{3}$/.test(a.moneda.trim())) {
@@ -7703,7 +7703,7 @@ function interpretarFilaDeAhorro(numero, celdas, monedas) {
     return decir(`no se reconoce la moneda "${crudo.moneda}"`);
   }
   if (personaDeLaPlanilla(crudo.persona) === null) {
-    return decir(`no dice de quién es: "${crudo.persona}"`);
+    return decir(`no dice quién lo tiene: "${crudo.persona}"`);
   }
   if (tipoDeLaPlanilla(crudo.tipo) === null) {
     return decir(`la columna I/G dice "${crudo.tipo}", que no es ni I ni G`);
@@ -9613,15 +9613,11 @@ function dibujarIrAEvolucion() {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="viajes">
         Ver el gasto por viaje
       </button>
+      <!-- "Grupos" a secas y no "grupos de gastos": desde T-060 un grupo puede
+           ser de ingresos (una beca, un alquiler que cobrás) o mixto, y el
+           nombre viejo hacía pensar que esos no estaban ahí. -->
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
-        Ver los otros grupos de gastos
-      </button>
-      <!-- Los ahorros van acá abajo, con los otros historiales, y no en la barra
-           de navegación: no son gastos ni ingresos del mes —no entran en ningún
-           total de esta pantalla— y se miran una vez por mes. Lo pidió el
-           usuario así (2026-08-31). -->
-      <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
-        Ahorros conjuntos
+        Ver los otros grupos
       </button>
     </section>
   `;
@@ -11273,7 +11269,7 @@ function dibujarNuevoAhorro(vista) {
       </label>
 
       <label class="campo">
-        <span>¿De quién es?</span>
+        <span>¿Quién lo tiene?</span>
         <select name="persona">${opciones(PERSONAS, borrador.persona)}</select>
       </label>
 
@@ -11324,8 +11320,14 @@ function dibujarNuevoAhorro(vista) {
 // ── Qué muestra, en el orden en que se pregunta ─────────────────────────────
 //
 //   1. Cuánto hay en cada moneda.
-//   2. Dentro de cada moneda, cuánto puso cada uno. Es para lo que existe la
+//   2. Dentro de cada moneda, cuánto tiene cada uno. Es para lo que existe la
 //      hoja: los ahorros son de dos.
+//
+//      **La pregunta es quién lo TIENE, no de quién ES** (T-069, a pedido del
+//      usuario). No es un matiz de redacción: la plata conjunta es de los dos, y
+//      lo que la columna contesta es dónde está guardada hoy — quién la tiene en
+//      la mano. "De quién es" invitaba a leer el total por persona como una
+//      división de la propiedad, que es justo lo que un ahorro conjunto no es.
 //   3. El historial, del movimiento más nuevo al más viejo.
 //
 // El detalle se muestra tal como se escribió y **no agrupa nada**: el usuario
@@ -11346,7 +11348,7 @@ function importeDeAhorro(minimas, moneda, monedas) {
   return formatearEnSuMoneda(minimas, moneda, monedas);
 }
 
-/** El bloque de una moneda: cuánto hay, y cuánto puso cada uno. */
+/** El bloque de una moneda: cuánto hay, y cuánto tiene cada uno. */
 function dibujarMonedaDeAhorro(bloque, monedas) {
   const personas = bloque.personas.map((p) => `
     <div class="rubro-pie suave">
@@ -11451,7 +11453,7 @@ function dibujarAhorros(vista) {
   return `
     <section class="tarjeta">
       <h2>Ahorros conjuntos</h2>
-      <p class="suave nota">Cuánto hay en cada moneda, y cuánto puso cada uno.
+      <p class="suave nota">Cuánto hay en cada moneda, y cuánto tiene cada uno.
       <strong>No se suman entre sí</strong>: pasar pesos a euros al cambio de hoy
       daría un número que cambia solo todos los días y que no existe hasta que la
       plata se cambie de verdad.</p>
@@ -11965,7 +11967,7 @@ function dibujarTambienEnOtrosGrupos(grupo) {
     <p class="suave nota">
       Acá se suma solo lo que "${escapar(grupo.comentario)}" gastó en el rubro
       gastos fijos. Esa etiqueta junta también gastos de otros rubros: el total
-      completo está en <strong>otros grupos de gastos</strong>.
+      completo está en <strong>otros grupos</strong>.
     </p>
   `;
 }
@@ -13018,7 +13020,7 @@ function dibujarDatos(vista) {
         Gasto por viaje
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
-        Otros grupos de gastos
+        Otros grupos
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
         Ahorros conjuntos
@@ -14270,7 +14272,7 @@ registrarPantalla('evolucion', {
 // Fuera de la barra, como monedas y cambios: se llega desde Datos. No es algo
 // que se haga todos los días, es algo que se hace cuando un total no cuadra.
 registrarPantalla('grupos', {
-  etiqueta: 'Otros grupos de gastos',
+  etiqueta: 'Otros grupos',
   icono: '◇',
   conMes: false,
   enBarra: false,
@@ -14652,7 +14654,26 @@ function irAlPerfil(vista, clave) {
 }
 
 function irA(vista, nombre) {
-  if (!pantalla(nombre)) return vista;
+  const destino = pantalla(nombre);
+  if (!destino) return vista;
+
+  // ── Ir a una pantalla de OTRO perfil cambia el perfil — T-070 ──────────────
+  //
+  // Sin esto, el botón queda mudo: `irA` pone la pantalla, `dibujarApp()` ve que
+  // no es del perfil en curso y cae a la de inicio, y el usuario toca y no pasa
+  // nada. Era exactamente el bug que reportó con "Ahorros conjuntos" desde el
+  // mes ("está roto, no lleva a ningún lugar"). Se arregla acá y no botón por
+  // botón porque el que falla es el mecanismo: cualquier enlace nuevo que cruce
+  // de perfil habría nacido roto igual.
+  const perfilActual = vista.perfil ?? PERFIL_COTIDIANA;
+  if (!esDelPerfil(destino, perfilActual)) {
+    const suyo = perfilDe(destino);
+    return irA({
+      ...vista,
+      perfil: suyo,
+      estado: { ...vista.estado, preferencias: { ...vista.estado?.preferencias, perfil: suyo } },
+    }, nombre);
+  }
 
   // El aviso de "guardado" y el error de validación son de un momento, no del
   // estado: si sobrevivieran a cambiar de pantalla, alguien volvería a la carga

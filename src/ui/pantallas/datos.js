@@ -208,7 +208,7 @@ export function dibujarDatos(vista) {
         Gasto por viaje
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
-        Otros grupos de gastos
+        Otros grupos
       </button>
       <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
         Ahorros conjuntos

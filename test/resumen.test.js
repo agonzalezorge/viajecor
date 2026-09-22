@@ -343,3 +343,28 @@ test('el resumen no contiene ninguna dirección de internet (RN-06)', () => {
   assert.equal(/https?:\/\//.test(dibujarResumen({ estado, mes: MES })), false);
 });
 
+
+
+// ── Los botones del pie del resumen (T-070) ─────────────────────────────────
+
+import { dibujarIrAEvolucion } from '../src/ui/pantallas/resumen.js';
+
+test('el pie no ofrece los ahorros: ya están en su perfil y el botón estaba roto', () => {
+  // Lo reportó el usuario (2026-09-22): "sigue habiendo un botón que dice
+  // ahorros conjuntos, pero está roto, no lleva a ningún lugar". El mecanismo
+  // que lo rompía se arregló aparte (T-070, `irA` cruza de perfil); el botón se
+  // saca igual porque los ahorros tienen su propia pestaña arriba.
+  const html = dibujarIrAEvolucion();
+
+  assert.doesNotMatch(html, /Ahorros conjuntos/);
+  assert.doesNotMatch(html, /data-pantalla="ahorros"/);
+});
+
+test('los grupos son "los otros grupos", sin "de gastos"', () => {
+  // Desde T-060 un grupo puede ser de ingresos o mixto. El nombre viejo hacía
+  // pensar que esos no estaban ahí.
+  const html = dibujarIrAEvolucion();
+
+  assert.match(html, /Ver los otros grupos\s*<\/button>/);
+  assert.doesNotMatch(html, /otros grupos de gastos/);
+});

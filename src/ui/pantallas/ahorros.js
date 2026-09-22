@@ -11,8 +11,14 @@
 // ── Qué muestra, en el orden en que se pregunta ─────────────────────────────
 //
 //   1. Cuánto hay en cada moneda.
-//   2. Dentro de cada moneda, cuánto puso cada uno. Es para lo que existe la
+//   2. Dentro de cada moneda, cuánto tiene cada uno. Es para lo que existe la
 //      hoja: los ahorros son de dos.
+//
+//      **La pregunta es quién lo TIENE, no de quién ES** (T-069, a pedido del
+//      usuario). No es un matiz de redacción: la plata conjunta es de los dos, y
+//      lo que la columna contesta es dónde está guardada hoy — quién la tiene en
+//      la mano. "De quién es" invitaba a leer el total por persona como una
+//      división de la propiedad, que es justo lo que un ahorro conjunto no es.
 //   3. El historial, del movimiento más nuevo al más viejo.
 //
 // El detalle se muestra tal como se escribió y **no agrupa nada**: el usuario
@@ -35,7 +41,7 @@ export function importeDeAhorro(minimas, moneda, monedas) {
   return formatearEnSuMoneda(minimas, moneda, monedas);
 }
 
-/** El bloque de una moneda: cuánto hay, y cuánto puso cada uno. */
+/** El bloque de una moneda: cuánto hay, y cuánto tiene cada uno. */
 export function dibujarMonedaDeAhorro(bloque, monedas) {
   const personas = bloque.personas.map((p) => `
     <div class="rubro-pie suave">
@@ -140,7 +146,7 @@ export function dibujarAhorros(vista) {
   return `
     <section class="tarjeta">
       <h2>Ahorros conjuntos</h2>
-      <p class="suave nota">Cuánto hay en cada moneda, y cuánto puso cada uno.
+      <p class="suave nota">Cuánto hay en cada moneda, y cuánto tiene cada uno.
       <strong>No se suman entre sí</strong>: pasar pesos a euros al cambio de hoy
       daría un número que cambia solo todos los días y que no existe hasta que la
       plata se cambie de verdad.</p>

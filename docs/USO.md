@@ -479,7 +479,7 @@ uno**. Abajo, el historial: `+` es plata que entró al ahorro, `−` plata que
 salió.
 
 **Para cargar uno nuevo**, el botón *"Cargar en ahorros conjuntos"*. Elegís si la
-plata **entró** o **salió** del ahorro, el monto y su moneda, de quién es, la
+plata **entró** o **salió** del ahorro, el monto y su moneda, quién lo tiene, la
 fecha, y —si querés— un detalle y una etiqueta. Al guardar, el formulario se
 queda listo para el siguiente con la misma fecha y la misma persona.
 

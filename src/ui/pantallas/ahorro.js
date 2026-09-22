@@ -196,7 +196,7 @@ export function dibujarNuevoAhorro(vista) {
       </label>
 
       <label class="campo">
-        <span>¿De quién es?</span>
+        <span>¿Quién lo tiene?</span>
         <select name="persona">${opciones(PERSONAS, borrador.persona)}</select>
       </label>
 
