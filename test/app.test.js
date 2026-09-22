@@ -24,12 +24,11 @@ import {
   dibujarPerfiles,
   irAlPerfil,
   esDelPerfil,
-  PERFIL_COTIDIANA,
-  PERFIL_AHORROS,
 } from '../src/ui/app.js';
 
 import { mesAnterior, mesSiguiente, mesDe, hoy } from '../src/core/modelo.js';
 import { intentarGuardar } from '../src/ui/pantallas/movimiento.js';
+import { PERFIL_COTIDIANA, PERFIL_AHORROS } from '../src/core/perfiles.js';
 import { estadoInicial } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
 
@@ -267,7 +266,7 @@ test('la pestaña actual se marca, y solo una', () => {
 test('están las secciones previstas, la carga y los tipos de cambio', () => {
   assert.deepEqual(
     pantallasRegistradas().map((p) => p.nombre),
-    ['mes', 'movimientos', 'datos', 'evolucion', 'grupos', 'ahorros', 'nuevo-ahorro', 'viajes', 'etiquetas', 'monedas', 'cambios', 'moneda-base', 'instrucciones', 'rubros', 'ajustes', 'nuevo']
+    ['mes', 'movimientos', 'datos', 'evolucion', 'grupos', 'ahorros', 'nuevo-ahorro', 'mis-ahorros', 'nuevo-mi-ahorro', 'viajes', 'etiquetas', 'monedas', 'cambios', 'moneda-base', 'instrucciones', 'rubros', 'ajustes', 'nuevo']
   );
 });
 

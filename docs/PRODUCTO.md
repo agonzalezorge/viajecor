@@ -274,6 +274,8 @@ qué existe.
 | CU-19 | Editar los rubros | **Hecho** (T-048) |
 | CU-20 | Elegir la moneda base | **Hecho** (T-050) |
 | CU-21 | Entender la app sin que nadie te la explique | **Hecho** (T-065) |
+| CU-22 | Prender y apagar las pestañas de la app | **Hecho** (T-071) |
+| CU-23 | Saber dónde está la plata que tengo guardada | **Hecho** (T-072) |
 
 ---
 
@@ -977,3 +979,62 @@ La versión vive en `VERSION` (un archivo con una sola línea), se muestra dentr
 la app y se escribe en cada archivo exportado. **Se consulta ese archivo antes de
 publicar; no se decide de memoria.** Cada cambio de versión se anota en
 `CHANGELOG.md`.
+
+
+### CU-22 — Prender y apagar las pestañas de la app
+
+**Como** alguien que no usa todas las partes de Viajecor,
+**quiero** sacar de la vista las que no me sirven,
+**para** que la app sea la app que yo uso y no una con pestañas vacías.
+
+**Dónde:** Ajustes → *Pestañas*.
+
+**Muestra** cada parte con un botón para prenderla o apagarla, y —si tiene
+movimientos cargados— **cuántos esconde apagarla**.
+
+**La regla que sostiene todo lo demás: apagar no borra.** Los movimientos quedan
+guardados, el respaldo se los sigue llevando, y al volver a prenderla está todo.
+El número está justamente para que eso se pueda creer: quien apaga una pestaña y
+ve desaparecer once movimientos no tiene forma de saber si los perdió.
+
+**La vida cotidiana no se puede apagar**: es la app. Apagarla dejaría la pantalla
+vacía y sin ningún lugar desde donde volver.
+
+**Qué viene prendido de fábrica:** la vida cotidiana y los ahorros conjuntos. Mis
+ahorros viene apagada — quien abre la app por primera vez ve lo de siempre.
+
+**Se guarda con los datos** y viaja en el respaldo: es una decisión del usuario,
+no una preferencia del aparato. Se guarda **solo lo que él eligió**: una pestaña
+que nunca tocó queda con su valor de fábrica, y así cambiar ese valor más
+adelante no queda pisado por un respaldo viejo.
+
+
+### CU-23 — Saber dónde está la plata que tengo guardada
+
+**Como** alguien con plata repartida entre bancos y plataformas,
+**quiero** anotarla y verla junta,
+**para** saber cuánto tengo y en qué monedas sin abrir cinco apps.
+
+**Dónde:** la pestaña *Mis ahorros* (se prende en Ajustes → Pestañas).
+
+**Muestra:**
+- Cuánto hay **en cada moneda**, y dentro de cada una **en qué cuenta está**.
+- El **historial** de movimientos, del más nuevo al más viejo. `+` es plata que
+  entró a la cuenta y `−` plata que salió.
+
+**Es un historial, no una foto de saldos.** Se anota lo que entra y lo que sale,
+como un extracto, y la app suma. Así se ve cómo evolucionó, y corregir un error
+es anotar el movimiento que faltaba en vez de pisar un número.
+
+**La cuenta se escribe a mano** —el banco, la plataforma, "plazo fijo"— y la app
+sugiere las que ya usaste. No hay lista que mantener: las cuentas de alguien no
+las puede saber la app, y darlas de alta en otra pantalla antes de poder anotar
+nada sería mantenimiento para algo que se escribe dos veces por año. Escribirla
+distinto no la parte en dos: *Santander* y *santander* son la misma (RN-03).
+
+**No hay ningún total que junte las monedas**, por lo mismo que en los ahorros
+conjuntos: convertir inventa un número que cambia solo todos los días.
+
+**No se mezcla con nada:** no entra en el saldo del mes, ni en la evolución, ni
+en los rubros. Tampoco se mezcla con los ahorros conjuntos, que son otro
+registro.

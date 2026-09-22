@@ -3,6 +3,32 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.18.0 — 2026-09-22
+
+### Agregado
+- **Las pestañas de arriba se prenden y se apagan**, en Ajustes → *Pestañas*. Si
+  no compartís ahorros con nadie, podés sacar *Ahorros conjuntos* de la vista.
+
+  **Apagar no borra nada**: los movimientos quedan guardados, el respaldo se los
+  sigue llevando y vuelven al prenderla. La pantalla te dice cuántos esconde
+  antes de que lo hagas. La elección viaja en el respaldo, así que se mantiene al
+  cambiar de teléfono.
+
+- **Mis ahorros**, una pestaña nueva para la plata que tenés guardada y no usás
+  en el mes: en qué banco, en qué plataforma, en qué moneda. **Viene apagada**;
+  se prende en Ajustes → *Pestañas*.
+
+  Funciona como los ahorros conjuntos: anotás lo que entra y lo que sale, como en
+  un extracto, y la app suma. La cuenta se escribe a mano y te sugiere las que ya
+  usaste; escribirla distinto la segunda vez no la parte en dos. **Cada moneda va
+  por separado y nunca se convierte.**
+
+### Cambiado
+- La sección 5 de las Instrucciones ahora explica las dos pestañas de ahorro, y
+  hay una nueva sobre prender y apagar pestañas.
+- Los avisos de datos que no se pudieron leer estaban mal escritos en singular
+  ("Un registro… no se pudieron leer").
+
 ## 0.17.2 — 2026-09-22
 
 ### Cambiado

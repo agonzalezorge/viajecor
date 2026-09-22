@@ -110,6 +110,8 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-068 | Las tortas se ordenan como la lista de Ajustes | **Hecha** | T-067 |
 | T-069 | La pregunta es quién lo tiene, no de quién es | **Hecha** | T-040 |
 | T-070 | Arreglo: el botón que no llevaba a ningún lado | **Hecha** | T-040 |
+| T-071 | Las pestañas se prenden y se apagan | **Hecha** | T-046 |
+| T-072 | Mis ahorros: dónde está la plata que no uso | **Hecha** | T-071 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3259,3 +3261,84 @@ esos no estaban ahí.
 **Recorrido en el navegador:** el pie del mes ya no ofrece los ahorros y dice
 "Ver los otros grupos"; el botón de Datos cambia de perfil solo y aterriza en la
 pantalla; el formulario pregunta "¿Quién lo tiene?".
+
+
+### T-071 · Las pestañas se prenden y se apagan — **Hecha** (2026-09-22)
+
+**Lo pidió el usuario:** *"quisiera que toda la pestaña de ahorros conjuntos
+pudiera ser activable o desactivable desde la sección de ajustes… que de forma
+predeterminada venga activada, pero que se pueda desactivar. Eso debería ser un
+dato que se descargue junto con los respaldos"*.
+
+Se hizo como pidió: **se guarda con los datos y viaja en el respaldo**, porque es
+una decisión suya y no una preferencia del aparato. El porqué de guardar solo las
+decisiones explícitas —y no los tres valores— está en ADR-055.
+
+**Cuáles existen y cuáles están prendidos se mudó a `core/perfiles.js`**, que es
+lógica pura: qué pestañas quiere ver el usuario es un dato, no una decisión de la
+interfaz.
+
+**Lo que se cuidó, que es una sola cosa: apagar no borra.** Ajustes dice cuántos
+movimientos esconde y que vuelven al prenderla. Él eligió esa opción entre las
+dos que se le ofrecieron.
+
+**Los tres cabos sueltos que aparecieron al hacerlo**, todos con test:
+- El perfil apagado podía quedar guardado como "dónde estaba": al abrir, la app
+  caía a otra pantalla sin decir por qué (L-038 otra vez). Ahora `prenderPerfil()`
+  te devuelve a la vida cotidiana.
+- Los botones que llevan a un perfil apagado no se dibujan, y `irA()` tampoco
+  deja entrar por enlace: sería volver al botón mudo de T-070.
+- Con un solo perfil prendido, el selector de arriba no se dibuja: un botón único
+  no elige nada.
+
+**Mutaciones:** 11 sembradas. Cuatro sobrevivieron y todas eran información:
+- Las dos guardas de "la cotidiana no se apaga" —la de leer y la de escribir— se
+  tapaban entre sí. La que importa es la de leer: el respaldo lo escribe
+  cualquiera, y un `{ cotidiana: false }` dejaría la app sin ninguna pestaña. Se
+  les escribió un test a cada una.
+- Volver a la cotidiana al **prender** un perfil (y no solo al apagar el que
+  estabas usando) no rompía ningún test, y es un error: quien está en los ahorros
+  y prende una pestaña no pidió que lo mudaran.
+- Pisar las otras decisiones al guardar una no se podía distinguir con un solo
+  perfil apagable. Se mató con el segundo, en T-072.
+
+**Recorrido en el navegador:** se cargan dos ahorros, Ajustes avisa que apagar
+esconde 2 movimientos, se apaga, el selector de arriba desaparece, el botón de
+Datos que llevaba ahí deja de dibujarse, sobrevive a recargar **con los dos
+movimientos intactos en el almacenamiento**, y al prenderla vuelven los 800 €.
+
+
+### T-072 · Mis ahorros: dónde está la plata que no uso — **Hecha** (2026-09-22)
+
+**Lo pidió el usuario:** *"una tercera pestaña que se llamara ahorros y que me
+permitiera indicar dónde están guardados ahorros que tengo… para dinero que tengo
+en distintas cuentas bancarias, para poder tener a la vista todo el dinero que
+tengo separado en cuentas bancarias o de inversión que no suelo usar
+cotidianamente"*.
+
+**Las cuatro decisiones de producto se le preguntaron antes de escribir código**,
+porque cambiaban bastante el resultado: se llama **"Mis ahorros"** (para no
+confundirse con "Ahorros conjuntos"), viene **apagada** de fábrica, la cuenta es
+**texto libre con sugerencias** (ADR-056) y apagar una pestaña **avisa cuántos
+movimientos esconde**.
+
+**Es el mismo tipo de registro que los ahorros conjuntos**: un historial de plata
+que entró y salió, sin conversión entre monedas y sin ningún total que las junte.
+Lo que era literalmente la misma cuenta se extrajo (`totalPorMonedaDe()`,
+`ordenadosPorFecha()`) en vez de copiarse.
+
+**Mutaciones:** 8 sembradas sobre `core/mis-ahorros.js`, 8 muertas. Más la que
+había quedado viva en T-071, que acá ya se podía matar.
+
+**Recorrido en el navegador**, y encontró dos cosas que ningún test iba a ver:
+- **Las sugerencias de la cuenta no se refrescaban al escribir.** El campo estaba
+  bien dibujado, pero `usadosDe()` —que es lo que el listener de teclas consulta—
+  solo conocía el comentario. Arreglado.
+- El campo vacío no sugiere nada, y **eso está bien**: es el mismo criterio que
+  en el formulario de gastos (veinte sugerencias apenas tocás el campo tapan el
+  formulario en un celular). Lo que falló ahí fue el recorrido, no la app.
+
+Y de paso, un defecto de redacción viejo en los avisos del almacenamiento: *"Un
+registro … no se pudieron leer y quedaron afuera"*. Un aviso mal escrito se lee
+como un aviso automático que nadie miró, justo cuando lo que dice es que faltan
+datos.

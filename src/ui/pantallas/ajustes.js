@@ -18,14 +18,74 @@
 // Igual que el resto de la interfaz (ADR-022), son funciones puras.
 
 import { escapar } from '../app.js';
-import { PERFIL_COTIDIANA } from '../app.js';
+import { PERFIL_COTIDIANA, PERFILES, perfilPrendido } from '../../core/perfiles.js';
 import { monedaBaseDe } from '../../core/monedas.js';
+
+/**
+ * Qué pestañas se ven — T-071, a pedido del usuario.
+ *
+ * ── Por qué dice cuántos movimientos esconde ────────────────────────────────
+ *
+ * Apagar una pestaña **no borra nada**: los movimientos quedan guardados, el
+ * respaldo se los sigue llevando y al prenderla otra vez está todo. Pero eso lo
+ * sé yo, que escribí la función. Quien toca "Apagar" y ve desaparecer una
+ * pestaña con once movimientos adentro no tiene forma de saber si los perdió.
+ * El número y la frase son la diferencia entre un ajuste y un susto.
+ *
+ * La vida cotidiana no aparece con botón: es la app. Apagarla dejaría la
+ * pantalla vacía y sin ningún lugar desde donde volver.
+ */
+export function dibujarPestanias(estado) {
+  const cuantos = { ahorros: (estado?.ahorros ?? []).length };
+
+  const filas = PERFILES.map((perfil) => {
+    const prendido = perfilPrendido(estado, perfil.clave);
+    const tiene = cuantos[perfil.clave] ?? 0;
+
+    const dice = perfil.fijo
+      ? '<span class="suave">Siempre</span>'
+      : `<button type="button" class="secundario chico" data-accion="prender-perfil"
+                 data-perfil="${escapar(perfil.clave)}" data-prendido="${prendido ? 'no' : 'si'}">
+           ${prendido ? 'Apagar' : 'Prender'}
+         </button>`;
+
+    const nota = prendido && !perfil.fijo && tiene > 0
+      ? `<p class="rubro-pie suave">Apagarla esconde ${tiene} ${tiene === 1 ? 'movimiento' : 'movimientos'} de
+         ahorro. <strong>No se borran</strong>: vuelven al prenderla.</p>`
+      : (!prendido && tiene > 0
+        ? `<p class="rubro-pie suave">Tiene ${tiene} ${tiene === 1 ? 'movimiento' : 'movimientos'} guardados,
+           esperando.</p>`
+        : '');
+
+    return `
+      <li class="fila-rubro">
+        <span class="rubro-cabeza">
+          <span class="nombre">${escapar(perfil.etiqueta)}</span>
+          ${dice}
+        </span>
+        ${nota}
+      </li>`;
+  }).join('');
+
+  return `
+    <section class="tarjeta">
+      <h2>Pestañas</h2>
+      <p class="suave">Qué partes de la app se ven arriba. Apagar una
+      <strong>no borra nada</strong>: los movimientos quedan guardados y el
+      respaldo se los sigue llevando.</p>
+      <ul class="rubros">${filas}</ul>
+    </section>
+  `;
+}
 
 export function dibujarAjustes(vista) {
   const enCotidiana = (vista.perfil ?? PERFIL_COTIDIANA) === PERFIL_COTIDIANA;
   const base = monedaBaseDe(vista.estado);
 
   return `
+    ${vista.avisoAjustes ? `<p class="confirmacion" role="status">${escapar(vista.avisoAjustes)}</p>` : ''}
+    ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
+
     <!-- Arriba del todo, por pedido del usuario: es lo primero que necesita
          alguien que abre la app sin saber qué es, y el último lugar donde lo
          buscaría es abajo de "Tipos de cambio". -->
@@ -37,6 +97,8 @@ export function dibujarAjustes(vista) {
         Cómo funciona Viajecor
       </button>
     </section>
+
+    ${dibujarPestanias(vista.estado)}
 
     ${enCotidiana ? `
     <section class="tarjeta">

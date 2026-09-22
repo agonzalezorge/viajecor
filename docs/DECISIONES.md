@@ -1978,3 +1978,65 @@ que es exactamente cuando él decidió que cambiara.
 
 **Lo pidió el usuario** (2026-09-19): *"Podrías ajustar que el orden de los
 rubros en los gráficos de tortas se tome de su orden fijado en los ajustes?"*
+
+
+## ADR-055 · Las pestañas se prenden y se apagan, y se guarda solo lo que el usuario eligió
+
+**Fecha:** 2026-09-22 · **Tarea:** T-071 · **Estado:** aceptada
+
+**Contexto.** Los perfiles (T-046) parten la app en mitades que casi no se tocan.
+El usuario pidió poder apagar la de ahorros conjuntos —los ahorros de dos no le
+sirven a quien vive solo— y prender una tercera. Una pestaña vacía que no se
+puede sacar enseña a ignorar la barra de arriba.
+
+**Decisión.** Cada perfil tiene un valor de fábrica y se puede prender o apagar
+desde Ajustes, salvo la vida cotidiana, que es la app.
+
+**Apagar no borra, y la pantalla lo dice con un número.** Los movimientos quedan
+guardados y el respaldo se los sigue llevando. El número —"esconde 11
+movimientos"— es lo que hace creíble la promesa: quien ve desaparecer una
+pestaña con datos adentro no tiene otra forma de saber si los perdió.
+
+**Se guarda en `preferencias.perfiles` y viaja en el respaldo**, porque es una
+decisión del usuario y no una preferencia del aparato: quien se cambia de
+teléfono no quiere volver a configurar su app.
+
+**Y se guardan solo las decisiones explícitas.** `{ ahorros: false }` quiere
+decir "lo apagó"; una clave ausente quiere decir "nunca lo tocó". Escribir los
+tres valores siempre sería más simple de leer y peor de vivir: el día que un
+perfil cambie de valor de fábrica, cada respaldo viejo traería el valor viejo
+escrito y lo pisaría, sin que nadie lo haya decidido nunca.
+
+**Lo que esto cuesta.** Con tres pestañas, el selector de arriba ya va al límite
+de lo que entra en 390 px (se midió: entra, en dos líneas). **Una cuarta obliga a
+cambiarlo por un desplegable**, y ahí se pierde lo que lo hacía bueno: que la
+primera vez que alguien abre la app vea que hay más de una cosa.
+
+
+## ADR-056 · La cuenta de "Mis ahorros" se escribe, no se elige de una lista
+
+**Fecha:** 2026-09-22 · **Tarea:** T-072 · **Estado:** aceptada
+
+**Contexto.** Los ahorros conjuntos tienen una lista cerrada de dos personas con
+nombre propio. "Mis ahorros" necesita decir **dónde** está la plata: un banco,
+una plataforma, un plazo fijo. Eso la app no lo puede saber.
+
+**Decisión.** Texto libre, con sugerencias de las cuentas ya usadas. Se le
+ofrecieron al usuario las dos opciones con su costo y eligió ésta.
+
+**Lo que cuesta:** un error de tipeo de verdad —"Santnder"— crea una cuenta
+nueva. Se ve en el acto en la lista de totales, que es el mejor lugar posible
+para verlo.
+
+**Lo que NO cuesta, y es lo que hace viable la decisión:** que la app dé por
+distintas dos cosas que el usuario escribió igual. Las cuentas se agrupan por su
+clave normalizada (RN-03, L-002) y se muestran con la primera forma escrita, así
+que *Santander* y *santander* suman juntas. Las tildes sí distinguen: normalizar
+es para mayúsculas y espacios, no para volver igual lo que es distinto.
+
+**Por qué no se reusó `core/ahorros.js` entero.** Se extrajo lo que era
+literalmente la misma cuenta —`totalPorMonedaDe()`, `ordenadosPorFecha()`— y se
+dejó aparte lo que difiere. Dos copias de una suma son dos copias que se
+desincronizan el día que una se arregla; pero forzar un solo módulo con un campo
+"quién lo tiene" que a veces es una persona de una lista cerrada y a veces texto
+libre habría metido esa diferencia en cada función del archivo.

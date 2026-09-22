@@ -19,6 +19,7 @@ import { claseDeRubro } from '../colores.js';
 import { escapar } from '../app.js';
 import { dibujarPedido, dibujarMovimientoEnEspera } from './cambio.js';
 import { comentariosUsados, sugerenciasPara, etiquetaEnCurso } from '../../core/calculos.js';
+import { cuentasUsadas } from '../../core/mis-ahorros.js';
 
 /**
  * Los campos vacíos de un formulario nuevo.
@@ -273,15 +274,16 @@ export function dibujarSugerencias(campo, escrito, usados) {
 /**
  * Lo ya escrito en cada campo que sugiere, para no calcularlo dos veces.
  *
- * Solo el comentario. El detalle también sugería hasta el 2026-08-28 y **el
- * usuario pidió que no**: el comentario es lo que agrupa los gastos de un viaje
- * (RN-03) y ahí elegir la escritura que ya existe evita partir un total en dos;
- * el detalle es una nota para acordarse, no agrupa nada, y una lista debajo es
- * ruido mientras escribís.
+ * El comentario y la cuenta de mis ahorros (T-072). Los dos **agrupan**: el
+ * comentario junta los gastos de un viaje (RN-03) y la cuenta junta la plata de
+ * un banco, y en los dos casos elegir la escritura que ya existe evita partir un
+ * total en dos. El detalle también sugería hasta el 2026-08-28 y **el usuario
+ * pidió que no**: es una nota para acordarse, no agrupa nada, y una lista debajo
+ * es ruido mientras escribís.
  */
 export function usadosDe(estado) {
   const movimientos = estado?.movimientos ?? [];
-  return { comentario: comentariosUsados(movimientos) };
+  return { comentario: comentariosUsados(movimientos), cuenta: cuentasUsadas(estado) };
 }
 
 export function dibujarNuevo(vista) {

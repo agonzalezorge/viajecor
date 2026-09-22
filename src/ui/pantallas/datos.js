@@ -18,6 +18,7 @@
 // la única red de contención que tiene el usuario.
 
 import { escapar } from '../app.js';
+import { PERFIL_AHORROS, perfilPrendido } from '../../core/perfiles.js';
 import { prepararRespaldo, diasSinRespaldar } from '../../datos/exportar.js';
 import { crearPlanilla } from '../../datos/xlsx.js';
 import { prepararCsv } from '../../datos/csv.js';
@@ -210,9 +211,10 @@ export function dibujarDatos(vista) {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
         Otros grupos
       </button>
+      ${perfilPrendido(vista.estado, PERFIL_AHORROS) ? `
       <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
         Ahorros conjuntos
-      </button>
+      </button>` : ''}
     </section>
 
     <!-- Las etiquetas, las monedas y los tipos de cambio se mudaron a Ajustes

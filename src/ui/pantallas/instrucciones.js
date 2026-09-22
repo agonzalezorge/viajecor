@@ -121,13 +121,23 @@ export function dibujarInstrucciones(vista) {
         gastos, de ingresos —ahí te dice cuánto entra por mes— o de los dos.</p>
       `)}
 
-      ${seccion('5 · Ahorros conjuntos', `
-        <p>Con el botón de arriba del todo cambiás entre <strong>vida
-        cotidiana</strong> y <strong>ahorros conjuntos</strong>. Son dos mitades
-        separadas de la app: lo que cargues en una no aparece en la otra.</p>
-        <p>Los ahorros son un historial de movimientos de plata guardada, con su
-        persona y su moneda. <strong>Cada moneda se muestra por separado y nunca
-        se convierte</strong>: sumar dólares y pesos al cambio de hoy daría un
+      ${seccion('5 · Los ahorros: dónde está la plata guardada', `
+        <p>Con los botones de arriba del todo cambiás de pestaña. Son partes
+        separadas de la app: lo que cargues en una no aparece en la otra, y
+        ninguna entra en los totales del mes.</p>
+        <p><strong>Ahorros conjuntos</strong> es la plata de dos, con la pregunta
+        de <em>quién la tiene</em> — no de quién es: es de los dos, y lo que se
+        anota es dónde está guardada hoy.</p>
+        <p><strong>Mis ahorros</strong> es la tuya: lo que tenés en cada banco,
+        en cada plataforma, en cada cuenta. La cuenta se escribe a mano y la app
+        te sugiere las que ya usaste; da lo mismo cómo la escribas la segunda vez
+        —<em>Santander</em> y <em>santander</em> son la misma—. Viene apagada:
+        se prende en <strong>Ajustes → Pestañas</strong>.</p>
+        <p>Las dos funcionan igual: son un <strong>historial</strong> de plata
+        que entró y salió, no una foto de saldos. Así ves cómo evolucionó, y
+        corregir un error es anotar el movimiento que faltaba.</p>
+        <p><strong>Cada moneda se muestra por separado y nunca se
+        convierte</strong>: sumar dólares y pesos al cambio de hoy daría un
         número que mañana es otro.</p>
       `)}
 
@@ -150,6 +160,11 @@ export function dibujarInstrucciones(vista) {
 
       ${seccion('7 · Lo que podés configurar', `
         <p>Todo esto está en <strong>Ajustes</strong>, esta misma pantalla.</p>
+        <p><strong>Pestañas.</strong> Qué partes de la app se ven arriba. Si no
+        compartís ahorros con nadie, apagá <em>Ahorros conjuntos</em>; si querés
+        llevar la cuenta de tus bancos, prendé <em>Mis ahorros</em>. Apagar una
+        <strong>no borra nada</strong>: los movimientos quedan guardados, el
+        respaldo se los sigue llevando y vuelven al prenderla.</p>
         <p><strong>Rubros.</strong> Crear, renombrar, unir dos en uno y
         <strong>cambiarles el color</strong> (entre veinte elegidos para que se
         distingan entre sí). Renombrar y unir mueven también los movimientos:

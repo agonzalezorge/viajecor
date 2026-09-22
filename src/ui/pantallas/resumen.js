@@ -28,6 +28,7 @@
 // texto HTML.
 
 import { escapar } from '../app.js';
+import { PERFIL_AHORROS, perfilPrendido } from '../../core/perfiles.js';
 import { totalesDelMes, porRubro, porDia, promedioPorDia } from '../../core/calculos.js';
 import { formatearEuros, formatearMes, formatearRubro } from '../../core/formato.js';
 import { claseDeRubro } from '../colores.js';
@@ -161,7 +162,7 @@ export function dibujarDesglose(estado, mes, tipo) {
  * todavía no empezó a cargarse, o uno viejo. Se dice cuál de las dos cosas es y
  * se ofrece lo único que tiene sentido hacer.
  */
-export function dibujarMesVacio(mes) {
+export function dibujarMesVacio(mes, estado) {
   const esFuturo = mes > mesDe(hoy());
   const explicacion = esFuturo
     ? 'Este mes todavía no llegó.'
@@ -176,10 +177,15 @@ export function dibujarMesVacio(mes) {
       </button>
       <!-- Los ahorros no dependen del mes que estés mirando: son otro registro.
            Sin esto, un mes sin gastos los deja inalcanzables desde acá, que es
-           el mismo defecto que ya había tenido la evolución. -->
+           el mismo defecto que ya había tenido la evolución.
+
+           Y si la pestaña está apagada (T-071), el botón no se dibuja: llevar a
+           un perfil apagado es volver al botón mudo de T-070, con la diferencia
+           de que esta vez el usuario eligió que no esté. -->
+      ${perfilPrendido(estado, PERFIL_AHORROS) ? `
       <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
         Ahorros conjuntos
-      </button>
+      </button>` : ''}
     </section>
   `;
 }
@@ -236,7 +242,7 @@ export function dibujarResumen(vista) {
   const { estado, mes } = vista;
   const totales = totalesDelMes(estado, mes);
 
-  if (totales.cuantos === 0) return dibujarMesVacio(mes);
+  if (totales.cuantos === 0) return dibujarMesVacio(mes, estado);
 
   return `
     ${dibujarIncompleto(estado, totales)}

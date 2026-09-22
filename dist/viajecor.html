@@ -1439,7 +1439,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.17.2";
+globalThis.__VIAJECOR_VERSION__ = "0.18.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -3335,6 +3335,128 @@ function borrarRubro(estado, tipo, nombre) {
   return conCatalogo(estado, tipo, lista.filter((r) => r !== clave));
 }
 
+// ── src/core/perfiles.js ────────────────────────────────────────
+// Qué partes de la app están prendidas — T-071, CU-21.
+//
+// ── Qué es un perfil ────────────────────────────────────────────────────────
+//
+// Cada perfil es una app chica adentro de la grande: tiene sus pantallas, su
+// barra de abajo y su pantalla de inicio. Existen porque los ahorros no son
+// gastos —no entran en ningún total del mes— y mezclarlos dejaba dos pestañas
+// que no servían para lo que uno estaba haciendo.
+//
+// ── Por qué se pueden apagar ────────────────────────────────────────────────
+//
+// Lo pidió el usuario (2026-09-22). Los ahorros conjuntos son de dos personas
+// con nombre propio; quien use la app solo no tiene nada que hacer ahí, y una
+// pestaña vacía que no se puede sacar es una pestaña que enseña a ignorar la
+// barra de arriba.
+//
+// ── La regla que evita el peor error posible: apagar NO borra ───────────────
+//
+// Apagar un perfil lo saca de la barra. **Los movimientos siguen guardados**, el
+// respaldo se los sigue llevando, y al volver a prenderlo está todo. Por eso
+// Ajustes dice cuántos esconde antes de apagarlo: un número ahí es la diferencia
+// entre "esto no me sirve" y "esto me está borrando algo".
+//
+// ── Cómo se guarda, y por qué solo lo que el usuario eligió ─────────────────
+//
+// En `preferencias.perfiles` van **únicamente las decisiones explícitas**:
+// `{ ahorros: false }` quiere decir "el usuario apagó los ahorros conjuntos", y
+// una clave ausente quiere decir "nunca lo tocó". Guardar los tres valores
+// siempre sería más simple de leer y peor de vivir: el día que un perfil nuevo
+// cambie de valor de fábrica, cada respaldo viejo traería el valor viejo
+// escrito y lo pisaría, sin que nadie lo haya decidido nunca.
+//
+// Este archivo no toca el navegador: es lógica pura.
+
+const PERFIL_COTIDIANA = 'cotidiana';
+const PERFIL_AHORROS = 'ahorros';
+const PERFIL_MIS_AHORROS = 'mis-ahorros';
+
+/**
+ * Los perfiles que existen.
+ *
+ * - `inicio`: dónde aterriza al entrar.
+ * - `fijo`: no se puede apagar. Solo la vida cotidiana, que es la app.
+ * - `deFabrica`: si viene prendido cuando nadie eligió nada.
+ */
+const PERFILES = Object.freeze([
+  Object.freeze({
+    clave: PERFIL_COTIDIANA,
+    etiqueta: 'Vida cotidiana',
+    inicio: 'mes',
+    fijo: true,
+    deFabrica: true,
+  }),
+  Object.freeze({
+    clave: PERFIL_AHORROS,
+    etiqueta: 'Ahorros conjuntos',
+    inicio: 'ahorros',
+    fijo: false,
+    deFabrica: true,
+  }),
+  // Apagada de fábrica, elegido por el usuario (2026-09-22): quien abre la app
+  // por primera vez ve lo mismo que antes y no se encuentra con una pestaña
+  // vacía que no pidió. Se prende una vez, en Ajustes, y queda.
+  Object.freeze({
+    clave: PERFIL_MIS_AHORROS,
+    etiqueta: 'Mis ahorros',
+    inicio: 'mis-ahorros',
+    fijo: false,
+    deFabrica: false,
+  }),
+]);
+
+/** El perfil con esta clave, o `null`. */
+function perfilDeClave(clave) {
+  return PERFILES.find((p) => p.clave === clave) ?? null;
+}
+
+/**
+ * ¿Este perfil está prendido?
+ *
+ * Los fijos siempre. Los demás, lo que haya elegido el usuario — y si no eligió
+ * nada, lo que trae de fábrica.
+ */
+function perfilPrendido(estado, clave) {
+  const perfil = perfilDeClave(clave);
+  if (!perfil) return false;
+  if (perfil.fijo) return true;
+
+  const elegido = estado?.preferencias?.perfiles?.[clave];
+  return typeof elegido === 'boolean' ? elegido : perfil.deFabrica;
+}
+
+/** Los perfiles prendidos, en el orden en que se dibujan arriba. */
+function perfilesPrendidos(estado) {
+  return PERFILES.filter((p) => perfilPrendido(estado, p.clave));
+}
+
+/**
+ * Prende o apaga un perfil. Devuelve estado nuevo; **no borra ningún dato**.
+ *
+ * Un perfil fijo no se puede apagar: la app quedaría sin nada que mostrar y sin
+ * ningún lugar desde donde volver a prenderlo.
+ */
+function prenderPerfil(estado, clave, prendido) {
+  const perfil = perfilDeClave(clave);
+  if (!perfil || perfil.fijo) return estado;
+
+  const perfiles = { ...estado?.preferencias?.perfiles, [clave]: prendido === true };
+
+  // Si se apaga el perfil en el que estabas, el que queda guardado como "dónde
+  // estaba" tiene que ser uno prendido. Si no, la próxima visita abre en un
+  // perfil que ya no está en la barra, y `dibujarApp()` cae a otra pantalla sin
+  // decir por qué — que es exactamente el silencio de L-038.
+  const siguiente = { ...estado, preferencias: { ...estado?.preferencias, perfiles } };
+  if (prendido !== true && estado?.preferencias?.perfil === clave) {
+    siguiente.preferencias = { ...siguiente.preferencias, perfil: PERFIL_COTIDIANA };
+  }
+
+  return siguiente;
+}
+
 // ── src/core/ahorros.js ─────────────────────────────────────────
 // Los ahorros conjuntos — CU-14, T-040. Reemplaza la hoja `Ahorros conjuntos`.
 //
@@ -3506,9 +3628,20 @@ function aporteDe(movimiento) {
  * desaparece de la lista se lee como que nunca existió.
  */
 function totalPorMoneda(estado) {
+  return totalPorMonedaDe(estado?.ahorros ?? []);
+}
+
+/**
+ * Lo mismo, sobre una lista cualquiera de movimientos de guardado.
+ *
+ * Está separado porque "Mis ahorros" (T-072) es otro registro —otras filas,
+ * otra columna de quién lo tiene— con exactamente esta cuenta. Dos copias de
+ * una suma son dos copias que se desincronizan el día que una se arregla.
+ */
+function totalPorMonedaDe(lista) {
   const porMoneda = new Map();
 
-  for (const movimiento of estado?.ahorros ?? []) {
+  for (const movimiento of lista ?? []) {
     const anterior = porMoneda.get(movimiento.moneda) ?? { moneda: movimiento.moneda, total: 0, cuantos: 0 };
     porMoneda.set(movimiento.moneda, {
       ...anterior,
@@ -3550,8 +3683,183 @@ function totalPorPersona(estado) {
  * lo último que anotaste es lo que vas a querer corregir.
  */
 function ahorrosOrdenados(estado) {
-  return [...(estado?.ahorros ?? [])].reverse()
+  return ordenadosPorFecha(estado?.ahorros ?? []);
+}
+
+/** Lo mismo, sobre una lista cualquiera. Ver `totalPorMonedaDe()`. */
+function ordenadosPorFecha(lista) {
+  return [...(lista ?? [])].reverse()
     .sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+}
+
+// ── src/core/mis-ahorros.js ─────────────────────────────────────
+// Mis ahorros: dónde está la plata que no uso todos los días — T-072, CU-22.
+//
+// ── Qué contesta ────────────────────────────────────────────────────────────
+//
+// "¿Cuánto tengo guardado, y en qué cuentas?" Plata repartida entre bancos y
+// plataformas de inversión, que no se toca en el mes y que —justamente por eso—
+// es la más fácil de perder de vista. Lo pidió el usuario (2026-09-22).
+//
+// ── En qué se parece a los ahorros conjuntos, y en qué no ───────────────────
+//
+// Se parece en todo lo que importa: es un **historial** de plata que entró y
+// salió, no una foto de saldos. Así se ve cómo evolucionó y no solo cuánto hay
+// hoy; y corregir un error es anotar el movimiento que faltaba, no pisar un
+// número. Y **no se convierte nada a la moneda base**: mil dólares son mil
+// dólares, y pasarlos a euros al cambio de hoy inventa un número que cambia
+// solo todos los días. Total por moneda, y ninguno que los junte.
+//
+// Se diferencia en una sola cosa, y es la que obliga a que sea un módulo
+// aparte: **dónde está la plata es texto libre**, no una lista cerrada. Los
+// ahorros conjuntos son de dos personas con nombre propio —ALE e IRE, y no van
+// a cambiar—; las cuentas de alguien no las puede saber la app. Se escriben, y
+// la app sugiere las que ya usaste.
+//
+// ── Por qué sugerir y no una lista para mantener ────────────────────────────
+//
+// Lo eligió el usuario entre las dos opciones, con el costo dicho: sin lista
+// cerrada, "Santander" y "santander " podrían terminar siendo dos cuentas. No
+// pasa, porque **agrupar normaliza** (RN-03, L-002): las cuentas se comparan por
+// su clave normalizada y se muestran como se escribieron la primera vez. Lo que
+// sí se paga es que un error de tipeo de verdad —"Santnder"— crea una cuenta
+// nueva, visible en el acto en la lista de totales.
+//
+// Este archivo no toca el navegador: es lógica pura.
+
+
+
+
+/** Los movimientos guardados. Lista aparte de los ahorros conjuntos. */
+function misAhorrosDe(estado) {
+  return estado?.mis_ahorros ?? [];
+}
+
+/**
+ * Arma un movimiento válido, o tira explicando qué falta.
+ *
+ * La cuenta se guarda **tal como se escribió** y se compara normalizada, igual
+ * que las etiquetas de los gastos (ADR-013 y RN-03). Una cuenta vacía sí se
+ * rechaza: el sentido entero de esta pantalla es saber dónde está la plata, y
+ * "en algún lado" no es una respuesta.
+ */
+function crearMiAhorro(entrada, { decimales, id, creado } = {}) {
+  if (!Number.isInteger(decimales)) {
+    throw new Error(
+      'Falta saber cuántos decimales usa la moneda: sin ese dato el monto se guardaría cien veces más grande o más chico (RN-04b).'
+    );
+  }
+
+  const cuenta = normalizarTextoVisible(entrada.cuenta ?? '');
+  if (cuenta === '') {
+    throw new Error('Falta decir dónde está: el banco, la plataforma o la cuenta.');
+  }
+
+  const tipo = normalizarClave(String(entrada.tipo ?? ''));
+  if (tipo !== AHORRO_ENTRA.toLowerCase() && tipo !== AHORRO_SALE.toLowerCase()) {
+    throw new Error(`"${entrada.tipo}" no dice si la plata entró (I) o salió (G) de la cuenta.`);
+  }
+
+  const monto = aMinimas(entrada.monto, decimales);
+  if (monto === 0) {
+    throw new Error('Un movimiento de cero no se guarda: si no hubo dinero de por medio, no hay nada que registrar.');
+  }
+
+  return {
+    id: id ?? nuevoId('mio'),
+    fecha: validarFecha(entrada.fecha),
+    cuenta,
+    tipo: tipo === AHORRO_ENTRA.toLowerCase() ? AHORRO_ENTRA : AHORRO_SALE,
+    monto,
+    moneda: normalizarMoneda(entrada.moneda),
+    detalle: normalizarTextoVisible(entrada.detalle ?? ''),
+    creado: creado ?? validarFecha(entrada.fecha),
+  };
+}
+
+/** Cuánto hay en cada moneda. Sin ningún total que las junte, a propósito. */
+function totalPorMonedaMio(estado) {
+  return totalPorMonedaDe(misAhorrosDe(estado));
+}
+
+/**
+ * Cuánto hay en cada cuenta, dentro de cada moneda.
+ *
+ * Solo aparecen las cuentas que tienen movimientos **en esa moneda**: la lista
+ * es abierta, así que mostrarlas todas en todas las monedas llenaría la pantalla
+ * de ceros que no dicen nada. Es al revés que en los ahorros conjuntos, donde
+ * las dos personas van siempre porque son dos y fijas.
+ *
+ * Una cuenta que quedó en cero **sí se muestra**: que la hayas vaciado es
+ * información, y una fila que desaparece se lee como que nunca existió.
+ */
+function totalPorCuenta(estado) {
+  const lista = misAhorrosDe(estado);
+
+  return totalPorMonedaMio(estado).map(({ moneda, total }) => {
+    const deLaMoneda = lista.filter((m) => m.moneda === moneda);
+
+    return {
+      moneda,
+      total,
+      cuentas: cuentasDe(deLaMoneda).map((cuenta) => ({
+        cuenta,
+        total: sumar(deLaMoneda
+          .filter((m) => normalizarClave(m.cuenta) === normalizarClave(cuenta))
+          .map(aporteDe)),
+      })).sort((a, b) => b.total - a.total || a.cuenta.localeCompare(b.cuenta)),
+    };
+  });
+}
+
+/**
+ * Las cuentas que aparecen en una lista, como se escribieron la primera vez.
+ *
+ * **Se agrupan por su clave normalizada** (RN-03): "Santander" y "santander "
+ * son la misma cuenta, y la que gana es la primera forma que se escribió. Sin
+ * esto, la lista de totales se llenaría de duplicados que el usuario ve como un
+ * error de la app, porque para él escribió lo mismo las dos veces.
+ */
+function cuentasDe(lista) {
+  const vistas = new Map();
+
+  for (const movimiento of lista ?? []) {
+    const clave = normalizarClave(String(movimiento?.cuenta ?? ''));
+    if (clave !== '' && !vistas.has(clave)) vistas.set(clave, movimiento.cuenta);
+  }
+
+  return [...vistas.values()];
+}
+
+/** Las cuentas que ya usaste, para sugerirlas al cargar. Ordenadas alfabéticamente. */
+function cuentasUsadas(estado) {
+  return cuentasDe(misAhorrosDe(estado)).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+/** Los movimientos, del más nuevo al más viejo. */
+function misAhorrosOrdenados(estado) {
+  return ordenadosPorFecha(misAhorrosDe(estado));
+}
+
+/** Uno por su id, o `null`. */
+function buscarMiAhorro(estado, id) {
+  return misAhorrosDe(estado).find((m) => m.id === id) ?? null;
+}
+
+/**
+ * Los que coinciden con lo que se escribió en el buscador.
+ *
+ * Busca en la cuenta y en el detalle, sin tildes ni mayúsculas, igual que la
+ * lista de gastos: quien busca "santander" no debería tener que acordarse de
+ * cómo lo escribió.
+ */
+function buscarEnMisAhorros(estado, texto) {
+  const buscado = normalizarBusqueda(texto ?? '');
+  if (buscado === '') return misAhorrosOrdenados(estado);
+
+  return misAhorrosOrdenados(estado).filter((m) =>
+    normalizarBusqueda(m.cuenta).includes(buscado)
+    || normalizarBusqueda(m.detalle).includes(buscado));
 }
 
 // ── src/core/calculos.js ────────────────────────────────────────
@@ -4906,6 +5214,7 @@ function franjasConTintaClara(paleta = COLORES_RUBRO) {
 
 
 
+
 const CLAVE_DATOS = 'viajecor:datos:v1';
 
 // Sube solo si cambia la FORMA de los datos guardados (PRODUCTO §9). No sube
@@ -4941,6 +5250,10 @@ function estadoInicial({ monedas = [], versionApp } = {}) {
     // un rubro más: un ahorro no entra en el saldo del mes ni se reparte por
     // rubro, y mezclarlo ensuciaría todos los totales que ya funcionan.
     ahorros: [],
+    // Mis ahorros (T-072): dónde está la plata que no se usa en el mes. Lista
+    // aparte de `ahorros` porque son otro registro —una cuenta escrita a mano en
+    // vez de una de dos personas— y de `movimientos` por lo mismo que aquélla.
+    mis_ahorros: [],
     // El catálogo de rubros del usuario (T-048). Arranca con los de fábrica y
     // se edita desde Ajustes: crear, renombrar, unir. Vive en los datos y no en
     // el código por lo mismo que las monedas (T-008) — quien decide qué rubros
@@ -5163,6 +5476,30 @@ function migrarEstado(guardado, incidencias = []) {
     };
   });
 
+  // Mis ahorros (T-072). Misma regla que arriba: un registro roto se descarta
+  // solo y se cuenta como incidencia, en vez de tirar los otros sesenta.
+  estado.mis_ahorros = leerLista(guardado.mis_ahorros, 'mis ahorros', incidencias, (m) => {
+    if (m === null || typeof m !== 'object') throw new Error('no es un movimiento');
+    const cuenta = typeof m.cuenta === 'string' ? normalizarTextoVisible(m.cuenta) : '';
+    if (cuenta === '') throw new Error('no dice en qué cuenta está');
+    if (m.tipo !== AHORRO_ENTRA && m.tipo !== AHORRO_SALE) throw new Error('no dice si la plata entró o salió');
+    if (!Number.isInteger(m.monto) || m.monto === 0) throw new Error('el monto no es un entero distinto de cero');
+    if (typeof m.moneda !== 'string' || !/^[A-Za-z]{3}$/.test(m.moneda.trim())) {
+      throw new Error('la moneda no es un código de tres letras');
+    }
+    const fecha = validarFecha(m.fecha);
+    return {
+      id: typeof m.id === 'string' && m.id !== '' ? m.id : nuevoId('mio'),
+      fecha,
+      cuenta,
+      tipo: m.tipo,
+      monto: m.monto,
+      moneda: m.moneda.trim().toUpperCase(),
+      detalle: typeof m.detalle === 'string' ? m.detalle : '',
+      creado: /^\d{4}-\d{2}-\d{2}$/.test(m.creado) ? m.creado : fecha,
+    };
+  });
+
   const preferencias = guardado.preferencias;
   if (preferencias !== null && typeof preferencias === 'object' && !Array.isArray(preferencias)) {
     const moneda = preferencias.moneda_predeterminada;
@@ -5202,6 +5539,19 @@ function migrarEstado(guardado, incidencias = []) {
       estado.preferencias.perfil = preferencias.perfil;
     }
 
+    // Qué pestañas quiso ver (T-071). Se leen **solo las claves de perfiles que
+    // existen y solo los booleanos**: un respaldo editado a mano con
+    // `{ inventado: "sí" }` no puede prender nada, y una clave ausente sigue
+    // queriendo decir "nunca lo tocó", que es distinto de "lo apagó".
+    const perfiles = preferencias.perfiles;
+    if (perfiles !== null && typeof perfiles === 'object' && !Array.isArray(perfiles)) {
+      const leidos = {};
+      for (const { clave } of PERFILES) {
+        if (typeof perfiles[clave] === 'boolean') leidos[clave] = perfiles[clave];
+      }
+      if (Object.keys(leidos).length > 0) estado.preferencias.perfiles = leidos;
+    }
+
     if (preferencias.compartir_no_funciona === true) {
       estado.preferencias.compartir_no_funciona = true;
     }
@@ -5237,10 +5587,14 @@ function leerLista(valor, nombre, incidencias, validar) {
   }
 
   if (rotos.length > 0) {
-    const cuantos = rotos.length === 1 ? 'Un registro' : `${rotos.length} registros`;
+    // Singular y plural completos. Decía "Un registro … no se pudieron leer y
+    // quedaron afuera": un aviso mal escrito se lee como un aviso automático que
+    // nadie miró, justo cuando lo que dice es que faltan datos.
+    const uno = rotos.length === 1;
     incidencias.push(
-      `${cuantos} de ${nombre} no se pudieron leer y quedaron afuera de los totales. ` +
-      `Detalle — ${rotos.join(' · ')}`
+      `${uno ? 'Un registro' : `${rotos.length} registros`} de ${nombre} `
+      + `${uno ? 'no se pudo leer y quedó' : 'no se pudieron leer y quedaron'} afuera de los totales. `
+      + `Detalle — ${rotos.join(' · ')}`
     );
   }
   return buenos;
@@ -9426,6 +9780,7 @@ function dibujarMesAMes(filas) {
 
 
 
+
 /** Un porcentaje para mostrar: sin decimales, que en un desglose no aportan. */
 function porcentaje(valor) {
   return `${Math.round(valor)} %`;
@@ -9552,7 +9907,7 @@ function dibujarDesglose(estado, mes, tipo) {
  * todavía no empezó a cargarse, o uno viejo. Se dice cuál de las dos cosas es y
  * se ofrece lo único que tiene sentido hacer.
  */
-function dibujarMesVacio(mes) {
+function dibujarMesVacio(mes, estado) {
   const esFuturo = mes > mesDe(hoy());
   const explicacion = esFuturo
     ? 'Este mes todavía no llegó.'
@@ -9567,10 +9922,15 @@ function dibujarMesVacio(mes) {
       </button>
       <!-- Los ahorros no dependen del mes que estés mirando: son otro registro.
            Sin esto, un mes sin gastos los deja inalcanzables desde acá, que es
-           el mismo defecto que ya había tenido la evolución. -->
+           el mismo defecto que ya había tenido la evolución.
+
+           Y si la pestaña está apagada (T-071), el botón no se dibuja: llevar a
+           un perfil apagado es volver al botón mudo de T-070, con la diferencia
+           de que esta vez el usuario eligió que no esté. -->
+      ${perfilPrendido(estado, PERFIL_AHORROS) ? `
       <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
         Ahorros conjuntos
-      </button>
+      </button>` : ''}
     </section>
   `;
 }
@@ -9627,7 +9987,7 @@ function dibujarResumen(vista) {
   const { estado, mes } = vista;
   const totales = totalesDelMes(estado, mes);
 
-  if (totales.cuantos === 0) return dibujarMesVacio(mes);
+  if (totales.cuantos === 0) return dibujarMesVacio(mes, estado);
 
   return `
     ${dibujarIncompleto(estado, totales)}
@@ -10686,13 +11046,23 @@ function dibujarInstrucciones(vista) {
         gastos, de ingresos —ahí te dice cuánto entra por mes— o de los dos.</p>
       `)}
 
-      ${seccion('5 · Ahorros conjuntos', `
-        <p>Con el botón de arriba del todo cambiás entre <strong>vida
-        cotidiana</strong> y <strong>ahorros conjuntos</strong>. Son dos mitades
-        separadas de la app: lo que cargues en una no aparece en la otra.</p>
-        <p>Los ahorros son un historial de movimientos de plata guardada, con su
-        persona y su moneda. <strong>Cada moneda se muestra por separado y nunca
-        se convierte</strong>: sumar dólares y pesos al cambio de hoy daría un
+      ${seccion('5 · Los ahorros: dónde está la plata guardada', `
+        <p>Con los botones de arriba del todo cambiás de pestaña. Son partes
+        separadas de la app: lo que cargues en una no aparece en la otra, y
+        ninguna entra en los totales del mes.</p>
+        <p><strong>Ahorros conjuntos</strong> es la plata de dos, con la pregunta
+        de <em>quién la tiene</em> — no de quién es: es de los dos, y lo que se
+        anota es dónde está guardada hoy.</p>
+        <p><strong>Mis ahorros</strong> es la tuya: lo que tenés en cada banco,
+        en cada plataforma, en cada cuenta. La cuenta se escribe a mano y la app
+        te sugiere las que ya usaste; da lo mismo cómo la escribas la segunda vez
+        —<em>Santander</em> y <em>santander</em> son la misma—. Viene apagada:
+        se prende en <strong>Ajustes → Pestañas</strong>.</p>
+        <p>Las dos funcionan igual: son un <strong>historial</strong> de plata
+        que entró y salió, no una foto de saldos. Así ves cómo evolucionó, y
+        corregir un error es anotar el movimiento que faltaba.</p>
+        <p><strong>Cada moneda se muestra por separado y nunca se
+        convierte</strong>: sumar dólares y pesos al cambio de hoy daría un
         número que mañana es otro.</p>
       `)}
 
@@ -10715,6 +11085,11 @@ function dibujarInstrucciones(vista) {
 
       ${seccion('7 · Lo que podés configurar', `
         <p>Todo esto está en <strong>Ajustes</strong>, esta misma pantalla.</p>
+        <p><strong>Pestañas.</strong> Qué partes de la app se ven arriba. Si no
+        compartís ahorros con nadie, apagá <em>Ahorros conjuntos</em>; si querés
+        llevar la cuenta de tus bancos, prendé <em>Mis ahorros</em>. Apagar una
+        <strong>no borra nada</strong>: los movimientos quedan guardados, el
+        respaldo se los sigue llevando y vuelven al prenderla.</p>
         <p><strong>Rubros.</strong> Crear, renombrar, unir dos en uno y
         <strong>cambiarles el color</strong> (entre veinte elegidos para que se
         distingan entre sí). Renombrar y unir mueven también los movimientos:
@@ -11003,11 +11378,71 @@ function dibujarRubros(vista) {
 
 
 
+/**
+ * Qué pestañas se ven — T-071, a pedido del usuario.
+ *
+ * ── Por qué dice cuántos movimientos esconde ────────────────────────────────
+ *
+ * Apagar una pestaña **no borra nada**: los movimientos quedan guardados, el
+ * respaldo se los sigue llevando y al prenderla otra vez está todo. Pero eso lo
+ * sé yo, que escribí la función. Quien toca "Apagar" y ve desaparecer una
+ * pestaña con once movimientos adentro no tiene forma de saber si los perdió.
+ * El número y la frase son la diferencia entre un ajuste y un susto.
+ *
+ * La vida cotidiana no aparece con botón: es la app. Apagarla dejaría la
+ * pantalla vacía y sin ningún lugar desde donde volver.
+ */
+function dibujarPestanias(estado) {
+  const cuantos = { ahorros: (estado?.ahorros ?? []).length };
+
+  const filas = PERFILES.map((perfil) => {
+    const prendido = perfilPrendido(estado, perfil.clave);
+    const tiene = cuantos[perfil.clave] ?? 0;
+
+    const dice = perfil.fijo
+      ? '<span class="suave">Siempre</span>'
+      : `<button type="button" class="secundario chico" data-accion="prender-perfil"
+                 data-perfil="${escapar(perfil.clave)}" data-prendido="${prendido ? 'no' : 'si'}">
+           ${prendido ? 'Apagar' : 'Prender'}
+         </button>`;
+
+    const nota = prendido && !perfil.fijo && tiene > 0
+      ? `<p class="rubro-pie suave">Apagarla esconde ${tiene} ${tiene === 1 ? 'movimiento' : 'movimientos'} de
+         ahorro. <strong>No se borran</strong>: vuelven al prenderla.</p>`
+      : (!prendido && tiene > 0
+        ? `<p class="rubro-pie suave">Tiene ${tiene} ${tiene === 1 ? 'movimiento' : 'movimientos'} guardados,
+           esperando.</p>`
+        : '');
+
+    return `
+      <li class="fila-rubro">
+        <span class="rubro-cabeza">
+          <span class="nombre">${escapar(perfil.etiqueta)}</span>
+          ${dice}
+        </span>
+        ${nota}
+      </li>`;
+  }).join('');
+
+  return `
+    <section class="tarjeta">
+      <h2>Pestañas</h2>
+      <p class="suave">Qué partes de la app se ven arriba. Apagar una
+      <strong>no borra nada</strong>: los movimientos quedan guardados y el
+      respaldo se los sigue llevando.</p>
+      <ul class="rubros">${filas}</ul>
+    </section>
+  `;
+}
+
 function dibujarAjustes(vista) {
   const enCotidiana = (vista.perfil ?? PERFIL_COTIDIANA) === PERFIL_COTIDIANA;
   const base = monedaBaseDe(vista.estado);
 
   return `
+    ${vista.avisoAjustes ? `<p class="confirmacion" role="status">${escapar(vista.avisoAjustes)}</p>` : ''}
+    ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
+
     <!-- Arriba del todo, por pedido del usuario: es lo primero que necesita
          alguien que abre la app sin saber qué es, y el último lugar donde lo
          buscaría es abajo de "Tipos de cambio". -->
@@ -11019,6 +11454,8 @@ function dibujarAjustes(vista) {
         Cómo funciona Viajecor
       </button>
     </section>
+
+    ${dibujarPestanias(vista.estado)}
 
     ${enCotidiana ? `
     <section class="tarjeta">
@@ -11471,6 +11908,322 @@ function dibujarAhorros(vista) {
       <ul class="rubros">${historial.map((m) => dibujarMovimientoDeAhorro(m, monedas,
         { confirmando: vista.confirmandoAhorro === m.id })).join('')}</ul>
     </section>
+  `;
+}
+
+// ── src/ui/pantallas/mis-ahorros.js ─────────────────────────────
+// Mis ahorros: la pantalla — T-072, CU-22.
+//
+// ── Por qué se parece tanto a la de ahorros conjuntos ───────────────────────
+//
+// Porque contesta la misma pregunta sobre otra plata: cuánto hay, en qué
+// moneda, y dónde está. Que dos pantallas parecidas tengan mecánicas distintas
+// es lo que obliga a aprender la app dos veces, así que acá el historial se
+// ordena igual, el borrado pregunta igual y el deshacer aparece igual.
+//
+// ── Lo único distinto, y por qué ────────────────────────────────────────────
+//
+// **La cuenta se escribe, no se elige de una lista.** Los ahorros conjuntos son
+// de dos personas con nombre propio; las cuentas de alguien —su banco, su
+// plataforma— no las puede saber la app, y pedirle que las dé de alta en una
+// pantalla aparte antes de poder anotar nada es una pantalla de mantenimiento
+// para algo que se escribe una vez cada seis meses. Lo eligió el usuario
+// (2026-09-22) sabiendo el costo: un error de tipeo crea una cuenta nueva.
+//
+// Lo que ese costo no incluye es que la app dé por distintas dos cosas que el
+// usuario escribió igual: "Santander" y "santander " se agrupan (RN-03), y las
+// sugerencias están para que la segunda vez no haya que escribirla entera.
+//
+// Igual que el resto de la interfaz (ADR-022), son funciones puras.
+
+
+
+
+
+
+
+/** El formulario vacío. */
+function borradorDeMiAhorro({ estado, fecha, cuenta } = {}) {
+  return {
+    fecha: fecha ?? hoy(),
+    tipo: AHORRO_ENTRA,
+    // La cuenta y la moneda se mantienen entre cargas, igual que la persona en
+    // los ahorros conjuntos: quien pone al día una cuenta carga varios seguidos.
+    cuenta: cuenta ?? '',
+    monto: '',
+    moneda: estado?.preferencias?.moneda_predeterminada ?? 'EUR',
+    detalle: '',
+  };
+}
+
+/** El formulario cargado con un movimiento que ya existe, para corregirlo. */
+function borradorDesdeMiAhorro(movimiento, decimales) {
+  return {
+    id: movimiento.id,
+    fecha: movimiento.fecha,
+    tipo: movimiento.tipo,
+    cuenta: movimiento.cuenta,
+    monto: formatearNumero(movimiento.monto, decimales),
+    moneda: movimiento.moneda,
+    detalle: movimiento.detalle,
+  };
+}
+
+/**
+ * Intenta guardar. Devuelve `{ estado, borrador, aviso, error }` — nunca tira.
+ *
+ * **No pide tipo de cambio**, igual que los ahorros conjuntos: acá no se
+ * convierte nada, así que un movimiento en dólares no queda fuera de ningún
+ * total por no tener cotización.
+ */
+function intentarGuardarMiAhorro(estado, borrador) {
+  let decimales;
+  try {
+    decimales = decimalesDe(estado.monedas, borrador.moneda);
+  } catch (error) {
+    return { estado, borrador, error: error.message };
+  }
+
+  const anteriores = misAhorrosDe(estado);
+  const original = borrador.id ? anteriores.find((m) => m.id === borrador.id) : null;
+
+  let movimiento;
+  try {
+    movimiento = crearMiAhorro(borrador, { decimales, id: original?.id, creado: original?.creado });
+  } catch (error) {
+    return { estado, borrador, error: error.message };
+  }
+
+  const posicion = borrador.id ? anteriores.findIndex((m) => m.id === borrador.id) : -1;
+  const corrigiendo = posicion !== -1;
+
+  const nuevoEstado = {
+    ...estado,
+    mis_ahorros: corrigiendo
+      ? anteriores.map((m, i) => (i === posicion ? movimiento : m))
+      : [...anteriores, movimiento],
+    preferencias: { ...estado.preferencias, moneda_predeterminada: movimiento.moneda },
+  };
+
+  return {
+    estado: nuevoEstado,
+    corrigiendo,
+    borrador: borradorDeMiAhorro({
+      estado: nuevoEstado, fecha: movimiento.fecha, cuenta: movimiento.cuenta,
+    }),
+    aviso: { movimiento, decimales, corrigiendo },
+  };
+}
+
+/** Saca un movimiento, y devuelve lo necesario para poder deshacerlo. */
+function borrarMiAhorro(estado, id) {
+  const anteriores = misAhorrosDe(estado);
+  const posicion = anteriores.findIndex((m) => m.id === id);
+  if (posicion === -1) return { estado, borrado: null };
+
+  return {
+    estado: { ...estado, mis_ahorros: anteriores.filter((m) => m.id !== id) },
+    borrado: { movimiento: anteriores[posicion], posicion },
+  };
+}
+
+/** Vuelve a poner un movimiento borrado en su lugar exacto. */
+function restaurarMiAhorro(estado, borrado) {
+  if (!borrado) return estado;
+
+  const lista = [...misAhorrosDe(estado)];
+  lista.splice(Math.min(borrado.posicion, lista.length), 0, borrado.movimiento);
+  return { ...estado, mis_ahorros: lista };
+}
+
+/** El bloque de una moneda: cuánto hay, y en qué cuentas está. */
+function dibujarMonedaDeMisAhorros(bloque, monedas) {
+  const cuentas = bloque.cuentas.map((c) => `
+    <div class="rubro-pie suave">
+      <span>${escapar(c.cuenta)}</span>
+      <span>${escapar(formatearEnSuMoneda(c.total, bloque.moneda, monedas))}</span>
+    </div>`).join('');
+
+  return `
+    <li class="fila-rubro">
+      <span class="rubro-cabeza">
+        <span class="nombre">${escapar(bloque.moneda)}</span>
+        <span class="importe">${escapar(formatearEnSuMoneda(bloque.total, bloque.moneda, monedas))}</span>
+      </span>
+      ${cuentas}
+    </li>
+  `;
+}
+
+/** Una línea del historial, con sus botones. */
+function dibujarMovimientoMio(movimiento, monedas, { confirmando = false } = {}) {
+  const salida = movimiento.tipo === AHORRO_SALE;
+  const signo = salida ? '−' : '+';
+  const pie = [formatearFecha(movimiento.fecha), movimiento.detalle].filter((t) => t !== '').join(' · ');
+
+  return `
+    <li class="fila-rubro">
+      <span class="rubro-cabeza">
+        <span class="nombre">${escapar(movimiento.cuenta)}</span>
+        <span class="importe ${salida ? 'gasto' : 'ingreso'}">${escapar(signo)}${escapar(formatearEnSuMoneda(movimiento.monto, movimiento.moneda, monedas))}</span>
+      </span>
+      <div class="rubro-pie suave"><span>${escapar(pie)}</span></div>
+
+      ${confirmando ? `
+      <div class="confirmar-borrado" role="alertdialog" aria-label="Confirmar borrado">
+        <p>¿Borrar este movimiento?</p>
+        <div class="botones">
+          <button type="button" class="peligro" data-accion="borrar-mi-ahorro-si" data-id="${escapar(movimiento.id)}">Sí, borrar</button>
+          <button type="button" class="secundario" data-accion="borrar-mi-ahorro-no">No</button>
+        </div>
+      </div>` : `
+      <div class="movimiento-acciones">
+        <button type="button" class="secundario chico" data-accion="editar-mi-ahorro" data-id="${escapar(movimiento.id)}">Corregir</button>
+        <button type="button" class="secundario chico" data-accion="borrar-mi-ahorro" data-id="${escapar(movimiento.id)}">Borrar</button>
+      </div>`}
+    </li>
+  `;
+}
+
+/** El cartel de deshacer, después de borrar. */
+function dibujarDeshacerMiAhorro(vista) {
+  if (!vista.miAhorroBorrado) return '';
+
+  const { movimiento } = vista.miAhorroBorrado;
+  return `
+    <section class="deshacer" role="status">
+      <p>Borraste <strong>${escapar(movimiento.cuenta)}</strong>
+      del ${escapar(formatearFecha(movimiento.fecha))}.</p>
+      <button type="button" class="secundario" data-accion="deshacer-mi-ahorro">Deshacer</button>
+    </section>
+  `;
+}
+
+function dibujarMisAhorros(vista) {
+  const estado = vista.estado ?? {};
+  const monedas = estado.monedas ?? [];
+  const porMoneda = totalPorCuenta(estado);
+
+  const cargar = `
+    <button type="button" class="principal" data-accion="ir" data-pantalla="nuevo-mi-ahorro">
+      Anotar un movimiento
+    </button>`;
+
+  if (porMoneda.length === 0) {
+    return `
+      <section class="tarjeta">
+        <h2>Mis ahorros</h2>
+        <p class="suave">Todavía no hay nada. Acá va la plata que tenés guardada
+        y no usás en el mes: en qué banco, en qué plataforma, en qué moneda. Se
+        anota lo que entra y lo que sale, como en un extracto, y la app va
+        sumando.</p>
+        ${cargar}
+      </section>
+    `;
+  }
+
+  const historial = misAhorrosOrdenados(estado);
+
+  return `
+    <section class="tarjeta">
+      <h2>Mis ahorros</h2>
+      <p class="suave nota">Cuánto tenés en cada moneda, y en qué cuenta está.
+      <strong>No se suman entre sí</strong>: pasar dólares a euros al cambio de
+      hoy daría un número que cambia solo todos los días y que no existe hasta
+      que la plata se cambie de verdad.</p>
+      <ul class="rubros">${porMoneda.map((b) => dibujarMonedaDeMisAhorros(b, monedas)).join('')}</ul>
+      ${cargar}
+    </section>
+
+    ${dibujarDeshacerMiAhorro(vista)}
+
+    <section class="tarjeta">
+      <h2>Movimientos</h2>
+      <p class="suave nota">${historial.length === 1 ? '1 movimiento' : `${historial.length} movimientos`},
+      del más nuevo al más viejo. <strong>+</strong> es plata que entró a la
+      cuenta y <strong>−</strong> plata que salió.</p>
+      <ul class="rubros">${historial.map((m) => dibujarMovimientoMio(m, monedas,
+        { confirmando: vista.confirmandoMiAhorro === m.id })).join('')}</ul>
+    </section>
+  `;
+}
+
+function dibujarAvisoMio(aviso) {
+  if (!aviso?.movimiento) return '';
+
+  const entra = aviso.movimiento.tipo === AHORRO_ENTRA;
+  const que = aviso.corrigiendo
+    ? 'Cambio guardado'
+    : `Guardado: ${entra ? 'entró' : 'salió'} plata de ${aviso.movimiento.cuenta}`;
+
+  return `<p class="confirmacion" role="status">${escapar(que)}.</p>`;
+}
+
+function dibujarNuevoMiAhorro(vista) {
+  const estado = vista.estado ?? {};
+  const borrador = vista.borradorDeMiAhorro ?? borradorDeMiAhorro({ estado });
+  const entra = borrador.tipo !== AHORRO_SALE;
+
+  const monedas = monedasVisibles(estado.monedas ?? []).map((m) => ({ valor: m.codigo, texto: m.codigo }));
+
+  return `
+    <form class="tarjeta formulario" data-formulario="mi-ahorro" novalidate>
+      <h2>${borrador.id ? 'Corregir movimiento' : 'Anotar en mis ahorros'}</h2>
+
+      ${dibujarError(vista.error)}
+      ${dibujarAvisoMio(vista.aviso)}
+
+      <!-- Entró / Salió y no Ingreso / Gasto: pasar plata de la cuenta corriente
+           al plazo fijo no es un gasto de nada. -->
+      <div class="tipo" role="group" aria-label="Qué pasó con la plata">
+        <button type="button" class="opcion-tipo${entra ? ' activa' : ''}"
+                data-accion="tipo-mi-ahorro" data-tipo="${AHORRO_ENTRA}" aria-pressed="${entra}">Entró a la cuenta</button>
+        <button type="button" class="opcion-tipo${entra ? '' : ' activa'}"
+                data-accion="tipo-mi-ahorro" data-tipo="${AHORRO_SALE}" aria-pressed="${!entra}">Salió de la cuenta</button>
+      </div>
+
+      <label class="campo">
+        <span>Monto</span>
+        <div class="monto-fila">
+          <input name="monto" class="importe" type="text" inputmode="decimal"
+                 autocomplete="off" enterkeyhint="done" placeholder="0,00"
+                 value="${escapar(borrador.monto)}">
+          <select name="moneda" aria-label="Moneda">${opciones(monedas, borrador.moneda)}</select>
+        </div>
+        <button type="button" class="enlace" data-accion="ir" data-pantalla="monedas">
+          ¿Falta una moneda?
+        </button>
+      </label>
+
+      <label class="campo">
+        <span>¿Dónde está?</span>
+        <!-- Se escribe, y la app sugiere las que ya usaste. Ver la cabecera. -->
+        <input name="cuenta" type="text" autocomplete="off"
+               placeholder="Santander, Revolut, plazo fijo…" value="${escapar(borrador.cuenta)}">
+        <div class="sugerencias" data-sugerencias="cuenta">${
+          dibujarSugerencias('cuenta', borrador.cuenta, cuentasUsadas(estado))
+        }</div>
+      </label>
+
+      <label class="campo">
+        <span>Fecha</span>
+        <input name="fecha" type="date" value="${escapar(borrador.fecha)}">
+        <span class="fecha-legible" data-fecha-legible>${escapar(fechaEnPalabras(borrador.fecha))}</span>
+      </label>
+
+      <label class="campo">
+        <span>Detalle <em class="suave">— para acordarte</em></span>
+        <input name="detalle" type="text" autocomplete="off"
+               placeholder="plazo fijo, vence el 28/08/26" value="${escapar(borrador.detalle)}">
+      </label>
+
+      <button type="submit" class="principal" data-accion="guardar-mi-ahorro">
+        ${borrador.id ? 'Guardar los cambios' : 'Guardar'}
+      </button>
+      <button type="button" class="secundario" data-accion="ir" data-pantalla="mis-ahorros">
+        ${borrador.id ? 'Dejar como estaba' : 'Volver a mis ahorros'}
+      </button>
+    </form>
   `;
 }
 
@@ -12840,6 +13593,7 @@ function dibujarLista(vista) {
 
 
 
+
 /** Un tamaño legible: 12 kB dice más que 12.283 bytes. */
 function tamanoLegible(bytes) {
   if (bytes < 1024) return `${bytes} bytes`;
@@ -13022,9 +13776,10 @@ function dibujarDatos(vista) {
       <button type="button" class="secundario" data-accion="ir" data-pantalla="grupos">
         Otros grupos
       </button>
+      ${perfilPrendido(vista.estado, PERFIL_AHORROS) ? `
       <button type="button" class="secundario" data-accion="ir" data-pantalla="ahorros">
         Ahorros conjuntos
-      </button>
+      </button>` : ''}
     </section>
 
     <!-- Las etiquetas, las monedas y los tipos de cambio se mudaron a Ajustes
@@ -13514,6 +14269,7 @@ function dibujarProblemas(problemas) {
 
 
 
+
 /**
  * Los campos vacíos de un formulario nuevo.
  *
@@ -13767,15 +14523,16 @@ function dibujarSugerencias(campo, escrito, usados) {
 /**
  * Lo ya escrito en cada campo que sugiere, para no calcularlo dos veces.
  *
- * Solo el comentario. El detalle también sugería hasta el 2026-08-28 y **el
- * usuario pidió que no**: el comentario es lo que agrupa los gastos de un viaje
- * (RN-03) y ahí elegir la escritura que ya existe evita partir un total en dos;
- * el detalle es una nota para acordarse, no agrupa nada, y una lista debajo es
- * ruido mientras escribís.
+ * El comentario y la cuenta de mis ahorros (T-072). Los dos **agrupan**: el
+ * comentario junta los gastos de un viaje (RN-03) y la cuenta junta la plata de
+ * un banco, y en los dos casos elegir la escritura que ya existe evita partir un
+ * total en dos. El detalle también sugería hasta el 2026-08-28 y **el usuario
+ * pidió que no**: es una nota para acordarse, no agrupa nada, y una lista debajo
+ * es ruido mientras escribís.
  */
 function usadosDe(estado) {
   const movimientos = estado?.movimientos ?? [];
-  return { comentario: comentariosUsados(movimientos) };
+  return { comentario: comentariosUsados(movimientos), cuenta: cuentasUsadas(estado) };
 }
 
 function dibujarNuevo(vista) {
@@ -14143,6 +14900,9 @@ function conectarUna(tarjeta) {
 
 
 
+
+
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -14195,14 +14955,10 @@ function escapar(texto) {
 // Lo pidió el usuario (2026-08-31) después de ver algo parecido en otra app.
 // La decisión de fondo ya estaba tomada desde CU-14 —los ahorros son un
 // registro aparte, no un rubro más—; esto la hace visible.
-
-const PERFIL_COTIDIANA = 'cotidiana';
-const PERFIL_AHORROS = 'ahorros';
-
-const PERFILES = Object.freeze([
-  { clave: PERFIL_COTIDIANA, etiqueta: 'Vida cotidiana', inicio: 'mes' },
-  { clave: PERFIL_AHORROS, etiqueta: 'Ahorros conjuntos', inicio: 'ahorros' },
-]);
+//
+// **Cuáles existen y cuáles están prendidos vive en `core/perfiles.js`** desde
+// T-071: qué pestañas quiere ver el usuario es un dato suyo, que se guarda y
+// viaja en el respaldo, no una decisión de la interfaz.
 
 /** El perfil al que pertenece una pantalla. `ambos` la deja en los dos. */
 function perfilDe(definicion) {
@@ -14298,6 +15054,27 @@ registrarPantalla('nuevo-ahorro', {
   dibujar: dibujarNuevoAhorro,
 });
 
+// Mis ahorros — T-072. Mismo armado que los ahorros conjuntos: su perfil, su
+// pantalla de carga destacada y nada en la barra de la vida cotidiana.
+registrarPantalla('mis-ahorros', {
+  etiqueta: 'Mis ahorros',
+  orden: 2,
+  icono: '◈',
+  conMes: false,
+  perfil: PERFIL_MIS_AHORROS,
+  dibujar: dibujarMisAhorros,
+});
+
+registrarPantalla('nuevo-mi-ahorro', {
+  etiqueta: 'Anotar',
+  orden: 1,
+  icono: '+',
+  conMes: false,
+  destacada: true,
+  perfil: PERFIL_MIS_AHORROS,
+  dibujar: dibujarNuevoMiAhorro,
+});
+
 registrarPantalla('viajes', {
   etiqueta: 'Gasto por viaje',
   icono: '✈',
@@ -14391,7 +15168,7 @@ registrarPantalla('nuevo', {
  * En las pantallas que no son de un mes (los datos, las monedas) el selector no
  * se dibuja: un control que no hace nada enseña a desconfiar de los controles.
  */
-function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA }) {
+function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA, estado }) {
   const selector = conMes
     ? `
       <nav class="mes" aria-label="Mes que se está viendo">
@@ -14406,7 +15183,7 @@ function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA }) {
       <h1>Viajecor</h1>
       <span class="version">v${escapar(versionApp())}</span>
     </header>
-    ${dibujarPerfiles(perfil)}
+    ${dibujarPerfiles(perfil, estado)}
     ${selector}
   `;
 }
@@ -14421,9 +15198,17 @@ function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA }) {
  *
  * Si algún día hubiera cuatro perfiles, esto tendría que ser un desplegable —
  * cuatro botones no entran a lo ancho de un teléfono—. Con dos, no.
+ *
+ * **Solo se dibujan los perfiles prendidos** (T-071), y si queda uno solo no se
+ * dibuja nada: un selector con un botón único no elige nada y ocupa el lugar
+ * donde debería estar el contenido. Quien apagó los ahorros quiere la app de
+ * antes de que existieran, no la app con un botón apretado para siempre.
  */
-function dibujarPerfiles(perfil = PERFIL_COTIDIANA) {
-  const botones = PERFILES.map((p) => {
+function dibujarPerfiles(perfil = PERFIL_COTIDIANA, estado) {
+  const prendidos = perfilesPrendidos(estado);
+  if (prendidos.length < 2) return '';
+
+  const botones = prendidos.map((p) => {
     const activo = p.clave === perfil;
     return `
       <button type="button" class="opcion-perfil${activo ? ' activa' : ''}"
@@ -14570,18 +15355,22 @@ function dibujarApp(vista) {
   // Una pantalla que no es de este perfil no se dibuja: se cae a la de inicio
   // del perfil. Pasa con un enlace viejo o con el perfil recordado de la visita
   // anterior, y mostrarla igual dejaría la barra de abajo señalando otra cosa.
-  const definicion = pedida && esDelPerfil(pedida, perfil)
+  // Y un perfil APAGADO tampoco se dibuja: se cae a la vida cotidiana, que es
+  // la única que no se puede apagar. Pasa al abrir la app con el perfil de la
+  // visita anterior guardado, después de apagarlo desde otra pantalla.
+  const enPie = perfilPrendido(vista.estado, perfil) ? perfil : PERFIL_COTIDIANA;
+  const definicion = pedida && esDelPerfil(pedida, enPie)
     ? pedida
-    : pantalla(PERFILES.find((p) => p.clave === perfil)?.inicio ?? 'mes');
+    : pantalla(perfilDeClave(enPie)?.inicio ?? 'mes');
   const contenido = definicion.dibujar(vista);
 
   return `
-    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes, perfil: vista.perfil })}
+    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes, perfil: enPie, estado: vista.estado })}
     ${dibujarRiesgoDeGuardado(vista.riesgoDeGuardado)}
     ${dibujarAvisos(vista.incidencias)}
     ${dibujarRecordatorio(vista)}
     <main class="contenido">${contenido}</main>
-    ${dibujarNavegacion(definicion.nombre, vista.perfil)}
+    ${dibujarNavegacion(definicion.nombre, enPie)}
   `;
 }
 
@@ -14640,8 +15429,9 @@ function moverMes(vista, direccion) {
  * predeterminada: es una preferencia de uso, no un dato del usuario.
  */
 function irAlPerfil(vista, clave) {
-  const perfil = PERFILES.find((p) => p.clave === clave);
+  const perfil = perfilDeClave(clave);
   if (!perfil || perfil.clave === vista.perfil) return vista;
+  if (!perfilPrendido(vista.estado, clave)) return vista;
 
   return {
     ...irA(vista, perfil.inicio),
@@ -14668,6 +15458,9 @@ function irA(vista, nombre) {
   const perfilActual = vista.perfil ?? PERFIL_COTIDIANA;
   if (!esDelPerfil(destino, perfilActual)) {
     const suyo = perfilDe(destino);
+    // Un perfil apagado no se visita ni por enlace (T-071). Los botones que
+    // llevan ahí no se dibujan, pero uno guardado de antes sí puede intentarlo.
+    if (!perfilPrendido(vista.estado, suyo)) return vista;
     return irA({
       ...vista,
       perfil: suyo,
@@ -14685,6 +15478,7 @@ function irA(vista, nombre) {
   // tocando un total; se llega a la lista entera tocando la pestaña.
   const limpia = {
     ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null,
+    avisoAjustes: null,
     filtro: null, busqueda: '',
     avisoRespaldo: null, mostrarRespaldo: false,
     importacion: null, errorImportar: null, avisoImportar: null,
@@ -14879,6 +15673,52 @@ function iniciar(documento, almacen) {
       // nuevo se queda en el formulario: quien anota los ahorros del mes carga
       // varios seguidos.
       pantalla: resultado.corrigiendo ? 'ahorros' : vista.pantalla,
+    };
+    pintar();
+  }
+
+  /** Lo que hay escrito en el formulario de mis ahorros, ahora mismo. */
+  function leerFormularioDeMiAhorro() {
+    const actual = vista.borradorDeMiAhorro ?? borradorDeMiAhorro({ estado: vista.estado });
+    const formulario = raiz.querySelector('[data-formulario="mi-ahorro"]');
+    if (!formulario) return actual;
+
+    const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
+    return {
+      ...actual,
+      fecha: campo('fecha'),
+      monto: campo('monto'),
+      moneda: campo('moneda'),
+      cuenta: campo('cuenta'),
+      detalle: campo('detalle'),
+    };
+  }
+
+  /** Guarda un movimiento de mis ahorros. Mismo camino que el de los conjuntos. */
+  function guardarMiAhorro() {
+    const resultado = intentarGuardarMiAhorro(vista.estado, leerFormularioDeMiAhorro());
+
+    if (resultado.error) {
+      vista = { ...vista, borradorDeMiAhorro: resultado.borrador, error: resultado.error, aviso: null };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorDeMiAhorro: leerFormularioDeMiAhorro(), error: error.message, aviso: null };
+      pintar();
+      return;
+    }
+
+    vista = {
+      ...vista,
+      estado: resultado.estado,
+      borradorDeMiAhorro: resultado.borrador,
+      error: null,
+      aviso: resultado.aviso,
+      pantalla: resultado.corrigiendo ? 'mis-ahorros' : vista.pantalla,
     };
     pintar();
   }
@@ -15475,7 +16315,7 @@ function iniciar(documento, almacen) {
       return;
     }
 
-    if (evento.target.matches('input[name="comentario"], input[name="detalle"]')) {
+    if (evento.target.matches('input[name="comentario"], input[name="detalle"], input[name="cuenta"]')) {
       refrescarSugerencias(evento.target.name, evento.target.value);
       return;
     }
@@ -16098,6 +16938,87 @@ function iniciar(documento, almacen) {
         guardarEstado(vista.estado, almacen);
       } catch {
         // Ver arriba.
+      }
+    } else if (accion === 'guardar-mi-ahorro') {
+      evento.preventDefault();
+      guardarMiAhorro();
+      return;
+    } else if (accion === 'tipo-mi-ahorro') {
+      vista = { ...vista, borradorDeMiAhorro: { ...leerFormularioDeMiAhorro(), tipo }, error: null };
+    } else if (accion === 'editar-mi-ahorro') {
+      const movimiento = buscarMiAhorro(vista.estado, boton.dataset.id);
+      if (!movimiento) return;
+      let decimales;
+      try {
+        decimales = decimalesDe(vista.estado.monedas, movimiento.moneda);
+      } catch {
+        // La moneda no está en el catálogo: se muestra con dos decimales en vez
+        // de no dejar corregir. Igual que en los ahorros conjuntos.
+        decimales = 2;
+      }
+      vista = {
+        ...vista,
+        pantalla: 'nuevo-mi-ahorro',
+        borradorDeMiAhorro: borradorDesdeMiAhorro(movimiento, decimales),
+        error: null,
+        aviso: null,
+        confirmandoMiAhorro: null,
+      };
+    } else if (accion === 'borrar-mi-ahorro') {
+      vista = { ...vista, confirmandoMiAhorro: boton.dataset.id, miAhorroBorrado: null };
+    } else if (accion === 'borrar-mi-ahorro-no') {
+      vista = { ...vista, confirmandoMiAhorro: null };
+    } else if (accion === 'borrar-mi-ahorro-si') {
+      const resultado = borrarMiAhorro(vista.estado, boton.dataset.id);
+      if (!resultado.borrado) {
+        vista = { ...vista, confirmandoMiAhorro: null };
+      } else {
+        try {
+          guardarEstado(resultado.estado, almacen);
+        } catch (error) {
+          // No se saca de la pantalla lo que sigue estando guardado.
+          vista = { ...vista, confirmandoMiAhorro: null, error: error.message };
+          pintar();
+          return;
+        }
+        vista = {
+          ...vista,
+          estado: resultado.estado,
+          confirmandoMiAhorro: null,
+          miAhorroBorrado: resultado.borrado,
+        };
+      }
+    } else if (accion === 'deshacer-mi-ahorro') {
+      const nuevoEstado = restaurarMiAhorro(vista.estado, vista.miAhorroBorrado);
+      try {
+        guardarEstado(nuevoEstado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado: nuevoEstado, miAhorroBorrado: null };
+    } else if (accion === 'prender-perfil') {
+      // Prender o apagar una pestaña — T-071. No borra nada: solo deja de
+      // dibujarse. Si el perfil apagado era el que estaba a la vista, la vista
+      // se va a la cotidiana, que es la única que no se puede apagar.
+      const clave = boton.dataset.perfil;
+      const prendido = boton.dataset.prendido === 'si';
+      const nuevoEstado = prenderPerfil(vista.estado, clave, prendido);
+      const etiqueta = perfilDeClave(clave)?.etiqueta ?? clave;
+
+      vista = {
+        ...vista,
+        estado: nuevoEstado,
+        perfil: perfilPrendido(nuevoEstado, vista.perfil) ? vista.perfil : PERFIL_COTIDIANA,
+        avisoAjustes: prendido
+          ? `Listo: "${etiqueta}" ya está arriba.`
+          : `Listo: "${etiqueta}" ya no se muestra. Sus movimientos siguen guardados.`,
+      };
+      try {
+        guardarEstado(nuevoEstado, almacen);
+      } catch (error) {
+        vista = { ...vista, avisoAjustes: null, error: error.message };
       }
     } else if (accion === 'guardar-ahorro') {
       evento.preventDefault();

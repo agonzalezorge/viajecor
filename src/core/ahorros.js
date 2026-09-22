@@ -172,9 +172,20 @@ export function aporteDe(movimiento) {
  * desaparece de la lista se lee como que nunca existió.
  */
 export function totalPorMoneda(estado) {
+  return totalPorMonedaDe(estado?.ahorros ?? []);
+}
+
+/**
+ * Lo mismo, sobre una lista cualquiera de movimientos de guardado.
+ *
+ * Está separado porque "Mis ahorros" (T-072) es otro registro —otras filas,
+ * otra columna de quién lo tiene— con exactamente esta cuenta. Dos copias de
+ * una suma son dos copias que se desincronizan el día que una se arregla.
+ */
+export function totalPorMonedaDe(lista) {
   const porMoneda = new Map();
 
-  for (const movimiento of estado?.ahorros ?? []) {
+  for (const movimiento of lista ?? []) {
     const anterior = porMoneda.get(movimiento.moneda) ?? { moneda: movimiento.moneda, total: 0, cuantos: 0 };
     porMoneda.set(movimiento.moneda, {
       ...anterior,
@@ -216,6 +227,11 @@ export function totalPorPersona(estado) {
  * lo último que anotaste es lo que vas a querer corregir.
  */
 export function ahorrosOrdenados(estado) {
-  return [...(estado?.ahorros ?? [])].reverse()
+  return ordenadosPorFecha(estado?.ahorros ?? []);
+}
+
+/** Lo mismo, sobre una lista cualquiera. Ver `totalPorMonedaDe()`. */
+export function ordenadosPorFecha(lista) {
+  return [...(lista ?? [])].reverse()
     .sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
 }

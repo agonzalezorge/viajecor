@@ -13,6 +13,8 @@
 // primero y menos de lo segundo, más barato es equivocarse.
 
 import { hoy, mesDe, mesAnterior, mesSiguiente, TIPO_GASTO } from '../core/modelo.js';
+import { PERFIL_COTIDIANA, PERFIL_AHORROS, PERFIL_MIS_AHORROS, PERFILES, perfilPrendido,
+  perfilesPrendidos, prenderPerfil, perfilDeClave } from '../core/perfiles.js';
 import { etiquetaEnCurso, conEtiquetaElegida } from '../core/calculos.js';
 import { formatearMes } from '../core/formato.js';
 import { leerEstado, guardarEstado, riesgoDeGuardado } from '../datos/almacenamiento.js';
@@ -36,6 +38,11 @@ import { dibujarInstrucciones } from './pantallas/instrucciones.js';
 import { cambiarMonedaBase } from '../core/base.js';
 import { crearRubro, renombrarRubro, unirRubros, borrarRubro, catalogoDe, moverRubro } from '../core/rubros.js';
 import { dibujarAhorros } from './pantallas/ahorros.js';
+import {
+  dibujarMisAhorros, dibujarNuevoMiAhorro, borradorDeMiAhorro, borradorDesdeMiAhorro,
+  intentarGuardarMiAhorro, borrarMiAhorro, restaurarMiAhorro,
+} from './pantallas/mis-ahorros.js';
+import { buscarMiAhorro } from '../core/mis-ahorros.js';
 import {
   dibujarNuevoAhorro, borradorDeAhorro, borradorDesdeAhorro, intentarGuardarAhorro,
   borrarAhorro, restaurarAhorro, buscarAhorro,
@@ -112,14 +119,10 @@ export function escapar(texto) {
 // Lo pidió el usuario (2026-08-31) después de ver algo parecido en otra app.
 // La decisión de fondo ya estaba tomada desde CU-14 —los ahorros son un
 // registro aparte, no un rubro más—; esto la hace visible.
-
-export const PERFIL_COTIDIANA = 'cotidiana';
-export const PERFIL_AHORROS = 'ahorros';
-
-export const PERFILES = Object.freeze([
-  { clave: PERFIL_COTIDIANA, etiqueta: 'Vida cotidiana', inicio: 'mes' },
-  { clave: PERFIL_AHORROS, etiqueta: 'Ahorros conjuntos', inicio: 'ahorros' },
-]);
+//
+// **Cuáles existen y cuáles están prendidos vive en `core/perfiles.js`** desde
+// T-071: qué pestañas quiere ver el usuario es un dato suyo, que se guarda y
+// viaja en el respaldo, no una decisión de la interfaz.
 
 /** El perfil al que pertenece una pantalla. `ambos` la deja en los dos. */
 export function perfilDe(definicion) {
@@ -215,6 +218,27 @@ registrarPantalla('nuevo-ahorro', {
   dibujar: dibujarNuevoAhorro,
 });
 
+// Mis ahorros — T-072. Mismo armado que los ahorros conjuntos: su perfil, su
+// pantalla de carga destacada y nada en la barra de la vida cotidiana.
+registrarPantalla('mis-ahorros', {
+  etiqueta: 'Mis ahorros',
+  orden: 2,
+  icono: '◈',
+  conMes: false,
+  perfil: PERFIL_MIS_AHORROS,
+  dibujar: dibujarMisAhorros,
+});
+
+registrarPantalla('nuevo-mi-ahorro', {
+  etiqueta: 'Anotar',
+  orden: 1,
+  icono: '+',
+  conMes: false,
+  destacada: true,
+  perfil: PERFIL_MIS_AHORROS,
+  dibujar: dibujarNuevoMiAhorro,
+});
+
 registrarPantalla('viajes', {
   etiqueta: 'Gasto por viaje',
   icono: '✈',
@@ -308,7 +332,7 @@ registrarPantalla('nuevo', {
  * En las pantallas que no son de un mes (los datos, las monedas) el selector no
  * se dibuja: un control que no hace nada enseña a desconfiar de los controles.
  */
-export function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA }) {
+export function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA, estado }) {
   const selector = conMes
     ? `
       <nav class="mes" aria-label="Mes que se está viendo">
@@ -323,7 +347,7 @@ export function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA }) {
       <h1>Viajecor</h1>
       <span class="version">v${escapar(versionApp())}</span>
     </header>
-    ${dibujarPerfiles(perfil)}
+    ${dibujarPerfiles(perfil, estado)}
     ${selector}
   `;
 }
@@ -338,9 +362,17 @@ export function dibujarEncabezado({ mes, conMes, perfil = PERFIL_COTIDIANA }) {
  *
  * Si algún día hubiera cuatro perfiles, esto tendría que ser un desplegable —
  * cuatro botones no entran a lo ancho de un teléfono—. Con dos, no.
+ *
+ * **Solo se dibujan los perfiles prendidos** (T-071), y si queda uno solo no se
+ * dibuja nada: un selector con un botón único no elige nada y ocupa el lugar
+ * donde debería estar el contenido. Quien apagó los ahorros quiere la app de
+ * antes de que existieran, no la app con un botón apretado para siempre.
  */
-export function dibujarPerfiles(perfil = PERFIL_COTIDIANA) {
-  const botones = PERFILES.map((p) => {
+export function dibujarPerfiles(perfil = PERFIL_COTIDIANA, estado) {
+  const prendidos = perfilesPrendidos(estado);
+  if (prendidos.length < 2) return '';
+
+  const botones = prendidos.map((p) => {
     const activo = p.clave === perfil;
     return `
       <button type="button" class="opcion-perfil${activo ? ' activa' : ''}"
@@ -487,18 +519,22 @@ export function dibujarApp(vista) {
   // Una pantalla que no es de este perfil no se dibuja: se cae a la de inicio
   // del perfil. Pasa con un enlace viejo o con el perfil recordado de la visita
   // anterior, y mostrarla igual dejaría la barra de abajo señalando otra cosa.
-  const definicion = pedida && esDelPerfil(pedida, perfil)
+  // Y un perfil APAGADO tampoco se dibuja: se cae a la vida cotidiana, que es
+  // la única que no se puede apagar. Pasa al abrir la app con el perfil de la
+  // visita anterior guardado, después de apagarlo desde otra pantalla.
+  const enPie = perfilPrendido(vista.estado, perfil) ? perfil : PERFIL_COTIDIANA;
+  const definicion = pedida && esDelPerfil(pedida, enPie)
     ? pedida
-    : pantalla(PERFILES.find((p) => p.clave === perfil)?.inicio ?? 'mes');
+    : pantalla(perfilDeClave(enPie)?.inicio ?? 'mes');
   const contenido = definicion.dibujar(vista);
 
   return `
-    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes, perfil: vista.perfil })}
+    ${dibujarEncabezado({ mes: vista.mes, conMes: definicion.conMes, perfil: enPie, estado: vista.estado })}
     ${dibujarRiesgoDeGuardado(vista.riesgoDeGuardado)}
     ${dibujarAvisos(vista.incidencias)}
     ${dibujarRecordatorio(vista)}
     <main class="contenido">${contenido}</main>
-    ${dibujarNavegacion(definicion.nombre, vista.perfil)}
+    ${dibujarNavegacion(definicion.nombre, enPie)}
   `;
 }
 
@@ -557,8 +593,9 @@ export function moverMes(vista, direccion) {
  * predeterminada: es una preferencia de uso, no un dato del usuario.
  */
 export function irAlPerfil(vista, clave) {
-  const perfil = PERFILES.find((p) => p.clave === clave);
+  const perfil = perfilDeClave(clave);
   if (!perfil || perfil.clave === vista.perfil) return vista;
+  if (!perfilPrendido(vista.estado, clave)) return vista;
 
   return {
     ...irA(vista, perfil.inicio),
@@ -585,6 +622,9 @@ export function irA(vista, nombre) {
   const perfilActual = vista.perfil ?? PERFIL_COTIDIANA;
   if (!esDelPerfil(destino, perfilActual)) {
     const suyo = perfilDe(destino);
+    // Un perfil apagado no se visita ni por enlace (T-071). Los botones que
+    // llevan ahí no se dibujan, pero uno guardado de antes sí puede intentarlo.
+    if (!perfilPrendido(vista.estado, suyo)) return vista;
     return irA({
       ...vista,
       perfil: suyo,
@@ -602,6 +642,7 @@ export function irA(vista, nombre) {
   // tocando un total; se llega a la lista entera tocando la pestaña.
   const limpia = {
     ...vista, pantalla: nombre, aviso: null, error: null, borrando: null, borrado: null,
+    avisoAjustes: null,
     filtro: null, busqueda: '',
     avisoRespaldo: null, mostrarRespaldo: false,
     importacion: null, errorImportar: null, avisoImportar: null,
@@ -796,6 +837,52 @@ export function iniciar(documento, almacen) {
       // nuevo se queda en el formulario: quien anota los ahorros del mes carga
       // varios seguidos.
       pantalla: resultado.corrigiendo ? 'ahorros' : vista.pantalla,
+    };
+    pintar();
+  }
+
+  /** Lo que hay escrito en el formulario de mis ahorros, ahora mismo. */
+  function leerFormularioDeMiAhorro() {
+    const actual = vista.borradorDeMiAhorro ?? borradorDeMiAhorro({ estado: vista.estado });
+    const formulario = raiz.querySelector('[data-formulario="mi-ahorro"]');
+    if (!formulario) return actual;
+
+    const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
+    return {
+      ...actual,
+      fecha: campo('fecha'),
+      monto: campo('monto'),
+      moneda: campo('moneda'),
+      cuenta: campo('cuenta'),
+      detalle: campo('detalle'),
+    };
+  }
+
+  /** Guarda un movimiento de mis ahorros. Mismo camino que el de los conjuntos. */
+  function guardarMiAhorro() {
+    const resultado = intentarGuardarMiAhorro(vista.estado, leerFormularioDeMiAhorro());
+
+    if (resultado.error) {
+      vista = { ...vista, borradorDeMiAhorro: resultado.borrador, error: resultado.error, aviso: null };
+      pintar();
+      return;
+    }
+
+    try {
+      guardarEstado(resultado.estado, almacen);
+    } catch (error) {
+      vista = { ...vista, borradorDeMiAhorro: leerFormularioDeMiAhorro(), error: error.message, aviso: null };
+      pintar();
+      return;
+    }
+
+    vista = {
+      ...vista,
+      estado: resultado.estado,
+      borradorDeMiAhorro: resultado.borrador,
+      error: null,
+      aviso: resultado.aviso,
+      pantalla: resultado.corrigiendo ? 'mis-ahorros' : vista.pantalla,
     };
     pintar();
   }
@@ -1392,7 +1479,7 @@ export function iniciar(documento, almacen) {
       return;
     }
 
-    if (evento.target.matches('input[name="comentario"], input[name="detalle"]')) {
+    if (evento.target.matches('input[name="comentario"], input[name="detalle"], input[name="cuenta"]')) {
       refrescarSugerencias(evento.target.name, evento.target.value);
       return;
     }
@@ -2015,6 +2102,87 @@ export function iniciar(documento, almacen) {
         guardarEstado(vista.estado, almacen);
       } catch {
         // Ver arriba.
+      }
+    } else if (accion === 'guardar-mi-ahorro') {
+      evento.preventDefault();
+      guardarMiAhorro();
+      return;
+    } else if (accion === 'tipo-mi-ahorro') {
+      vista = { ...vista, borradorDeMiAhorro: { ...leerFormularioDeMiAhorro(), tipo }, error: null };
+    } else if (accion === 'editar-mi-ahorro') {
+      const movimiento = buscarMiAhorro(vista.estado, boton.dataset.id);
+      if (!movimiento) return;
+      let decimales;
+      try {
+        decimales = decimalesDe(vista.estado.monedas, movimiento.moneda);
+      } catch {
+        // La moneda no está en el catálogo: se muestra con dos decimales en vez
+        // de no dejar corregir. Igual que en los ahorros conjuntos.
+        decimales = 2;
+      }
+      vista = {
+        ...vista,
+        pantalla: 'nuevo-mi-ahorro',
+        borradorDeMiAhorro: borradorDesdeMiAhorro(movimiento, decimales),
+        error: null,
+        aviso: null,
+        confirmandoMiAhorro: null,
+      };
+    } else if (accion === 'borrar-mi-ahorro') {
+      vista = { ...vista, confirmandoMiAhorro: boton.dataset.id, miAhorroBorrado: null };
+    } else if (accion === 'borrar-mi-ahorro-no') {
+      vista = { ...vista, confirmandoMiAhorro: null };
+    } else if (accion === 'borrar-mi-ahorro-si') {
+      const resultado = borrarMiAhorro(vista.estado, boton.dataset.id);
+      if (!resultado.borrado) {
+        vista = { ...vista, confirmandoMiAhorro: null };
+      } else {
+        try {
+          guardarEstado(resultado.estado, almacen);
+        } catch (error) {
+          // No se saca de la pantalla lo que sigue estando guardado.
+          vista = { ...vista, confirmandoMiAhorro: null, error: error.message };
+          pintar();
+          return;
+        }
+        vista = {
+          ...vista,
+          estado: resultado.estado,
+          confirmandoMiAhorro: null,
+          miAhorroBorrado: resultado.borrado,
+        };
+      }
+    } else if (accion === 'deshacer-mi-ahorro') {
+      const nuevoEstado = restaurarMiAhorro(vista.estado, vista.miAhorroBorrado);
+      try {
+        guardarEstado(nuevoEstado, almacen);
+      } catch (error) {
+        vista = { ...vista, error: error.message };
+        pintar();
+        return;
+      }
+      vista = { ...vista, estado: nuevoEstado, miAhorroBorrado: null };
+    } else if (accion === 'prender-perfil') {
+      // Prender o apagar una pestaña — T-071. No borra nada: solo deja de
+      // dibujarse. Si el perfil apagado era el que estaba a la vista, la vista
+      // se va a la cotidiana, que es la única que no se puede apagar.
+      const clave = boton.dataset.perfil;
+      const prendido = boton.dataset.prendido === 'si';
+      const nuevoEstado = prenderPerfil(vista.estado, clave, prendido);
+      const etiqueta = perfilDeClave(clave)?.etiqueta ?? clave;
+
+      vista = {
+        ...vista,
+        estado: nuevoEstado,
+        perfil: perfilPrendido(nuevoEstado, vista.perfil) ? vista.perfil : PERFIL_COTIDIANA,
+        avisoAjustes: prendido
+          ? `Listo: "${etiqueta}" ya está arriba.`
+          : `Listo: "${etiqueta}" ya no se muestra. Sus movimientos siguen guardados.`,
+      };
+      try {
+        guardarEstado(nuevoEstado, almacen);
+      } catch (error) {
+        vista = { ...vista, avisoAjustes: null, error: error.message };
       }
     } else if (accion === 'guardar-ahorro') {
       evento.preventDefault();

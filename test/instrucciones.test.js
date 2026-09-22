@@ -17,7 +17,8 @@ import assert from 'node:assert/strict';
 
 import { dibujarInstrucciones } from '../src/ui/pantallas/instrucciones.js';
 import { dibujarAjustes } from '../src/ui/pantallas/ajustes.js';
-import { pantallasRegistradas, pantalla, dibujarApp, vistaInicial, PERFIL_AHORROS } from '../src/ui/app.js';
+import { pantallasRegistradas, pantalla, dibujarApp, vistaInicial } from '../src/ui/app.js';
+import { PERFIL_AHORROS } from '../src/core/perfiles.js';
 import { estadoInicial } from '../src/datos/almacenamiento.js';
 import { monedasIniciales, monedaBaseDe } from '../src/core/monedas.js';
 import { cambiarMonedaBase } from '../src/core/base.js';

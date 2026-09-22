@@ -15,9 +15,11 @@
 
 import {
   validarMovimiento, validarFecha, nuevoId, rubrosIniciales, normalizarClave,
+  normalizarTextoVisible,
 } from '../core/modelo.js';
 import { COLORES } from '../core/paleta.js';
-import { personaDeLaPlanilla, tipoDeLaPlanilla } from '../core/ahorros.js';
+import { personaDeLaPlanilla, tipoDeLaPlanilla, AHORRO_ENTRA, AHORRO_SALE } from '../core/ahorros.js';
+import { PERFILES } from '../core/perfiles.js';
 
 export const CLAVE_DATOS = 'viajecor:datos:v1';
 
@@ -54,6 +56,10 @@ export function estadoInicial({ monedas = [], versionApp } = {}) {
     // un rubro más: un ahorro no entra en el saldo del mes ni se reparte por
     // rubro, y mezclarlo ensuciaría todos los totales que ya funcionan.
     ahorros: [],
+    // Mis ahorros (T-072): dónde está la plata que no se usa en el mes. Lista
+    // aparte de `ahorros` porque son otro registro —una cuenta escrita a mano en
+    // vez de una de dos personas— y de `movimientos` por lo mismo que aquélla.
+    mis_ahorros: [],
     // El catálogo de rubros del usuario (T-048). Arranca con los de fábrica y
     // se edita desde Ajustes: crear, renombrar, unir. Vive en los datos y no en
     // el código por lo mismo que las monedas (T-008) — quien decide qué rubros
@@ -276,6 +282,30 @@ export function migrarEstado(guardado, incidencias = []) {
     };
   });
 
+  // Mis ahorros (T-072). Misma regla que arriba: un registro roto se descarta
+  // solo y se cuenta como incidencia, en vez de tirar los otros sesenta.
+  estado.mis_ahorros = leerLista(guardado.mis_ahorros, 'mis ahorros', incidencias, (m) => {
+    if (m === null || typeof m !== 'object') throw new Error('no es un movimiento');
+    const cuenta = typeof m.cuenta === 'string' ? normalizarTextoVisible(m.cuenta) : '';
+    if (cuenta === '') throw new Error('no dice en qué cuenta está');
+    if (m.tipo !== AHORRO_ENTRA && m.tipo !== AHORRO_SALE) throw new Error('no dice si la plata entró o salió');
+    if (!Number.isInteger(m.monto) || m.monto === 0) throw new Error('el monto no es un entero distinto de cero');
+    if (typeof m.moneda !== 'string' || !/^[A-Za-z]{3}$/.test(m.moneda.trim())) {
+      throw new Error('la moneda no es un código de tres letras');
+    }
+    const fecha = validarFecha(m.fecha);
+    return {
+      id: typeof m.id === 'string' && m.id !== '' ? m.id : nuevoId('mio'),
+      fecha,
+      cuenta,
+      tipo: m.tipo,
+      monto: m.monto,
+      moneda: m.moneda.trim().toUpperCase(),
+      detalle: typeof m.detalle === 'string' ? m.detalle : '',
+      creado: /^\d{4}-\d{2}-\d{2}$/.test(m.creado) ? m.creado : fecha,
+    };
+  });
+
   const preferencias = guardado.preferencias;
   if (preferencias !== null && typeof preferencias === 'object' && !Array.isArray(preferencias)) {
     const moneda = preferencias.moneda_predeterminada;
@@ -315,6 +345,19 @@ export function migrarEstado(guardado, incidencias = []) {
       estado.preferencias.perfil = preferencias.perfil;
     }
 
+    // Qué pestañas quiso ver (T-071). Se leen **solo las claves de perfiles que
+    // existen y solo los booleanos**: un respaldo editado a mano con
+    // `{ inventado: "sí" }` no puede prender nada, y una clave ausente sigue
+    // queriendo decir "nunca lo tocó", que es distinto de "lo apagó".
+    const perfiles = preferencias.perfiles;
+    if (perfiles !== null && typeof perfiles === 'object' && !Array.isArray(perfiles)) {
+      const leidos = {};
+      for (const { clave } of PERFILES) {
+        if (typeof perfiles[clave] === 'boolean') leidos[clave] = perfiles[clave];
+      }
+      if (Object.keys(leidos).length > 0) estado.preferencias.perfiles = leidos;
+    }
+
     if (preferencias.compartir_no_funciona === true) {
       estado.preferencias.compartir_no_funciona = true;
     }
@@ -350,10 +393,14 @@ function leerLista(valor, nombre, incidencias, validar) {
   }
 
   if (rotos.length > 0) {
-    const cuantos = rotos.length === 1 ? 'Un registro' : `${rotos.length} registros`;
+    // Singular y plural completos. Decía "Un registro … no se pudieron leer y
+    // quedaron afuera": un aviso mal escrito se lee como un aviso automático que
+    // nadie miró, justo cuando lo que dice es que faltan datos.
+    const uno = rotos.length === 1;
     incidencias.push(
-      `${cuantos} de ${nombre} no se pudieron leer y quedaron afuera de los totales. ` +
-      `Detalle — ${rotos.join(' · ')}`
+      `${uno ? 'Un registro' : `${rotos.length} registros`} de ${nombre} `
+      + `${uno ? 'no se pudo leer y quedó' : 'no se pudieron leer y quedaron'} afuera de los totales. `
+      + `Detalle — ${rotos.join(' · ')}`
     );
   }
   return buenos;
