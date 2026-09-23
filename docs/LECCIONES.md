@@ -1312,3 +1312,31 @@ pasaba nada al tocarlos.
 - **Ningún test iba a encontrarlo**: las funciones puras devolvían el HTML
   correcto, con el `data-pantalla` correcto. Lo que fallaba estaba entre el clic
   y el dibujo. Otra para la lista de cosas que solo aparecen en un navegador.
+
+
+## L-039 · Un test que comprueba que el texto no miente no comprueba que esté completo
+
+**Dónde apareció:** T-073, y lo preguntó el usuario — *"¿has ido actualizando las
+instrucciones?"*—, no un test.
+
+La pantalla de instrucciones nació con tests pensados contra un riesgo real y ya
+vivido: que el texto prometa cosas que dejaron de existir (el cartel de "llega con
+T-015", que estuvo meses ahí). Esos tests recorren lo que el texto **nombra** y
+verifican que siga existiendo. Funcionan.
+
+Pero el olvido de verdad fue el simétrico: se agregó poder reordenar los rubros, y
+que las tortas siguieran ese orden, y **nadie lo escribió en las instrucciones**.
+El texto no mentía: callaba. Y callar no rompe ningún test que recorra el texto,
+porque lo que falta no está ahí para ser recorrido.
+
+**Las dos cosas que deja.**
+
+- **Un test que parte del texto solo puede encontrar errores del texto.** Para
+  encontrar lo que falta hay que partir de la app: recorrer lo que el usuario
+  puede hacer —los botones que se dibujan de verdad— y exigir que cada cosa
+  tenga su explicación. Esa guardia se autodescubre; la otra no.
+- **Cada documento que describe la app necesita esa segunda mitad**, no solo
+  este. `PRODUCTO.md` y `CHANGELOG.md` se actualizan porque `CLAUDE.md` lo pide
+  en cada tarea, que es una disciplina y no una garantía; la pantalla de
+  instrucciones era la única que además se le muestra al usuario, y es la que se
+  quedó atrás.

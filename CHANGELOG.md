@@ -3,6 +3,15 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.18.1 — 2026-09-23
+
+### Cambiado
+- **Las Instrucciones estaban atrasadas.** No contaban que los rubros se pueden
+  reordenar con ↑ y ↓, que ese orden es el que tienen en toda la app —incluidas
+  las porciones de las tortas— ni que los colores no se mueven con ellos. Ahora
+  sí, y hay una comprobación automática que avisa cuando una función nueva se
+  queda sin explicar.
+
 ## 0.18.0 — 2026-09-22
 
 ### Agregado

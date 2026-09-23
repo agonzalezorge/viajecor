@@ -112,6 +112,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-070 | Arreglo: el botón que no llevaba a ningún lado | **Hecha** | T-040 |
 | T-071 | Las pestañas se prenden y se apagan | **Hecha** | T-046 |
 | T-072 | Mis ahorros: dónde está la plata que no uso | **Hecha** | T-071 |
+| T-073 | Las instrucciones al día, y una guardia | **Hecha** | T-065 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3342,3 +3343,33 @@ Y de paso, un defecto de redacción viejo en los avisos del almacenamiento: *"Un
 registro … no se pudieron leer y quedaron afuera"*. Un aviso mal escrito se lee
 como un aviso automático que nadie miró, justo cuando lo que dice es que faltan
 datos.
+
+
+### T-073 · Las instrucciones se habían quedado atrás, y una guardia para que no vuelva a pasar — **Hecha** (2026-09-23)
+
+**Lo preguntó el usuario:** *"¿Has ido actualizando las instrucciones para que
+reflejen estas nuevas funciones que se van creando?"*
+
+**La respuesta honesta era "sí, salvo un hueco".** Se revisó tarea por tarea
+desde T-065, que es cuando nació la pantalla: el botón Hoy, el período
+recortable, las varias etiquetas, los viajes con ingresos, los grupos de
+ingresos, las dos pestañas de ahorro y prender/apagar estaban. **Faltaban T-067 y
+T-068**: que los rubros se pueden reordenar, que ese orden manda en toda la app,
+que los colores no se mueven con ellos, y que las porciones de las tortas siguen
+esa lista. Cuatro días en la app sin aparecer en las instrucciones.
+
+**Por qué se coló, que es lo que importa:** los tests de esa pantalla comprobaban
+que lo que el texto **nombra** siga existiendo —para que no prometa cosas que se
+sacaron— y esa es solo la mitad. La otra mitad, que lo que **existe** esté
+nombrado, no la miraba nadie. Ver L-039.
+
+**La guardia nueva se autodescubre**: recorre los `data-accion` que la pantalla
+de rubros dibuja de verdad y exige, por cada uno, una palabra en el texto. Una
+función nueva rompe el test hasta que alguien decida qué decir de ella. Y el mapa
+se comprueba al revés también, para que no quede defendiendo un botón que ya no
+existe.
+
+**Probada rompiendo las dos cosas, en el lugar donde el error ocurre** (L-036):
+sacando del texto lo del orden —el olvido real, reproducido— el test falla con
+"las instrucciones no explican mover-rubro"; agregando un botón "Archivar" que
+nadie explicó, falla con "nadie decidió si va en las instrucciones".

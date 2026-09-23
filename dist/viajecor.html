@@ -1439,7 +1439,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.18.0";
+globalThis.__VIAJECOR_VERSION__ = "0.18.1";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -11012,6 +11012,10 @@ function dibujarInstrucciones(vista) {
         <p><strong>Cualquier número se puede tocar</strong> y te lleva a los
         movimientos que lo componen. Es la regla de toda la app: ningún total es
         un callejón sin salida.</p>
+        <p>Las porciones de la torta van <strong>en el orden de tus rubros</strong>,
+        no de mayor a menor: así cargar un gasto no cambia qué color queda al lado
+        de cuál. La lista de al lado, que es donde se comparan los números, sí va
+        del que más gastaste al que menos.</p>
         <p>Con las flechas de arriba cambiás de mes.</p>
       `)}
 
@@ -11090,10 +11094,14 @@ function dibujarInstrucciones(vista) {
         llevar la cuenta de tus bancos, prendé <em>Mis ahorros</em>. Apagar una
         <strong>no borra nada</strong>: los movimientos quedan guardados, el
         respaldo se los sigue llevando y vuelven al prenderla.</p>
-        <p><strong>Rubros.</strong> Crear, renombrar, unir dos en uno y
+        <p><strong>Rubros.</strong> Crear, renombrar, unir dos en uno,
         <strong>cambiarles el color</strong> (entre veinte elegidos para que se
-        distingan entre sí). Renombrar y unir mueven también los movimientos:
-        nada se borra.</p>
+        distingan entre sí) y <strong>cambiarles el orden</strong> con ↑ y ↓.
+        Renombrar y unir mueven también los movimientos: nada se borra.</p>
+        <p>El orden que les des es el que tienen <strong>en toda la app</strong>:
+        las listas, la tabla de la evolución y las porciones de las tortas. Los
+        colores <strong>no se mueven con ellos</strong>: cada rubro se queda con
+        el suyo, así que un rubro que subís sigue siendo del mismo color.</p>
         <p><strong>Etiquetas y detalles.</strong> Ver todo lo que escribiste y
         arreglarlo. Renombrar una etiqueta con el nombre de otra las une — es la
         salida cuando <em>Roma</em> y <em>roma 26</em> quedaron separadas.</p>

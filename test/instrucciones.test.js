@@ -147,3 +147,65 @@ test('cada sección del recorrido nombra la pestaña de la que habla', () => {
   }
   assert.equal(titulos.some((t) => /lo único importante/i.test(t)), false);
 });
+
+
+// ── Que no se quede atrás — T-073 ───────────────────────────────────────────
+//
+// Los tests de arriba comprueban que lo que el texto NOMBRA siga existiendo.
+// Falta la otra mitad, y es por donde se coló un olvido real: que lo que EXISTE
+// esté nombrado. Poder reordenar los rubros (T-067) y que las tortas siguieran
+// ese orden (T-068) estuvieron cuatro días en la app sin aparecer acá, y lo
+// notó el usuario, no un test.
+//
+// Esta guardia se **autodescubre**: recorre los botones que la pantalla de
+// rubros ofrece de verdad y exige que cada uno tenga su palabra en el texto. Una
+// función nueva rompe el test hasta que alguien decida qué decir de ella — que
+// es exactamente el momento en que hay que decidirlo.
+
+import { dibujarRubros } from '../src/ui/pantallas/rubros.js';
+
+/** Qué palabra tiene que aparecer en las instrucciones por cada cosa que se puede hacer. */
+const EXPLICADAS = {
+  'crear-rubro': /crear/i,
+  'editar-rubro': /renombrar/i,
+  'unir-desde': /unir/i,
+  'borrar-rubro': /nada se borra|no se borra/i,
+  'pintar-rubro': /color/i,
+  'mover-rubro': /orden/i,
+};
+
+test('todo lo que se puede hacer con los rubros está explicado', () => {
+  const pantallaRubros = dibujarRubros({ estado });
+  const acciones = [...new Set([...pantallaRubros.matchAll(/data-accion="([a-z-]+)"/g)].map((m) => m[1]))]
+    .filter((a) => a !== 'ir' && !a.startsWith('cancelar'));
+
+  const texto = visible(html());
+
+  for (const accion of acciones) {
+    const palabra = EXPLICADAS[accion];
+    assert.ok(palabra,
+      `"${accion}" es algo que el usuario puede hacer y nadie decidió si va en las instrucciones. `
+      + 'Agregalo al texto y a este mapa, o al mapa con lo que ya diga el texto.');
+    assert.match(texto, palabra, `las instrucciones no explican "${accion}"`);
+  }
+});
+
+test('y el mapa no defiende acciones que ya no existen', () => {
+  // Si no, queda pidiendo texto para un botón que se sacó — y el texto se queda.
+  const acciones = new Set([...dibujarRubros({ estado }).matchAll(/data-accion="([a-z-]+)"/g)].map((m) => m[1]));
+
+  for (const accion of Object.keys(EXPLICADAS)) {
+    assert.ok(acciones.has(accion), `"${accion}" ya no se puede hacer: sacalo del mapa`);
+  }
+});
+
+test('las dos pestañas de ahorro están explicadas, y cómo prenderlas y apagarlas', () => {
+  // T-071 y T-072. Van acá y no en el mapa de arriba porque no son botones de
+  // la pantalla de rubros, pero envejecen igual.
+  const texto = visible(html());
+
+  assert.match(texto, /Ahorros conjuntos/);
+  assert.match(texto, /Mis ahorros/);
+  assert.match(texto, /Pestañas/);
+  assert.match(texto, /no borra nada/i, 'lo único que hay que prometer al apagar una pestaña');
+});
