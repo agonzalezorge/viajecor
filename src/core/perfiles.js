@@ -42,6 +42,12 @@ export const PERFIL_MIS_AHORROS = 'mis-ahorros';
  * - `inicio`: dónde aterriza al entrar.
  * - `fijo`: no se puede apagar. Solo la vida cotidiana, que es la app.
  * - `deFabrica`: si viene prendido cuando nadie eligió nada.
+ * - `registro`: en qué lista del estado viven sus movimientos, para poder decir
+ *   **cuántos esconde apagarlo**. Lo declara el perfil y no la pantalla de
+ *   Ajustes: ahí estaba escrito a mano y solo conocía los ahorros conjuntos, así
+ *   que "Mis ahorros" nunca avisaba nada aunque tuviera datos cargados (T-074).
+ * - `cosas`: cómo se llaman esos movimientos cuando hay que contarlos en voz
+ *   alta, en singular y en plural.
  */
 export const PERFILES = Object.freeze([
   Object.freeze({
@@ -57,6 +63,8 @@ export const PERFILES = Object.freeze([
     inicio: 'ahorros',
     fijo: false,
     deFabrica: true,
+    registro: 'ahorros',
+    cosas: ['movimiento de ahorro', 'movimientos de ahorro'],
   }),
   // Apagada de fábrica, elegido por el usuario (2026-09-22): quien abre la app
   // por primera vez ve lo mismo que antes y no se encuentra con una pestaña
@@ -67,6 +75,8 @@ export const PERFILES = Object.freeze([
     inicio: 'mis-ahorros',
     fijo: false,
     deFabrica: false,
+    registro: 'mis_ahorros',
+    cosas: ['movimiento', 'movimientos'],
   }),
 ]);
 
@@ -93,6 +103,33 @@ export function perfilPrendido(estado, clave) {
 /** Los perfiles prendidos, en el orden en que se dibujan arriba. */
 export function perfilesPrendidos(estado) {
   return PERFILES.filter((p) => perfilPrendido(estado, p.clave));
+}
+
+/**
+ * Cuántos movimientos guarda un perfil — o sea, cuántos esconde apagarlo.
+ *
+ * Los sabe **por el perfil**, no por una lista escrita en la pantalla: es lo que
+ * garantiza que un perfil nuevo no nazca callado. Un perfil sin registro propio
+ * —la vida cotidiana, que no se puede apagar— no esconde nada.
+ */
+export function cuantosGuarda(estado, clave) {
+  // Sin `Array.isArray` no alcanza con mirar el registro: un respaldo editado a
+  // mano puede traer cualquier cosa ahí. Y con él, la guarda de "este perfil no
+  // tiene registro" sobra — la sacó una mutación que sobrevivió.
+  const lista = estado?.[perfilDeClave(clave)?.registro];
+  return Array.isArray(lista) ? lista.length : 0;
+}
+
+/**
+ * Cómo se llaman esos movimientos, ya en singular o plural según cuántos sean.
+ *
+ * Va acá al lado y no en la pantalla por lo mismo: "movimientos de ahorro" es
+ * correcto para los conjuntos y raro para los propios, y elegir la palabra en la
+ * pantalla es volver a escribir a mano lo que cada perfil ya sabe de sí.
+ */
+export function nombreDeLoQueGuarda(clave, cuantos) {
+  const [uno, varios] = perfilDeClave(clave)?.cosas ?? ['movimiento', 'movimientos'];
+  return cuantos === 1 ? uno : varios;
 }
 
 /**

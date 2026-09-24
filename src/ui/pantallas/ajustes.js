@@ -18,7 +18,8 @@
 // Igual que el resto de la interfaz (ADR-022), son funciones puras.
 
 import { escapar } from '../app.js';
-import { PERFIL_COTIDIANA, PERFILES, perfilPrendido } from '../../core/perfiles.js';
+import { PERFIL_COTIDIANA, PERFILES, perfilPrendido, cuantosGuarda,
+  nombreDeLoQueGuarda } from '../../core/perfiles.js';
 import { monedaBaseDe } from '../../core/monedas.js';
 
 /**
@@ -36,11 +37,13 @@ import { monedaBaseDe } from '../../core/monedas.js';
  * pantalla vacía y sin ningún lugar desde donde volver.
  */
 export function dibujarPestanias(estado) {
-  const cuantos = { ahorros: (estado?.ahorros ?? []).length };
-
   const filas = PERFILES.map((perfil) => {
     const prendido = perfilPrendido(estado, perfil.clave);
-    const tiene = cuantos[perfil.clave] ?? 0;
+    // Cuántos esconde lo sabe el perfil, no esta pantalla. Acá había un mapa
+    // escrito a mano con una sola entrada, y "Mis ahorros" no avisaba nunca
+    // aunque tuviera movimientos cargados (T-074).
+    const tiene = cuantosGuarda(estado, perfil.clave);
+    const suyos = nombreDeLoQueGuarda(perfil.clave, tiene);
 
     const dice = perfil.fijo
       ? '<span class="suave">Siempre</span>'
@@ -49,13 +52,11 @@ export function dibujarPestanias(estado) {
            ${prendido ? 'Apagar' : 'Prender'}
          </button>`;
 
-    const nota = prendido && !perfil.fijo && tiene > 0
-      ? `<p class="rubro-pie suave">Apagarla esconde ${tiene} ${tiene === 1 ? 'movimiento' : 'movimientos'} de
-         ahorro. <strong>No se borran</strong>: vuelven al prenderla.</p>`
-      : (!prendido && tiene > 0
-        ? `<p class="rubro-pie suave">Tiene ${tiene} ${tiene === 1 ? 'movimiento' : 'movimientos'} guardados,
-           esperando.</p>`
-        : '');
+    const nota = tiene === 0 ? '' : (prendido
+      ? `<p class="rubro-pie suave">Apagarla esconde ${tiene} ${escapar(suyos)}.
+         <strong>No se borran</strong>: vuelven al prenderla.</p>`
+      : `<p class="rubro-pie suave">Tiene ${tiene} ${escapar(suyos)}
+         ${tiene === 1 ? 'guardado' : 'guardados'}, esperando.</p>`);
 
     return `
       <li class="fila-rubro">

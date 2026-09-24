@@ -113,6 +113,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-071 | Las pestañas se prenden y se apagan | **Hecha** | T-046 |
 | T-072 | Mis ahorros: dónde está la plata que no uso | **Hecha** | T-071 |
 | T-073 | Las instrucciones al día, y una guardia | **Hecha** | T-065 |
+| T-074 | Arreglo: la pestaña nueva no contaba sus movimientos | **Hecha** | T-072 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3373,3 +3374,40 @@ existe.
 sacando del texto lo del orden —el olvido real, reproducido— el test falla con
 "las instrucciones no explican mover-rubro"; agregando un botón "Archivar" que
 nadie explicó, falla con "nadie decidió si va en las instrucciones".
+
+
+### T-074 · "Mis ahorros" no decía cuántos movimientos esconde — **Hecha** (2026-09-24)
+
+**Lo reportó el usuario:** *"en Ajustes, en Mis ahorros no me dice cuántos
+movimientos se esconderían al apagarla por más que ya tenga movimientos
+cargados"*.
+
+**Reproducido antes de tocar nada**, con cuatro movimientos cargados: la fila no
+decía nada. La causa estaba escrita a mano en la pantalla de Ajustes —
+`const cuantos = { ahorros: (estado?.ahorros ?? []).length }`— y el perfil nuevo
+no estaba en ese mapa, así que caía al `?? 0`. Un cero se dibuja igual que "no
+tiene movimientos": la fila callaba en vez de fallar.
+
+**El arreglo no es agregar la entrada que falta, que era lo obvio y lo frágil.**
+Ahora **cada perfil declara en qué lista del estado viven sus movimientos**
+(`registro`) y cómo se llaman al contarlos (`cosas`). La pantalla pregunta;
+nadie escribe una lista de casos. Un perfil nuevo que no lo declare falla en el
+test, en vez de nacer callado como éste.
+
+De paso, cada uno los nombra como corresponde: *"esconde 1 movimiento de
+ahorro"* en los conjuntos y *"esconde 3 movimientos"* en los propios, que no son
+ahorros de nadie más.
+
+**Por qué ningún test lo agarró**, que es lo que importa: los de T-071 nombraban
+los ahorros conjuntos —eran los únicos que había—, y al agregar la pestaña en
+T-072 nadie los volvió a mirar. Ahora **recorren `PERFILES`** en vez de nombrar
+uno: el próximo perfil trae su cuenta o falla. Ver L-040.
+
+**Mutaciones:** 5 sembradas, 4 muertas. La que sobrevivió señalaba una guarda
+redundante —`Array.isArray()` ya cubría el caso— y se borró en vez de defenderla.
+Y se comprobó al revés: resucitando el mapa escrito a mano, el test nuevo falla
+con *"Mis ahorros no avisa cuántos esconde"*.
+
+**Recorrido en el navegador:** con tres movimientos propios y uno conjunto, cada
+fila dice lo suyo, en singular y en plural; al apagarla, dice que los tres siguen
+guardados esperando.

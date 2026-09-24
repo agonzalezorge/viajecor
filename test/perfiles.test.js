@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 
 import {
   PERFILES, PERFIL_COTIDIANA, PERFIL_AHORROS, PERFIL_MIS_AHORROS,
-  perfilDeClave, perfilPrendido, perfilesPrendidos, prenderPerfil,
+  perfilDeClave, perfilPrendido, perfilesPrendidos, prenderPerfil, cuantosGuarda,
 } from '../src/core/perfiles.js';
 import { estadoInicial, migrarEstado } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
@@ -24,6 +24,14 @@ import { dibujarPestanias } from '../src/ui/pantallas/ajustes.js';
 import { crearAhorro, AHORRO_ENTRA } from '../src/core/ahorros.js';
 
 const vacio = () => estadoInicial({ monedas: monedasIniciales() });
+
+/** Un estado con `cuantos` movimientos en el registro del perfil que sea. */
+const conGuardados = (clave, cuantos) => {
+  const estado = prenderPerfil(vacio(), clave, true);
+  const registro = perfilDeClave(clave).registro;
+  estado[registro] = Array.from({ length: cuantos }, (_, i) => ({ id: `x${i}` }));
+  return estado;
+};
 
 const conAhorros = (cuantos) => {
   const estado = vacio();
@@ -240,8 +248,44 @@ test('sin movimientos no promete nada sobre movimientos que no hay', () => {
 test('ya apagada, dice que los movimientos siguen ahí esperando', () => {
   const html = dibujarPestanias(prenderPerfil(conAhorros(4), PERFIL_AHORROS, false));
 
-  assert.match(html, /4 movimientos guardados/);
+  assert.match(html, /4 movimientos de ahorro\s+guardados/);
   assert.match(html, /Prender\s*<\/button>/);
+});
+
+test('TODA pestaña apagable con movimientos dice cuántos esconde', () => {
+  // El bug que reportó el usuario (2026-09-24): "en Mis ahorros no me dice
+  // cuántos movimientos se esconderían al apagarla por más que ya tenga
+  // movimientos cargados". Los tests de T-071 miraban solo los ahorros
+  // conjuntos, así que la pestaña nueva nació callada y ninguno se quejó.
+  //
+  // Por eso este test recorre los perfiles en vez de nombrar uno: el próximo
+  // que se agregue tiene que traer su cuenta o falla acá.
+  for (const perfil of PERFILES.filter((p) => !p.fijo)) {
+    const estado = conGuardados(perfil.clave, 7);
+
+    assert.equal(cuantosGuarda(estado, perfil.clave), 7, `${perfil.etiqueta} no sabe contar lo suyo`);
+    assert.match(dibujarPestanias(estado), /esconde 7 /, `${perfil.etiqueta} no avisa cuántos esconde`);
+  }
+});
+
+test('y cada una los llama por su nombre', () => {
+  // "movimientos de ahorro" es correcto para los conjuntos y raro para los
+  // propios, que no son ahorros de nadie más.
+  assert.match(dibujarPestanias(conGuardados(PERFIL_AHORROS, 2)), /esconde 2 movimientos de ahorro/);
+  assert.match(dibujarPestanias(conGuardados(PERFIL_MIS_AHORROS, 2)), /esconde 2 movimientos\./);
+});
+
+test('la vida cotidiana no cuenta nada: no se puede apagar', () => {
+  assert.equal(cuantosGuarda(vacio(), PERFIL_COTIDIANA), 0);
+  assert.equal(cuantosGuarda(vacio(), 'inventado'), 0);
+});
+
+test('un registro que no es una lista no rompe la pantalla', () => {
+  // Puede llegar de un respaldo editado a mano.
+  const roto = { ...vacio(), mis_ahorros: 'no soy una lista' };
+
+  assert.equal(cuantosGuarda(roto, PERFIL_MIS_AHORROS), 0);
+  assert.doesNotMatch(dibujarPestanias(roto), /esconde/);
 });
 
 test('la vida cotidiana aparece sin botón: dice "Siempre"', () => {

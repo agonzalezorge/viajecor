@@ -3,6 +3,16 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.18.2 — 2026-09-24
+
+### Arreglado
+- **En Ajustes → Pestañas, "Mis ahorros" no decía cuántos movimientos esconde
+  apagarla**, aunque tuvieras movimientos cargados. Solo lo decía la de ahorros
+  conjuntos.
+
+  Ahora cada pestaña los cuenta y los llama por su nombre: "esconde 1 movimiento
+  de ahorro" en los conjuntos, "esconde 3 movimientos" en los tuyos.
+
 ## 0.18.1 — 2026-09-23
 
 ### Cambiado

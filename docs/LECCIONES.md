@@ -1340,3 +1340,31 @@ porque lo que falta no está ahí para ser recorrido.
   en cada tarea, que es una disciplina y no una garantía; la pantalla de
   instrucciones era la única que además se le muestra al usuario, y es la que se
   quedó atrás.
+
+
+## L-040 · Un test que nombra un caso no cubre el segundo caso que llega después
+
+**Dónde apareció:** T-074, reportado por el usuario.
+
+T-071 dejó bien testeado que apagar una pestaña avisa cuántos movimientos
+esconde. Los tests nombraban los ahorros conjuntos, que eran la única pestaña
+apagable que existía: `dibujarPestanias(conAhorros(11))` y listo.
+
+Al día siguiente, T-072 agregó una segunda pestaña apagable. **Los tests
+siguieron pasando** —comprobaban lo que comprobaban, y seguía siendo cierto— y la
+pestaña nueva nació sin avisar nada, porque el conteo era un objeto escrito a
+mano con una sola entrada. Un cero se dibuja igual que "no tiene movimientos": no
+falla, calla.
+
+**Las dos cosas que deja.**
+
+- **Un test que nombra un caso mide ese caso; uno que recorre la lista mide la
+  regla.** `for (const perfil of PERFILES.filter((p) => !p.fijo))` no cuesta más
+  de escribir y es la diferencia entre "los ahorros conjuntos avisan" y "toda
+  pestaña apagable avisa". Cuando la app tiene una lista de cosas que deben
+  comportarse igual, el test recorre la lista.
+- **Un mapa de casos escrito a mano dentro de una pantalla es una lista que hay
+  que acordarse de ampliar.** La versión que no se olvida es al revés: que cada
+  cosa declare lo suyo —acá, en qué lista viven sus movimientos— y la pantalla
+  pregunte. Es la misma forma de L-035: un dato que no llega no da error, da un
+  valor por defecto que parece una respuesta.
