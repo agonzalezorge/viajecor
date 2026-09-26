@@ -3,6 +3,20 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.19.0 — 2026-09-26
+
+### Agregado
+- **El gráfico "Cómo se fue acumulando" del mes ahora se toca.** Tocá cualquier
+  punto de la línea y abajo te dice qué día es y cuánto llevabas gastado y
+  cobrado hasta ahí — igual que el gráfico mes a mes de la evolución.
+
+  De paso gana lo demás que ese gráfico ya tenía: acercar y alejar con los
+  botones, pellizcar para hacer zoom y "Ver todo".
+
+### Arreglado
+- **Al tocar un punto en los gráficos de la evolución, los importes salían en
+  euros aunque tu moneda base fuera otra.** Ahora salen en la tuya.
+
 ## 0.18.2 — 2026-09-24
 
 ### Arreglado

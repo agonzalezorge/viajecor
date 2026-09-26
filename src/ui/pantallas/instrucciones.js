@@ -87,6 +87,10 @@ export function dibujarInstrucciones(vista) {
         <p><strong>Cualquier número se puede tocar</strong> y te lleva a los
         movimientos que lo componen. Es la regla de toda la app: ningún total es
         un callejón sin salida.</p>
+        <p>Más abajo, <strong>cómo se fue acumulando</strong> el mes día por día.
+        <strong>Tocá cualquier punto de la línea</strong> y abajo te dice qué día
+        es y cuánto llevabas gastado y cobrado hasta ahí. Con los botones de abajo
+        —o pellizcando— acercás un tramo.</p>
         <p>Las porciones de la torta van <strong>en el orden de tus rubros</strong>,
         no de mayor a menor: así cargar un gasto no cambia qué color queda al lado
         de cuál. La lista de al lado, que es donde se comparan los números, sí va

@@ -114,6 +114,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-072 | Mis ahorros: dónde está la plata que no uso | **Hecha** | T-071 |
 | T-073 | Las instrucciones al día, y una guardia | **Hecha** | T-065 |
 | T-074 | Arreglo: la pestaña nueva no contaba sus movimientos | **Hecha** | T-072 |
+| T-075 | El acumulado del mes se toca y se lee | **Hecha** | T-942 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3411,3 +3412,39 @@ con *"Mis ahorros no avisa cuántos esconde"*.
 **Recorrido en el navegador:** con tres movimientos propios y uno conjunto, cada
 fila dice lo suyo, en singular y en plural; al apagarla, dice que los tres siguen
 guardados esperando.
+
+
+### T-075 · El acumulado del mes se toca y se lee — **Hecha** (2026-09-26)
+
+**Lo pidió el usuario:** *"en el gráfico de cómo se fue acumulando, la opción de
+que al hacer clic en un determinado punto de la línea te aparezca abajo la
+etiqueta con los valores de ingresos y gastos a esa altura del mes… como funciona
+actualmente en el comparativo de todos los meses"*.
+
+**La respuesta no fue escribir eso, sino usar lo que ya existía.** Todo lo que
+pidió —el toque, la lectura de abajo, y de yapa el zoom y el pellizco— vive en
+`dibujarSerie()` desde T-942. El gráfico del mes era el único que seguía siendo
+una línea que solo se miraba, dibujada por una función aparte. Ahora es una serie
+más; **`dibujarLinea()` quedó sin llamadas y se borró** (49 líneas), con sus
+tests reescritos contra los puntos, que es el dato del que sale tanto el dibujo
+como la lectura.
+
+Lo único suyo es qué son los puntos: días de un mes, con el número en el eje y la
+fecha completa al tocarlos. En el mes en curso sigue llegando hasta hoy.
+
+**Y un bug que apareció mirando el mecanismo que él puso de ejemplo:** los dos
+gráficos de la evolución **no recibían la moneda base**, así que la lectura decía
+"3.000,00 €" con la base en pesos. Es **L-035 por tercera vez**, y la guardia que
+existe desde T-059 no lo agarraba porque vigila las funciones que *convierten*, y
+éstas solo *formatean*. Se agregó `llamadasSinMoneda()` con las tres que escriben
+un importe con su símbolo, y se probó rompiendo las dos llamadas reales —una de
+ellas dentro de una plantilla, que es donde la guardia anterior había fallado
+(L-036)—. Ver L-041.
+
+**Mutaciones:** 6 sembradas sobre el acumulado, 6 muertas.
+
+**Recorrido en el navegador:** con tres gastos repartidos en el mes, se toca un
+punto y abajo aparece *"20 de septiembre de 2026 — Ingresos: 0,00 € · Gastos:
+430,00 €"*; se toca otro y cambia; los botones de acercar y "Ver todo" andan; y
+con el peso como base la lectura sale en UYU. Las etiquetas del eje quedan
+1 · 7 · 14 · 20 · 26, sin pisarse.

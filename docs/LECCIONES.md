@@ -1368,3 +1368,34 @@ falla, calla.
   cosa declare lo suyo —acá, en qué lista viven sus movimientos— y la pantalla
   pregunte. Es la misma forma de L-035: un dato que no llega no da error, da un
   valor por defecto que parece una respuesta.
+
+
+## L-041 · Una guardia que vigila una categoría no cubre la de al lado
+
+**Dónde apareció:** T-075, mirando el mecanismo que el usuario puso de ejemplo
+para otra cosa.
+
+L-035 dejó una guardia de construcción: **nadie convierte plata sin decir contra
+qué moneda**. Funciona, está probada rompiendo llamadas reales, y desde que
+existe no volvió a pasar.
+
+Y sin embargo el error volvió a llegar a la pantalla. La lectura de los gráficos
+decía `3.000,00 €` con la base en pesos, porque ahí **no se convierte nada**:
+solo se formatea un número que ya está en la base correcta. La guardia miraba la
+lista `CONVIERTEN_PLATA` y esa función no estaba en la lista — no podía estarlo,
+porque no convierte.
+
+Para quien mira la pantalla es exactamente el mismo error: un importe con la
+moneda equivocada.
+
+**Lo que deja.**
+
+- **Una guardia protege la lista que le diste, no la idea que tenías en la
+  cabeza.** La idea era "que no se muestre un importe en la moneda equivocada";
+  lo escrito era "que no se convierta sin base". Entre las dos cosas cabía este
+  bug. Al ampliar una guardia conviene preguntarse qué otras funciones tienen el
+  mismo final aunque no tengan el mismo medio.
+- **Tres veces la misma forma de olvido** (L-035, L-036, ésta): un dato que no
+  llega no da error, da un valor por defecto que parece una respuesta. Cada vez
+  que una función reciba algo con `= 'EUR'`, `?? 'EUR'` o un default equivalente,
+  eso es una llamada que puede estar mintiendo en silencio.

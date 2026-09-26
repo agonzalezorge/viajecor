@@ -151,66 +151,46 @@ export function diasHasta(dias, hasta) {
 }
 
 /**
- * La línea del acumulado del mes.
+ * El acumulado del mes, recorrible — T-075, a pedido del usuario.
  *
- * Van las dos —gasto e ingreso— porque el dato que se busca acá no es cuánto se
- * gastó, que ya está arriba en número grande, sino **cuándo una cruza a la
- * otra**. Son la misma unidad, así que comparten un solo eje: dos escalas en un
- * mismo dibujo es la forma más común de mentir con un gráfico.
+ * ── Por qué es el mismo componente que el gráfico de la evolución ───────────
+ *
+ * Lo pidió así: *"que al hacer clic en un determinado punto de la línea te
+ * aparezca abajo la etiqueta con los valores de ingresos y gastos a esa altura
+ * del mes, como funciona actualmente… en el comparativo de todos los meses"*.
+ *
+ * Eso ya existía, entero, en `dibujarSerie()`: la lectura de abajo, el toque, el
+ * zoom y el pellizco. Dibujar acá una segunda versión de lo mismo habría sido
+ * tener dos gráficos con dos mecánicas —y el día que una aprenda algo, la otra
+ * no—. Así que este gráfico **pasó a ser una serie más** y lo que había, una
+ * línea que solo se miraba, se borró.
+ *
+ * Lo único suyo es qué son los puntos: acá son **días de un mes** y no meses de
+ * un historial. En el mes en curso llega hasta hoy y no hasta fin de mes (ver
+ * `diasHasta()`): una línea plana en un acumulado se lee como "dejó de gastar",
+ * y esos días todavía no pasaron.
  */
-export function dibujarLinea(dias, opciones = {}) {
-  const base = opciones.base;
-  const visibles = diasHasta(dias, opciones.hasta);
-  if (visibles.length < 2) return '';
-
-  const techo = Math.max(
-    ...visibles.map((d) => Math.max(d.gastoAcumulado, d.ingresoAcumulado)),
-  );
-  if (techo <= 0) return '';
-
-  const ANCHO = 300;
-  const ALTO = 140;
-  const ultimo = visibles[visibles.length - 1];
-
-  const x = (dia) => corto(((dia - 1) / Math.max(1, ultimo.dia - 1)) * ANCHO);
-  const y = (valor) => corto(ALTO - (valor / techo) * ALTO);
-
-  const linea = (campo) => visibles.map((d) => `${x(d.dia)},${y(d[campo])}`).join(' ');
-
-  return `
-    <svg class="linea-acumulado" viewBox="-4 -18 ${ANCHO + 60} ${ALTO + 40}" role="img"
-         aria-label="${escapar(opciones.queEs ?? `Acumulado del mes hasta el día ${ultimo.dia}`)}: gastos ${escapar(formatearEuros(ultimo.gastoAcumulado, base))}, ingresos ${escapar(formatearEuros(ultimo.ingresoAcumulado, base))}">
-      <line class="eje" x1="0" y1="${ALTO}" x2="${ANCHO}" y2="${ALTO}" />
-      <text class="marca-eje" x="0" y="-6">${escapar(formatearEuros(techo, base))}</text>
-      <polyline class="traza ingreso" points="${linea('ingresoAcumulado')}" />
-      <polyline class="traza gasto" points="${linea('gastoAcumulado')}" />
-      <text class="rotulo-traza ingreso" x="${x(ultimo.dia) + 6}" y="${y(ultimo.ingresoAcumulado) + 4}">Ingresos</text>
-      <text class="rotulo-traza gasto" x="${x(ultimo.dia) + 6}" y="${y(ultimo.gastoAcumulado) + 4}">Gastos</text>
-      <!-- Los rótulos del eje se llaman rotuloInicio y rotuloFin, y no
-           desde/hasta: "hasta" ya significa "hasta qué día dibujar" en esta
-           misma función, y usarlo para las dos cosas hizo que el rótulo del
-           final saliera "10" en vez de "Día 10". Lo agarró un test que ya
-           existía. Dos significados para un nombre es un error esperando.
-           (Y sin acentos graves adentro: acá estamos dentro de una plantilla, y
-           un acento grave la cierra — es L-028, que ya pasó una vez.) -->
-      <text class="marca-eje" x="0" y="${ALTO + 16}">${escapar(opciones.rotuloInicio ?? 'Día 1')}</text>
-      <text class="marca-eje fin" x="${ANCHO}" y="${ALTO + 16}">${escapar(opciones.rotuloFin ?? `Día ${ultimo.dia}`)}</text>
-    </svg>
-  `;
-}
-
-/** La tarjeta entera de la línea, con su título. */
 export function dibujarAcumulado(dias, opciones = {}) {
-  const base = opciones.base;
-  const dibujo = dibujarLinea(dias, opciones);
-  if (dibujo === '') return '';
+  const visibles = diasHasta(dias, opciones.hasta);
 
-  return `
-    <section class="tarjeta">
-      <h2>Cómo se fue acumulando</h2>
-      ${dibujo}
-    </section>
-  `;
+  return dibujarSerie({
+    id: 'acumulado-del-mes',
+    titulo: 'Cómo se fue acumulando',
+    nota: `Día por día. Lo que se busca acá no es la altura —el total ya está
+      arriba— sino <strong>cuándo una línea cruza a la otra</strong>.`,
+    base: opciones.base,
+    series: [
+      { clase: 'ingreso', nombre: 'Ingresos' },
+      { clase: 'gasto', nombre: 'Gastos' },
+    ],
+    puntos: visibles.map((d) => ({
+      // En el eje va el número del día, que es lo único que entra; al tocar el
+      // punto se lee la fecha completa, igual que en el acumulado histórico.
+      etiqueta: String(d.dia),
+      cuando: formatearFechaLarga(d.fecha),
+      valores: [d.ingresoAcumulado, d.gastoAcumulado],
+    })),
+  });
 }
 
 /**
@@ -220,9 +200,12 @@ export function dibujarAcumulado(dias, opciones = {}) {
  * entra y lo que sale se está abriendo o cerrando**. Con el zoom se puede además
  * mirar un tramo corto, que era imposible con trescientos días en 300 píxeles.
  */
-export function dibujarAcumuladoHistorico(dias) {
+export function dibujarAcumuladoHistorico(dias, base) {
   return dibujarSerie({
     id: 'acumulado-historico',
+    // Sin esto, la lectura de abajo dice "€" aunque la base sea el peso: es
+    // L-035 por tercera vez, y la encontró T-075 al mirar este mismo mecanismo.
+    base,
     titulo: 'Todo lo que llevás gastado y cobrado',
     nota: `Día por día desde el primer movimiento. Lo que importa acá no es la
       altura sino <strong>si las dos líneas se separan o se juntan</strong>.`,
@@ -249,9 +232,10 @@ export function dibujarAcumuladoHistorico(dias) {
  * los otros dos, no una cosa más, y cuando alguno es negativo se dibuja la línea
  * del cero: sin ella, −200 y +200 se ven como dos puntos cualesquiera.
  */
-export function dibujarMesAMes(filas) {
+export function dibujarMesAMes(filas, base) {
   return dibujarSerie({
     id: 'mes-a-mes',
+    base,
     titulo: 'Mes a mes',
     nota: `Lo que entró, lo que salió y lo que quedó, mes por mes. Bajo el saldo
     se pinta <strong>verde lo que sobró y rojo lo que faltó</strong>.`,

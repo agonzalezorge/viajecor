@@ -55,6 +55,21 @@ export const CONVIERTEN_PLATA = new Map([
 ]);
 
 /**
+ * Las que no convierten pero **escriben un importe con su símbolo** — T-075.
+ *
+ * El agujero que dejó la lista de arriba: la lectura de los gráficos decía
+ * "3.000,00 €" con la base en pesos, y ninguna guardia se quejaba porque ahí no
+ * se convierte nada, solo se formatea. Para quien mira el número es exactamente
+ * el mismo error — un importe con la moneda equivocada— y es la tercera vez que
+ * esta forma de olvido llega hasta la pantalla (L-035, L-036).
+ */
+export const MUESTRAN_PLATA = new Map([
+  ['dibujarLectura', 3],
+  ['dibujarMesAMes', 2],
+  ['dibujarAcumuladoHistorico', 2],
+]);
+
+/**
  * Los argumentos de nivel superior de una llamada que empieza en `desde` (el
  * paréntesis de apertura). Devuelve `null` si el paréntesis no cierra.
  *
@@ -197,6 +212,15 @@ export function llamadasSinBase(archivos) {
   return llamadasIncompletas(archivos, CONVIERTEN_PLATA,
     'le falta la moneda base. Pasala con monedaBaseDe(estado); suponer el euro es lo que '
     + 'rompió la carga con el peso uruguayo (T-059).');
+}
+
+/**
+ * Las llamadas que escriben un importe sin decir en qué moneda — T-075.
+ */
+export function llamadasSinMoneda(archivos) {
+  return llamadasIncompletas(archivos, MUESTRAN_PLATA,
+    'le falta la moneda base. Pasala con monedaBaseDe(estado); sin ella el importe sale '
+    + 'escrito en euros aunque el usuario tenga otra base (T-075).');
 }
 
 /**

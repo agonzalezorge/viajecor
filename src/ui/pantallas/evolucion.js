@@ -370,8 +370,8 @@ export function dibujarEvolucion(vista, mesActual = mesDe(hoy())) {
     </section>
     ${dibujarRepartoDe(matriz, TIPO_GASTO, base, incompletos, vista.estado?.rubros)}
     ${dibujarRepartoDe(matriz, TIPO_INGRESO, base, incompletos, vista.estado?.rubros)}
-    ${dibujarMesAMes(matriz.filas)}
-    ${dibujarAcumuladoHistorico(acumuladoHistorico(recortado))}
+    ${dibujarMesAMes(matriz.filas, base)}
+    ${dibujarAcumuladoHistorico(acumuladoHistorico(recortado), base)}
     ${dibujarGastosFijos(recortado)}
   `;
 }

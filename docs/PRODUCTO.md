@@ -363,6 +363,10 @@ bloques `GASTOS POR TIPO`, `INGRESOS POR TIPO` y `TOTALES` del Excel.
 - Ingresos desagregados por rubro, igual.
 - Una **línea del acumulado** del mes, gasto e ingreso, para ver cuándo una
   cruza a la otra. En el mes en curso llega hasta hoy, no hasta fin de mes.
+
+  **Se toca un punto y abajo dice qué día es y cuánto llevabas de cada uno**
+  (T-075, pedido del usuario). Es el mismo gráfico recorrible que la evolución
+  mes a mes: mismo toque, mismo zoom, mismo pellizco.
 - Todo en euros, convertido según RN-04.
 
 ---

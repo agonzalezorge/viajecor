@@ -10,10 +10,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { dibujarTorta, dibujarLinea, dibujarAcumulado, dibujarAcumuladoHistorico,
+import { dibujarTorta, dibujarAcumulado, dibujarAcumuladoHistorico,
   dibujarMesAMes, diasHasta } from '../src/ui/pantallas/graficos.js';
 import { COLORES_RUBRO, COLORES_RUBRO_OSCURO, tintaSobreRubro, franjasConTintaClara } from '../src/core/paleta.js';
 import { claseDeRubro, franjaDeRubro } from '../src/ui/colores.js';
+import { dibujarLectura } from '../src/ui/pantallas/series.js';
 import { TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
 
 /** Una fila como la que devuelve `porRubro`. El porcentaje sale del total. */
@@ -213,73 +214,95 @@ const puntos = (svg, clase) => {
   return encontrado[1].split(' ').map((p) => p.split(',').map(Number));
 };
 
-test('el mes en curso se dibuja hasta hoy, no hasta fin de mes', () => {
-  // Si la línea siguiera hasta el día 31, quedaría plana desde hoy hasta el
-  // final, y una meseta en un acumulado se lee como "dejó de gastar".
-  const treintaYUno = dias(Array(31).fill(100));
-  const svg = dibujarLinea(treintaYUno, { hasta: 10 });
+// ── El acumulado del mes, ya recorrible — T-075 ─────────────────────────────
+//
+// Pasó de ser una línea que solo se miraba a ser una serie como la de la
+// evolución: se toca un punto y abajo dice cuánto llevabas gastado y cobrado ese
+// día. Estos tests miraban el SVG viejo; ahora miran los PUNTOS, que es el dato
+// del que sale tanto el dibujo como la lectura.
 
-  assert.equal(puntos(svg, 'gasto').length, 10);
-  assert.ok(svg.includes('Día 10'));
+/** Los puntos que la tarjeta le entrega al gráfico. */
+const serieDe = (html) => JSON.parse(
+  html.match(/data-puntos="([^"]*)"/)[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+
+const acumuladoDe = (html, cual) => serieDe(html).puntos.map((p) => p.valores[cual]);
+const INGRESO = 0;
+const GASTO = 1;
+
+test('el mes en curso llega hasta hoy, no hasta fin de mes', () => {
+  // Si siguiera hasta el día 31, quedaría plano desde hoy hasta el final, y una
+  // meseta en un acumulado se lee como "dejó de gastar".
+  const html = dibujarAcumulado(dias(Array(31).fill(100)), { hasta: 10 });
+
+  assert.equal(serieDe(html).puntos.length, 10);
+  assert.equal(serieDe(html).puntos.at(-1).etiqueta, '10');
 });
 
-test('un mes terminado se dibuja entero', () => {
-  const svg = dibujarLinea(dias(Array(31).fill(100)));
-  assert.equal(puntos(svg, 'gasto').length, 31);
-  assert.ok(svg.includes('Día 31'));
+test('un mes terminado va entero', () => {
+  assert.equal(serieDe(dibujarAcumulado(dias(Array(31).fill(100)))).puntos.length, 31);
 });
 
 test('el acumulado nunca baja', () => {
   // Es lo que lo distingue del gasto diario: si bajara, no sería un acumulado.
-  const svg = dibujarLinea(dias([500, 0, 300, 1200, 0, 50, 900]));
-  const alturas = puntos(svg, 'gasto').map(([, y]) => y);
+  const gastos = acumuladoDe(dibujarAcumulado(dias([500, 0, 300, 1200, 0, 50, 900])), GASTO);
 
-  for (let i = 1; i < alturas.length; i += 1) {
-    // En SVG el eje y crece hacia abajo: más gasto es una y más chica.
-    assert.ok(alturas[i] <= alturas[i - 1], `el día ${i + 1} subió en la pantalla`);
+  for (let i = 1; i < gastos.length; i += 1) {
+    assert.ok(gastos[i] >= gastos[i - 1], `el día ${i + 1} bajó`);
   }
 });
 
-test('las dos líneas comparten una sola escala', () => {
-  // Dos escalas en un mismo dibujo es la forma más común de mentir con un
-  // gráfico: hace que la línea de abajo parezca alcanzar a la de arriba.
-  const svg = dibujarLinea(dias([1000, 1000], [4000, 0]));
-  const [, ultimoGasto] = puntos(svg, 'gasto')[1];
-  const [, ultimoIngreso] = puntos(svg, 'ingreso')[1];
+test('las dos líneas son las dos, y en el orden de la leyenda', () => {
+  const html = dibujarAcumulado(dias([1000, 1000], [4000, 0]));
 
-  // El ingreso (4000) es el techo, así que va arriba de todo; el gasto (2000)
-  // es la mitad de ese techo, así que va a la mitad del alto.
-  assert.equal(ultimoIngreso, 0);
-  assert.equal(ultimoGasto, 70);
+  assert.deepEqual(serieDe(html).series.map((x) => x.clase), ['ingreso', 'gasto']);
+  assert.deepEqual(acumuladoDe(html, GASTO), [1000, 2000]);
+  assert.deepEqual(acumuladoDe(html, INGRESO), [4000, 4000]);
 });
 
-test('el techo de la escala está escrito', () => {
-  // Una línea sin ninguna cifra dice la forma pero no el tamaño: la misma
-  // curva sirve para 200 € y para 20 000 €.
-  const svg = dibujarLinea(dias([1234, 8766]));
-  assert.ok(svg.includes('100,00'), 'no dice a cuánto llega el eje');
+test('al tocar un punto se lee la fecha completa y lo de las dos líneas', () => {
+  // **Es el pedido del usuario** (2026-09-26): "al hacer clic en un determinado
+  // punto de la línea, que te aparezca abajo la etiqueta con los valores de
+  // ingresos y gastos a esa altura del mes".
+  const serie = serieDe(dibujarAcumulado(dias([1000, 500], [0, 3000]), { base: 'EUR' }));
+  const lectura = dibujarLectura(serie, 1, serie.base);
+
+  assert.match(lectura, /Ingresos: <strong>30,00/);
+  assert.match(lectura, /Gastos: <strong>15,00/);
+  assert.match(lectura, /2 de/, 'dice qué día es, no solo el número');
 });
 
-test('cada línea dice cuál es donde termina', () => {
-  const svg = dibujarLinea(dias([1000, 1000], [500, 500]));
+test('sin tocar nada, dice qué hacer en vez de quedar en blanco', () => {
+  // Un espacio vacío debajo de un gráfico se lee como que algo no cargó.
+  const html = dibujarAcumulado(dias([100, 200]));
 
-  assert.ok(svg.includes('>Gastos<'));
-  assert.ok(svg.includes('>Ingresos<'));
+  assert.match(html, /Tocá el gráfico/);
 });
 
-test('con un día solo no hay línea', () => {
-  // Una línea de un punto es un punto, y no dice nada de cómo se acumuló.
-  assert.equal(dibujarLinea(dias([1000])), '');
-  assert.equal(dibujarLinea(dias(Array(31).fill(100)), { hasta: 1 }), '');
+test('la lectura del mes respeta la moneda base', () => {
+  // L-035 por tercera vez: la lectura decía "€" con la base en pesos, en este
+  // gráfico y en los dos de la evolución. Ahora hay una guardia de construcción
+  // (`llamadasSinMoneda`) además de este test.
+  const serie = serieDe(dibujarAcumulado(dias([1000, 500]), { base: 'UYU' }));
+
+  assert.match(dibujarLectura(serie, 1, serie.base), /UYU/);
+  assert.doesNotMatch(dibujarLectura(serie, 1, serie.base), /€/);
+});
+
+test('con un día solo no hay gráfico', () => {
+  // Un punto no dice nada de cómo se acumuló.
+  assert.equal(dibujarAcumulado(dias([1000])), '');
+  assert.equal(dibujarAcumulado(dias(Array(31).fill(100)), { hasta: 1 }), '');
 });
 
 test('un mes sin nada no dibuja una línea pegada al piso', () => {
-  assert.equal(dibujarLinea(dias([0, 0, 0])), '');
   assert.equal(dibujarAcumulado(dias([0, 0, 0])), '');
 });
 
-test('la tarjeta del acumulado trae su título', () => {
-  assert.ok(dibujarAcumulado(dias([100, 200])).includes('Cómo se fue acumulando'));
+test('la tarjeta trae su título y sus controles', () => {
+  const html = dibujarAcumulado(dias([100, 200]));
+
+  assert.match(html, /Cómo se fue acumulando/);
+  assert.match(html, /data-accion="grafico-todo"/, 'sin los botones, el gesto es la única salida (L-021)');
 });
 
 test('diasHasta sin límite devuelve todo', () => {
