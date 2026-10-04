@@ -319,9 +319,6 @@ export function dibujarNuevo(vista) {
     <form class="tarjeta formulario" data-formulario="movimiento" novalidate>
       <h2>${borrador.id ? (esGasto ? 'Corregir gasto' : 'Corregir ingreso') : (esGasto ? 'Nuevo gasto' : 'Nuevo ingreso')}</h2>
 
-      ${dibujarError(vista.error)}
-      ${dibujarAviso(vista.aviso)}
-
       <div class="tipo" role="group" aria-label="Tipo de movimiento">
         <button type="button" class="opcion-tipo${esGasto ? ' activa' : ''}"
                 data-accion="tipo" data-tipo="${TIPO_GASTO}" aria-pressed="${esGasto}">Gasto</button>
@@ -411,6 +408,27 @@ export function dibujarNuevo(vista) {
         <span class="fecha-legible">Podés poner varias, separadas por coma: un
         viaje de trabajo lleva la del viaje y la del trabajo.</span>
       </label>
+
+      <!-- ── El aviso y el error van ACÁ, pegados al botón — T-076 ───────────
+           Lo pidió el usuario: "podría aparecer abajo, justo encima del botón de
+           guardar gasto? Así es más visible, porque arriba a veces no se ve".
+
+           Tiene razón, y vale para los dos carteles por el mismo motivo: los dos
+           aparecen **justo después de tocar Guardar**, que está al final del
+           formulario. Con el teclado abierto y el formulario largo, la cabecera
+           queda fuera de la pantalla, así que el mensaje salía donde el usuario
+           no estaba mirando — y eso vale doble para el error, que además pide
+           hacer algo.
+
+           Los papeles de ARIA siguen donde estaban —status para el aviso, alert
+           para el error—: un lector de pantalla los anuncia igual, estén arriba
+           o abajo.
+
+           (Sin acentos graves en este comentario: estamos DENTRO de una
+           plantilla y uno solo la cierra. Es L-028, y acaba de pasar otra vez
+           mientras se escribía este mismo bloque.) -->
+      ${dibujarError(vista.error)}
+      ${dibujarAviso(vista.aviso)}
 
       <button type="submit" class="principal" data-accion="guardar">
         ${borrador.id ? 'Guardar los cambios' : `Guardar ${esGasto ? 'gasto' : 'ingreso'}`}

@@ -513,3 +513,35 @@ test('desde los últimos cargados se llega a la lista, que es donde se corrige',
   assert.match(html.replace(/\s+/g, ' '),
     /data-accion="ir" data-pantalla="movimientos"[^>]*> Ver todos y corregir/);
 });
+
+
+// ── El cartel va pegado al botón — T-076 ────────────────────────────────────
+
+test('el aviso de guardado sale JUSTO ENCIMA del botón de guardar', () => {
+  // Lo pidió el usuario: "podría aparecer abajo, justo encima del botón de
+  // guardar gasto? Así es más visible, porque arriba a veces no se ve". Con el
+  // teclado abierto y el formulario largo, la cabecera queda fuera de la
+  // pantalla y el mensaje salía donde el usuario no estaba mirando.
+  const estado = estadoLimpio();
+  const { aviso } = intentarGuardar(estado, {
+    ...borradorNuevo({ estado }), monto: '10', rubro: 'supermercado', fecha: hoy(),
+  });
+  const html = dibujarNuevo({ estado, aviso });
+
+  const confirmacion = html.indexOf('class="confirmacion"');
+  const boton = html.indexOf('data-accion="guardar"');
+  const comentario = html.indexOf('name="comentario"');
+
+  assert.ok(confirmacion !== -1, 'no se dibujó el aviso');
+  assert.ok(confirmacion < boton, 'el aviso tiene que estar ANTES del botón');
+  assert.ok(confirmacion > comentario, 'y DESPUÉS del último campo, no arriba de todo');
+});
+
+test('el error también, y por el mismo motivo', () => {
+  // Aparece en el mismo momento —al tocar Guardar— y encima pide hacer algo.
+  const html = dibujarNuevo({ estado: estadoLimpio(), error: 'Falta el monto.' });
+
+  const error = html.indexOf('Falta el monto.');
+  assert.ok(error < html.indexOf('data-accion="guardar"'));
+  assert.ok(error > html.indexOf('name="comentario"'));
+});

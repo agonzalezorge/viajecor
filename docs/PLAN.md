@@ -115,6 +115,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-073 | Las instrucciones al día, y una guardia | **Hecha** | T-065 |
 | T-074 | Arreglo: la pestaña nueva no contaba sus movimientos | **Hecha** | T-072 |
 | T-075 | El acumulado del mes se toca y se lee | **Hecha** | T-942 |
+| T-076 | El cartel pegado al botón, y el resumen de cada día | **Hecha** | T-004, T-026 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3448,3 +3449,39 @@ punto y abajo aparece *"20 de septiembre de 2026 — Ingresos: 0,00 € · Gasto
 430,00 €"*; se toca otro y cambia; los botones de acercar y "Ver todo" andan; y
 con el peso como base la lectura sale en UYU. Las etiquetas del eje quedan
 1 · 7 · 14 · 20 · 26, sin pisarse.
+
+
+### T-076 · El cartel pegado al botón, y el resumen de cada día — **Hecha** (2026-10-04)
+
+**Dos pedidos del usuario** (2026-10-04).
+
+**1. *"El cartel que aparece al agregar un movimiento: podría aparecer abajo,
+justo encima del botón de guardar? Así es más visible, porque arriba a veces no
+se ve"*.** Hecho, y **también el error**, que no pidió pero tiene el mismo
+problema por el mismo motivo: los dos aparecen justo después de tocar Guardar,
+que está al final de un formulario largo con el teclado abierto, así que salían
+donde el usuario no estaba mirando. Y el error encima pide hacer algo. Medido en
+el navegador: el cartel queda a 34 px del botón y dentro de la pantalla, sin
+scroll.
+
+**2. *"En la pestaña de movimientos, al inicio de cada día, el resumen de gastos
+e ingresos del día. Si alguno de los dos es 0, directamente que no aparezca. Y el
+saldo no me interesa"*.** Hecho tal cual. Lo del saldo es acertado: el sueldo
+entra un día y los gastos salen los otros treinta, así que el saldo de una
+jornada suelta no dice nada.
+
+Lo único que se agregó sin pedirlo: si ese día tiene un movimiento **sin tipo de
+cambio**, se dice al lado cuántos quedaron afuera. Un total que se come un gasto
+en silencio es lo que esta app no hace (RN-04), y el aviso grande del resumen del
+mes no cabe treinta veces en una lista de días.
+
+**Mutaciones:** 6 sembradas, 6 muertas.
+
+**Dos cosas que encontró el recorrido** y ningún test podía encontrar:
+- **El CSS del resumen no se aplicaba.** El reemplazo de texto con el que lo
+  agregué pegó en la primera coincidencia de `.movimientos {`, que resultó ser
+  `.resultado .movimientos`, y la partió en dos: quedó un selector
+  `.resultado .totales-dia` que no existe, y de paso la regla de los resultados
+  de búsqueda rota. Ver L-042.
+- Un test que **ya estaba fallando antes de empezar**: `base-uyu` esperaba el mes
+  `'2026-09'` escrito a mano y hoy es octubre. Ahora sale de `hoy()`.

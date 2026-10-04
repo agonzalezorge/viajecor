@@ -1034,6 +1034,22 @@ body {
 .cuantos { margin: 0 0.125rem 0.75rem; }
 .tarjeta.dia h2 { font-size: 0.9375rem; color: var(--texto-suave); font-weight: 500; }
 
+/* El resumen del día, debajo de su fecha — T-076. La fila envuelve desde el
+   primer día (L-037) y cada importe lleva el color de su tipo, como en el resto
+   de la app. */
+.totales-dia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--texto-suave);
+}
+
+.totales-dia strong { font-variant-numeric: tabular-nums; }
+.totales-dia .gasto { color: var(--gasto); }
+.totales-dia .ingreso { color: var(--ingreso); }
+
 .movimientos { list-style: none; margin: 0; padding: 0; }
 
 .movimiento {
@@ -1439,7 +1455,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.19.0";
+globalThis.__VIAJECOR_VERSION__ = "0.20.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -11047,6 +11063,9 @@ function dibujarInstrucciones(vista) {
       ${seccion('3 · Corregir, borrar y buscar', `
         <p>La pestaña <strong>Movimientos</strong> es la lista completa del mes,
         donde se corrige y se borra. Cada uno tiene sus dos botones.</p>
+        <p>Está agrupada por día, y <strong>cada día dice cuánto se gastó y
+        cuánto entró</strong>. El que esté en cero no se escribe: un día sin
+        ingresos no te hace leer un cero.</p>
         <p><strong>Borrar se puede deshacer</strong>: aparece un aviso con
         "Deshacer" justo después.</p>
         <p>Arriba hay una <strong>lupa</strong> que busca en
@@ -13285,6 +13304,50 @@ function totalDe(estado, movimientos) {
 }
 
 /**
+ * Lo que se gastó y lo que entró ese día — T-076, a pedido del usuario.
+ *
+ * ── Qué NO lleva, y por qué ─────────────────────────────────────────────────
+ *
+ * **No lleva saldo.** Lo pidió así —*"el saldo no me interesa, solo el total de
+ * cada cosa por día"*— y tiene sentido: el saldo de un día suelto no dice nada,
+ * porque el sueldo entra un día y los gastos salen los otros treinta.
+ *
+ * **Y el que vale cero no se escribe**, también a pedido suyo. Un día con tres
+ * gastos y ningún ingreso es el caso normal; poner "Ingresos: 0,00 €" en cada
+ * uno de esos días llena la lista de ceros y empuja hacia abajo lo que importa.
+ *
+ * ── El movimiento que no se puede convertir no se cuenta como cero ──────────
+ *
+ * Si falta el tipo de cambio, ese movimiento **no entra en el total** (RN-04) y
+ * acá se dice, en chico, al lado. Un total que se come un gasto en silencio es
+ * exactamente lo que esta app no hace, y en una lista de días el aviso grande
+ * del resumen del mes no cabe treinta veces.
+ */
+function dibujarTotalesDelDia(estado, movimientos) {
+  const base = monedaBaseDe(estado);
+  const gastos = movimientos.filter((m) => m.tipo === TIPO_GASTO);
+  const ingresos = movimientos.filter((m) => m.tipo !== TIPO_GASTO);
+
+  const salio = totalDe(estado, gastos);
+  const entro = totalDe(estado, ingresos);
+
+  const { sinConvertir } = separarConvertibles(movimientos, estado.tipos_cambio, base);
+  const faltan = sinConvertir.length === 0 ? '' : `
+    <span class="suave">${sinConvertir.length === 1
+      ? '+ 1 sin tipo de cambio'
+      : `+ ${sinConvertir.length} sin tipo de cambio`}</span>`;
+
+  const partes = [
+    salio === 0 ? '' : `<span>Gastos <strong class="gasto">${escapar(formatearEuros(salio, base))}</strong></span>`,
+    entro === 0 ? '' : `<span>Ingresos <strong class="ingreso">${escapar(formatearEuros(entro, base))}</strong></span>`,
+    faltan,
+  ].filter((t) => t !== '');
+
+  if (partes.length === 0) return '';
+  return `<p class="totales-dia">${partes.join('')}</p>`;
+}
+
+/**
  * Los tres números de una lista filtrada que tiene gastos e ingresos — T-062.
  *
  * Lo pidió el usuario: al abrir un viaje de trabajo quiere ver arriba del todo
@@ -13564,6 +13627,7 @@ function dibujarLista(vista) {
     .map((fecha) => `
       <section class="tarjeta dia">
         <h2>${escapar(formatearFechaLarga(fecha))}</h2>
+        ${dibujarTotalesDelDia(estado, porFecha.get(fecha))}
         <ul class="movimientos">
           ${ultimoPrimero(porFecha.get(fecha)).map((m) => dibujarMovimiento(estado, m, vista)).join('')}
         </ul>
@@ -14601,9 +14665,6 @@ function dibujarNuevo(vista) {
     <form class="tarjeta formulario" data-formulario="movimiento" novalidate>
       <h2>${borrador.id ? (esGasto ? 'Corregir gasto' : 'Corregir ingreso') : (esGasto ? 'Nuevo gasto' : 'Nuevo ingreso')}</h2>
 
-      ${dibujarError(vista.error)}
-      ${dibujarAviso(vista.aviso)}
-
       <div class="tipo" role="group" aria-label="Tipo de movimiento">
         <button type="button" class="opcion-tipo${esGasto ? ' activa' : ''}"
                 data-accion="tipo" data-tipo="${TIPO_GASTO}" aria-pressed="${esGasto}">Gasto</button>
@@ -14693,6 +14754,27 @@ function dibujarNuevo(vista) {
         <span class="fecha-legible">Podés poner varias, separadas por coma: un
         viaje de trabajo lleva la del viaje y la del trabajo.</span>
       </label>
+
+      <!-- ── El aviso y el error van ACÁ, pegados al botón — T-076 ───────────
+           Lo pidió el usuario: "podría aparecer abajo, justo encima del botón de
+           guardar gasto? Así es más visible, porque arriba a veces no se ve".
+
+           Tiene razón, y vale para los dos carteles por el mismo motivo: los dos
+           aparecen **justo después de tocar Guardar**, que está al final del
+           formulario. Con el teclado abierto y el formulario largo, la cabecera
+           queda fuera de la pantalla, así que el mensaje salía donde el usuario
+           no estaba mirando — y eso vale doble para el error, que además pide
+           hacer algo.
+
+           Los papeles de ARIA siguen donde estaban —status para el aviso, alert
+           para el error—: un lector de pantalla los anuncia igual, estén arriba
+           o abajo.
+
+           (Sin acentos graves en este comentario: estamos DENTRO de una
+           plantilla y uno solo la cierra. Es L-028, y acaba de pasar otra vez
+           mientras se escribía este mismo bloque.) -->
+      ${dibujarError(vista.error)}
+      ${dibujarAviso(vista.aviso)}
 
       <button type="submit" class="principal" data-accion="guardar">
         ${borrador.id ? 'Guardar los cambios' : `Guardar ${esGasto ? 'gasto' : 'ingreso'}`}

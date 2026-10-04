@@ -134,6 +134,50 @@ function totalDe(estado, movimientos) {
 }
 
 /**
+ * Lo que se gastó y lo que entró ese día — T-076, a pedido del usuario.
+ *
+ * ── Qué NO lleva, y por qué ─────────────────────────────────────────────────
+ *
+ * **No lleva saldo.** Lo pidió así —*"el saldo no me interesa, solo el total de
+ * cada cosa por día"*— y tiene sentido: el saldo de un día suelto no dice nada,
+ * porque el sueldo entra un día y los gastos salen los otros treinta.
+ *
+ * **Y el que vale cero no se escribe**, también a pedido suyo. Un día con tres
+ * gastos y ningún ingreso es el caso normal; poner "Ingresos: 0,00 €" en cada
+ * uno de esos días llena la lista de ceros y empuja hacia abajo lo que importa.
+ *
+ * ── El movimiento que no se puede convertir no se cuenta como cero ──────────
+ *
+ * Si falta el tipo de cambio, ese movimiento **no entra en el total** (RN-04) y
+ * acá se dice, en chico, al lado. Un total que se come un gasto en silencio es
+ * exactamente lo que esta app no hace, y en una lista de días el aviso grande
+ * del resumen del mes no cabe treinta veces.
+ */
+export function dibujarTotalesDelDia(estado, movimientos) {
+  const base = monedaBaseDe(estado);
+  const gastos = movimientos.filter((m) => m.tipo === TIPO_GASTO);
+  const ingresos = movimientos.filter((m) => m.tipo !== TIPO_GASTO);
+
+  const salio = totalDe(estado, gastos);
+  const entro = totalDe(estado, ingresos);
+
+  const { sinConvertir } = separarConvertibles(movimientos, estado.tipos_cambio, base);
+  const faltan = sinConvertir.length === 0 ? '' : `
+    <span class="suave">${sinConvertir.length === 1
+      ? '+ 1 sin tipo de cambio'
+      : `+ ${sinConvertir.length} sin tipo de cambio`}</span>`;
+
+  const partes = [
+    salio === 0 ? '' : `<span>Gastos <strong class="gasto">${escapar(formatearEuros(salio, base))}</strong></span>`,
+    entro === 0 ? '' : `<span>Ingresos <strong class="ingreso">${escapar(formatearEuros(entro, base))}</strong></span>`,
+    faltan,
+  ].filter((t) => t !== '');
+
+  if (partes.length === 0) return '';
+  return `<p class="totales-dia">${partes.join('')}</p>`;
+}
+
+/**
  * Los tres números de una lista filtrada que tiene gastos e ingresos — T-062.
  *
  * Lo pidió el usuario: al abrir un viaje de trabajo quiere ver arriba del todo
@@ -413,6 +457,7 @@ export function dibujarLista(vista) {
     .map((fecha) => `
       <section class="tarjeta dia">
         <h2>${escapar(formatearFechaLarga(fecha))}</h2>
+        ${dibujarTotalesDelDia(estado, porFecha.get(fecha))}
         <ul class="movimientos">
           ${ultimoPrimero(porFecha.get(fecha)).map((m) => dibujarMovimiento(estado, m, vista)).join('')}
         </ul>

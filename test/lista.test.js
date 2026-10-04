@@ -358,3 +358,101 @@ test('el cartel del filtro dice si el rubro es de gasto o de ingreso', () => {
 test('sin tipo, el rubro va solo y no se inventa uno', () => {
   assert.match(dibujarFiltro({ mes: '2026-08', filtro: { rubro: 'salud' } }), /<strong>Salud<\/strong>/);
 });
+
+
+// ── El resumen de cada día — T-076 ──────────────────────────────────────────
+//
+// Lo pidió el usuario: "al inicio de cada día, el resumen de gastos e ingresos
+// del día. Si alguno de los dos es 0, directamente que no aparezca. Y el saldo
+// no me interesa, solo el total de cada cosa por día".
+
+import { dibujarTotalesDelDia } from '../src/ui/pantallas/lista.js';
+
+/** La línea del resumen de un día de la lista, sin etiquetas. */
+const resumenDe = (html, fecha) => {
+  const desde = html.indexOf(fecha);
+  const trozo = html.slice(desde, html.indexOf('</p>', desde));
+  return trozo.replace(/<[^>]*>/g, ' ').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+test('cada día dice cuánto se gastó y cuánto entró', () => {
+  let estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '30' });
+  estado = cargar(estado, { fecha: '2026-03-14', monto: '12,50' });
+  estado = cargar(estado, { fecha: '2026-03-14', monto: '100', tipo: TIPO_INGRESO, rubro: 'trabajo' });
+
+  const linea = resumenDe(dibujarLista({ estado, mes: MES }), '14 de marzo');
+
+  assert.match(linea, /Gastos 42,50 €/);
+  assert.match(linea, /Ingresos 100,00 €/);
+});
+
+test('el que vale cero no se escribe', () => {
+  // Un día con tres gastos y ningún ingreso es el caso normal: "Ingresos: 0,00 €"
+  // en cada uno de esos días llena la lista de ceros.
+  const estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '30' });
+  const linea = resumenDe(dibujarLista({ estado, mes: MES }), '14 de marzo');
+
+  assert.match(linea, /Gastos 30,00 €/);
+  assert.doesNotMatch(linea, /Ingresos/);
+});
+
+test('y un día de solo ingresos no muestra gastos', () => {
+  const estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '900', tipo: TIPO_INGRESO, rubro: 'trabajo' });
+  const linea = resumenDe(dibujarLista({ estado, mes: MES }), '14 de marzo');
+
+  assert.match(linea, /Ingresos 900,00 €/);
+  assert.doesNotMatch(linea, /Gastos/);
+});
+
+test('no lleva saldo, a pedido del usuario', () => {
+  // El saldo de un día suelto no dice nada: el sueldo entra un día y los gastos
+  // salen los otros treinta.
+  let estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '30' });
+  estado = cargar(estado, { fecha: '2026-03-14', monto: '100', tipo: TIPO_INGRESO, rubro: 'trabajo' });
+
+  assert.doesNotMatch(resumenDe(dibujarLista({ estado, mes: MES }), '14 de marzo'), /Saldo/i);
+});
+
+test('cada día cuenta lo suyo, no lo del mes', () => {
+  let estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '30' });
+  estado = cargar(estado, { fecha: '2026-03-20', monto: '7' });
+
+  const html = dibujarLista({ estado, mes: MES });
+
+  assert.match(resumenDe(html, '14 de marzo'), /Gastos 30,00 €/);
+  assert.match(resumenDe(html, '20 de marzo'), /Gastos 7,00 €/);
+});
+
+test('suma convirtiendo a la moneda base, no los números sueltos', () => {
+  // 6.300 colones a 630 por euro son 10 €, y con 30 € del mismo día son 40.
+  let estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '30' });
+  estado = cargar(estado, { fecha: '2026-03-14', monto: '6300', moneda: 'CRC' });
+
+  assert.match(resumenDe(dibujarLista({ estado, mes: MES }), '14 de marzo'), /Gastos 40,00 €/);
+});
+
+test('lo que no se puede convertir no se cuenta como cero: se dice', () => {
+  // RN-04. Un total que se come un gasto en silencio es lo que esta app no hace.
+  let estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '30' });
+  estado = cargar(estado, { fecha: '2026-03-14', monto: '6300', moneda: 'CRC' });
+  estado = { ...estado, tipos_cambio: [] };
+
+  const linea = resumenDe(dibujarLista({ estado, mes: MES }), '14 de marzo');
+
+  assert.match(linea, /Gastos 30,00 €/, 'lo convertible sí se suma');
+  assert.match(linea, /1 sin tipo de cambio/);
+});
+
+test('un día entero sin convertir no inventa un total de cero', () => {
+  let estado = cargar(estadoLimpio(), { fecha: '2026-03-14', monto: '6300', moneda: 'CRC' });
+  estado = { ...estado, tipos_cambio: [] };
+
+  const linea = resumenDe(dibujarLista({ estado, mes: MES }), '14 de marzo');
+
+  assert.doesNotMatch(linea, /0,00/);
+  assert.match(linea, /1 sin tipo de cambio/);
+});
+
+test('sin nada que decir, no deja una línea vacía', () => {
+  assert.equal(dibujarTotalesDelDia(estadoLimpio(), []), '');
+});

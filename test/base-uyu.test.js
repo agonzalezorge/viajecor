@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 import { intentarGuardar, borradorNuevo } from '../src/ui/pantallas/movimiento.js';
 import { estadoInicial } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
-import { crearMovimiento, TIPO_GASTO, TIPO_INGRESO } from '../src/core/modelo.js';
+import { crearMovimiento, TIPO_GASTO, TIPO_INGRESO, hoy, mesDe } from '../src/core/modelo.js';
 import { crearCambio } from '../src/core/cambio.js';
 import { cambiarMonedaBase } from '../src/core/base.js';
 import { totalesDelMes } from '../src/core/calculos.js';
@@ -75,7 +75,10 @@ test('y un gasto en EUROS sí la pide, porque con base en pesos el euro es una m
 
   const resultado = intentarGuardar(estado, borrador);
 
-  assert.deepEqual(resultado.faltaCambio, { moneda: 'EUR', mes: '2026-09' });
+  // El mes sale de `hoy()`, igual que el borrador. Estaba escrito a mano y este
+  // test se rompía solo al cambiar el mes: falló el 1 de octubre sin que nadie
+  // tocara nada, que es la peor forma de fallar — parece un bug y no lo es.
+  assert.deepEqual(resultado.faltaCambio, { moneda: 'EUR', mes: mesDe(hoy()) });
   assert.equal(resultado.estado.movimientos.length, 0, 'y no se guarda hasta tenerla');
 });
 

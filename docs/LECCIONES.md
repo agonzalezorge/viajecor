@@ -1399,3 +1399,36 @@ moneda equivocada.
   llega no da error, da un valor por defecto que parece una respuesta. Cada vez
   que una función reciba algo con `= 'EUR'`, `?? 'EUR'` o un default equivalente,
   eso es una llamada que puede estar mintiendo en silencio.
+
+
+## L-042 · Un reemplazo de texto pega en la primera coincidencia, no en la que tenías en la cabeza
+
+**Dónde apareció:** T-076, en el recorrido del navegador — el resumen de cada día
+se veía con la letra del cuerpo y los dos importes pegados, sin separación.
+
+El bloque de CSS nuevo se insertó con un reemplazo sobre `.movimientos { list-style:
+none; margin: 0; padding: 0; }`. Esa línea aparece **dos veces** en la hoja: la
+primera es `.resultado .movimientos`, de los resultados de búsqueda. El reemplazo
+pegó ahí y partió la regla al medio, dejando esto:
+
+```css
+.resultado /* comentario del bloque nuevo */
+.totales-dia { … }
+```
+
+Un selector descendiente `.resultado .totales-dia`, que no existe en ninguna
+pantalla. El CSS es válido, el navegador no se queja, la hoja carga entera — y
+dos reglas quedan sin efecto: la nueva, que no se aplica a nada, y la de los
+resultados de búsqueda, que perdió su cuerpo.
+
+**Lo que deja.**
+
+- **Antes de reemplazar un texto, hay que saber cuántas veces aparece.** Un
+  `grep -c` de dos segundos, o un ancla más larga que incluya la línea de arriba.
+  Esto no es específico del CSS: la misma trampa está en cualquier archivo con
+  líneas repetidas, y el error no se parece en nada a su causa.
+- **Ningún test de este proyecto mira el CSS**, y es una decisión razonable —
+  testear hojas de estilo es caro y frágil—. El precio es que **los errores de
+  estilo solo los encuentra el navegador**: éste, y el ensanchamiento de la
+  página de L-037. Es la tercera vez que el recorrido paga su costo encontrando
+  algo que ningún `node --test` iba a ver.

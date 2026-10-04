@@ -101,6 +101,9 @@ export function dibujarInstrucciones(vista) {
       ${seccion('3 · Corregir, borrar y buscar', `
         <p>La pestaña <strong>Movimientos</strong> es la lista completa del mes,
         donde se corrige y se borra. Cada uno tiene sus dos botones.</p>
+        <p>Está agrupada por día, y <strong>cada día dice cuánto se gastó y
+        cuánto entró</strong>. El que esté en cero no se escribe: un día sin
+        ingresos no te hace leer un cero.</p>
         <p><strong>Borrar se puede deshacer</strong>: aparece un aviso con
         "Deshacer" justo después.</p>
         <p>Arriba hay una <strong>lupa</strong> que busca en

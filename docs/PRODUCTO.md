@@ -395,6 +395,14 @@ borra.
 **Qué puede salir mal:** borrar es destructivo. La app **pide confirmación** y
 ofrece **deshacer** inmediatamente después.
 
+**La lista va agrupada por día**, del más nuevo al más viejo, y **cada día dice
+cuánto se gastó y cuánto entró** (T-076, pedido del usuario). El que valga cero
+no se escribe —un día sin ingresos es el caso normal y un cero en cada uno de
+esos días es ruido— y **no hay saldo del día**: el sueldo entra un día y los
+gastos salen los otros treinta, así que el saldo de una jornada suelta no dice
+nada. Si ese día tiene un movimiento sin tipo de cambio, no se cuenta como cero:
+se dice al lado cuántos quedaron afuera (RN-04).
+
 ---
 
 ### CU-07 — Exportar todos los datos

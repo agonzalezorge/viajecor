@@ -3,6 +3,22 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.20.0 — 2026-10-04
+
+### Agregado
+- **Cada día de la lista de movimientos dice cuánto se gastó y cuánto entró.**
+  El que esté en cero no se escribe —un día sin ingresos no te hace leer un
+  cero— y no hay saldo del día: el sueldo entra un día y los gastos salen los
+  otros treinta.
+
+  Si ese día tiene un movimiento sin tipo de cambio, no se cuenta como cero: dice
+  al lado cuántos quedaron afuera.
+
+### Cambiado
+- **El cartel de "guardado" ahora aparece justo encima del botón de guardar**, y
+  no arriba del formulario. Con el teclado abierto, arriba quedaba fuera de la
+  pantalla. El mensaje de error se movió con él, por lo mismo.
+
 ## 0.19.0 — 2026-09-26
 
 ### Agregado

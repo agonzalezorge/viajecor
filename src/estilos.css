@@ -1020,6 +1020,22 @@ body {
 .cuantos { margin: 0 0.125rem 0.75rem; }
 .tarjeta.dia h2 { font-size: 0.9375rem; color: var(--texto-suave); font-weight: 500; }
 
+/* El resumen del día, debajo de su fecha — T-076. La fila envuelve desde el
+   primer día (L-037) y cada importe lleva el color de su tipo, como en el resto
+   de la app. */
+.totales-dia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--texto-suave);
+}
+
+.totales-dia strong { font-variant-numeric: tabular-nums; }
+.totales-dia .gasto { color: var(--gasto); }
+.totales-dia .ingreso { color: var(--ingreso); }
+
 .movimientos { list-style: none; margin: 0; padding: 0; }
 
 .movimiento {
