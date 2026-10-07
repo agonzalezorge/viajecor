@@ -24,7 +24,10 @@ import { dibujarNuevo, borradorNuevo, borradorDesde, intentarGuardar, fechaEnPal
 import { claseDeRubro, COLORES } from './colores.js';
 import { elegirColor } from '../core/paleta.js';
 import { decimalesDe } from '../core/monedas.js';
-import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir } from './pantallas/cambio.js';
+import { dibujarCambios, intentarGuardarCambio, dibujarAvisoCorreccion, efectoDeCorregir,
+  dibujarEquivalencia, leerTipoDeCambio, textoDeCambio } from './pantallas/cambio.js';
+import { sentidoDeCambio, sentidoOpuesto, eurosPorUnidadSegun,
+  valorSegunSentido } from '../core/cambio.js';
 import { dibujarResumen } from './pantallas/resumen.js';
 import { dibujarEvolucion } from './pantallas/evolucion.js';
 import { dibujarEtiquetas, dibujarAvisoRenombrar, intentarRenombrar,
@@ -1500,12 +1503,27 @@ export function iniciar(documento, almacen) {
     }
 
     if (evento.target.matches('input[name="unidadesPorEuro"]')) {
-      const hueco = raiz.querySelector('[data-aviso-correccion]');
-      if (!hueco || !vista.faltaCambio) return;
+      if (!vista.faltaCambio) return;
       vista = { ...vista, borradorCambio: evento.target.value };
+      const sentido = vista.sentidoCambio ?? sentidoDeCambio(vista.estado);
+      const base = monedaBaseDe(vista.estado);
+
+      // Las dos lecturas del número, mientras se escribe — T-077. Se repinta
+      // solo este trozo y no la pantalla: lo escrito vive en el documento
+      // (ADR-023), y redibujar acá le sacaría el foco al campo en cada tecla.
+      const equivalencia = raiz.querySelector('[data-equivalencia]');
+      if (equivalencia) {
+        equivalencia.textContent = dibujarEquivalencia(
+          evento.target.value, vista.faltaCambio.moneda, base, sentido,
+        );
+      }
+
+      const hueco = raiz.querySelector('[data-aviso-correccion]');
+      if (!hueco) return;
       hueco.innerHTML = dibujarAvisoCorreccion(
-        efectoDeCorregir(vista.estado, vista.faltaCambio.moneda, vista.faltaCambio.mes, evento.target.value),
-        vista.faltaCambio.moneda
+        efectoDeCorregir(vista.estado, vista.faltaCambio.moneda, vista.faltaCambio.mes,
+          evento.target.value, sentido),
+        vista.faltaCambio.moneda, base,
       );
     }
   });
@@ -1719,10 +1737,12 @@ export function iniciar(documento, almacen) {
     const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
     const escrito = campo('unidadesPorEuro');
 
+    const sentido = vista.sentidoCambio ?? sentidoDeCambio(vista.estado);
     const resultado = intentarGuardarCambio(vista.estado, {
       moneda: campo('moneda'),
       mes: campo('mes'),
       unidadesPorEuro: escrito,
+      sentido,
     });
 
     if (resultado.error) {
@@ -1828,6 +1848,38 @@ export function iniciar(documento, almacen) {
       evento.preventDefault();
       guardarTipoDeCambio();
       return;
+    } else if (accion === 'invertir-cambio') {
+      // Dar vuelta la pregunta — T-077. Lo escrito se convierte en vez de
+      // borrarse: quien ya puso 0,025 y se da cuenta de que lo tiene más fácil
+      // al revés quiere ver 40, no un campo vacío.
+      const antes = vista.sentidoCambio ?? sentidoDeCambio(vista.estado);
+      const ahora = sentidoOpuesto(antes);
+
+      let escrito = raiz.querySelector('input[name="unidadesPorEuro"]')?.value ?? '';
+      try {
+        const eurosPorUnidad = eurosPorUnidadSegun(leerTipoDeCambio(escrito), antes);
+        escrito = textoDeCambio(valorSegunSentido(eurosPorUnidad, ahora));
+      } catch {
+        // El campo estaba vacío o a medio escribir: se deja como está. Dar
+        // vuelta la pregunta no es motivo para perder lo que había.
+      }
+
+      vista = { ...vista, sentidoCambio: ahora, borradorCambio: escrito, error: null };
+
+      // Se recuerda, que es lo que el usuario eligió: con una base que vale poco
+      // va a querer el mismo sentido siempre. Si no se puede escribir, se usa
+      // igual en esta visita — negarse a dar vuelta una pregunta por eso sería
+      // absurdo.
+      const conSentido = {
+        ...vista.estado,
+        preferencias: { ...vista.estado?.preferencias, sentido_cambio: ahora },
+      };
+      vista = { ...vista, estado: conSentido };
+      try {
+        guardarEstado(conSentido, almacen);
+      } catch {
+        // Ver arriba.
+      }
     } else if (accion === 'cancelar-cambio') {
       // "Ahora no": se vuelve al formulario con el gasto tal como estaba. No se
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento

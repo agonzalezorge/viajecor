@@ -196,6 +196,11 @@ export function dibujarInstrucciones(vista) {
         ${escapar(base)}, mes por mes. No hace falta ir a buscarlos: la app te
         los pide sola la primera vez que cargás un gasto en otra moneda. Acá
         están para corregirlos o para cargar los que falten.</p>
+        <p>Cuando te lo pide, <strong>la flecha ⇄ da vuelta la pregunta</strong>:
+        podés escribir cuántos ${escapar(base)} vale un dólar, o cuántos dólares
+        vale un ${escapar(base)} —lo que sepas de memoria—. Debajo del campo lo
+        ves escrito de los dos lados, así que un número puesto al revés se nota
+        antes de guardarlo. El sentido que elijas queda para la próxima.</p>
       `)}
 
       ${seccion('Dos reglas que la app nunca rompe', `

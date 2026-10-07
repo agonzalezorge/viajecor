@@ -3,6 +3,22 @@
 Formato de versión: `MAYOR.MENOR.PARCHE`, según `docs/PRODUCTO.md` §9.
 La versión publicada vive en el archivo `VERSION`.
 
+## 0.21.0 — 2026-10-07
+
+### Agregado
+- **El tipo de cambio se puede escribir en el sentido que te convenga.** Cuando
+  la app te lo pide, la flecha ⇄ al lado del campo da vuelta la pregunta: en vez
+  de "1 UYU son… USD" —que te obliga a contestar 0,025— podés escribir "1 USD
+  son… 40 UYU", que es el número que uno sabe.
+
+  **El sentido que elijas queda para la próxima.** Debajo del campo lo ves
+  escrito de los dos lados mientras escribís, así que un número puesto al revés
+  se nota antes de guardarlo, y la lista de tipos de cambio también los muestra
+  en los dos sentidos.
+
+  Esto **no cambia nada de lo que ya tenías guardado**: los dos sentidos guardan
+  exactamente el mismo número, y tus respaldos se leen igual.
+
 ## 0.20.0 — 2026-10-04
 
 ### Agregado

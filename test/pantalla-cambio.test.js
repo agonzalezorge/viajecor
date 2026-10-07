@@ -20,7 +20,7 @@ import {
 } from '../src/ui/pantallas/cambio.js';
 
 import { intentarGuardar, borradorNuevo } from '../src/ui/pantallas/movimiento.js';
-import { estadoInicial } from '../src/datos/almacenamiento.js';
+import { estadoInicial, migrarEstado } from '../src/datos/almacenamiento.js';
 import { monedasIniciales } from '../src/core/monedas.js';
 import { buscarCambio, aUnidadesPorEuro } from '../src/core/cambio.js';
 
@@ -290,4 +290,140 @@ test('los tipos de cambio se listan del mes más nuevo al más viejo', () => {
 
   assert.ok(html.indexOf('marzo de 2026') < html.indexOf('febrero de 2026'));
   assert.ok(html.indexOf('febrero de 2026') < html.indexOf('enero de 2026'));
+});
+
+
+// ── En qué sentido se pregunta el tipo de cambio — T-077 ────────────────────
+//
+// Lo pidió el usuario (2026-10-07) con el caso de su madre: con el peso
+// uruguayo como base, cargar un gasto en dólares hacía que la app preguntara
+// **cuántos dólares vale un peso** —0,025, que nadie sabe de memoria— cuando lo
+// que todo el mundo sabe es cuántos pesos vale un dólar.
+
+import {
+  SENTIDO_POR_BASE, SENTIDO_POR_MONEDA, sentidoDeCambio, sentidoOpuesto,
+  eurosPorUnidadSegun, valorSegunSentido,
+} from '../src/core/cambio.js';
+import { dibujarEquivalencia, textoDeCambio, enElSentidoDe } from '../src/ui/pantallas/cambio.js';
+import { cambiarMonedaBase } from '../src/core/base.js';
+
+const enPesos = () => cambiarMonedaBase(
+  { ...estadoInicial({ monedas: monedasIniciales() }), tipos_cambio: [], movimientos: [] }, 'UYU');
+
+test('los dos sentidos guardan exactamente el mismo número', () => {
+  // Es lo que hace que esto no comprometa nada: cambia la pregunta, no el dato.
+  // "1 USD son 40 UYU" y "1 UYU son 0,025 USD" son el mismo tipo de cambio.
+  const porMoneda = eurosPorUnidadSegun(40, SENTIDO_POR_MONEDA);
+  const porBase = eurosPorUnidadSegun(0.025, SENTIDO_POR_BASE);
+
+  assert.ok(Math.abs(porMoneda - porBase) < 1e-12, `${porMoneda} ≠ ${porBase}`);
+});
+
+test('el número natural es el que ya se guardaba', () => {
+  // `euros_por_unidad` es cuánto vale UNA unidad de la moneda extranjera en la
+  // base: con base UYU y moneda USD, eso es 40. El sentido nuevo no invierte
+  // nada — hace una división MENOS que el viejo.
+  assert.equal(eurosPorUnidadSegun(40, SENTIDO_POR_MONEDA), 40);
+});
+
+test('guardar en el sentido nuevo da el mismo estado que en el viejo', () => {
+  const estado = enPesos();
+  const comoDice = intentarGuardarCambio(estado, {
+    moneda: 'USD', mes: '2026-10', unidadesPorEuro: '40', sentido: SENTIDO_POR_MONEDA,
+  });
+  const alReves = intentarGuardarCambio(estado, {
+    moneda: 'USD', mes: '2026-10', unidadesPorEuro: '0,025', sentido: SENTIDO_POR_BASE,
+  });
+
+  assert.equal(comoDice.error, undefined);
+  assert.ok(Math.abs(comoDice.estado.tipos_cambio[0].euros_por_unidad
+    - alReves.estado.tipos_cambio[0].euros_por_unidad) < 1e-12);
+});
+
+test('de fábrica se pregunta como siempre, y lo elegido se recuerda', () => {
+  assert.equal(sentidoDeCambio(enPesos()), SENTIDO_POR_BASE);
+  assert.equal(sentidoDeCambio({ preferencias: { sentido_cambio: SENTIDO_POR_MONEDA } }), SENTIDO_POR_MONEDA);
+  // Una preferencia rota no prende nada raro: vuelve al de siempre.
+  assert.equal(sentidoDeCambio({ preferencias: { sentido_cambio: 'inventado' } }), SENTIDO_POR_BASE);
+  assert.equal(sentidoOpuesto(SENTIDO_POR_BASE), SENTIDO_POR_MONEDA);
+  assert.equal(sentidoOpuesto(SENTIDO_POR_MONEDA), SENTIDO_POR_BASE);
+});
+
+test('el respaldo se lleva en qué sentido preferís que te pregunten', () => {
+  const guardado = { preferencias: { sentido_cambio: SENTIDO_POR_MONEDA } };
+  assert.equal(sentidoDeCambio(migrarEstado(guardado)), SENTIDO_POR_MONEDA);
+  assert.equal(sentidoDeCambio(migrarEstado({ preferencias: { sentido_cambio: 'raro' } })), SENTIDO_POR_BASE);
+});
+
+test('el formulario pregunta en el sentido elegido, con su sufijo', () => {
+  const estado = enPesos();
+  const falta = { moneda: 'USD', mes: '2026-10' };
+
+  const viejo = dibujarPedido({ estado, faltaCambio: falta, sentidoCambio: SENTIDO_POR_BASE });
+  assert.match(viejo, /1 UYU son…/);
+
+  const nuevo = dibujarPedido({ estado, faltaCambio: falta, sentidoCambio: SENTIDO_POR_MONEDA });
+  assert.match(nuevo, /1 USD son…/);
+  assert.match(nuevo, /sufijo">UYU/, 'y el sufijo del campo acompaña');
+});
+
+test('la flecha para dar vuelta la pregunta está siempre', () => {
+  const html = dibujarPedido({ estado: enPesos(), faltaCambio: { moneda: 'USD', mes: '2026-10' } });
+
+  assert.match(html, /data-accion="invertir-cambio"/);
+  assert.match(html, /aria-label="[^"]+"/, 'con una etiqueta que diga qué hace');
+});
+
+test('lo escrito se lee de los dos lados mientras se escribe', () => {
+  // Un tipo de cambio invertido no da ningún error: da totales absurdos que
+  // alguien tiene que notar mirando. Acá se nota antes de guardarlo.
+  const lectura = dibujarEquivalencia('40', 'USD', 'UYU', SENTIDO_POR_MONEDA);
+
+  assert.match(lectura, /1 USD = 40,0000 UYU/);
+  assert.match(lectura, /1 UYU = 0,025000 USD/);
+});
+
+test('con el campo vacío dice qué se espera, en vez de quedar en blanco', () => {
+  assert.match(dibujarEquivalencia('', 'USD', 'UYU', SENTIDO_POR_MONEDA), /Cuántos UYU vale 1 USD/);
+  assert.match(dibujarEquivalencia('', 'USD', 'UYU', SENTIDO_POR_BASE), /Cuántos USD vale 1 UYU/);
+  assert.match(dibujarEquivalencia('abc', 'USD', 'UYU', SENTIDO_POR_BASE), /Cuántos/);
+});
+
+test('dar vuelta la pregunta convierte lo ya escrito, no lo borra', () => {
+  // Quien puso 0,025 y se da cuenta de que lo tiene más fácil al revés quiere
+  // ver 40, no un campo vacío.
+  const eurosPorUnidad = eurosPorUnidadSegun(0.025, SENTIDO_POR_BASE);
+
+  assert.equal(textoDeCambio(valorSegunSentido(eurosPorUnidad, SENTIDO_POR_MONEDA)), '40');
+});
+
+test('y al volver, cada sentido lee el valor guardado como corresponde', () => {
+  // Lo encontró una mutación: `valorSegunSentido` devolvía siempre el valor
+  // guardado, y en el sentido nuevo eso es correcto por casualidad. En el viejo
+  // hay que invertirlo, o el campo mostraría 40 donde debe decir 0,025.
+  assert.equal(valorSegunSentido(40, SENTIDO_POR_MONEDA), 40);
+  assert.equal(valorSegunSentido(40, SENTIDO_POR_BASE), 0.025);
+});
+
+test('el texto que vuelve al campo es el que una persona escribiría', () => {
+  assert.equal(textoDeCambio(40), '40', 'sin ceros de relleno');
+  assert.equal(textoDeCambio(630), '630');
+  assert.equal(textoDeCambio(1 / 40), '0,025');
+  assert.equal(textoDeCambio(1.085), '1,085');
+  assert.equal(textoDeCambio(0), '', 'un valor imposible no vuelve como texto raro');
+});
+
+test('la lista de guardados muestra los dos sentidos', () => {
+  const { estado } = intentarGuardarCambio(enPesos(), {
+    moneda: 'USD', mes: '2026-10', unidadesPorEuro: '40', sentido: SENTIDO_POR_MONEDA,
+  });
+  const html = dibujarCambios({ estado, sentidoCambio: SENTIDO_POR_MONEDA });
+
+  assert.match(html, /1 USD = 40,0000 UYU/);
+  assert.match(html, /1 UYU = 0,025000 USD/);
+});
+
+test('y cada sentido se escribe como corresponde', () => {
+  assert.equal(enElSentidoDe(40, 'USD', 'UYU', SENTIDO_POR_MONEDA), '1 USD = 40,0000 UYU');
+  assert.equal(enElSentidoDe(40, 'USD', 'UYU', SENTIDO_POR_BASE), '1 UYU = 0,025000 USD');
 });

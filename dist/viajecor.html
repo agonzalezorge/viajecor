@@ -1046,6 +1046,31 @@ body {
   color: var(--texto-suave);
 }
 
+/* La flecha que da vuelta la pregunta del tipo de cambio — T-077. Va al lado de
+   la etiqueta del campo, con un área de toque que no depende del tamaño del
+   signo: un objetivo de 11 px no se acierta con el pulgar. */
+.con-flecha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.flecha-cambio {
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.25rem 0.75rem;
+  min-height: 2.25rem;
+  text-decoration: none;
+}
+
+/* El tipo de cambio leído al revés, debajo del que se lee natural. */
+.otro-sentido {
+  display: block;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .totales-dia strong { font-variant-numeric: tabular-nums; }
 .totales-dia .gasto { color: var(--gasto); }
 .totales-dia .ingreso { color: var(--ingreso); }
@@ -1455,7 +1480,7 @@ body {
 (function () {
 'use strict';
 
-globalThis.__VIAJECOR_VERSION__ = "0.20.0";
+globalThis.__VIAJECOR_VERSION__ = "0.21.0";
 
 // ── src/core/dinero.js ──────────────────────────────────────────
 // Aritmética de dinero.
@@ -2488,6 +2513,62 @@ function desdeUnidadesPorEuro(unidadesPorEuro) {
 /** El mismo valor visto al revés, para mostrarlo como el usuario lo conoce. */
 function aUnidadesPorEuro(eurosPorUnidad) {
   return invertirCambio(eurosPorUnidad);
+}
+
+// ── En qué sentido se pregunta el tipo de cambio — T-077, CU-24 ─────────────
+//
+// Lo pidió el usuario (2026-10-07), y el caso que lo motiva es el de su madre:
+// con el peso uruguayo como base, cargar un gasto en dólares hacía que la app
+// preguntara **cuántos dólares vale un peso**, que es 0,025 y nadie sabe de
+// memoria. Lo que todo el mundo sabe es cuántos pesos vale un dólar.
+//
+// ── Lo que hace que esto sea barato: el número natural ya es el que se guarda ─
+//
+// `euros_por_unidad` es **cuánto vale UNA unidad de la moneda extranjera,
+// expresado en la base**. Con base UYU y moneda USD, eso es 40: justamente "un
+// dólar son 40 pesos". El dato guardado nunca fue el incómodo; lo incómodo era
+// la pregunta, que pedía el inverso y obligaba a invertirlo para guardarlo.
+//
+// Así que el sentido nuevo no solo es más fácil de contestar: también hace una
+// división menos. El viejo se queda porque para quien tiene el euro como base
+// "1 EUR son 630 CRC" sí es como se conoce el dato.
+//
+// Esto NO cambia nada de lo guardado. Un respaldo de antes se lee igual, y dos
+// usuarios con sentidos distintos guardan exactamente el mismo número.
+
+/** "1 BASE son X MONEDA" — el de siempre. Se invierte antes de guardar. */
+const SENTIDO_POR_BASE = 'por-base';
+
+/** "1 MONEDA son X BASE" — el natural cuando la base vale poco. Se guarda tal cual. */
+const SENTIDO_POR_MONEDA = 'por-moneda';
+
+/** El sentido que vale, con el de siempre como valor de fábrica. */
+function sentidoDeCambio(estado) {
+  return estado?.preferencias?.sentido_cambio === SENTIDO_POR_MONEDA
+    ? SENTIDO_POR_MONEDA
+    : SENTIDO_POR_BASE;
+}
+
+/** El otro. */
+function sentidoOpuesto(sentido) {
+  return sentido === SENTIDO_POR_MONEDA ? SENTIDO_POR_BASE : SENTIDO_POR_MONEDA;
+}
+
+/**
+ * Lo que el usuario escribió, pasado a la forma en que se guarda.
+ *
+ * Vive acá y no como una división suelta en la pantalla por el mismo motivo que
+ * `desdeUnidadesPorEuro()`: es exactamente el punto donde un número se puede
+ * guardar del revés, y un tipo de cambio invertido no da un error — da totales
+ * absurdos que alguien tiene que notar mirando.
+ */
+function eurosPorUnidadSegun(valor, sentido) {
+  return sentido === SENTIDO_POR_MONEDA ? valor : desdeUnidadesPorEuro(valor);
+}
+
+/** Y al revés: el valor guardado, escrito en el sentido que el usuario eligió. */
+function valorSegunSentido(eurosPorUnidad, sentido) {
+  return sentido === SENTIDO_POR_MONEDA ? eurosPorUnidad : aUnidadesPorEuro(eurosPorUnidad);
 }
 
 /**
@@ -4947,6 +5028,28 @@ function formatearTipoDeCambio(eurosPorUnidad, moneda, base = 'EUR') {
   return `1 ${normalizarMoneda(base)} = ${numero} ${codigo}`;
 }
 
+/**
+ * El mismo tipo de cambio escrito al revés: **"1 USD = 40,00 UYU"** — T-077.
+ *
+ * Es el que se lee natural cuando la base vale poco, y el que el usuario pidió
+ * poder cargar. Los decimales siguen la misma regla de magnitud que el otro: un
+ * número grande no necesita seis decimales y uno chico no sobrevive con dos.
+ */
+function formatearTipoDeCambioInverso(eurosPorUnidad, moneda, base = 'EUR') {
+  const codigo = normalizarMoneda(moneda);
+  if (!Number.isFinite(eurosPorUnidad) || eurosPorUnidad <= 0) {
+    throw new Error('El tipo de cambio tiene que ser un número mayor que cero.');
+  }
+
+  const decimales = eurosPorUnidad >= 100 ? 2 : eurosPorUnidad >= 1 ? 4 : 6;
+  const numero = new Intl.NumberFormat(IDIOMA, {
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  }).format(eurosPorUnidad);
+
+  return `1 ${codigo} = ${numero} ${normalizarMoneda(base)}`;
+}
+
 // ── src/core/paleta.js ──────────────────────────────────────────
 // Los ocho colores de los rubros, en un solo lugar — T-909, T-916.
 //
@@ -5264,6 +5367,7 @@ function franjasConTintaClara(paleta = COLORES_RUBRO) {
 // app abra igual, pero AVISA que lo hizo y GUARDA APARTE lo que no pudo leer. Lo
 // que nunca hace es pisar en silencio un dato que no entendió: un dato ilegible
 // todavía se puede rescatar a mano; uno sobrescrito, no.
+
 
 
 
@@ -5603,6 +5707,14 @@ function migrarEstado(guardado, incidencias = []) {
         if (typeof perfiles[clave] === 'boolean') leidos[clave] = perfiles[clave];
       }
       if (Object.keys(leidos).length > 0) estado.preferencias.perfiles = leidos;
+    }
+
+    // En qué sentido prefiere que se le pregunte el tipo de cambio (T-077).
+    // Es una preferencia de presentación: no cambia ningún número guardado, solo
+    // cómo se pide y cómo se lee.
+    if (preferencias.sentido_cambio === SENTIDO_POR_MONEDA
+      || preferencias.sentido_cambio === SENTIDO_POR_BASE) {
+      estado.preferencias.sentido_cambio = preferencias.sentido_cambio;
     }
 
     if (preferencias.compartir_no_funciona === true) {
@@ -8811,7 +8923,7 @@ function leerTipoDeCambio(entrada) {
  *
  * Nunca tira: devuelve `{ estado, error }`, como el resto de las pantallas.
  */
-function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) {
+function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro, sentido }) {
   // Contra la base elegida, no contra el euro (T-050): con base en pesos, el
   // euro es una moneda más y **sí** lleva tipo de cambio. Comparar contra EUR
   // acá dejaba al usuario sin poder cargar el único tipo que le faltaba.
@@ -8839,12 +8951,65 @@ function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) {
 
   let cambio;
   try {
-    cambio = crearCambio({ moneda: codigo, mes, euros_por_unidad: desdeUnidadesPorEuro(valor) }, { base });
+    // En qué sentido lo escribió — T-077. Con "1 USD son 40 UYU" el número ya
+    // viene en la forma que se guarda y no hay nada que invertir.
+    cambio = crearCambio(
+      { moneda: codigo, mes, euros_por_unidad: eurosPorUnidadSegun(valor, sentido ?? sentidoDeCambio(estado)) },
+      { base },
+    );
   } catch (error) {
     return { estado, error: error.message };
   }
 
   return { estado: { ...estado, tipos_cambio: guardarCambio(estado.tipos_cambio, cambio) } };
+}
+
+/** Un tipo de cambio escrito en el sentido que se pida. */
+function enElSentidoDe(eurosPorUnidad, moneda, base, sentido) {
+  return sentido === SENTIDO_POR_MONEDA
+    ? formatearTipoDeCambioInverso(eurosPorUnidad, moneda, base)
+    : formatearTipoDeCambio(eurosPorUnidad, moneda, base);
+}
+
+/**
+ * El camino de vuelta de `leerTipoDeCambio()`: un factor escrito como lo
+ * escribiría el usuario, para volver a poner en el campo — T-077.
+ *
+ * Existe porque dar vuelta la pregunta tiene que convertir lo ya escrito, y
+ * volcar ahí un `0.024999999999999998` sería devolverle al usuario un número que
+ * él nunca escribiría. Se queda con los decimales que hagan falta y sin ceros de
+ * relleno: 40 se escribe "40", no "40,0000".
+ */
+function textoDeCambio(valor) {
+  if (!Number.isFinite(valor) || valor <= 0) return '';
+
+  // Suficientes decimales para no perder un cambio chico —0,000002— y después
+  // se podan los ceros que sobran.
+  const decimales = valor >= 1 ? 6 : 10;
+  return valor.toFixed(decimales).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',');
+}
+
+/**
+ * Lo que se está escribiendo, leído **de los dos lados** — T-077.
+ *
+ * Con el campo vacío dice qué se espera, en vez de quedar en blanco. Con un
+ * número adentro, las dos lecturas: la del sentido elegido y la contraria. Esa
+ * segunda es la contramedida de siempre —un tipo de cambio invertido no falla,
+ * da totales absurdos— puesta donde todavía se puede corregir sin costo.
+ */
+function dibujarEquivalencia(escrito, moneda, base, sentido) {
+  let valor;
+  try {
+    valor = leerTipoDeCambio(escrito);
+  } catch {
+    return sentido === SENTIDO_POR_MONEDA
+      ? `Cuántos ${base} vale 1 ${moneda}.`
+      : `Cuántos ${moneda} vale 1 ${base}.`;
+  }
+
+  const eurosPorUnidad = eurosPorUnidadSegun(valor, sentido);
+  return `${formatearTipoDeCambioInverso(eurosPorUnidad, moneda, base)}`
+    + ` · ${formatearTipoDeCambio(eurosPorUnidad, moneda, base)}`;
 }
 
 /**
@@ -8856,14 +9021,14 @@ function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) {
  * cambia números que el usuario ya dio por buenos. La app tiene que mostrar esa
  * consecuencia **antes**, no después.
  */
-function efectoDeCorregir(estado, moneda, mes, nuevasUnidadesPorEuro) {
+function efectoDeCorregir(estado, moneda, mes, nuevasUnidadesPorEuro, sentido) {
   const codigo = normalizarMoneda(moneda);
   const afectados = movimientosAfectadosPor(estado.movimientos, codigo, mes);
   if (afectados === 0) return { afectados: 0 };
 
   let nuevoValor;
   try {
-    nuevoValor = desdeUnidadesPorEuro(leerTipoDeCambio(nuevasUnidadesPorEuro));
+    nuevoValor = eurosPorUnidadSegun(leerTipoDeCambio(nuevasUnidadesPorEuro), sentido ?? sentidoDeCambio(estado));
   } catch {
     return { afectados };
   }
@@ -8906,6 +9071,9 @@ function dibujarPedido(vista) {
     ? efectoDeCorregir(vista.estado, falta.moneda, falta.mes, vista.borradorCambio)
     : null;
 
+  const sentido = vista.sentidoCambio ?? sentidoDeCambio(vista.estado);
+  const preguntaPorMoneda = sentido === SENTIDO_POR_MONEDA;
+
   const explicacion = corrigiendo
     ? `Ahora está cargado como <strong>${escapar(formatearTipoDeCambio(actual, falta.moneda, base))}</strong>.
        Corregirlo vuelve a calcular todos los movimientos de ${escapar(formatearMes(falta.mes))} en esa moneda.`
@@ -8923,14 +9091,28 @@ function dibujarPedido(vista) {
       ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
       <div data-aviso-correccion>${dibujarAvisoCorreccion(efecto, falta.moneda, base)}</div>
 
+      <!-- ── La flecha que da vuelta la pregunta — T-077 ─────────────────────
+           Lo pidió el usuario: con el peso como base, preguntar "1 UYU son…
+           USD" obliga a contestar 0,025, que nadie sabe de memoria. Lo que todo
+           el mundo sabe es cuántos pesos vale un dólar.
+
+           El sentido elegido se recuerda, así que se toca una vez y queda. -->
       <label class="campo">
-        <span>1 ${escapar(base)} son…</span>
+        <span class="con-flecha">
+          <span>${preguntaPorMoneda ? `1 ${escapar(falta.moneda)} son…` : `1 ${escapar(base)} son…`}</span>
+          <button type="button" class="enlace flecha-cambio" data-accion="invertir-cambio"
+                  aria-label="Preguntar al revés: ${escapar(preguntaPorMoneda ? `cuántos ${falta.moneda} vale 1 ${base}` : `cuántos ${base} vale 1 ${falta.moneda}`)}">⇄</button>
+        </span>
         <div class="monto-fila">
           <input name="unidadesPorEuro" class="importe" type="text" inputmode="decimal"
-                 autocomplete="off" enterkeyhint="done" placeholder="630"
+                 autocomplete="off" enterkeyhint="done" placeholder="${escapar(preguntaPorMoneda ? '40' : '630')}"
                  value="${escapar(vista.borradorCambio ?? '')}">
-          <span class="sufijo">${escapar(falta.moneda)}</span>
+          <span class="sufijo">${escapar(preguntaPorMoneda ? base : falta.moneda)}</span>
         </div>
+        <!-- Lo escrito, leído de los dos lados. Un número puesto al revés no da
+             ningún error: da totales absurdos que alguien tiene que notar
+             mirando. Acá se nota antes de guardarlo. -->
+        <span class="fecha-legible" data-equivalencia>${dibujarEquivalencia(vista.borradorCambio, falta.moneda, base, sentido)}</span>
       </label>
 
       <input type="hidden" name="moneda" value="${escapar(falta.moneda)}">
@@ -8956,6 +9138,7 @@ function dibujarPedido(vista) {
 function dibujarCambios(vista) {
   const estado = vista.estado;
   const base = monedaBaseDe(estado);
+  const sentido = vista.sentidoCambio ?? sentidoDeCambio(estado);
   const cambios = [...estado.tipos_cambio].sort(
     (a, b) => b.mes.localeCompare(a.mes) || a.moneda.localeCompare(b.moneda)
   );
@@ -9013,7 +9196,11 @@ function dibujarCambios(vista) {
             <span class="suave">${escapar(cuantos)}</span>
           </div>
           <div class="valor-cambio">
-            <span class="importe">${escapar(formatearTipoDeCambio(c.euros_por_unidad, c.moneda, base))}</span>
+            <!-- Los dos sentidos, a pedido del usuario — T-077. Arriba el que
+                 se lee natural con esta base, y debajo el otro: ver el número
+                 de los dos lados es lo que delata uno cargado al revés. -->
+            <span class="importe">${escapar(enElSentidoDe(c.euros_por_unidad, c.moneda, base, sentido))}</span>
+            <span class="suave otro-sentido">${escapar(enElSentidoDe(c.euros_por_unidad, c.moneda, base, sentidoOpuesto(sentido)))}</span>
             <button type="button" class="secundario chico"
                     data-accion="corregir-cambio"
                     data-moneda="${escapar(c.moneda)}" data-mes="${escapar(c.mes)}">Corregir</button>
@@ -11158,6 +11345,11 @@ function dibujarInstrucciones(vista) {
         ${escapar(base)}, mes por mes. No hace falta ir a buscarlos: la app te
         los pide sola la primera vez que cargás un gasto en otra moneda. Acá
         están para corregirlos o para cargar los que falten.</p>
+        <p>Cuando te lo pide, <strong>la flecha ⇄ da vuelta la pregunta</strong>:
+        podés escribir cuántos ${escapar(base)} vale un dólar, o cuántos dólares
+        vale un ${escapar(base)} —lo que sepas de memoria—. Debajo del campo lo
+        ves escrito de los dos lados, así que un número puesto al revés se nota
+        antes de guardarlo. El sentido que elijas queda para la próxima.</p>
       `)}
 
       ${seccion('Dos reglas que la app nunca rompe', `
@@ -15018,6 +15210,7 @@ function conectarUna(tarjeta) {
 
 
 
+
 /**
  * La versión la inyecta tools/build.mjs al construir, leyéndola del archivo
  * VERSION. Fuera del archivo construido (por ejemplo en los tests) no hay
@@ -16451,12 +16644,27 @@ function iniciar(documento, almacen) {
     }
 
     if (evento.target.matches('input[name="unidadesPorEuro"]')) {
-      const hueco = raiz.querySelector('[data-aviso-correccion]');
-      if (!hueco || !vista.faltaCambio) return;
+      if (!vista.faltaCambio) return;
       vista = { ...vista, borradorCambio: evento.target.value };
+      const sentido = vista.sentidoCambio ?? sentidoDeCambio(vista.estado);
+      const base = monedaBaseDe(vista.estado);
+
+      // Las dos lecturas del número, mientras se escribe — T-077. Se repinta
+      // solo este trozo y no la pantalla: lo escrito vive en el documento
+      // (ADR-023), y redibujar acá le sacaría el foco al campo en cada tecla.
+      const equivalencia = raiz.querySelector('[data-equivalencia]');
+      if (equivalencia) {
+        equivalencia.textContent = dibujarEquivalencia(
+          evento.target.value, vista.faltaCambio.moneda, base, sentido,
+        );
+      }
+
+      const hueco = raiz.querySelector('[data-aviso-correccion]');
+      if (!hueco) return;
       hueco.innerHTML = dibujarAvisoCorreccion(
-        efectoDeCorregir(vista.estado, vista.faltaCambio.moneda, vista.faltaCambio.mes, evento.target.value),
-        vista.faltaCambio.moneda
+        efectoDeCorregir(vista.estado, vista.faltaCambio.moneda, vista.faltaCambio.mes,
+          evento.target.value, sentido),
+        vista.faltaCambio.moneda, base,
       );
     }
   });
@@ -16670,10 +16878,12 @@ function iniciar(documento, almacen) {
     const campo = (nombre) => formulario.elements[nombre]?.value ?? '';
     const escrito = campo('unidadesPorEuro');
 
+    const sentido = vista.sentidoCambio ?? sentidoDeCambio(vista.estado);
     const resultado = intentarGuardarCambio(vista.estado, {
       moneda: campo('moneda'),
       mes: campo('mes'),
       unidadesPorEuro: escrito,
+      sentido,
     });
 
     if (resultado.error) {
@@ -16779,6 +16989,38 @@ function iniciar(documento, almacen) {
       evento.preventDefault();
       guardarTipoDeCambio();
       return;
+    } else if (accion === 'invertir-cambio') {
+      // Dar vuelta la pregunta — T-077. Lo escrito se convierte en vez de
+      // borrarse: quien ya puso 0,025 y se da cuenta de que lo tiene más fácil
+      // al revés quiere ver 40, no un campo vacío.
+      const antes = vista.sentidoCambio ?? sentidoDeCambio(vista.estado);
+      const ahora = sentidoOpuesto(antes);
+
+      let escrito = raiz.querySelector('input[name="unidadesPorEuro"]')?.value ?? '';
+      try {
+        const eurosPorUnidad = eurosPorUnidadSegun(leerTipoDeCambio(escrito), antes);
+        escrito = textoDeCambio(valorSegunSentido(eurosPorUnidad, ahora));
+      } catch {
+        // El campo estaba vacío o a medio escribir: se deja como está. Dar
+        // vuelta la pregunta no es motivo para perder lo que había.
+      }
+
+      vista = { ...vista, sentidoCambio: ahora, borradorCambio: escrito, error: null };
+
+      // Se recuerda, que es lo que el usuario eligió: con una base que vale poco
+      // va a querer el mismo sentido siempre. Si no se puede escribir, se usa
+      // igual en esta visita — negarse a dar vuelta una pregunta por eso sería
+      // absurdo.
+      const conSentido = {
+        ...vista.estado,
+        preferencias: { ...vista.estado?.preferencias, sentido_cambio: ahora },
+      };
+      vista = { ...vista, estado: conSentido };
+      try {
+        guardarEstado(conSentido, almacen);
+      } catch {
+        // Ver arriba.
+      }
     } else if (accion === 'cancelar-cambio') {
       // "Ahora no": se vuelve al formulario con el gasto tal como estaba. No se
       // pierde nada, pero tampoco se guarda: sin tipo de cambio ese movimiento

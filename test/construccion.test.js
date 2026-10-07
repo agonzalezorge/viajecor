@@ -199,3 +199,100 @@ test('la versión que muestra la app tiene su entrada en el CHANGELOG', async ()
   assert.match(cambios, titulo,
     `falta la entrada "## ${version.trim()} — AAAA-MM-DD" en CHANGELOG.md`);
 });
+
+
+// ── El escáner de las guardias — T-077 ──────────────────────────────────────
+//
+// Las tres guardias de llamadas incompletas (L-035, T-067, T-075) leen el código
+// con un escáner propio que borra cadenas y comentarios. **Ese escáner estaba
+// roto de dos maneras distintas y nadie lo sabía**, porque no tenía un solo test
+// propio: se probaba siempre a través de las guardias, con ejemplos escritos a
+// mano que daban la casualidad de no tocar ninguno de los dos agujeros.
+//
+// L-036 ya decía que una guardia hay que probarla rompiendo algo en el lugar
+// donde el error ocurre. Esto agrega la otra mitad: **la herramienta de la
+// guardia también necesita sus propios tests**.
+
+import { argumentosDe, llamadasSinBase } from '../tools/moneda-base.mjs';
+
+test('una coma final no cuenta como un argumento más', () => {
+  // Partir una llamada en varias líneas con coma al final es la forma normal de
+  // escribir en este proyecto. Contaba uno de más, así que una llamada a la que
+  // le faltaba un argumento pasaba la guardia.
+  assert.equal(argumentosDe('f(a, b)', 1), 2);
+  assert.equal(argumentosDe('f(a, b,)', 1), 2);
+  assert.equal(argumentosDe('f(\n  a,\n  b,\n)', 1), 2);
+  assert.equal(argumentosDe('f(a,)', 1), 1);
+  assert.equal(argumentosDe('f()', 1), 0);
+});
+
+test('y la guardia ve la llamada corta aunque tenga coma final', () => {
+  const codigo = 'const x = movimientoEnEuros(\n  m,\n  cambios,\n  monedas,\n);';
+
+  assert.equal(llamadasSinBase(new Map([['p.js', codigo]])).length, 1);
+});
+
+test('una comilla DENTRO de una expresión regular no abre una cadena', () => {
+  // Éste es el que importaba de verdad. `src/ui/app.js` tiene en su línea 95 un
+  // `.replace(/"/g, '&quot;')`: el escáner tomaba esa comilla como el principio
+  // de una cadena y blanqueaba TODO el resto del archivo —el más grande del
+  // proyecto, donde viven todos los manejadores—. La guardia no veía nada ahí.
+  const codigo = [
+    'const escapar = (t) => t.replace(/"/g, "&quot;");',
+    'const y = movimientoEnEuros(m, cambios, monedas);',
+  ].join('\n');
+
+  const encontradas = llamadasSinBase(new Map([['p.js', codigo]]));
+  assert.equal(encontradas.length, 1, 'la guardia quedó ciega después de la regex');
+  assert.equal(encontradas[0].linea, 2);
+});
+
+test("una comilla simple dentro de una regex tampoco", () => {
+  const codigo = [
+    "const limpio = t.replace(/'/g, '');",
+    'const y = movimientoEnEuros(m, cambios, monedas);',
+  ].join('\n');
+
+  assert.equal(llamadasSinBase(new Map([['p.js', codigo]])).length, 1);
+});
+
+test('una división no se confunde con una expresión regular', () => {
+  // El otro lado del mismo problema: si TODA barra abriera una regex, el
+  // escáner se comería el código que viene después de una división.
+  // En la MISMA línea, que es donde se nota: si la barra abriera una regex, se
+  // comería la llamada que viene después y la guardia no la vería.
+  const codigo = 'const y = total / cuantos + movimientoEnEuros(m, cambios, monedas);';
+
+  assert.equal(llamadasSinBase(new Map([['p.js', codigo]])).length, 1);
+});
+
+test('una regex con barras escapadas adentro no se come lo que sigue', () => {
+  const codigo = [
+    'const esUrl = /https?:\\/\\//.test(texto);',
+    'const y = movimientoEnEuros(m, cambios, monedas);',
+  ].join('\n');
+
+  assert.equal(llamadasSinBase(new Map([['p.js', codigo]])).length, 1);
+});
+
+test('y una barra dentro de una clase de caracteres tampoco cierra la regex', () => {
+  // También en la misma línea: si la regex cerrara en la barra de adentro de la
+  // clase, lo que sigue se leería mal y la llamada se perdería.
+  // Con una comilla también dentro de la clase: si la regex cerrara en la barra
+  // de adentro, esa comilla abriría una cadena y se comería todo lo que sigue.
+  const codigo = "const y = texto.split(/[/']/) && movimientoEnEuros(m, cambios, monedas);";
+
+  assert.equal(llamadasSinBase(new Map([['p.js', codigo]])).length, 1);
+});
+
+test('la guardia ve el archivo real entero, no solo su principio', async () => {
+  const { readFile } = await import('node:fs/promises');
+  // La comprobación que faltaba: correrla sobre `src/ui/app.js` tal como está,
+  // con una llamada rota metida al final. Si el escáner se corta por el camino,
+  // esto lo dice.
+  const codigo = await readFile(join(RAIZ, 'src/ui/app.js'), 'utf8')
+    + '\nconst alFinal = movimientoEnEuros(m, cambios, monedas);\n';
+
+  assert.equal(llamadasSinBase(new Map([['src/ui/app.js', codigo]])).length, 1,
+    'la guardia no llega hasta el final de app.js');
+});

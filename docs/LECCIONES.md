@@ -1432,3 +1432,43 @@ resultados de búsqueda, que perdió su cuerpo.
   estilo solo los encuentra el navegador**: éste, y el ensanchamiento de la
   página de L-037. Es la tercera vez que el recorrido paga su costo encontrando
   algo que ningún `node --test` iba a ver.
+
+
+## L-043 · La guardia estaba ciega en el archivo más grande, y nadie lo sabía
+
+**Dónde apareció:** T-077. No lo reportó nadie: salió de probar la guardia
+—ampliada ese mismo día— rompiendo una llamada a propósito, como manda L-036.
+
+El escáner que las tres guardias usan para borrar cadenas antes de contar
+argumentos tenía **tres agujeros**, y los tres se descubrieron en una tarde:
+
+1. **Una comilla dentro de una expresión regular abría una cadena.**
+   `src/ui/app.js` tiene en su línea 95 un `.replace(/"/g, '&quot;')`. Desde ahí
+   hasta el final del archivo, el escáner creía estar dentro de una cadena y lo
+   blanqueaba todo. O sea: **la guardia no veía nada en el archivo más grande del
+   proyecto**, donde viven todos los manejadores.
+2. **Una coma final contaba como un argumento más.** `f(a, b,)` daba 3, así que
+   cualquier llamada partida en varias líneas —la forma normal de escribir acá—
+   pasaba la guardia con un argumento de menos.
+3. **Un escape pegado al fin de línea se comía la línea siguiente**, en
+   `/https?:\/\//`, que existe de verdad en `tools/privacidad.mjs`.
+
+**La auditoría posterior, con el escáner sano, no encontró ninguna llamada rota
+en todo `src/`.** El código estaba bien; lo que no estaba era la red.
+
+**Lo que deja.**
+
+- **Una guardia no es su regla: es su regla más la herramienta que la lee.** La
+  regla estaba bien escrita las tres veces. Lo que fallaba era el escáner, y el
+  escáner **no tenía un solo test propio** — se probaba siempre a través de las
+  guardias, con ejemplos escritos a mano que por casualidad no tocaban ninguno de
+  los tres agujeros. Ahora tiene los suyos, incluido uno que la corre sobre
+  `src/ui/app.js` entero con una llamada rota al final.
+- **Probar la guardia en un fragmento no es probarla.** Las dos primeras pruebas
+  de esta sesión se hicieron sobre un trozo de código suelto y pasaron: el
+  fragmento no incluía la línea 95. Es L-036 otra vez, un nivel más abajo — en el
+  lugar donde el error ocurre significa también **en el archivo donde ocurre**.
+- Y una nota incómoda: **L-042 se repitió tres días después de escribirla.** La
+  primera prueba de la guardia pareció fallar porque un reemplazo de texto pegó
+  en la primera de dos coincidencias. La lección estaba escrita; lo que faltó fue
+  aplicar el `grep -c` que ella misma pide.

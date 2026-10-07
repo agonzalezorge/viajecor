@@ -233,3 +233,25 @@ export function formatearTipoDeCambio(eurosPorUnidad, moneda, base = 'EUR') {
 
   return `1 ${normalizarMoneda(base)} = ${numero} ${codigo}`;
 }
+
+/**
+ * El mismo tipo de cambio escrito al revés: **"1 USD = 40,00 UYU"** — T-077.
+ *
+ * Es el que se lee natural cuando la base vale poco, y el que el usuario pidió
+ * poder cargar. Los decimales siguen la misma regla de magnitud que el otro: un
+ * número grande no necesita seis decimales y uno chico no sobrevive con dos.
+ */
+export function formatearTipoDeCambioInverso(eurosPorUnidad, moneda, base = 'EUR') {
+  const codigo = normalizarMoneda(moneda);
+  if (!Number.isFinite(eurosPorUnidad) || eurosPorUnidad <= 0) {
+    throw new Error('El tipo de cambio tiene que ser un número mayor que cero.');
+  }
+
+  const decimales = eurosPorUnidad >= 100 ? 2 : eurosPorUnidad >= 1 ? 4 : 6;
+  const numero = new Intl.NumberFormat(IDIOMA, {
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  }).format(eurosPorUnidad);
+
+  return `1 ${codigo} = ${numero} ${normalizarMoneda(base)}`;
+}

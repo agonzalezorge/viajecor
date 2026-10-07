@@ -20,6 +20,7 @@ import {
 import { COLORES } from '../core/paleta.js';
 import { personaDeLaPlanilla, tipoDeLaPlanilla, AHORRO_ENTRA, AHORRO_SALE } from '../core/ahorros.js';
 import { PERFILES } from '../core/perfiles.js';
+import { SENTIDO_POR_BASE, SENTIDO_POR_MONEDA } from '../core/cambio.js';
 
 export const CLAVE_DATOS = 'viajecor:datos:v1';
 
@@ -356,6 +357,14 @@ export function migrarEstado(guardado, incidencias = []) {
         if (typeof perfiles[clave] === 'boolean') leidos[clave] = perfiles[clave];
       }
       if (Object.keys(leidos).length > 0) estado.preferencias.perfiles = leidos;
+    }
+
+    // En qué sentido prefiere que se le pregunte el tipo de cambio (T-077).
+    // Es una preferencia de presentación: no cambia ningún número guardado, solo
+    // cómo se pide y cómo se lee.
+    if (preferencias.sentido_cambio === SENTIDO_POR_MONEDA
+      || preferencias.sentido_cambio === SENTIDO_POR_BASE) {
+      estado.preferencias.sentido_cambio = preferencias.sentido_cambio;
     }
 
     if (preferencias.compartir_no_funciona === true) {

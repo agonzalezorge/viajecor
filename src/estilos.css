@@ -1032,6 +1032,31 @@ body {
   color: var(--texto-suave);
 }
 
+/* La flecha que da vuelta la pregunta del tipo de cambio — T-077. Va al lado de
+   la etiqueta del campo, con un área de toque que no depende del tamaño del
+   signo: un objetivo de 11 px no se acierta con el pulgar. */
+.con-flecha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.flecha-cambio {
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.25rem 0.75rem;
+  min-height: 2.25rem;
+  text-decoration: none;
+}
+
+/* El tipo de cambio leído al revés, debajo del que se lee natural. */
+.otro-sentido {
+  display: block;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .totales-dia strong { font-variant-numeric: tabular-nums; }
 .totales-dia .gasto { color: var(--gasto); }
 .totales-dia .ingreso { color: var(--ingreso); }

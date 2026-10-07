@@ -2040,3 +2040,37 @@ dejó aparte lo que difiere. Dos copias de una suma son dos copias que se
 desincronizan el día que una se arregla; pero forzar un solo módulo con un campo
 "quién lo tiene" que a veces es una persona de una lista cerrada y a veces texto
 libre habría metido esa diferencia en cada función del archivo.
+
+
+## ADR-057 · El tipo de cambio se pregunta en el sentido que el usuario elija
+
+**Fecha:** 2026-10-07 · **Tarea:** T-077 · **Estado:** aceptada
+
+**Contexto.** La app preguntaba siempre "1 BASE son X MONEDA". Con el euro como
+base eso es lo natural —"un euro son 630 colones"—, pero con una moneda que vale
+poco se da vuelta: con el peso uruguayo como base, cargar un gasto en dólares
+hacía que la app pidiera **cuántos dólares vale un peso**, que es 0,025 y nadie
+sabe de memoria. Lo reportó el usuario con el caso de su madre.
+
+**Decisión.** Una flecha al lado del campo da vuelta la pregunta, y el sentido
+elegido se recuerda en `preferencias.sentido_cambio`.
+
+**Lo que hace que esto no comprometa nada, y es la parte que importa:** el
+número que se guarda no cambia. `euros_por_unidad` siempre fue **cuánto vale una
+unidad de la moneda extranjera expresado en la base** — o sea, con base UYU y
+moneda USD, exactamente 40. El dato guardado nunca fue el incómodo; lo incómodo
+era la pregunta, que pedía el inverso. El sentido nuevo hace **una división
+menos** que el viejo, y dos usuarios con sentidos distintos guardan el mismo
+número. Un respaldo de antes se lee igual.
+
+**Las dos equivalencias, siempre a la vista.** Mientras se escribe, y en la lista
+de guardados, el tipo de cambio se muestra de los dos lados: `1 USD = 40,0000
+UYU · 1 UYU = 0,025000 USD`. Es la contramedida de siempre contra el error que
+este módulo más teme —un tipo de cambio invertido no da ningún error, da totales
+absurdos que alguien tiene que notar mirando— puesta donde todavía se puede
+corregir sin costo.
+
+**Por qué el de siempre sigue siendo el de fábrica.** Quien tiene el euro como
+base no tiene ningún problema que resolver, y cambiarle la pregunta por sorpresa
+sería arreglarle algo que no estaba roto. La flecha está para quien la necesita,
+y una vez tocada queda.

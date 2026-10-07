@@ -22,11 +22,17 @@ import {
   crearCambio,
   guardarCambio,
   buscarCambio,
-  desdeUnidadesPorEuro,
   movimientosAfectadosPor,
   cambiosQueFaltan,
+  eurosPorUnidadSegun,
+  valorSegunSentido,
+  sentidoDeCambio,
+  sentidoOpuesto,
+  SENTIDO_POR_BASE,
+  SENTIDO_POR_MONEDA,
 } from '../../core/cambio.js';
-import { formatearMes, formatearMonto, formatearTipoDeCambio, formatearEuros, formatearRubro } from '../../core/formato.js';
+import { formatearMes, formatearMonto, formatearTipoDeCambio, formatearTipoDeCambioInverso,
+  formatearEuros, formatearRubro } from '../../core/formato.js';
 import { buscarMoneda, decimalesDe, MONEDA_BASE, monedaBaseDe } from '../../core/monedas.js';
 import { convertirAEuros, aMinimas } from '../../core/dinero.js';
 import { normalizarMoneda } from '../../core/modelo.js';
@@ -74,7 +80,7 @@ export function leerTipoDeCambio(entrada) {
  *
  * Nunca tira: devuelve `{ estado, error }`, como el resto de las pantallas.
  */
-export function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) {
+export function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro, sentido }) {
   // Contra la base elegida, no contra el euro (T-050): con base en pesos, el
   // euro es una moneda más y **sí** lleva tipo de cambio. Comparar contra EUR
   // acá dejaba al usuario sin poder cargar el único tipo que le faltaba.
@@ -102,12 +108,65 @@ export function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) 
 
   let cambio;
   try {
-    cambio = crearCambio({ moneda: codigo, mes, euros_por_unidad: desdeUnidadesPorEuro(valor) }, { base });
+    // En qué sentido lo escribió — T-077. Con "1 USD son 40 UYU" el número ya
+    // viene en la forma que se guarda y no hay nada que invertir.
+    cambio = crearCambio(
+      { moneda: codigo, mes, euros_por_unidad: eurosPorUnidadSegun(valor, sentido ?? sentidoDeCambio(estado)) },
+      { base },
+    );
   } catch (error) {
     return { estado, error: error.message };
   }
 
   return { estado: { ...estado, tipos_cambio: guardarCambio(estado.tipos_cambio, cambio) } };
+}
+
+/** Un tipo de cambio escrito en el sentido que se pida. */
+export function enElSentidoDe(eurosPorUnidad, moneda, base, sentido) {
+  return sentido === SENTIDO_POR_MONEDA
+    ? formatearTipoDeCambioInverso(eurosPorUnidad, moneda, base)
+    : formatearTipoDeCambio(eurosPorUnidad, moneda, base);
+}
+
+/**
+ * El camino de vuelta de `leerTipoDeCambio()`: un factor escrito como lo
+ * escribiría el usuario, para volver a poner en el campo — T-077.
+ *
+ * Existe porque dar vuelta la pregunta tiene que convertir lo ya escrito, y
+ * volcar ahí un `0.024999999999999998` sería devolverle al usuario un número que
+ * él nunca escribiría. Se queda con los decimales que hagan falta y sin ceros de
+ * relleno: 40 se escribe "40", no "40,0000".
+ */
+export function textoDeCambio(valor) {
+  if (!Number.isFinite(valor) || valor <= 0) return '';
+
+  // Suficientes decimales para no perder un cambio chico —0,000002— y después
+  // se podan los ceros que sobran.
+  const decimales = valor >= 1 ? 6 : 10;
+  return valor.toFixed(decimales).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',');
+}
+
+/**
+ * Lo que se está escribiendo, leído **de los dos lados** — T-077.
+ *
+ * Con el campo vacío dice qué se espera, en vez de quedar en blanco. Con un
+ * número adentro, las dos lecturas: la del sentido elegido y la contraria. Esa
+ * segunda es la contramedida de siempre —un tipo de cambio invertido no falla,
+ * da totales absurdos— puesta donde todavía se puede corregir sin costo.
+ */
+export function dibujarEquivalencia(escrito, moneda, base, sentido) {
+  let valor;
+  try {
+    valor = leerTipoDeCambio(escrito);
+  } catch {
+    return sentido === SENTIDO_POR_MONEDA
+      ? `Cuántos ${base} vale 1 ${moneda}.`
+      : `Cuántos ${moneda} vale 1 ${base}.`;
+  }
+
+  const eurosPorUnidad = eurosPorUnidadSegun(valor, sentido);
+  return `${formatearTipoDeCambioInverso(eurosPorUnidad, moneda, base)}`
+    + ` · ${formatearTipoDeCambio(eurosPorUnidad, moneda, base)}`;
 }
 
 /**
@@ -119,14 +178,14 @@ export function intentarGuardarCambio(estado, { moneda, mes, unidadesPorEuro }) 
  * cambia números que el usuario ya dio por buenos. La app tiene que mostrar esa
  * consecuencia **antes**, no después.
  */
-export function efectoDeCorregir(estado, moneda, mes, nuevasUnidadesPorEuro) {
+export function efectoDeCorregir(estado, moneda, mes, nuevasUnidadesPorEuro, sentido) {
   const codigo = normalizarMoneda(moneda);
   const afectados = movimientosAfectadosPor(estado.movimientos, codigo, mes);
   if (afectados === 0) return { afectados: 0 };
 
   let nuevoValor;
   try {
-    nuevoValor = desdeUnidadesPorEuro(leerTipoDeCambio(nuevasUnidadesPorEuro));
+    nuevoValor = eurosPorUnidadSegun(leerTipoDeCambio(nuevasUnidadesPorEuro), sentido ?? sentidoDeCambio(estado));
   } catch {
     return { afectados };
   }
@@ -169,6 +228,9 @@ export function dibujarPedido(vista) {
     ? efectoDeCorregir(vista.estado, falta.moneda, falta.mes, vista.borradorCambio)
     : null;
 
+  const sentido = vista.sentidoCambio ?? sentidoDeCambio(vista.estado);
+  const preguntaPorMoneda = sentido === SENTIDO_POR_MONEDA;
+
   const explicacion = corrigiendo
     ? `Ahora está cargado como <strong>${escapar(formatearTipoDeCambio(actual, falta.moneda, base))}</strong>.
        Corregirlo vuelve a calcular todos los movimientos de ${escapar(formatearMes(falta.mes))} en esa moneda.`
@@ -186,14 +248,28 @@ export function dibujarPedido(vista) {
       ${vista.error ? `<p class="error-carga" role="alert">${escapar(vista.error)}</p>` : ''}
       <div data-aviso-correccion>${dibujarAvisoCorreccion(efecto, falta.moneda, base)}</div>
 
+      <!-- ── La flecha que da vuelta la pregunta — T-077 ─────────────────────
+           Lo pidió el usuario: con el peso como base, preguntar "1 UYU son…
+           USD" obliga a contestar 0,025, que nadie sabe de memoria. Lo que todo
+           el mundo sabe es cuántos pesos vale un dólar.
+
+           El sentido elegido se recuerda, así que se toca una vez y queda. -->
       <label class="campo">
-        <span>1 ${escapar(base)} son…</span>
+        <span class="con-flecha">
+          <span>${preguntaPorMoneda ? `1 ${escapar(falta.moneda)} son…` : `1 ${escapar(base)} son…`}</span>
+          <button type="button" class="enlace flecha-cambio" data-accion="invertir-cambio"
+                  aria-label="Preguntar al revés: ${escapar(preguntaPorMoneda ? `cuántos ${falta.moneda} vale 1 ${base}` : `cuántos ${base} vale 1 ${falta.moneda}`)}">⇄</button>
+        </span>
         <div class="monto-fila">
           <input name="unidadesPorEuro" class="importe" type="text" inputmode="decimal"
-                 autocomplete="off" enterkeyhint="done" placeholder="630"
+                 autocomplete="off" enterkeyhint="done" placeholder="${escapar(preguntaPorMoneda ? '40' : '630')}"
                  value="${escapar(vista.borradorCambio ?? '')}">
-          <span class="sufijo">${escapar(falta.moneda)}</span>
+          <span class="sufijo">${escapar(preguntaPorMoneda ? base : falta.moneda)}</span>
         </div>
+        <!-- Lo escrito, leído de los dos lados. Un número puesto al revés no da
+             ningún error: da totales absurdos que alguien tiene que notar
+             mirando. Acá se nota antes de guardarlo. -->
+        <span class="fecha-legible" data-equivalencia>${dibujarEquivalencia(vista.borradorCambio, falta.moneda, base, sentido)}</span>
       </label>
 
       <input type="hidden" name="moneda" value="${escapar(falta.moneda)}">
@@ -219,6 +295,7 @@ export function dibujarPedido(vista) {
 export function dibujarCambios(vista) {
   const estado = vista.estado;
   const base = monedaBaseDe(estado);
+  const sentido = vista.sentidoCambio ?? sentidoDeCambio(estado);
   const cambios = [...estado.tipos_cambio].sort(
     (a, b) => b.mes.localeCompare(a.mes) || a.moneda.localeCompare(b.moneda)
   );
@@ -276,7 +353,11 @@ export function dibujarCambios(vista) {
             <span class="suave">${escapar(cuantos)}</span>
           </div>
           <div class="valor-cambio">
-            <span class="importe">${escapar(formatearTipoDeCambio(c.euros_por_unidad, c.moneda, base))}</span>
+            <!-- Los dos sentidos, a pedido del usuario — T-077. Arriba el que
+                 se lee natural con esta base, y debajo el otro: ver el número
+                 de los dos lados es lo que delata uno cargado al revés. -->
+            <span class="importe">${escapar(enElSentidoDe(c.euros_por_unidad, c.moneda, base, sentido))}</span>
+            <span class="suave otro-sentido">${escapar(enElSentidoDe(c.euros_por_unidad, c.moneda, base, sentidoOpuesto(sentido)))}</span>
             <button type="button" class="secundario chico"
                     data-accion="corregir-cambio"
                     data-moneda="${escapar(c.moneda)}" data-mes="${escapar(c.mes)}">Corregir</button>

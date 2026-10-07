@@ -116,6 +116,7 @@ Sin instrucciones específicas, se aplica este orden, sin saltearse pasos:
 | T-074 | Arreglo: la pestaña nueva no contaba sus movimientos | **Hecha** | T-072 |
 | T-075 | El acumulado del mes se toca y se lee | **Hecha** | T-942 |
 | T-076 | El cartel pegado al botón, y el resumen de cada día | **Hecha** | T-004, T-026 |
+| T-077 | El tipo de cambio se pregunta en el sentido que convenga | **Hecha** | T-005, T-050 |
 | T-056 | Arreglo: la carga quedaba trancada al arrancar | **Hecha** | T-055 |
 | T-052 | El botón "Hoy" en la fecha | **Hecha** | T-004 |
 | **Independientes** ||||
@@ -3485,3 +3486,41 @@ mes no cabe treinta veces en una lista de días.
   de búsqueda rota. Ver L-042.
 - Un test que **ya estaba fallando antes de empezar**: `base-uyu` esperaba el mes
   `'2026-09'` escrito a mano y hoy es octubre. Ahora sale de `hoy()`.
+
+
+### T-077 · El tipo de cambio se pregunta en el sentido que convenga — **Hecha** (2026-10-07)
+
+**Lo pidió el usuario** (2026-10-07), con el caso de su madre: *"la aplicación
+pregunta cuánto vale un dólar en peso uruguayo y hay que hacer operaciones muy
+extrañas… que terminan dando que un dólar vale 0,00 algo pesos uruguayos"*. Pidió
+una flecha para dar vuelta la pregunta, y preguntó si era viable **sin
+comprometer nada**.
+
+**Lo es, y por un motivo que valía la pena mirar antes de escribir código: el
+número natural ya era el que se guardaba.** `euros_por_unidad` es cuánto vale una
+unidad de la moneda extranjera en la base — con base UYU y moneda USD, 40. Lo
+incómodo nunca fue el dato sino la pregunta, que pedía el inverso. El sentido
+nuevo hace una división **menos**, y dos usuarios con sentidos distintos guardan
+el mismo número. Ver ADR-057.
+
+**Las cuatro piezas:** la flecha ⇄ al lado del campo; el sentido se recuerda (lo
+eligió el usuario entre las dos opciones); lo escrito se lee de los dos lados
+mientras se escribe; y la lista de guardados muestra los dos sentidos, también a
+pedido suyo. Dar vuelta la pregunta **convierte lo ya escrito** en vez de
+borrarlo.
+
+**Mutaciones:** 9 sembradas (4 del núcleo, 5 del escáner de la guardia), 9
+muertas. Dos sobrevivieron la primera vuelta porque el test ponía la llamada en
+la línea siguiente a la trampa y no en la misma.
+
+**Recorrido en el navegador**, reproduciendo el caso entero: base en UYU, gasto
+en dólares, la app pregunta como siempre, se toca la flecha, se escribe **40**,
+se lee `1 USD = 40,0000 UYU · 1 UYU = 0,025000 USD`, se guarda, el mes muestra
+2.000 UYU, la lista trae los dos sentidos, **el próximo tipo de cambio ya
+pregunta al derecho** y la preferencia sobrevive a recargar.
+
+**Y lo que apareció al probar la guardia, que es lo más grave del día:** el
+escáner que las tres guardias usan estaba ciego en todo `src/ui/app.js` desde su
+línea 95, por una comilla dentro de una expresión regular. Tenía otros dos
+agujeros. La auditoría con el escáner sano **no encontró ninguna llamada rota en
+`src/`** — el código estaba bien, lo que faltaba era la red. Ver L-043.

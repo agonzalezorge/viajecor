@@ -101,6 +101,62 @@ export function aUnidadesPorEuro(eurosPorUnidad) {
   return invertirCambio(eurosPorUnidad);
 }
 
+// ── En qué sentido se pregunta el tipo de cambio — T-077, CU-24 ─────────────
+//
+// Lo pidió el usuario (2026-10-07), y el caso que lo motiva es el de su madre:
+// con el peso uruguayo como base, cargar un gasto en dólares hacía que la app
+// preguntara **cuántos dólares vale un peso**, que es 0,025 y nadie sabe de
+// memoria. Lo que todo el mundo sabe es cuántos pesos vale un dólar.
+//
+// ── Lo que hace que esto sea barato: el número natural ya es el que se guarda ─
+//
+// `euros_por_unidad` es **cuánto vale UNA unidad de la moneda extranjera,
+// expresado en la base**. Con base UYU y moneda USD, eso es 40: justamente "un
+// dólar son 40 pesos". El dato guardado nunca fue el incómodo; lo incómodo era
+// la pregunta, que pedía el inverso y obligaba a invertirlo para guardarlo.
+//
+// Así que el sentido nuevo no solo es más fácil de contestar: también hace una
+// división menos. El viejo se queda porque para quien tiene el euro como base
+// "1 EUR son 630 CRC" sí es como se conoce el dato.
+//
+// Esto NO cambia nada de lo guardado. Un respaldo de antes se lee igual, y dos
+// usuarios con sentidos distintos guardan exactamente el mismo número.
+
+/** "1 BASE son X MONEDA" — el de siempre. Se invierte antes de guardar. */
+export const SENTIDO_POR_BASE = 'por-base';
+
+/** "1 MONEDA son X BASE" — el natural cuando la base vale poco. Se guarda tal cual. */
+export const SENTIDO_POR_MONEDA = 'por-moneda';
+
+/** El sentido que vale, con el de siempre como valor de fábrica. */
+export function sentidoDeCambio(estado) {
+  return estado?.preferencias?.sentido_cambio === SENTIDO_POR_MONEDA
+    ? SENTIDO_POR_MONEDA
+    : SENTIDO_POR_BASE;
+}
+
+/** El otro. */
+export function sentidoOpuesto(sentido) {
+  return sentido === SENTIDO_POR_MONEDA ? SENTIDO_POR_BASE : SENTIDO_POR_MONEDA;
+}
+
+/**
+ * Lo que el usuario escribió, pasado a la forma en que se guarda.
+ *
+ * Vive acá y no como una división suelta en la pantalla por el mismo motivo que
+ * `desdeUnidadesPorEuro()`: es exactamente el punto donde un número se puede
+ * guardar del revés, y un tipo de cambio invertido no da un error — da totales
+ * absurdos que alguien tiene que notar mirando.
+ */
+export function eurosPorUnidadSegun(valor, sentido) {
+  return sentido === SENTIDO_POR_MONEDA ? valor : desdeUnidadesPorEuro(valor);
+}
+
+/** Y al revés: el valor guardado, escrito en el sentido que el usuario eligió. */
+export function valorSegunSentido(eurosPorUnidad, sentido) {
+  return sentido === SENTIDO_POR_MONEDA ? eurosPorUnidad : aUnidadesPorEuro(eurosPorUnidad);
+}
+
 /**
  * Busca el tipo de cambio de una moneda para un mes. Devuelve `null` si no está:
  * "no hay dato" es una respuesta legítima y frecuente —es lo que dispara que la
